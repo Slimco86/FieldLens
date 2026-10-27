@@ -20,6 +20,11 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
 - Read [the project spec](../docs/PROJECT_SPEC.md) for requirements,
   [the technical baseline](../docs/TECHNICAL_BASELINE.md) for stack decisions, and
   [the source assessment](../docs/SOURCE_ASSESSMENT.md) for evidence and open gates.
+- For interface work, consult the [visual references](../docs/design/README.md):
+  they are conceptual UX reminders, never measured geometry or approved UI specs.
+- Use relevant [curated development skills](../docs/DEVELOPMENT_SKILLS.md) on demand.
+  Their upstream examples do not override the agreed stack, feature approval,
+  engineering truth, data permissions, or spending limits.
 
 ## Spec-driven, iterative development
 

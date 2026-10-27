@@ -33,6 +33,10 @@ The demo runs locally on the development WSL machine.
   verified claims, data candidates, and feasibility gates.
 - [Feature specification template](docs/specs/FEATURE_TEMPLATE.md): use before
   each implementation increment.
+- [Visual reference gallery](docs/design/README.md): the conversation wireframe
+  and original FieldLens UX reference sheets, with provenance and design lessons.
+- [Curated development skills](docs/DEVELOPMENT_SKILLS.md): selected local skills
+  for frontend, 3D assets, geospatial validation, ingestion and equipment research.
 
 **Next step:** jointly inspect a compact, authorized data sample and approve its
 feasibility/ingestion spec before committing to a detailed architecture. Both
