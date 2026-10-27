@@ -91,6 +91,11 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
 - React, strict TypeScript, Vite, Three.js/React Three Fiber with stable WebGL2,
   ECharts for charts, and PDF.js for evidence viewing. Node 24 LTS is frontend
   tooling; do not add a separate Node backend without justification.
+- Use the [Blender asset skill](skills/fieldlens-blender-assets/SKILL.md) for
+  approved offline equipment authoring; simple wellbore geometry stays procedural.
+  Blender is not a runtime dependency. Setup/assets require separate approval;
+  reviewed development bpy scripts use Blender's bundled Python, never model-
+  generated runtime code. Validate GLB scale, axes, pivot, IDs and evidence.
 - PostgreSQL + pgvector provide relational records, full-text/vector retrieval,
   and typed relationship tables for the initial knowledge graph. Keep original
   files outside database rows, referenced by stable IDs and content hashes.

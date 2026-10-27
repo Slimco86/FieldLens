@@ -100,6 +100,18 @@ missing capabilities instead of silent fallback. Keep token/cost estimates label
 record unavailable telemetry as unavailable. Bound assignment time, attempts,
 context and host resources; never duplicate the USD 150 Meta budget per worker.
 
+### Offline equipment asset assignments
+
+The existing 3D/motion role uses the
+[Blender skill](../.github/skills/fieldlens-blender-assets/SKILL.md) when an
+approved equipment slice needs offline modeling. Simple tubes/markers remain
+procedural; adding the skill does not approve installation or specific assets.
+Assign source/dimension evidence, local axes/pivot and part IDs, output/storage
+ownership, exact Blender build, export/reload checks and browser/compute budgets.
+Keep `.blend` sources/reviewed scripts separate from runtime GLB and engineering
+records. Terra may run a reviewed deterministic export/check, not design its mesh.
+No new agent, Blender service or runtime code execution is implied.
+
 ## 4. Worktree and resource isolation
 
 Current integration branch is `master`; confirm it before each assignment. Do not

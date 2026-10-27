@@ -6,10 +6,43 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 ## Unreleased
 
-**Candidate: 0.2.0**, matching [VERSION](VERSION), pending integration.
-Minor bump: new opt-in development-agent execution capability, not an application
-API/schema change or a prose-only correction. No commit, merge or release of this
-candidate is claimed.
+**Candidate: 0.3.0**, matching [VERSION](VERSION), pending integration.
+Minor bump: newly invocable offline Blender authoring skill; no application
+API/schema change. No commit, merge or release of this candidate is claimed.
+
+### Added
+
+- **FL-013:** Original `fieldlens-blender-assets` skill for source-aware hard-surface
+  equipment modeling, reviewed bpy scripts, materials/UVs, low-poly optimization,
+  previews and validated GLB handoff.
+- **FL-013:** Export checklist for units, axes, pivots, semantic IDs, permitted
+  resources, format/round-trip checks and runtime budgets.
+
+### Changed
+
+- Existing 3D/motion agent and Three.js skill now route complex offline equipment
+  authoring to Blender; simple wellbore geometry stays procedural.
+- Workflow, technical baseline and curation guidance distinguish Blender's bundled
+  Python from backend Python and reviewed offline scripts from prohibited runtime
+  generated code. Agent count and model/effort defaults are unchanged.
+- Reconciled the 0.2.0 configuration integration against `35ed5d2`; host activation
+  remains unverified and is not inferred from that commit.
+- Removed the broad `.github/` ignore rule at the owner's request so new shared
+  skills remain visible to Git.
+
+### Validation
+
+- Static checks passed for the new skill header, 8 skills, 11 unchanged agent
+  model tiers, 2 new routing cases, 158 local references, backlog/dependency/
+  version consistency and Git visibility. `git diff --check` passed.
+- Blender was not found on WSL PATH. Installation, assets, real export/render/
+  browser tests and any new service are explicitly deferred by the owner.
+
+## 0.2.0 - 2026-10-27
+
+Development-agent configuration integrated by owner on `master` in `35ed5d2`.
+This confirms repository configuration, not host activation or an application
+release. Minor bump for new opt-in development-agent capability.
 
 ### Added
 

@@ -23,6 +23,9 @@ version requirements, automatic CDN fetching and unrelated visual effects are om
 2. Select the least complex shape that communicates the documented equipment:
    cylinders/tubes, interval bands or a validated imported asset. Do not derive
    engineering dimensions from an illustration's pixel proportions.
+   For complex reusable equipment, use the
+   [Blender authoring skill](../fieldlens-blender-assets/SKILL.md) and its GLB
+   checklist. Keep simple data-driven wellbore geometry procedural.
 3. Keep physical parameters separate from tessellation and display exaggeration.
    Use server-derived trajectory positions/tangents for equipment placement.
    A smoothed display spline must not redefine the survey or measured depths.
@@ -49,7 +52,8 @@ version requirements, automatic CDN fetching and unrelated visual effects are om
 ## Boundaries
 
 The runtime agent supplies validated declarative tool arguments, never generated
-JavaScript, Python, CAD scripts or scene programs. Blender/build123d can be
-separately approved offline asset tools; they are not prerequisites for tubes or
-generic markers. UI meshes do not provide reservoir simulation or certified
+JavaScript, Python, CAD scripts or scene programs. Blender authoring guidance is
+available for approved offline asset tasks; setup and asset execution remain
+separate approvals. build123d/CAD tooling remains deferred. These are not
+prerequisites for tubes or generic markers. UI meshes do not provide reservoir simulation or certified
 anti-collision analysis.

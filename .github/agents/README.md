@@ -13,7 +13,7 @@ governs worktrees, tests and integration.
 | [fieldlens-task](fieldlens-task.agent.md) | `gpt-6.1-terra` | `low` | Known test/build commands, mechanical edits and exact-pattern boilerplate |
 | [fieldlens-frontend](fieldlens-frontend.agent.md) | `claude-sonnet-5.5` | `medium` | React/TypeScript UI, linked charts/evidence, async state and accessibility |
 | [fieldlens-backend](fieldlens-backend.agent.md) | `claude-sonnet-5.5` | `medium` | Python APIs, PostgreSQL, migrations, jobs, persistence and concurrency |
-| [fieldlens-3d-motion](fieldlens-3d-motion.agent.md) | `claude-sonnet-5.5` | `medium` | Three.js/R3F equipment assets, scene interaction, camera motion and GPU performance |
+| [fieldlens-3d-motion](fieldlens-3d-motion.agent.md) | `claude-sonnet-5.5` | `medium` | Three.js/R3F, offline Blender equipment authoring/GLB export, camera motion and GPU performance |
 | [fieldlens-research](fieldlens-research.agent.md) | `claude-sonnet-5.5` | `medium` | Primary-source web research, technology/source assessment and equipment catalogs |
 | [fieldlens-ingestion](fieldlens-ingestion.agent.md) | `claude-sonnet-5.5` | `medium` | Native parsing, OCR, PDF/table provenance and extraction evaluation |
 | [fieldlens-rag](fieldlens-rag.agent.md) | `claude-sonnet-5.5` | `medium` | Hybrid retrieval, embeddings, graph traversal, Meta tools/citations and evaluations |
@@ -61,6 +61,8 @@ preferences, not measured price/performance claims.
 | R-10: Independently inspect upload-to-cited-answer behavior | fieldlens-qa | Cross-feature acceptance, not merely a test command |
 | R-11: Approved plan lacks event-order/conflict semantics | fieldlens-plan-repair, then orchestrator | Propose a contract; no speculative implementation |
 | R-12: Requested model/tool is absent or effort differs | Block; orchestrator resolves | No silent fallback or model self-identification as proof |
+| R-13: Model a source-backed equipment assembly and validate GLB export | fieldlens-3d-motion + Blender assets skill | Modeling/identity/scale decisions; not mechanical boilerplate |
+| R-14: Run an already-reviewed Blender export/check command | fieldlens-task + Blender export checklist | Exact bounded execution; failures return to the 3D owner |
 
 ## Worker contract
 
@@ -80,7 +82,9 @@ and only the relevant spec/skill sections before acting.
   results, never justifies invented values.
 - Use only task-relevant skills. Install/restore dependencies only after an
   approved manifest change or missing-dependency failure, in isolated environments.
-  Use Python 3.12/uv and Node 24 tooling; do not change the agreed stack.
+  Use Python 3.12/uv and Node 24 tooling; do not change the agreed stack. Offline
+  Blender scripts use that pinned Blender build's bundled Python, not the backend
+  environment. Blender setup is a separate approved task, not an automatic skill action.
 - No nested delegation, scope approval, shared-schema changes outside ownership,
   or edits to global VERSION/CHANGELOG/BACKLOG. Send proposals to the orchestrator.
   Implementation workers may update their feature spec/docs and commit tested

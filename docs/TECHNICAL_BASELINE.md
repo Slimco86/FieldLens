@@ -25,6 +25,7 @@ Application tools, not the model, control calculations and allowable scene actio
 | Structured ingestion | Native CSV/XML/XLSX parsers; pandas/openpyxl only where useful | Preserve typed values, units and locators instead of asking an LLM to recalculate tables |
 | PDF/OCR | Evaluate Docling on the selected samples | Layout/OCR capabilities are documented; cost, memory, accuracy and model licenses need measurement |
 | CAD/asset inputs | Format-specific import or deterministic procedural mesh generation | Do not promise arbitrary CAD-to-3D reconstruction; select needed formats at G1 |
+| Offline equipment authoring | Optional Blender 4.5 LTS candidate plus bundled glTF exporter | Skill/workflow approved; exact build, installation and asset creation deferred. Not a runtime dependency |
 | Frontend | React + strict TypeScript + Vite | Small client application; no SSR requirement |
 | 3D | Three.js + React Three Fiber; Drei helpers as needed; WebGL2 | Stable interactive rendering; no alpha/WebGPU dependency |
 | Charts and evidence | Apache ECharts; PDF.js | Production/log series and source-document inspection; load heavy viewers on demand |
@@ -102,10 +103,19 @@ Trajectory requirements:
   exaggeration affect physical calculations.
 
 Equipment can be generated from supported parametric shapes along validated
-trajectories. Drawings inform parameters; the agent does not emit executable
+trajectories. Drawings inform parameters; the runtime agent does not emit executable
 geometry code. A general photograph/drawing is not sufficient to recover unique
 dimensions. Unknown-position equipment can appear in an unlocated inspection
 panel instead of being assigned a fabricated location.
+
+For complex reusable equipment, the development 3D worker can follow the
+[Blender skill](../.github/skills/fieldlens-blender-assets/SKILL.md) in an approved
+offline asset slice. Keep editable source/reviewed bpy recipes separate from GLB
+exports and authoritative engineering claims. Use Blender's bundled interpreter,
+not the backend environment. Record exact build/export settings and validate
+units/axes/pivot/IDs, permitted resources and browser budgets before acceptance.
+No Blender executable was found on WSL PATH during preparation; setup and real
+export/consumer tests remain deferred, not satisfied by these instructions.
 
 For offshore Volve, surface context may be seabed/bathymetry, not land terrain.
 Formation picks do not establish a measured continuous surface or reservoir

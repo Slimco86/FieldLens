@@ -2,9 +2,9 @@
 
 Reviewed 2026-10-27. Selected from the
 [original conversation](https://chatgpt.com/share/6ae00399-28c4-83e9-b646-84ead55a2dfd)
-for the [agreed stack](TECHNICAL_BASELINE.md), with one original domain-specific
-research skill. These are **local, self-contained adaptations**, not unchanged
-upstream installs or endorsements of an entire collection.
+for the [agreed stack](TECHNICAL_BASELINE.md), with original equipment-research
+and offline Blender-authoring workflows. These are **local, self-contained skills**,
+not unchanged upstream installs or endorsements of an entire collection.
 
 ## Included and discoverable
 
@@ -18,12 +18,13 @@ do not prove a running session has loaded them.
 | [fieldlens-react-ui](../.github/skills/fieldlens-react-ui/SKILL.md) | Vercel React Best Practices | Vite UI, state/data flow, linked charts and evidence, bundle/render performance |
 | [fieldlens-r3f](../.github/skills/fieldlens-r3f/SKILL.md) | emalorenzo R3F Best Practices | Canvas, controls, picking, frame loop and GPU resource ownership |
 | [fieldlens-threejs-assets](../.github/skills/fieldlens-threejs-assets/SKILL.md) | TerminalSkills Three.js | Procedural equipment meshes and validated GLB imports; evidence-tier rendering |
+| [fieldlens-blender-assets](../.github/skills/fieldlens-blender-assets/SKILL.md) | Original FieldLens workflow; official Blender/Khronos references | Offline hard-surface equipment modeling, reviewed bpy scripts, materials/UVs, previews and validated GLB handoff |
 | [fieldlens-geospatial](../.github/skills/fieldlens-geospatial/SKILL.md) | K-Dense GeoPandas | CRS/datum/axis checks, layer alignment, planar-operation limits and join validation |
 | [fieldlens-document-ingestion](../.github/skills/fieldlens-document-ingestion/SKILL.md) | K-Dense MarkItDown | Safe parser choice, text/OCR completeness and original-source provenance |
 | [fieldlens-ui-review](../.github/skills/fieldlens-ui-review/SKILL.md) | Vercel Web Interface Guidelines, referenced by Web Design Guidelines | Keyboard/accessibility review, error states, charts and scene alternatives |
 | [fieldlens-equipment-research](../.github/skills/fieldlens-equipment-research/SKILL.md) | Original FieldLens workflow | Bounded manufacturer research, variant matching and catalog-versus-installed facts |
 
-Use only the skills matching the task, not all seven on every request. The
+Use only the skills matching the task, not all eight on every request. The
 always-on project instructions and approved feature specs govern scope. Skills
 do not approve implementation, authorize external data transmission, install
 dependencies, or expose runtime tools to the application agent.
@@ -54,9 +55,10 @@ receives its relevant domain skill; no worker loads every skill by default.
   remote sensing/scientific workflows.
 - **PaddleOCR hosted skills:** provider/token coupling and duplicate OCR tooling;
   reconsider only if actual document samples defeat the agreed parser approach.
-- **Blender Python / Blender Skill and CAD collections:** defer until an actual
-  asset needs offline CAD/mesh processing. Simple tubing/casing does not justify
-  an extra modeling stack or arbitrary runtime scripts.
+- **Upstream Blender Python / Blender Skill and CAD collections:** not copied.
+  The focused original Blender skill below now fills the authoring gap without
+  blanket addon/MCP installation or speculative CAD dependencies. Simple tubing/
+  casing still does not require Blender; build123d and CAD collections remain deferred.
 - **Vercel AI SDK / LangGraph Quickstart:** would steer toward a different
   agent/backend stack. The Python Meta SDK plus validated tools remains baseline.
 - **Generic research-agent services:** do not introduce a paid search subscription
@@ -88,6 +90,49 @@ These are deliberate changes, not silent upstream edits:
 7. FieldLens-only follow-up on 2026-10-27 adds selected historical time/revision
    consistency to UI/asset workflows for perforation state. Upstream revision
    fields below still identify the original basis, not these local additions.
+8. Owner-approved Blender guidance on 2026-10-27 adds offline equipment authoring,
+   not a new runtime stack. The Three.js skill and existing 3D agent link it;
+   no new agent, copied upstream skill or executable script is bundled.
+
+## Blender authoring assessment
+
+Blender complements rather than replaces Three.js. Use it for recognizable
+equipment housings, flanges, connectors and reusable assemblies; keep parametric
+wellbore tubes/intervals procedural. A detailed mesh does not repair missing
+measurements or establish installation history.
+
+The owner approved **skill/workflow only**, with installation and actual asset
+creation deferred. Blender was not found on this WSL PATH on 2026-10-27; no Windows
+installation was searched and no export/GPU compatibility was tested. Blender
+**4.5 LTS** is a candidate for its maintenance window, not a currently pinned
+project dependency. Verify an exact patch and headless/GUI/resource compatibility
+before the first asset task. Use its bundled Python without changing backend Python.
+
+The [skill](../.github/skills/fieldlens-blender-assets/SKILL.md) and
+[export checklist](../.github/skills/fieldlens-blender-assets/references/export-checklist.md)
+cover blockout, hard-surface detail, PBR/UVs, optimization, reviewed scripts,
+preview iteration, units/axis/pivot/identity checks and clean GLB reload.
+Sonnet's existing 3D/motion role owns modeling; Terra can run a reviewed command.
+The task-specific asset spec must set dimensions/tolerances and browser budgets.
+No runtime agent may execute Blender scripts or upload private assets to a validator.
+
+Primary references checked 2026-10-27 (facts summarized, no source code copied):
+
+| Reference | Assessment / limit |
+|---|---|
+| [Blender 4.5 LTS](https://www.blender.org/releases/4-5/) and [LTS policy](https://www.blender.org/download/lts/) | LTS offers a two-year critical-fix maintenance window; choose an exact patch at setup |
+| [Blender requirements](https://www.blender.org/download/requirements/) | Check Linux/graphics/RAM and specific-build requirements; WSL GPU/headless success is not established by a hardware listing |
+| [Khronos Blender glTF importer/exporter](https://github.com/KhronosGroup/glTF-Blender-IO) | Bundled in Blender; no separate addon needed for normal GLB export. Its docs describe validator and round-trip testing |
+| [Blender 4.5 release-test command](https://github.com/blender/blender/blob/8cb6b388974a817afedf1317ce26f0c75aa5f181/tools/check_blender_release/check_utils.py) | Confirms factory/background execution with Python errors mapped to a failing exit code; inspected source, not a local run |
+| [Blender CLI argument definitions](https://github.com/blender/blender/blob/d428e8871747abd5b4d2430e52d04976a5a15b4d/source/creator/creator_args.cc) | Confirms automatic-script execution controls; they are not a sandbox |
+| [glTF 2.0 coordinate system and units](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units) and [specification source](https://github.com/KhronosGroup/glTF/blob/1c84b58ba3338be4731ea546fa4138dcbb93d42d/specification/2.0/Specification.adoc) | Right-handed, +Y-up, metre-based interchange; verify Blender/consumer conversion and equipment-local axes rather than infer placement |
+
+The hosted Blender manual/API returned HTTP 403 during this review. The workflow
+uses accessible official release/exporter/source references; it does not claim
+every bpy operator or export option was verified against an installed build.
+The original FieldLens guidance bundles no third-party skill text, models, textures
+or addons, so no new third-party license notice is imported. Actual source assets
+still require per-asset provenance and reuse permission.
 
 ## Pinned upstream provenance
 

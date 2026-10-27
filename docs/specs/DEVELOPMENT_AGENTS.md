@@ -4,7 +4,8 @@
 > **Load-bearing:** F3 scope, F4 executor context, F6 ambiguity.
 > **Supporting:** F1 outcome, F2 acceptance, F5 failure conditions.
 > **Date:** 2026-10-27. **Decision owner:** Project owner.
-> **Status:** Configuration statically verified; integration and host activation pending.
+> **Status:** Base configuration integrated; host activation pending.
+> **Extension:** FL-013 Blender skill/workflow statically verified; integration pending.
 > **Approval:** Owner confirmed 10 specialists plus orchestrator and effort defaults
 > in the 2026-10-27 preparation conversation.
 > **Zero-Question Score:** 0 unowned questions; host activation remains a verification gate.
@@ -43,6 +44,9 @@ Outcome score: 3; static configuration alone does not prove runtime selection.
   worker delegation and dependency/resource isolation. `[Validated: owner/workflow]`
 - Reconcile FL-000 against actual commit `e8b156a`; propose a new version for this
   opt-in developer capability, without claiming a merge. `[Validated: Git evidence]`
+- FL-013 adds an offline Blender equipment-authoring skill to the existing 3D role,
+  not a new worker or runtime dependency. Installation and real asset creation
+  are explicitly deferred. `[Validated: owner follow-up approval, 2026-10-27]`
 
 ### OUT of Scope
 
@@ -154,7 +158,62 @@ the team; application execution remains delegated.
 - Host discovery/model/tool smoke: pending; no model execution claimed.
 - The installed CLI advertises `--agent` and `--reasoning-effort` in `copilot --help`;
   this verifies option availability only, not account entitlement or profile loading.
-- Integrated commit: pending; do not record this candidate as delivered yet.
+- Base configuration integrated by owner as version 0.2.0 in `35ed5d2`, confirmed
+  on `master` 2026-10-27. DA-7 activation remains unverified; integration alone
+  does not establish model/tool selection.
+
+### Blender skill extension (FL-013)
+
+**Outcome:** the 3D worker has a discoverable, evidence-aware offline modeling
+workflow for equipment that needs more than procedural tubes/markers.
+`[Validated: owner; configuration only, not approval to create assets]`
+
+**Inputs and handoff:** an approved asset brief supplies source/variant identifiers,
+attribute evidence, units, dimensions, local axes/pivot, permitted textures,
+export/runtime budgets and numerical tolerances. The future asset task returns
+reviewed source/script, GLB, manifest and validation evidence. The new skill
+defines those requirements without creating a speculative asset schema or binary.
+
+**Routing:** existing Sonnet 3D/motion worker owns modeling and export integration.
+Terra may run an already-reviewed deterministic command/check, not invent a mesh
+or fix export semantics. No new agent, Blender MCP server, service or renderer.
+`[Validated: owner-approved skill/workflow-only scope]`
+
+| ID | Type | Pass condition | Score | Check |
+|---|---|---|---|---|
+| BA-1 | Behavioral | `fieldlens-blender-assets/SKILL.md` has valid name/description frontmatter; the existing 3D agent and Three.js asset skill link it; model/effort settings remain unchanged. | 3 | YAML, link and metadata comparison |
+| BA-2 | Behavioral | Skill covers evidence-aware hard-surface modeling, reviewed bpy scripts, materials/UVs, simplification, preview review and GLB validation; the checklist requires units/axis/pivot/identity and round-trip checks. | 3 | Content/checklist inspection |
+| BA-3 | Negative | No executable script, .blend/.glb asset, installation, MCP server, paid call or new agent is created; Blender remains offline and runtime agents cannot execute its scripts. | 3 | Change-scope and tool-execution inspection |
+| BA-4 | Edge case | Missing Blender, unknown dimensions/placement, unsupported export features or violated budgets block the affected asset task rather than producing verified-looking geometry or success. | 3 | Failure-path review |
+
+All BA criteria are `[Validated: approved configuration scope]`; they verify the
+skill, not Blender or generated assets. Real geometry/export performance checks
+belong to the first approved equipment asset slice under FL-007.
+
+**Dependencies/limits:** configuration does not depend on host Blender. No executable
+was found on WSL PATH on 2026-10-27; Windows installations were not searched.
+Blender 4.5 LTS is an authoring candidate, not an installed/pinned dependency.
+`[Unknown: exact patch, platform, GPU/headless compatibility and export smoke;
+3D implementer + owner before first asset execution]`
+
+**Failure/escalation:** preserve incomplete evidence, reject untrusted executable
+content, keep sources immutable, and return export/scale/identity mismatches to
+the orchestrator. Missing permissions/dependencies are not permission to install
+or access private/remote data.
+
+**Version/handoff:** propose minor 0.3.0 for the newly invocable authoring skill;
+no application API/schema changes. Base `35ed5d2`, primary worktree, no application
+implementation delegated. Integration pending.
+
+**Static verification, 2026-10-27:** BA-1 through BA-4 passed metadata/content/
+scope checks. A temporary Node validator checked the new two-string YAML header,
+eight skill headers, unchanged model/effort/tool settings for 11 agents, two new
+routing cases, 158 local references, 14 backlog IDs/acyclic dependencies and
+0.2.0/0.3.0 integration/candidate consistency. `git diff --check` passed; the new
+skill files are not ignored. The owner's staged ignore edit was preserved while
+the authorized removal was made in the working copy. No validator dependency
+or executable asset script was added to the project. Blender setup, real assets,
+export/render/consumer tests and host model activation remain unrun.
 
 ## Open Tensions
 

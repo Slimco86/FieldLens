@@ -25,8 +25,8 @@ compatibility, and account-specific API access remain unverified.
 Deadline: **November 4, 2026, 9 PM Eastern Time**. API credit budget: **USD 150**.
 The demo runs locally on the development WSL machine.
 
-The **0.1.0** documentation baseline is committed. **0.2.0** is the current
-development-agent configuration candidate, not an integrated application release.
+The **0.2.0** development-agent configuration is committed. **0.3.0** is the
+offline Blender skill candidate, not an integrated application release.
 See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Development documents
@@ -44,6 +44,9 @@ See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
   and original FieldLens UX reference sheets, with provenance and design lessons.
 - [Curated development skills](docs/DEVELOPMENT_SKILLS.md): selected local skills
   for frontend, 3D assets, geospatial validation, ingestion and equipment research.
+- [Blender equipment skill](.github/skills/fieldlens-blender-assets/SKILL.md):
+  offline modeling, reviewed bpy scripts and validated GLB export; installation
+  and actual assets are deferred, and simple tubes remain procedural in Three.js.
 - [Perforation history spec](docs/specs/PERFORATION_HISTORY.md): draft event/state,
   depth, perforated-length and temporal acceptance contracts.
 - [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): parallel agent worktrees,
