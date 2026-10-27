@@ -4,7 +4,7 @@
 > **Load-bearing frameworks:** F1 outcome, F2 acceptance, F3 scope, F4 executor context.
 > **Supporting:** F5 failure conditions, F6 ambiguity audit.
 > **Date:** 2026-10-26, America/New_York.
-> **Updated:** 2026-10-27: historical perforations and parallel, versioned delivery.
+> **Updated:** 2026-10-27: historical perforations and model-tiered, versioned delivery.
 > **Author:** Copilot-assisted synthesis. **Decision owner:** project owner.
 > **Status:** Product scope approved; DRAFT for implementation until external gates close.
 > **Zero-Question Score:** 0 unowned questions; 5 explicitly owned TBDs below still block affected work.
@@ -131,7 +131,10 @@ Human developer and AI coding assistants; no existing application context may be
 assumed. The project owner is available in this conversation for scope decisions.
 The main agent plans, delegates and integrates. Implementation subagents use
 separate worktrees under the [development workflow](DEVELOPMENT_WORKFLOW.md);
-configured custom-agent roles will be defined later.
+the [approved agent roster](../.github/agents/README.md) assigns Astra xhigh to
+global orchestration, Terra low to exact low-risk work, Sonnet medium to substantive
+domain execution and Sol high to bounded plan repair. These development models
+do not replace the Meta application model or relax source/acceptance requirements.
 
 ### Glossary
 

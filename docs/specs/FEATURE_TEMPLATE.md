@@ -70,6 +70,9 @@ and backlog reconciliation under the [workflow](../DEVELOPMENT_WORKFLOW.md).
 - Dependencies: <data/models/services, versions, readiness, owner, blocking status>.
 - Delegation: <configured agent, base commit, branch, absolute worktree path,
   file ownership, shared-contract owner, resource/port/database/budget allocation>.
+- Model routing: <complexity/risk and domain; profile/model/effort per the
+  [agent roster](../../.github/agents/README.md); actual host-selection evidence;
+  time/tool/attempt bounds; stop and return to orchestrator on gaps or mismatch>.
 - Parallelism: <hard prerequisite backlog IDs; separately approved contract-ready
   slices/stubs allowed; live integration checks still required>.
 - Constraints and stakeholders: <scope/cost/deadline/privacy; approver>.
@@ -105,6 +108,7 @@ Do not claim proposed commands already exist.>
 |---|---|
 | Feature commits / tested HEAD | <actual hashes; no predicted integration hash> |
 | Verification | <commands/results, environment/fixtures, live/stub status, skipped checks> |
+| Execution usage | <actual model/effort evidence, attempts, elapsed time and exposed tokens/cost; otherwise unavailable> |
 | Compatibility assessment | <breaking/new feature/fix-docs; affected API/schema/tool/user contracts> |
 | Proposed version bump | <major/minor/patch with rationale; orchestrator allocates final number> |
 | Proposed changelog entry | <backlog ID, user-visible changes, migration notes, limitations> |

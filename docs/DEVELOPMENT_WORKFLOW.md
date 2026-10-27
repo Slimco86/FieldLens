@@ -1,8 +1,10 @@
 # Development workflow: parallel implementation, serialized integration
 
 Adopted 2026-10-27 from the owner's requirements. This governs **development
-agents**, not the application's Meta RAG agent. Custom-agent definitions and
-tool permissions will be agreed separately; none are created by this document.
+agents**, not the application's Meta RAG agent. The approved
+[agent registry](../.github/agents/README.md) defines model-tier routing, role
+boundaries and host activation checks. See [FL-001](specs/DEVELOPMENT_AGENTS.md)
+for configuration versus runtime verification.
 
 ## 1. Roles and authoritative records
 
@@ -10,11 +12,13 @@ tool permissions will be agreed separately; none are created by this document.
 - **Main agent / orchestrator:** maintains the backlog, identifies dependencies,
   agrees contracts, allocates worktrees/resources, delegates implementation,
   reviews results, coordinates tests and owns integration/release metadata.
+  Uses GPT-6 Astra with xhigh effort; it is not a default implementation worker.
 - **Implementation subagent:** implements its assigned slice in its own worktree,
   tests it, updates feature-specific documentation, commits and returns a handoff.
   It does not edit another worktree or merge the integration branch.
 - **Reviewer/tester:** use a configured agent when independent verification adds
-  value; role definitions come later. The orchestrator remains accountable for
+  value. Known-command checks use the Terra task worker; risk-based independent
+  acceptance uses the Sonnet QA role. The orchestrator remains accountable for
   acceptance and tests on the combined result.
 
 [BACKLOG](BACKLOG.md) is the persistent cross-session ledger.
@@ -23,7 +27,8 @@ tool permissions will be agreed separately; none are created by this document.
 [CHANGELOG](../CHANGELOG.md) records user/developer-visible changes by integration.
 Session todos and chat messages supplement these files; they do not replace them.
 
-The main agent may directly maintain planning, integration and documentation.
+The main agent may directly maintain planning, integration, agent configuration
+and documentation.
 The default for **feature implementation** is delegation, not several agents
 editing the primary working directory. A documentation-only governance update,
 such as this one, does not require launching implementation agents.
@@ -39,7 +44,7 @@ resume state. `cancelled` requires an explicit owner decision and retained ratio
 |---|---|
 | Backlog definition | Assign a stable ID, outcome, priority, owner and actual prerequisite IDs. Separate mandatory scope from optional extensions. |
 | Feature spec | Define scope, input/output contracts, evidence, failures, numerical thresholds, tests and shared-file ownership. Get owner approval; a draft is not ready. |
-| Ready / scheduling | All hard prerequisites are integrated; agreed interfaces/resources exist. Record the integration base commit, branch and absolute worktree path before delegation. |
+| Ready / scheduling | All hard prerequisites are integrated; agreed interfaces/resources exist. Record role/tier rationale, verify profile/model/effort/tools, and record the integration base commit, branch and absolute worktree path before delegation. |
 | Implementation | One assigned branch/worktree per active implementation agent. Build a complete bounded slice; update its own spec and related documentation. Escalate scope or shared-contract changes. |
 | Test | Run acceptance tests plus affected type/build checks. Record exact commands, commit, environment, fixtures and live/stub status. Failed or unrun required tests block integration. |
 | Commit / handoff | Commit tested feature work and related docs; send the contract below. Suggest a bump/changelog entry without allocating a final version. |
@@ -69,6 +74,32 @@ Only integration plus recorded evidence permits `done`.
 - Each agent uses only relevant skills. Deferring a runtime LangGraph/multi-agent
   framework does not change this development scheduling policy.
 
+### Model-tier routing and escalation
+
+Apply the [routing policy and examples](../.github/agents/README.md#routing-policy),
+not a blanket "all implementation is simple" or "all domain work is expensive":
+
+- **Terra / low:** exact-pattern boilerplate, mechanical changes and known
+  test/build commands with frozen contracts and low risk.
+- **Sonnet / medium:** the relevant frontend, backend, 3D/motion, research,
+  ingestion, RAG, geospatial or QA specialist for interconnected, evidence-sensitive
+  or performance-constrained work.
+- **Sol / high:** one bounded gap in the plan/contract, returning evidence and a
+  proposed amendment to Astra/owner; no speculative implementation.
+- **Astra / xhigh:** global decisions, orchestration and integration only.
+
+One role owns each slice; its domain does not force that model for trivial work.
+Do not create tier duplicates for every role. Workers return blockers instead of
+spawning other workers or escalating their own model. Two attempts without new
+evidence end the worker assignment; the orchestrator diagnoses, narrows or re-plans
+before authorizing another attempt. Failed checks are not permission to lower ACs.
+
+Verify actual model/effort using host selection/trace metadata; self-identification
+is not evidence. Use profile defaults, check user-level overrides and stop on
+missing capabilities instead of silent fallback. Keep token/cost estimates labeled;
+record unavailable telemetry as unavailable. Bound assignment time, attempts,
+context and host resources; never duplicate the USD 150 Meta budget per worker.
+
 ## 4. Worktree and resource isolation
 
 Current integration branch is `master`; confirm it before each assignment. Do not
@@ -84,6 +115,9 @@ Before creation, check Git status, existing branches/worktrees and path ownershi
 Never reuse an active branch/path or delete an occupied directory to make room.
 Before the first write, the subagent verifies its actual working directory and
 branch against the assignment; a mismatch blocks work.
+Research and plan repair are read-only and may use an explicitly assigned checkout.
+QA needs a stable candidate and isolated test resources, not write ownership.
+Read-only roles do not need speculative writable worktrees merely to read files.
 
 Worktrees share Git history and the host. They do **not** isolate:
 
@@ -109,7 +143,8 @@ Record in the feature spec before launch:
 
 ```text
 Backlog ID / approved spec / acceptance criteria:
-Configured agent role (or blocked pending agent definition):
+Configured agent role / complexity-risk rationale:
+Requested model/effort / actual host selection evidence:
 Base commit / integration target:
 Feature branch / absolute worktree path:
 Prerequisites and frozen contracts:
@@ -117,6 +152,7 @@ Owned files; shared files requiring coordination:
 Test data/database/ports/Compose project:
 Required test/type/build commands:
 External-data permissions and shared budget allocation:
+Time/tool/test-attempt bounds / context and compute limits:
 Stop/escalation conditions:
 ```
 
@@ -127,6 +163,7 @@ Backlog ID / branch / worktree:
 Feature commit(s) and tested HEAD:
 Implemented outcomes and affected contracts:
 Commands + results + fixture/environment + live/stub status:
+Actual model/effort evidence / attempts / elapsed time / exposed usage:
 Known limitations and remaining blockers:
 Proposed bump (major/minor/patch) and compatibility rationale:
 Proposed changelog entry + migration/operator documentation:

@@ -17,7 +17,7 @@ from uploaded evidence, not a pre-authored 3D scene with a chatbot attached.
 
 ## Current state
 
-Initial requirements and engineering guidance only. No application, database,
+Requirements, engineering guidance and development-agent profiles only. No application, database,
 containers, dataset ingestion, or paid model calls have been created by this work.
 Product scope and the initial stack are agreed; data feasibility, exact package
 compatibility, and account-specific API access remain unverified.
@@ -25,8 +25,9 @@ compatibility, and account-specific API access remain unverified.
 Deadline: **November 4, 2026, 9 PM Eastern Time**. API credit budget: **USD 150**.
 The demo runs locally on the development WSL machine.
 
-Version tracking starts at **0.1.0**, a documentation-baseline candidate, not a
-released application. See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
+The **0.1.0** documentation baseline is committed. **0.2.0** is the current
+development-agent configuration candidate, not an integrated application release.
+See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Development documents
 
@@ -47,6 +48,10 @@ released application. See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
   depth, perforated-length and temporal acceptance contracts.
 - [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): parallel agent worktrees,
   ownership, testing, integration and version/changelog policy.
+- [Development agents](.github/agents/README.md): ten specialists, the main
+  orchestrator, model/effort routing and activation instructions.
+- [Agent configuration spec](docs/specs/DEVELOPMENT_AGENTS.md): approved scope,
+  acceptance and static versus runtime verification.
 - [Backlog](docs/BACKLOG.md): persistent feature IDs, prerequisites and delivery state.
 
 ## Delivery workflow
@@ -54,8 +59,11 @@ released application. See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 The main agent plans and orchestrates; implementation agents work in separate
 worktrees on approved, dependency-ready feature specs. Each integration requires
 tests, related documentation, and an assessed major/minor/patch update before merge.
-After integration, the orchestrator reconciles the backlog. Custom agent
-definitions remain future work; no agents or worktrees are created by this update.
+After integration, the orchestrator reconciles the backlog. Select
+**fieldlens-orchestrator** in the Copilot harness after refreshing agent discovery;
+verify **GPT-6 Astra / xhigh** in the host. Workers use Terra low, Sonnet medium
+or Sol high according to the task. Repository profiles do not switch an existing
+chat or create worktrees; verify the chosen worker/model/tools before execution.
 
 **Next step:** jointly inspect a compact, authorized data sample and approve its
 feasibility/ingestion spec before committing to a detailed architecture. Both

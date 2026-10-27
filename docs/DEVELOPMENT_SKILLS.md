@@ -29,7 +29,11 @@ do not approve implementation, authorize external data transmission, install
 dependencies, or expose runtime tools to the application agent.
 For parallel work, the orchestrator assigns these skills to configured development
 agents under the [worktree workflow](DEVELOPMENT_WORKFLOW.md). Skills do not create
-agent roles or isolated worktrees. Custom-agent definitions remain deferred.
+agent roles or isolated worktrees. The approved
+[development-agent roster](../.github/agents/README.md) maps roles and model tiers:
+Terra handles exact low-risk tasks, Sonnet handles domain execution, Sol repairs
+bounded plan gaps, and Astra retains global planning. A Terra assignment still
+receives its relevant domain skill; no worker loads every skill by default.
 
 ## Foundational collections: selective adoption
 
@@ -59,6 +63,8 @@ agent roles or isolated worktrees. Custom-agent definitions remain deferred.
   or unrestricted web access. The original equipment-research workflow fills the
   relevant gap without claiming an upstream runtime capability.
 - **WebGPU, physics, decorative animation:** no demonstrated requirement.
+  The 3D/motion agent covers purposeful camera/selection transitions and reduced
+  motion, not new simulation or decorative-animation dependencies.
 
 ## Adaptation assessment
 

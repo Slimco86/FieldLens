@@ -55,7 +55,18 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
 - The main agent owns planning, dependencies, delegation, review and integration.
   Delegate implementation to configured subagents in separate branches/worktrees,
   with explicit base commits, file/contract ownership and acceptance checks.
-  Custom agent definitions will be agreed later; do not invent or install them now.
+  Use the approved [agent roster and routing policy](agents/README.md).
+- Keep the main session on **GPT-6 Astra / xhigh** for global orchestration.
+  Route fully specified low-risk tests/boilerplate to **GPT-6.1 Terra / low**;
+  interconnected domain implementation and strict performance work to the
+  relevant **Sonnet 5.5 / medium** specialist; bounded plan gaps to
+  **GPT-6.1 Sol / high**, returning to the orchestrator for approval.
+  A small diff is not proof of low risk. Workers must not delegate further.
+- Verify discovered profile, actual model/effort and required tools before launch;
+  prefer profile defaults without redundant overrides. Never silently substitute
+  a model or assume creating an agent file changes the active session.
+  Pass only relevant context/skills and bounded attempts/resources. Track exposed
+  development usage separately from Meta application credit; do not invent savings.
 - Use [the persistent backlog](../docs/BACKLOG.md) as the cross-session work ledger.
   Do not start a blocked dependency or count a mocked integration as verified.
 - Worktrees isolate files, not databases, ports, secrets, processes or API budgets.
