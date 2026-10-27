@@ -2,6 +2,7 @@
 
 Date: 2026-10-26, America/New_York. This is an initial, owner-agreed direction,
 not a completed architecture or a claim that packages have been tested together.
+Updated 2026-10-27 with historical perforation and parallel-delivery requirements.
 
 ## 1. Prefer a small system with explicit responsibilities
 
@@ -45,7 +46,8 @@ Relational storage, vector retrieval and knowledge graphs are capabilities, not
 an automatic requirement for three database products.
 
 - **Relational:** wells/wellbores, component instances, survey revisions, source
-  documents, extraction jobs, series metadata, claims and provenance.
+  documents, extraction jobs, series metadata, dated perforation/state events,
+  claims and provenance. Effective event time is distinct from report/import time.
 - **Vector/full-text:** passages and catalog excerpts with document/asset filters.
   Exact IDs/model numbers must remain searchable even if embeddings miss them.
 - **Graph:** typed edges such as `well_has_wellbore`, `sidetrack_of`,
@@ -114,6 +116,32 @@ but its minimum truthful form awaits the data audit.
 Charts preserve date/timezone, depth reference, curve mnemonic and units. Distinguish
 rates from daily volumes and cumulative production. Link well-level production to
 the correct entity; do not arbitrarily assign it to one of several sidetracks.
+
+### Historical perforations and completion footage
+
+Follow the [perforation-history draft](specs/PERFORATION_HISTORY.md) and approve
+its source mappings before implementation. Preserve perforation/reperforation
+events rather than storing only the latest completion snapshot.
+
+- Store event effective time/precision, source/report time, wellbore and affected
+  interval identities, original event meaning, evidence and dataset revision.
+  Date-only events do not imply an exact midnight operation or same-day ordering.
+- Preserve recorded MD/TVD endpoints with units/depth references; derive missing
+  coordinates only through a validated survey and record the derivation. TVD-to-MD
+  inversion can be non-unique; never pick a crossing silently.
+- Separate physical perforated coverage, interval access state and evidenced
+  producing/injecting/shut-in status. Well-level flow does not establish interval
+  flow, and whole-well shut-in does not erase or necessarily isolate perforations.
+- Name the aggregate **total perforated length (MD)**, also **perforated footage**
+  when expressed in feet. Normalize and union intervals before summing lengths;
+  exclude gaps/overlaps. Track **open perforated length** separately. Reperforating
+  existing coverage is a distinct event but not automatically additional length.
+- Preserve ambiguous source "completion footage" as reported until its meaning
+  is validated. Horizontal displacement, TVD span, lateral completion length,
+  shot density and tunnel penetration are not interchangeable with perforated MD length.
+- Return as-of state under an explicit dataset revision; key caches, retrieval
+  and viewer actions by asset/time/precision/revision. Preserve acquisition dates
+  for logs/series and show partial/unknown history instead of zero-filling.
 
 ## 5. Meta integration, external research, and cost
 
@@ -221,3 +249,8 @@ upgrades, package installations, image pulls or paid calls were performed here.
 - [pgvector](https://github.com/pgvector/pgvector), [FastEmbed](https://qdrant.github.io/fastembed/).
 - [R3F performance guidance](https://r3f.docs.pmnd.rs/advanced/pitfalls).
 - [Meta protocols](https://dev.meta.ai/docs/protocols), [structured output](https://dev.meta.ai/docs/structured-output).
+- [Perforated interval](https://glossary.slb.com/en/terms/p/perforated_interval),
+  [measured depth](https://glossary.slb.com/en/terms/m/measured_depth), and
+  [perforation density](https://glossary.slb.com/en/terms/p/perforation_density).
+- [Development workflow](DEVELOPMENT_WORKFLOW.md): worktree resource isolation,
+  schema/contract ownership, integration tests and synchronized application version.

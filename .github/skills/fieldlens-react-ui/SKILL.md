@@ -22,6 +22,8 @@ a Python API, not a Next.js application.
 2. Trace shared selection across the asset tree, scene, chart and document panel.
    Store IDs and small UI state; keep bulk logs, meshes and source buffers outside
    React state. Derive display state instead of duplicating it in effects.
+   Historical perforation views share as-of time/precision and dataset revision.
+   Preserve log/series acquisition dates; unknown history is not zero or "closed."
 3. Start independent requests together. Cancel or disregard stale responses when
    selection changes. Do not display a previous well's response under a new name.
    Cache/deduplicate through the project's existing data layer, not a new library.
@@ -42,6 +44,8 @@ a Python API, not a Next.js application.
 - Do not add Next.js, server components/actions, a Node API, SWR or another store
   just because upstream examples use them.
 - Do not cache engineering results without dataset/source revision keys.
+- Include historical time/precision in state cache keys and reject stale time-selection
+  responses, just as for asset changes; do not silently substitute latest state.
 - Do not suppress errors, use unsafe casts, or introduce static mock data as live data.
 - Leave per-frame updates to R3F refs; this skill does not own GPU lifecycle.
 - Report measured bottlenecks and validation results, not assumed performance wins.

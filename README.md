@@ -7,6 +7,9 @@ records, combine them with terrain/bathymetry and reservoir/formation context,
 and attach production and well-log charts to the resulting 3D assets. A
 Meta-powered assistant will retrieve evidence, investigate engineering questions,
 invoke deterministic spatial tools, and navigate the same scene the user sees.
+Historical perforation events will support date-specific interval/state inspection,
+including MD/TVD placement, perforated length, production/injection, shut-in and
+reperforation history without conflating wellbore and individual interval status.
 
 The initial demonstration targets a small Volve subset, typically 3-5 wellbores.
 That number is not a product limit. The defining capability is reconstruction
@@ -21,6 +24,9 @@ compatibility, and account-specific API access remain unverified.
 
 Deadline: **November 4, 2026, 9 PM Eastern Time**. API credit budget: **USD 150**.
 The demo runs locally on the development WSL machine.
+
+Version tracking starts at **0.1.0**, a documentation-baseline candidate, not a
+released application. See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Development documents
 
@@ -37,6 +43,19 @@ The demo runs locally on the development WSL machine.
   and original FieldLens UX reference sheets, with provenance and design lessons.
 - [Curated development skills](docs/DEVELOPMENT_SKILLS.md): selected local skills
   for frontend, 3D assets, geospatial validation, ingestion and equipment research.
+- [Perforation history spec](docs/specs/PERFORATION_HISTORY.md): draft event/state,
+  depth, perforated-length and temporal acceptance contracts.
+- [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): parallel agent worktrees,
+  ownership, testing, integration and version/changelog policy.
+- [Backlog](docs/BACKLOG.md): persistent feature IDs, prerequisites and delivery state.
+
+## Delivery workflow
+
+The main agent plans and orchestrates; implementation agents work in separate
+worktrees on approved, dependency-ready feature specs. Each integration requires
+tests, related documentation, and an assessed major/minor/patch update before merge.
+After integration, the orchestrator reconciles the backlog. Custom agent
+definitions remain future work; no agents or worktrees are created by this update.
 
 **Next step:** jointly inspect a compact, authorized data sample and approve its
 feasibility/ingestion spec before committing to a detailed architecture. Both

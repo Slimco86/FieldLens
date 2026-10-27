@@ -26,6 +26,10 @@ version requirements, automatic CDN fetching and unrelated visual effects are om
 3. Keep physical parameters separate from tessellation and display exaggeration.
    Use server-derived trajectory positions/tangents for equipment placement.
    A smoothed display spline must not redefine the survey or measured depths.
+   Perforation markers consume the selected as-of state/dataset revision from
+   deterministic tools; do not render every historical event simultaneously.
+   Follow the [history spec](../../../docs/specs/PERFORATION_HISTORY.md): repeated
+   events must not double-count length, and shut-in must not erase physical coverage.
 4. For imported GLB/glTF, inspect units, orientation, bounds, topology/materials,
    external resources and licensing. Reject unsupported or unsafe dependencies.
    Self-host approved decoders; never fetch arbitrary model-provided URLs.

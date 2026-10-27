@@ -3,6 +3,8 @@
 Reviewed 2026-10-26, America/New_York. No engineering dataset was downloaded or
 validated and no paid API call was made. Public documentation was inspected;
 account entitlements and authenticated event rules were not.
+Updated 2026-10-27: owner adds date-specific perforation/state history and completion
+footage. Terminology was researched; no actual perforation records were inspected.
 
 ## 1. Source and precedence
 
@@ -27,6 +29,11 @@ earlier assistant suggestions:
   superseding an intermediate SQLite recommendation.
 - Work must be iterative and spec-driven. A manual adjudication interface is deferred;
   reliable validation and truthful uncertainty handling are not.
+- Historical perforations require MD/TVD placement, total perforated length,
+  reperforation and separate production/injection/shut-in/access state. See the
+  [draft feature contract](specs/PERFORATION_HISTORY.md) for proposed semantics.
+- Development uses orchestrated parallel worktrees and versioned integration;
+  this does not add a multi-agent framework to the runtime application.
 
 ## 2. Most important ideas worth retaining
 
@@ -100,6 +107,7 @@ production must not be conflated.
 |---|---|---|
 | Well locations and trajectories | EDM export, directional-survey tables, relevant WITSML records | Same wellbore/revision? MD/INC/AZI or documented positions? CRS, north reference, vertical/depth datum? |
 | Installed components | Completion reports, schematics, well-technical exports | Model/revision, dimensions, units, intervals, dates, installation context? |
+| Historical perforations and state | Perforation/reperforation reports, completion/workover histories, dated well/interval status records | Event effective date versus report date? MD/TVD endpoints/references? Scope of shut-off? Production/injection evidence? Footage meaning, overlaps, initial coverage and corrections? |
 | Catalog specifications | Manufacturer datasheets identified from actual model names | Exact product match? Authoritative source? Terms permit use? No invented installed state? |
 | Terrain/bathymetry | Relevant geospatial surfaces/grids | Geographic coverage, horizontal/vertical references, resolution and source rights? |
 | Reservoir/formations | Geological picks, interpreted surfaces, reservoir boundaries/grids | What is measured versus interpreted? Enough metadata to align with wells? Required importer? |
@@ -113,7 +121,8 @@ not be mixed into a supposedly measured Volve scene.
 
 **Smallest useful next sample:** one directional survey with coordinate/depth
 metadata, one completion/equipment document, one production file, one log file,
-and source candidates for terrain and reservoir/formations. Inspect jointly, then
+perforation/state history for the same wellbore, and source candidates for terrain
+and reservoir/formations. Inspect jointly, then
 expand to the related wellbores needed for cross-well questions. Do not bulk-fetch
 the whole collection.
 
@@ -128,7 +137,8 @@ or authorizes selective acquisition; none are assumed here.
    every mandatory contextual layer. Set coordinate tolerances from the actual
    source precision, not an arbitrary universal accuracy promise.
 2. **Reconstruction:** independently check at least one real trajectory; establish
-   golden fixtures for survey interpolation, closest approach and equipment placement.
+   golden fixtures for survey interpolation, closest approach, equipment placement
+   and as-of perforation state/unique MD length, including overlap and reperforation.
 3. **Extraction:** run a representative document through a candidate parser and
    Meta extraction; compare claimed values and source locators with human-checked facts.
 4. **API/cost:** with authorization, perform a bounded Meta smoke test covering
@@ -141,3 +151,20 @@ or authorizes selective acquisition; none are assumed here.
    or publication. Public-source availability is not blanket training permission.
 
 These gates are requirements for the next feature specs, not tests already run.
+
+## 7. Perforation terminology follow-up
+
+Checked on 2026-10-27 against SLB's public glossary:
+[perforated interval](https://glossary.slb.com/en/terms/p/perforated_interval),
+[measured depth](https://glossary.slb.com/en/terms/m/measured_depth) and
+[perforation density](https://glossary.slb.com/en/terms/p/perforation_density).
+The first is an along-wellbore section; multiple sections can have unperforated
+gaps. Density is shots per unit length, not completion length.
+
+Recommended FieldLens label: **total perforated length (MD)** / **perforated
+footage** in feet, explicitly defined as unique interval coverage. Track open
+coverage separately. This exact aggregate is a proposed project definition, not a
+universal definition of every source's "completion footage" field. Avoid "horizontal
+depth": horizontal displacement and vertical thickness do not equal along-hole
+length. A repeated perforation operation can alter coverage or other properties;
+repeating the same interval does not inherently add unique perforated length.

@@ -5,6 +5,8 @@
 > **Supporting:** <failure conditions, ambiguity audit as applicable>.
 > **Date:** <date>. **Author:** <author>. **Decision owner:** <owner>.
 > **Status:** Draft -> Approved -> Implementing -> Verified.
+> **Backlog ID:** <FL-id>. **Delivery state:** <from BACKLOG; Verified is not merged>.
+> **Approved spec revision/date:** <owner decision>. **Integration version:** <pending>.
 > **Zero-Question Score:** <unowned unresolved questions; list owned blockers too>.
 
 Keep this document proportional to one increment. Replace placeholders; do not
@@ -58,15 +60,24 @@ Outcome score: <0-3; target 3>.
 Add performance, cost, integrity and dependency criteria where relevant. Define
 fixture, units, numerical tolerance and measurement method before implementation.
 Definition of done: all ACs pass; record actual commands/results and live/stub status.
+Delivery is complete only after verified integration, version/changelog updates
+and backlog reconciliation under the [workflow](../DEVELOPMENT_WORKFLOW.md).
 
 ## 4. Context and Decisions
 
 - Executor profile and glossary: <assumed knowledge; define domain terms>.
 - Decisions already made: <choice, rationale, source, date>.
 - Dependencies: <data/models/services, versions, readiness, owner, blocking status>.
+- Delegation: <configured agent, base commit, branch, absolute worktree path,
+  file ownership, shared-contract owner, resource/port/database/budget allocation>.
+- Parallelism: <hard prerequisite backlog IDs; separately approved contract-ready
+  slices/stubs allowed; live integration checks still required>.
 - Constraints and stakeholders: <scope/cost/deadline/privacy; approver>.
 - Contracts: <input/output shapes, IDs, units/CRS/datum, validation, errors,
   provenance, persistence/migrations, revision/cache invalidation>.
+- Historical semantics where relevant: <event effective time versus ingestion time,
+  date precision, state scope/validity, selected as-of time and revision, MD/TVD/
+  interval-length derivations; document unknown/partial-history behavior>.
 - Agent/UI effects: <allowlisted tool, validated IDs, displayed states, evidence
   and acknowledgment; "not applicable" when justified>.
 
@@ -87,6 +98,20 @@ otherwise record owner + deadline. An owned blocker still blocks approval.>
 <Smallest approach, actual files/entry points once known, risks and checkpoints.
 Record migrations, focused test/type/build commands and results after implementation.
 Do not claim proposed commands already exist.>
+
+### Implementation handoff and integration
+
+| Field | Record before handoff / after integration |
+|---|---|
+| Feature commits / tested HEAD | <actual hashes; no predicted integration hash> |
+| Verification | <commands/results, environment/fixtures, live/stub status, skipped checks> |
+| Compatibility assessment | <breaking/new feature/fix-docs; affected API/schema/tool/user contracts> |
+| Proposed version bump | <major/minor/patch with rationale; orchestrator allocates final number> |
+| Proposed changelog entry | <backlog ID, user-visible changes, migration notes, limitations> |
+| Related documentation | <updated files; no unsupported implementation claims> |
+| Residual blockers / owned resources | <stop/escalation and cleanup handoff> |
+| Integrated commit / final version | <fill only after confirmed merge> |
+| Backlog status | <main-agent reconciliation; done only with verified integration> |
 
 ## Open Tensions
 

@@ -43,6 +43,10 @@ context layers; explicit source and agent status.
 **Not decided here:** exact layout, typography, colors, panel sizes, interaction
 shortcuts, chart scales and mobile behavior. Those belong in an approved feature
 spec and browser tests. This sheet's example data is not a usable fixture.
+The 2026-10-27 perforation-history requirement additionally needs visible as-of
+time/state controls and length inspection; these are not depicted in the original
+sheet. Specify them against the [history contract](../specs/PERFORATION_HISTORY.md)
+rather than treating the earlier illustration as a complete UI requirement.
 
 ### 3. Equipment evidence states
 
@@ -79,6 +83,9 @@ copy images with unclear rights. No expiring image-proxy URLs are embedded.
 - Distinguish source-backed, catalog-derived, interpolated and generic attributes
   with text/symbols as well as color. Validation state is a separate label.
 - Show units, coordinate/depth references, revision/date and display exaggeration.
+- Keep selected historical time consistent across perforation markers, interval
+  state/length, chart overlays and agent questions. Preserve log acquisition dates
+  and distinguish perforated/open state from wellbore production/injection/shut-in.
 - Layer toggles change presentation, not the underlying engineering claims.
 - Retain both production and depth-log interaction; missing data is not zero.
 - Keep source navigation and keyboard-accessible asset inspection available.

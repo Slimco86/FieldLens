@@ -27,6 +27,9 @@ Use only the skills matching the task, not all seven on every request. The
 always-on project instructions and approved feature specs govern scope. Skills
 do not approve implementation, authorize external data transmission, install
 dependencies, or expose runtime tools to the application agent.
+For parallel work, the orchestrator assigns these skills to configured development
+agents under the [worktree workflow](DEVELOPMENT_WORKFLOW.md). Skills do not create
+agent roles or isolated worktrees. Custom-agent definitions remain deferred.
 
 ## Foundational collections: selective adoption
 
@@ -76,6 +79,9 @@ These are deliberate changes, not silent upstream edits:
    the short Web Design Guidelines wrapper is linked, not copied.
 6. Equipment research is original and explicitly distinguishes development
    guidance from an implemented runtime agent tool.
+7. FieldLens-only follow-up on 2026-10-27 adds selected historical time/revision
+   consistency to UI/asset workflows for perforation state. Upstream revision
+   fields below still identify the original basis, not these local additions.
 
 ## Pinned upstream provenance
 

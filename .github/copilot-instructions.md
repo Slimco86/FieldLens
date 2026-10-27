@@ -12,6 +12,11 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
   limit or a substitute for the upload-to-reconstruction workflow.
 - All contextual layers and both chart families are required for the hackathon.
   Implement them in increments; do not silently downgrade them to stretch goals.
+- Historical perforation events and date-specific completion state are required:
+  MD/TVD intervals, total perforated length, opening/isolation, production/injection,
+  shut-in and reperforation history. Follow the
+  [perforation history spec](../docs/specs/PERFORATION_HISTORY.md); do not infer
+  interval flow from an open wellbore or from well-level production alone.
 - This is a historical, source-backed reconstruction, not a live operational twin,
   reservoir simulator, or certified engineering decision system.
 - Deadline: **November 4, 2026, 21:00 America/New_York (EST, UTC-05:00)**.
@@ -32,14 +37,40 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
   document under `docs/specs/`, using the [feature template](../docs/specs/FEATURE_TEMPLATE.md).
   Define outcome, boundaries, inputs, data/contracts, failure behavior, measurable
   acceptance criteria, tests, and unresolved decisions. Agree these with the owner.
-- A draft spec is not implementation approval. Work one verifiable vertical slice
-  at a time; update the spec when evidence changes. Documentation-only corrections
-  do not require a separate feature spec.
+- A draft spec is not implementation approval. Each delegated assignment is one
+  verifiable vertical slice; independent slices may run in parallel. Update the spec
+  when evidence changes. Documentation-only corrections do not require a feature spec.
 - Maintain requirement-to-test traceability. Mark a feature verified only after
   its acceptance checks pass; distinguish mocks, cached replays, and live results.
 - Keep changes focused. Reuse existing patterns; add dependencies or services only
   for a demonstrated requirement. Do not scaffold infrastructure or download the
   full Volve release merely because it appears in a research inventory.
+
+## Parallel development and delivery
+
+- Follow [the development workflow](../docs/DEVELOPMENT_WORKFLOW.md):
+  backlog/spec approval -> worktree/delegation -> implementation -> tests ->
+  feature commits -> integration tests and version/changelog/docs finalization ->
+  commit/merge -> backlog reconciliation.
+- The main agent owns planning, dependencies, delegation, review and integration.
+  Delegate implementation to configured subagents in separate branches/worktrees,
+  with explicit base commits, file/contract ownership and acceptance checks.
+  Custom agent definitions will be agreed later; do not invent or install them now.
+- Use [the persistent backlog](../docs/BACKLOG.md) as the cross-session work ledger.
+  Do not start a blocked dependency or count a mocked integration as verified.
+- Worktrees isolate files, not databases, ports, secrets, processes or API budgets.
+  Isolate those resources explicitly. Subagents must not modify another worktree,
+  merge the integration branch, or independently edit global release metadata.
+- The orchestrator finalizes [VERSION](../VERSION) and
+  [CHANGELOG](../CHANGELOG.md) before every accepted change is integrated:
+  breaking change = major, new feature = minor, fix/docs = patch. Assess compatibility
+  even before 1.0; one integration gets one bump, not another for its merge commit.
+- Feature branches include tested work, related documentation and a proposed
+  changelog entry/bump in their handoff. Allocate final versions serially against
+  the latest integration tip; revalidate if that tip moves.
+- Mark backlog items done only after integration is confirmed and evidence recorded.
+  Preserve dirty worktrees; never force-remove them. No automatic push, publication
+  or destructive Git operation is authorized by this workflow.
 
 ## Agreed technical direction
 
@@ -69,6 +100,12 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
   measured depth (MD) with true vertical depth (TVD), or assume missing metadata.
 - Keep well and wellbore identities distinct, including sidetrack relationships.
   Do not mix planned, as-built, superseded, or differently dated configurations.
+- Keep event effective time separate from report/import time and dataset revision.
+  Preserve date precision; never invent same-day ordering. Scope state to its
+  wellbore/interval, and include selected historical time in tools and cache keys.
+- Compute perforated length from the union of validated MD intervals at that time,
+  not TVD span, horizontal displacement, or repeated event footage. Shut-in does not
+  erase perforations; unknown initial history is not a verified zero-length state.
 - Every engineering assertion needs attribute-level evidence: document/record ID,
   page/table/cell/XML locator as applicable, extraction/derivation method, and revision.
   Track evidence class and validation state separately; LLM confidence is not proof.
@@ -120,7 +157,8 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
   retries and web research; default tests must not spend API credits.
 - Add focused Python unit/integration tests, frontend interaction tests, and browser
   checks for upload -> scene -> chart -> cited answer. Test units/CRS, geometry,
-  provenance, conflicting data, equipment fallbacks, and provider failure paths.
+  provenance, conflicting data, equipment fallbacks, temporal perforation states,
+  overlap/reperforation length, production/injection scope and provider failure paths.
 - Run the smallest relevant checks plus affected type/build checks. No application
   commands exist yet: add and document actual commands when scaffolding; do not
   claim unrun tests or performance measurements.
