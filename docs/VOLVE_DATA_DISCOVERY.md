@@ -421,14 +421,33 @@ The focused equipment audit now confirms an **AS INSTALLED F-14 schematic**
 with device dimensions and MD placement. It also identifies a specific remaining
 F-12 source target: the **completion tally dated 29-01-2008, As Installed**,
 referenced by the 2016 plug logs but not located in the inspected documents.
-F-5's correct completion Word report is present; its embedded schematics still
-need extraction/verification. See the [equipment findings](EQUIPMENT_DATA_FEASIBILITY.md#9-local-originals-as-installed-f-14-proof-and-remaining-gaps).
+The October 28 follow-up verifies **F-5's embedded Existing completion table**,
+including safety-valve/packer dimensions and MD. Its three August 2008 perforation
+intervals plus two October additions match the five static rows; two April 2016
+additions show why that table alone is not a full history.
+
+The expanded F-12 tally search covered 87 PDF paths / 68 unique contents / 3,262
+pages plus selected scan and engineering-export inspection, without finding the
+referenced tally. It did find February 2008 firing and November 2014 plug/firing
+evidence. F-14's six initial intervals now have matching July 5-9, 2008 firing
+records. Thus events are **not absent for all candidates**: remaining gates are
+history completeness, conflicting claims and reference/state qualification.
+F-11 B is a conditional reserve, not an automatic replacement: its detailed
+completion drawing is explicitly **Plan**. See the
+[target/history findings](EQUIPMENT_DATA_FEASIBILITY.md#10-target-qualification-and-history-follow-up-october-28).
+
+The owner subsequently selected F-12/F-14/F-5 and accepted evidence-safe generic
+F-12 equipment plus visible discrepancies. Cohort selection is closed; the final
+manifest, references, historical coverage and required real-data acceptance are
+not. Missing F-12 dimensions no longer block source-independent implementation
+planning, and warnings never permit invented measurements or placement.
 
 ### Reproducible checks
 
 The Git-ignored audit records are `local-inventory.json`,
 `local-structured-audit.json`, `local-production-audit.json`, `local-f12-porosity-audit.json`,
-`local-witsml-audit.json` and `local-completion-audit.json` under
+`local-witsml-audit.json`, `local-completion-audit.json` and the subsequent
+`local-target-followup-audit.json` under
 `data/volve/source-audit/`. They retain exact local
 paths, hashes, source line samples, counts and limitations. The filesystem walk
 took 364.831 seconds; the corrected structured-data pass took 14.5 seconds with

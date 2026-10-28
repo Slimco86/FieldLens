@@ -3,7 +3,7 @@
 > **Spec type:** Infrastructure/migration. **Backlog:** FL-004.
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
 > **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** Design complete; approval and host activation required before execution.
+> **Status:** Workflow baseline confirmed; detailed packet review/commit and host activation required before execution.
 > **Zero-Question Score:** 0 unowned design questions; G5 qualification is not yet run.
 
 ## How to Read This Spec
@@ -87,6 +87,14 @@ token plus Origin/Host allowlists protects mutation endpoints; do not create a
 multi-user login system. DB readiness includes required migrations/extensions.
 Static serving must not turn unknown `/api/` routes into SPA HTML responses.
 
+Token bootstrap is `GET /api/v1/session`, with no-store JSON `{csrf_token}`.
+Generate at least 32 cryptographically random bytes per API process; mutations
+require `X-FieldLens-Token` and permitted Host/Origin. Reject cross-site fetch
+metadata on bootstrap; permit same-origin/dev-allowlisted requests and local
+CLI tests without fetch metadata. Do not enable wildcard credentialed CORS.
+The client bootstraps again after restart/token rejection, but does not silently
+replay a failed mutation. No token is stored in a URL, static bundle or log.
+
 ## 5. Failure Conditions
 
 Missing Docker/Compose -> return exact setup blocker; no privileged daemon change.
@@ -122,6 +130,8 @@ Test configuration requires `FIELDLENS_TEST_DATABASE_URL` with a dedicated test
 database; absent/unsafe URLs fail explicitly. Live Meta tests require a separate
 opt-in marker and are excluded from ordinary runs.
 Assignment resources and commit base are allocated by the execution plan at launch.
+The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
+define TASK-003 steps, exact planned files, tests, ownership and stop conditions.
 No feature commit/test result yet. New runtime capability proposes a minor bump;
 orchestrator finalizes version and integration, not the worker.
 

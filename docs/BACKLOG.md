@@ -15,19 +15,24 @@ delegated. [Custom profiles](../.github/agents/README.md) are now defined; actua
 host activation/model verification is still required. No additional worktrees
 have been created by the preparation tasks.
 
-The revised draft [architecture](ARCHITECTURE.md), [feature specs](specs/README.md)
-and [31-task execution plan](../plan/architecture-fieldlens-1.md) are ready for
-review. The task plan's explicit **Depends on** column is the scheduling DAG;
+The confirmed workflow [architecture](ARCHITECTURE.md), [feature specs](specs/README.md)
+and [32-task execution plan](../plan/architecture-fieldlens-1.md) define the
+implementation baseline. The [first detailed packets](../plan/feature-foundation-workspace-1.md)
+are ready for review/commit and host preflight, not claimed executed.
+The task plan's explicit **Depends on** column is the scheduling DAG;
 parent dependencies below describe complete-feature prerequisites, not permission
 to block every independent sub-slice. Documentation links do not imply approval.
 
 ## Work items
 
-**Current planning authority (October 28):** the owner deferred the remaining
-data follow-up and resumed requirements 2-5. Planning is unblocked; implementation
-is not. Hybrid categories, explicit bounded runs, review-before-publication and
-new upload limits are draft defaults because the owner was unavailable to answer
-the clarification. G0 approval is required before dispatch.
+**Current planning authority (October 28):** the owner selected F-12/F-14/F-5,
+accepted evidence-safe generic F-12 equipment and visible discrepancies, and
+confirmed hybrid categories, explicit reconstruction/review/publication and
+128 MiB/file, 512 MiB/batch, 200-file limits. G0 workflow/cohort choices are resolved;
+detailed packet/contract review, committed base and DA-7 still gate dispatch.
+G1 remains engineering/manifest qualification, not a requirement to find F-12's
+missing tally before writing a project form. No worker or paid call was launched.
+The prior planning package was integrated in `a4bf9ee`, version 0.3.2.
 Historical checkpoint text below records earlier states; this notice and the
 current table supersede its access/design holds.
 
@@ -35,9 +40,9 @@ current table supersede its access/design holds.
 |---|---|---|---|---|
 | FL-000 | Adopt perforation requirements and versioned parallel-development governance | done | None | Integrated by owner in `e8b156a`, version 0.1.0; verification below |
 | FL-001 | Agree custom development-agent roles, worktree delegation and resource boundaries | testing | FL-000 | Configuration integrated in `35ed5d2`, version 0.2.0; [DA-7 host activation](specs/DEVELOPMENT_AGENTS.md) still needs evidence before feature delegation |
-| FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | in_progress | None | [Local data audit](VOLVE_DATA_DISCOVERY.md#8-owner-supplied-local-data-content-audit): owner supplied 33,678 files and all 33 candidates are present. Surveys, depth surfaces, logs, production and selected original history inspected. Equipment attribution/extraction, historical/reference reconciliation and owner-approved manifest remain open; not integrated or G1-passed |
+| FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | in_progress | None | Owner selected F-12/F-14/F-5 and accepted generic/unlocated F-12 limitations. [Data spec](specs/DATA_FEASIBILITY.md): final hashed profiles/windows/reference/state/rights fixtures remain TASK-002/029; G1 not passed. No automatic F-11 B replacement or further tally-search blocker |
 | FL-003 | Verify Meta entitlement/protocols and agree shared budget controls | specifying | FL-004 | [Meta spec](specs/META_INTEGRATION.md): offline adapter/ledger then separate opt-in live smoke; no G1 dependency |
-| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | specifying | FL-014 | [Foundation](specs/FOUNDATION.md), [contracts](specs/SHARED_CONTRACTS.md); no pilot/provider prerequisite for synthetic foundation |
+| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | blocked | FL-014 | [Foundation packet](../plan/feature-foundation-workspace-1.md): resume ready after packet review/commit and DA-7 host preflight; no G1/G2 prerequisite. G5 runtime qualification is an output, not falsely completed |
 | FL-005 | Upload project sources into traceable, persistent, restart-safe source revisions | specifying | FL-004, FL-002 | [Ingestion](specs/INGESTION.md): TASK-025 workspace precedes upload; early native evidence, selected scanned/Word profiles, then final manifest acceptance |
 | FL-006 | Inspect published-model trajectories with evidence and deterministic closest approach | specifying | FL-005, FL-016 | [Trajectory/viewer](specs/TRAJECTORY_VIEWER.md): independent numeric engine, then reconstructed model scene |
 | FL-007 | Reconstruct equipment with catalog/generic fallbacks and source-aware placement | specifying | FL-006 | [Equipment](specs/EQUIPMENT_RECONSTRUCTION.md): procedural installed-evidence slice; optional Blender later; DF-9 still required |
@@ -47,15 +52,33 @@ current table supersede its access/design holds.
 | FL-011 | Deliver early source chat, then evidence-backed model/graph/tool exploration | specifying | FL-003, FL-005, FL-006, FL-007, FL-008, FL-010, FL-016 | [Retrieval/assistant](specs/RETRIEVAL_ASSISTANT.md): TASK-011/019/027 source chat precedes reconstruction/3D; full domain tools and 32-case evaluation follow |
 | FL-012 | Verify complete fresh-upload -> scene/history -> charts -> cited-answer demo | specifying | FL-002, FL-009, FL-011 | [Demo acceptance](specs/DEMO_ACCEPTANCE.md): offline combined checks, real/live verification, then authorized release/recording |
 | FL-013 | Curate offline Blender equipment-authoring skill and export handoff | done | None | Integrated by owner in `88b177e`, version 0.3.0; skill/workflow only, installation and asset creation deferred |
-| FL-014 | Finalize project-centric architecture, primary reconstruction agent and UI-verifiable orchestration plan | specifying | None for planning | Initial package integrated in `4ae7f7b`; October 28 revised [architecture](ARCHITECTURE.md), [specs](specs/README.md) and [plan](../plan/architecture-fieldlens-1.md) drafted for G0 review. Final data acceptance remains FL-002, not a planning blocker |
-| FL-015 | Create/reopen isolated projects with categorized, incremental sources | specifying | FL-004 | [Workspace](specs/PROJECT_WORKSPACE.md): TASK-025 lifecycle first; TASK-006 upload integration completes PW criteria. Hybrid labels/limits need approval |
-| FL-016 | Reconstruct composite entities/relationships/configurations with evidence and reviewed model publication | specifying | FL-004 | [Reconstruction](specs/ASSET_RECONSTRUCTION.md): TASK-026 consumes early retrieval/chat, not full FL-011; TASK-028 qualifies live behavior. Review defaults/gold fixtures need approval |
+| FL-014 | Finalize project-centric architecture, primary reconstruction agent and UI-verifiable orchestration plan | integration_pending | None for planning | Owner-confirmed baseline, 32-task DAG and first detailed packets prepared in candidate 0.3.3. Prior package integrated in `a4bf9ee`; this revision awaits review/authorized integration, not application verification |
+| FL-015 | Create/reopen isolated projects with categorized, incremental sources | blocked | FL-004 | [Workspace packet](../plan/feature-foundation-workspace-1.md): resume ready for TASK-025 after foundation integration and packet review; approved hybrid labels/limits. TASK-006 completes upload-related PW criteria |
+| FL-016 | Reconstruct composite entities/relationships/configurations with evidence and reviewed model publication | specifying | FL-004 | [Reconstruction](specs/ASSET_RECONSTRUCTION.md): review policy confirmed; TASK-026 consumes early chat and TASK-032 issues, not full FL-011. Gold fixtures/live allowance remain separate gates |
+| FL-017 | Inspect source-linked warnings/errors and the exact effect of missing/conflicting data | specifying | FL-004, FL-005 | [Data quality](specs/DATA_QUALITY.md): TASK-032 source-first issue inspector; FL-016/007 wire publication/generic boundaries; TASK-022 verifies all DQ criteria. No manual override/fact editor or new telemetry service |
 
 **Scheduling gate for implementation across all rows:** FL-001 agent configuration
 must be integrated and the selected profile/model/tools verified in the host;
 the workflow's resource allocation must also be ready before implementation
 delegation. Main-agent planning/specification and source inspection can proceed
 before that gate; FL-002/FL-003 do not depend on each other.
+
+### Finalized priorities and next dispatch
+
+| Priority / checkpoint | Tasks | Dispatch condition / owner verification |
+|---|---|---|
+| P0: first persisted UI | TASK-001 -> TASK-003 -> TASK-025 -> TASK-006 | Review/commit packets, verify host/profile, then foundation -> projects -> uploads; owner browser checkpoint A before broadening |
+| P0: independent evidence qualification | TASK-002 | Main-agent bounded source work or separately verified ingestion assignment; no fabricated G1 completion |
+| P0: early agent risk | TASK-004 -> TASK-005; TASK-009/011/019/027 | Offline adapter parallel after foundation; live caps and source subsets separately authorized; checkpoint B before full scene |
+| P0: visible quality and reconstruction | TASK-009 -> TASK-032; TASK-019/032 -> TASK-026; TASK-030/028 | Source issues before 3D; reviewed partial model; live reconstruction remains distinct from stubs |
+| Required enrichment | TASK-007/008/010/012..018/031 | Numeric engines can start after foundation; remaining tasks follow DAG. History, both charts, seabed and formations are all mandatory |
+| Required acceptance/release | TASK-029/020/021/022/023 | Full manifest, live evaluations, combined browser/performance and owner release permission |
+| Optional only | TASK-024 | Blender after evidence-backed equipment and explicit asset/setup approval; never blocks required release |
+
+These are priorities, not permission to bypass dependencies. Future packets
+freeze their source mappings and exact contracts before dispatch; only the first
+three runtime packets have step-by-step handoffs now. Known-command validation
+routes to Terra; substantial implementation to the relevant domain specialist.
 
 ## Completed integration record
 
@@ -191,7 +214,7 @@ requirement, not just a hypothetical architecture concern.
 These findings narrow the source gap but do not close FL-002: original access,
 full geometry, units/datum reconciliation, complete history and sample approval
 remain open. Points 2-5 of the owner's reconsideration are not yet resolved.
-Current documentation handoff candidate: `0.3.2`, patch, pending integration;
+At that checkpoint the documentation handoff candidate was `0.3.2`, patch;
 no application implementation, paid API call or accepted pilot is claimed.
 
 Further acquisition added four mirrored F-5 actual-trajectory section XMLs and
@@ -233,10 +256,9 @@ seismic or an inaccessible official release.
 ## Assignment record for each active feature
 
 October 28 planning handoff: new FL-015/016 specs, source/model context contracts,
-early evidence/chat/reconstruction UI checkpoints and 31-task DAG. Candidate
-version remains 0.3.2 (one unintegrated documentation patch, no runtime API change).
-No new feature is ready/done, no implementation branch is assigned, and no paid
-model call or resumed source audit is implied.
+early evidence/chat/reconstruction UI checkpoints and 31-task DAG. Integrated by
+the owner in `a4bf9ee`, version 0.3.2. No new feature is ready/done, no
+implementation branch is assigned, and no paid model call is implied.
 
 Documentation checks passed on October 28: 26 Markdown files, 188 local
 links/headings, table/fence structure, 31 unique tasks and six goals with an acyclic
@@ -245,6 +267,41 @@ traced. Early source/chat/reconstruction and chart paths do not wait for 3D;
 all mandatory tasks reach release and optional Blender does not block it.
 The 18 new PW/RC criteria are binary-testable; these are specification checks,
 not executed application tests or evidence of live agent performance.
+
+### Focused target follow-up after the 0.3.2 integration
+
+Owner-requested source inspection resumed on October 28. F-5's embedded Existing
+completion table now provides visually checked valve/packer/sealstem/muleshoe
+dimensions and MD. The F-12 tally remains unlocated after an expanded bounded
+search; F-11 B's genuine final report contains a dimensioned table marked Plan.
+Actual perforation records exist for all three proposed targets. F-14's six
+initial intervals and F-5's first five match the static table exactly; F-5's
+2016 additions and F-12's contradictory 2014 summary show why historical
+reconciliation is still required.
+
+Evidence and checks are in the [equipment follow-up](EQUIPMENT_DATA_FEASIBILITY.md#10-target-qualification-and-history-follow-up-october-28)
+and ignored hashed audit sidecar. FL-002 remains `in_progress`; neither a complete
+third equipment tally nor final G1/owner cohort acceptance is claimed.
+Documentation-only handoff candidate: **0.3.3**, pending integration. No runtime
+API/schema change, commit, push or application implementation is part of this task.
+
+### Cohort confirmation and implementation-planning handoff
+
+The owner then selected F-12/F-14/F-5, accepted the documented F-12 generic
+limitation and requested warning/error visibility. A structured clarification
+confirmed hybrid labels, review/publication and upload byte/file limits.
+The backlog now includes FL-017, a 32-task DAG and detailed foundation/project/
+upload packets with ownership, resource isolation, tests and stop conditions.
+No G1/G2/G3/G5 result, active worktree, runtime or live call is implied.
+This extends the same unintegrated **0.3.3** documentation patch; do not allocate
+another version merely because the planning work spans multiple turns.
+
+Documentation checks passed: 23 Markdown files, 208 local links/headings, table/
+fence structure, the acyclic 32-task/18-item graphs, all 12 project acceptance
+rows, DQ-1..8/EQ-7 traceability and 19 initial packet steps. All mandatory tasks
+reach the release gate; optional Blender is not a prerequisite. Early project/
+upload work is independent of final G1 and live Meta checks. Whitespace validation
+passed. These are document checks, not application, parser or provider tests.
 
 Add a record when scheduling, not speculative branches or fake test results:
 

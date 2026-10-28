@@ -6,7 +6,56 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 ## Unreleased
 
-**Candidate: 0.3.2**, matching [VERSION](VERSION), pending integration.
+**Candidate: 0.3.3**, matching [VERSION](VERSION), pending integration.
+Patch bump: source qualification and implementation-planning documentation only; no implemented
+API/schema or application behavior change.
+
+### Changed
+
+- **FL-002 / FL-007:** Verified F-5's embedded Existing completion table with
+  source/image hashes, exact MD/length/OD/ID and inert OLE-image provenance.
+  Expanded the F-12 installed-tally search; recorded bounded coverage and the
+  continued non-finding without claiming absence from the complete release.
+- Distinguished F-11 B's actual installation narrative from its dimensioned
+  drawing explicitly marked Plan; kept it a conditional reserve rather than
+  silently replacing F-12 or merging sidetrack identities.
+- Located dated perforation evidence for all three proposed pilots. Matched
+  F-14's six initial and F-5's five 2008 intervals to the static table, explained
+  F-5's three-versus-five snapshot difference, and recorded 2016 additions.
+- Preserved F-12's conflicting 2014 interval summary/detail and clarified that
+  physical perforation length, open/isolation state and interval flow differ.
+  At that inspection checkpoint cohort/history/reference/rights acceptance remained open.
+- Reconciled the owner's `a4bf9ee` integration as version 0.3.2; documentation
+  integration alone did not approve the then-draft behavior or close G0/G1.
+- **FL-002 / FL-007 / FL-014..017:** Recorded the owner's subsequent F-12/F-14/F-5
+  selection, evidence-safe generic F-12 equipment, visible discrepancies, hybrid
+  labels, explicit reconstruction/review/publication and upload-limit approval.
+  Final G1/live/runtime gates remain separate.
+- Added a source/draft/model data-quality issue specification and shared DTO/API
+  contract, named real discrepancy fixtures and generic/unlocated negative tests.
+  Expanded the global DAG to 32 tasks without dropping mandatory features.
+- Added detailed foundation/project/upload implementation packets with 19 internal
+  steps, planned paths/checks, isolated worktrees/resources, single-writer rules and
+  stop/handoff conditions. No application workers or paid calls were launched.
+- Reconciled instructions, backlog and acceptance traceability; clarified inert
+  legacy-Word inspection versus forbidden macro execution for the F-5 source.
+
+### Validation
+
+- Original XML activity locators/timestamps, static interval correspondence,
+  exact-decimal union lengths, device length arithmetic and source/image hashes
+  checked; evidence retained in a new ignored audit sidecar without overwriting
+  prior records. Selected scans inspected visually; no general OCR or Meta calls.
+- Planning checks passed for 23 Markdown files/208 local links and headings,
+  table/fence structure, 32-task and 18-item dependency graphs, 12 project
+  acceptance rows, DQ-1..8/EQ-7 traceability, 19 first-packet steps and whitespace.
+  Mandatory tasks reach release; optional Blender does not block it.
+- Documentation-only change; no application tests or completed reconstruction
+  are claimed.
+
+## 0.3.2 - 2026-10-28
+
+Integrated by the owner in `a4bf9ee`.
 Patch bump: source evidence and revised planning/specifications only; no
 implemented API/schema or application behavior change.
 

@@ -1,29 +1,33 @@
 ---
 goal: Deliver the complete evidence-backed FieldLens local hackathon application
-version: 2
+version: 3
 date_created: 2026-10-27
 last_updated: 2026-10-28
 owner: FieldLens project owner and main orchestrator
-status: On Hold
+status: Planned
 tags: [architecture, implementation, orchestration, evidence, hackathon]
 ---
 
 # Introduction
 
-![Status: On Hold](https://img.shields.io/badge/status-On_Hold-orange)
+![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
 
-**Planning resumed, 2026-10-28; implementation remains On Hold.** The owner
-deferred remaining data qualification and requested points 2-5 be addressed.
-This revised draft puts projects, evidence inspection and agent-led reconstruction
-before scene enrichment. Hybrid categories, explicit runs, review-before-publication
-and revised limits need owner approval; the owner was unavailable to confirm them.
-No implementation dispatch, paid call, commit or final G1 acceptance is authorized.
+**Implementation planning baseline confirmed, 2026-10-28.** The owner selected
+F-12/F-14/F-5, accepted evidence-safe generic F-12 equipment and visible
+discrepancies, and explicitly confirmed hybrid categories, review/publication and
+128 MiB/file, 512 MiB/batch, 200-file limits. The cohort/planning hold is released.
+Final G1, live-spend approval, committed packet review and host/model preflight
+remain separate gates. This request prepares handoffs; no worker has been launched.
 
 No application is implemented. This is the revised sequence for the
 [architecture](../docs/ARCHITECTURE.md)
 and [feature specs](../docs/specs/README.md). It preserves all mandatory scope,
 existing backlog IDs and owner approval gates. Blank Completed/Date cells mean
 unexecuted work, not missing information.
+The [first detailed packets](feature-foundation-workspace-1.md) expand the
+foundation, project lifecycle and upload/job tasks into file-owned implementation
+steps with exact checks. Later slices use their feature contracts and receive a
+launch-time assignment only after prerequisite interfaces/source subsets freeze.
 
 ## 1. Requirements & Constraints
 
@@ -36,6 +40,9 @@ unexecuted work, not missing information.
 - **REQ-004**: Each product checkpoint has a browser walkthrough with real
   persistence, visible error states and source evidence; offline and live checks
   are labeled separately. Supporting backend tasks are not owner-visible milestones.
+- **REQ-005**: F-12 generic equipment and F-14/F-12 conflicting records are
+  required observable limitation cases, not exceptions to grounding. At least one
+  real installed assembly still passes DF-9; no invented placement/dimensions.
 - **SEC-001**: No secrets/private documents in commits, browser/model context or
   logs; no arbitrary model code/SQL/URLs, access-policy changes or automatic publication.
 - **CON-001**: Deadline 2026-11-04 21:00 America/New_York, UTC-05:00; indie track,
@@ -66,7 +73,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
 | TASK-001 | FL-001 | None | Main agent verifies DA-7 actual host model/effort/tools for each profile used, confirms approved design is committed, and records exact integration base before any implementation delegation. | | |
-| TASK-002 | FL-002 | None | When resumed by owner, qualify the already-local sources and complete DF-1..9: F-12 tally/cohort decision, F-5 embedded images, F-14 references/dates and final manifest. Access is resolved; no further bulk download or permission change. | | |
+| TASK-002 | FL-002 | None | Complete DF-1..9 for owner-selected F-12/F-14/F-5: produce ignored `data/volve/demo-manifest.json` with hashes/rights/profiles/windows/expected records and independent reference/state fixtures. Use verified F-5 images/F-14 drawing and preserve F-12's approved generic limitation; tally search is not a prerequisite for source-free implementation. No bulk download, automatic F-11 B substitution or false G1 pass. | | |
 | TASK-003 | FL-004-A | TASK-001 | Backend owner implements FN-1..6 and SC-1..6 in contracts/persistence/migrations, root locks and frontend app/API shell. Real PostgreSQL, loopback readiness and test commands; single shared-contract writer. | | |
 | TASK-025 | FL-015-A | TASK-003 | Backend owner implements project lifecycle/membership in backend/fieldlens/projects and frontend/src/features/projects; PW-1/2/5/8 with keyboard navigation and real persistence. | | |
 | TASK-006 | FL-005-A | TASK-025 | Backend owner implements project upload/jobs/source list in ingestion/jobs/evidence and frontend upload; IN-1/3/4/5/7 and PW-3/4/6/7. Label stored/unsupported/pending extraction explicitly; never publish an asset model. | | |
@@ -74,7 +81,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 ### Implementation Phase 2
 
 - **GOAL-002**: Browser checkpoint B: inspect extracted rows/pages, units,
-  classification conflicts and coverage; ask a cited source question before a
+  classification conflicts, coverage and a linked warning/error inspector; ask a cited source question before a
   graph/scene exists. Native evidence browsing can pass while scans are explicitly
   partial. Live source chat requires TASK-005/027; a stub does not pass that part.
 
@@ -83,6 +90,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | TASK-004 | FL-003-A | TASK-003 | RAG worker implements MI-1..5 offline provider adapter, PostgreSQL budget reservations and finite failure/cancellation behavior in `backend/fieldlens/assistant/`; no live calls. | | |
 | TASK-005 | FL-003-B | TASK-004 | RAG worker runs MI-6 only after approved USD 1 ceiling and balance/key readiness; record actual entitlement/tool protocol. No pilot documents needed. | | |
 | TASK-009 | FL-005-B | TASK-006 | Ingestion owner implements selected qualified native source profiles and evidence UI: IN-2/6 for this subset, exact record/page coverage and wrong-folder fixture. Small approved subset, not full IN-8/G1 acceptance. | | |
+| TASK-032 | FL-017-A | TASK-009 | Frontend owner implements scoped issue API/list/detail/evidence navigation in `backend/fieldlens/evidence/issues.py` and `frontend/src/features/evidence/quality/`; DQ-1/2/3/4/7 and DTO-negative DQ-5/6. Serialize shared schema/client edits; source-first, no graph/3D prerequisite. | | |
 | TASK-011 | FL-011-A | TASK-009 | RAG owner implements project/source-scoped exact/text/vector retrieval in retrieval, source coverage and bounded evidence search; unresolved observations are labeled. No accepted asset graph prerequisite; embedding gate/degradation explicit. | | |
 | TASK-019 | FL-011-B | TASK-004, TASK-011 | RAG owner implements source-context chat/evidence UI, RG-8 offline and applicable RG-3/4/5; no geometry tools or reconstruction writes from chat. | | |
 | TASK-027 | FL-011-D | TASK-005, TASK-019 | RAG owner verifies all three early live source-chat cases under separately approved <=USD 1 allowance; records exact citation/gap/refusal results. Not the complete RG-6 evaluation. | | |
@@ -98,7 +106,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
-| TASK-026 | FL-016-A | TASK-019 | RAG owner implements reconstruction proposals/validator/review UI in reconstruction and shared assistant harness; RC-1..9 offline, real database transactions and source-backed fixtures. Coordinate migrations with backend; do not generate accepted facts in the model. | | |
+| TASK-026 | FL-016-A | TASK-019, TASK-032 | RAG owner implements reconstruction proposals/validator/review UI in reconstruction and shared assistant harness; RC-1..9 offline, DQ-6 publication boundaries, real database transactions and source-backed fixtures. Reuse issue inspector; coordinate migrations with backend; do not generate accepted facts in the model. | | |
 | TASK-028 | FL-016-B | TASK-005, TASK-026, TASK-030 | RAG owner runs RC-10 on 12 independently authored gold cases and selected qualified source records under separately approved <=USD 3 allowance; record actual tool-dependent reconstruction, support and unresolved states. | | |
 
 ### Implementation Phase 4
@@ -114,7 +122,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | TASK-007 | FL-006-A | TASK-003 | Geospatial owner implements TR-1/2/3 analytic trajectory/reference/proximity engine and unit tests in engineering; no renderer or pilot acceptance claimed. | | |
 | TASK-008 | FL-008-A | TASK-003 | Geospatial owner implements PH-2/3/5/6/7/9 deterministic state/union engine; exact t0..t6 fixtures, unknown baselines and same-day ambiguity. | | |
 | TASK-010 | FL-006-B | TASK-007, TASK-026 | 3D owner implements published-model scene/tree, local-origin buffers and evidence selection, TR-4..7 on qualified survey subset; never read active facts directly from upload staging. | | |
-| TASK-012 | FL-007-A | TASK-010, TASK-030 | 3D worker implements source-dimensioned procedural equipment, inspector, catalog/generic/unlocated states and EQ-1..6 from qualified selected evidence; no dependency on Blender. | | |
+| TASK-012 | FL-007-A | TASK-010, TASK-030 | 3D worker implements source-dimensioned procedural equipment, inspector, catalog/generic/unlocated states and EQ-1..7/DQ-5 from qualified evidence. Demonstrate F-14/F-5 dimensional candidates and F-12's explicit limitation; no guessed depth, generated engineering values or Blender prerequisite. | | |
 | TASK-013 | FL-008-B | TASK-008, TASK-009, TASK-010 | Frontend worker wires canonical historical state to real events, MD placement/time controls/inspector and PH-1/4/8; retain acquisition dates and context guards. | | |
 | TASK-014 | FL-009-A | TASK-009, TASK-010 | Geospatial worker implements seabed source projection, typed layer API/component and CX-1/3/4/5; owns seabed-specific files. | | |
 | TASK-015 | FL-009-B | TASK-009, TASK-010 | Geospatial worker implements formation depth horizons/picks, interpolation/source masks and CX-2/3/4/5; verify combined CX-6 after both layers integrate. | | |
@@ -131,10 +139,10 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
-| TASK-029 | FL-005-D | TASK-002, TASK-009, TASK-030 | Ingestion owner verifies IN-8 across the final approved manifest, all required source/image profiles and independent expected records; partial native success is not full pilot acceptance. | | |
+| TASK-029 | FL-005-D | TASK-002, TASK-009, TASK-030 | Ingestion owner verifies IN-8 and real-source DQ-8 inputs across the final approved manifest, including expected conflicts/generic gaps as explicit outcomes. Required profiles and independent records must match; accepted limitations are not fabricated success or full coverage. | | |
 | TASK-020 | FL-011-C | TASK-005, TASK-029, TASK-031 | RAG worker runs the fixed 32-case live gold evaluation under approved USD 3 allowance; record RG-6 and authorized equipment-research coverage, not just successful text generation. | | |
 | TASK-021 | FL-012-A | TASK-031 | QA verifies combined create-project -> upload -> reconstruction review/publication -> scene/history/charts browser path with stub provider, negative paths/accessibility and AC-9/RSS. Feature owners fix defects. | | |
-| TASK-022 | FL-012-B | TASK-002, TASK-020, TASK-021, TASK-027, TASK-028, TASK-029 | QA verifies the real-source/live-provider path and all 12 project ACs on the candidate SHA, with isolated DB/storage and actual usage/evidence. | | |
+| TASK-022 | FL-012-B | TASK-002, TASK-020, TASK-021, TASK-027, TASK-028, TASK-029 | QA verifies the real-source/live-provider path, all 12 project ACs and DQ-1..8 on the candidate SHA; show F-12 generic/unlocated state and real conflicts, with isolated DB/storage and actual usage/evidence. | | |
 | TASK-023 | FL-012-C | TASK-022 | Main agent finalizes operator instructions, rights-safe release inventory, VERSION/CHANGELOG and candidate; owner verifies G4, records <=180 s video and explicitly authorizes publication/submission. | | |
 
 ### Implementation Phase 6
@@ -158,7 +166,7 @@ Missing actual model/tool capability blocks dispatch; no silent model override.
 At launch, assign a new branch `feature/<slice>-<slug>` and worktree
 `/home/slimco/code/FieldLens-worktrees/<slice>-<slug>`. Capture
 `git rev-parse master` only after approved specs are committed; current observed
-base `4ae7f7b` does not contain this uncommitted revision of the architecture package.
+base `a4bf9ee` does not contain this uncommitted planning/data-follow-up revision.
 Do not invent future hashes or create speculative worktrees during planning.
 
 | Resource | Lane 1 | Lane 2 | Integration/demo |
@@ -210,7 +218,7 @@ unsupported sources or count unavailable model tools as working features.
 
 | Checkpoint | Required observation | If missed |
 |---|---|---|
-| Oct 28 evening | Owner approves draft defaults; checkpoint A persists projects/files | Rebaseline dates rather than dispatch unapproved work |
+| Oct 28 evening | Confirmed defaults; review/integrate packets and preflight; target checkpoint A persists projects/files | Rebaseline dates rather than bypass packet/profile prerequisites |
 | Oct 29 evening | Checkpoint B: inspect evidence and qualified early live source chat | Isolate parser/provider blocker; do not defer all Meta testing until the end |
 | Oct 30 evening | Checkpoint C: source-backed reconstruction, review and live gold results | Fix identity/support/time/tool failures before extending scene polish |
 | Oct 31 evening | Checkpoint D and E increments integrated with real evidence | Spend capacity on required equipment/history/context/both charts, not optional GLB |
@@ -220,8 +228,10 @@ unsupported sources or count unavailable model tools as working features.
 | Nov 4, 17:00 | Owner has final package/video and verified submission checklist | Keep four-hour buffer before 21:00 EST deadline; no unauthorized publication |
 
 These are proposed scheduling checkpoints, not owner promises or proof the scope
-fits. If a mandatory source cannot be acquired, the application can retain valid
-partial functionality, but the **full requested demo cannot be accepted**.
+fits. The owner-approved F-12 generic limitation and explicit uncertainty are valid
+demo outcomes, not a requirement to find every missing dimension. If an entire
+mandatory capability lacks qualifying real evidence, the **full requested demo
+cannot be accepted**. Warnings never authorize unvalidated calculations.
 
 Integration is serialized: receive tested commit/handoff -> reconcile with latest
 master -> run affected combined checks -> classify compatibility -> allocate one
@@ -283,6 +293,9 @@ Dirty worktrees are preserved; only known clean merged worktrees are cleanup can
   benchmark all required layers plus local reads during import, not an empty scene.
 - **TEST-006**: Opt-in MI/RG/RC live checks record actual provider/gold-case/spend
   evidence. Default suites run with outbound/provider calls prohibited.
+- **TEST-007**: DQ-1..8/EQ-7 exercise named F-14 reference and F-12 interval
+  conflicts, generic/unlocated rendering, persistent evidence and server-side
+  blocked outputs. Synthetic tests and real-source detection are separate results.
 
 Plan validation: unique TASK/GOAL declarations, resolvable dependencies/acyclic
 DAG, unique slice IDs, valid linked specs, all project ACs traced, optional TASK-024

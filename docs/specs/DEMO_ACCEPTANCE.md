@@ -3,7 +3,7 @@
 > **Spec type:** Process/workflow. **Backlog:** FL-012.
 > **Load-bearing frameworks:** F3, F4, F6. **Supporting:** F1, F2, F5.
 > **Date:** 2026-10-28. **Decision owner:** project owner.
-> **Status:** Revised draft; no application/rehearsal/submission verified.
+> **Status:** Selected cohort/fallback/review workflow confirmed; no application/rehearsal/submission verified.
 > **Zero-Question Score:** 0 unowned design questions; G1/G2/G4/G5 remain live gates.
 
 ## How to Read This Spec
@@ -53,10 +53,10 @@ mocked answers or import latency as live behavior. Keep raw measured run evidenc
 
 | ID | Type | Pass condition | Score | Annotation | Test |
 |---|---|---|---|---|---|
-| DM-1 | Behavioral | From empty isolated DB/storage, create a project, upload the accepted manifest, inspect evidence, run reconstruction, review/publish eligible results and navigate wellbore -> equipment -> history -> both charts -> evidence -> cited answer without manual geometry edits; a second project stays isolated. | 3 | [Validated objective; draft publication policy] | Playwright `fresh-import.spec.ts` |
+| DM-1 | Behavioral | From empty isolated DB/storage, create a project, upload the accepted manifest, inspect evidence, run reconstruction, review/publish eligible results and navigate wellbore -> equipment -> history -> both charts -> evidence -> cited answer without manual geometry edits; a second project stays isolated. | 3 | [Validated objective and publication policy] | Playwright `fresh-import.spec.ts` |
 | DM-2 | Dependency | G1/DF-9, PW/RC, real trajectories/context/charts/history and MI/RG live criteria pass with source/model revisions, hashes and tested commit recorded; mocks are separately labeled. | 3 | [Validated] | acceptance evidence matrix |
 | DM-3 | Non-behavioral | Combined scene passes project AC-9 and <=3 GiB aggregate API/DB/worker RSS target; local read p95 <=1 s over 20 requests during import; model latency reported separately. | 3 | [Assumed: verify RSS; existing AC-9] | combined performance run |
-| DM-4 | Edge case | Interrupted import, conflicting data, missing history, rapid selection change, provider outage and exhausted budget show the specified failure/partial states while preserving prior revision integrity. | 3 | [Validated] | Playwright `failure-paths.spec.ts` |
+| DM-4 | Edge case | Interrupted import, conflicting data, missing history, rapid selection change, provider outage and exhausted budget show specified failure/partial states while preserving prior revisions. DQ-1..8 verify F-12 generic/unlocated equipment and real F-14 reference/F-12 interval discrepancies with blocked affected outputs. | 3 | [Validated: owner October 28] | Playwright `failure-paths.spec.ts`, `quality-issues.spec.ts` |
 | DM-5 | Negative | Default suite has zero paid calls; scanned public release files/browser bundle contain no credentials/private data; unsupported generic geometry never appears as measured truth. | 3 | [Validated] | offline/network checks, release inventory review |
 | DM-6 | Behavioral | All scene objects have keyboard-accessible selection/evidence paths, focus is visible/restored, dialogs are escapable, chart units/axes and evidence state are text-labeled, reduced motion works at 1280x720 and 1920x1080. | 3 | [Validated UX; assumed viewports] | browser accessibility scenarios |
 | DM-7 | Dependency | Owner verifies remaining rules/rights, local startup instructions reproduce the candidate, recording duration <=180 s, and public-code/reuse inventory excludes unapproved originals. No upload/push occurs without permission. | 3 | [Validated] | release/rehearsal checklist |
@@ -88,6 +88,10 @@ agent reconstruction/evidence/review, 25 s trajectories/installed equipment,
 conversation/tool action, 10 s limitations/source attribution.
 If waiting is edited, disclose it and retain
 the complete measured run. Do not spend the recording on generic scene animation.
+Within the equipment/review/limitations segments, contrast F-14/F-5
+source-dimensioned evidence with F-12's labelled generic/unlocated case and open
+one real conflict with both citations. Do not add a separate monitoring dashboard
+or exceed 180 seconds. This is observability of limitations, not a bypass of G1.
 
 Submission checklist: indie track, public code repository, <=3-minute recording,
 Meta use evidenced, third-party licenses/attribution, dataset/code-license separation,

@@ -3,7 +3,7 @@
 > **Spec type:** Product/feature with agent execution contracts. **Backlog:** FL-016.
 > **Load-bearing frameworks:** F1, F2, F4, F5. **Supporting:** F3, F6.
 > **Date:** 2026-10-28. **Author:** main orchestrator. **Decision owner:** project owner.
-> **Status:** Draft; reconstruction objective required, detailed review policy proposed.
+> **Status:** Explicit reconstruction/review/publication policy approved October 28; detailed implementation/live gates remain.
 > **Delivery state:** specifying. **Approved revision / integration:** none.
 > **Zero-Question Score:** 0 unowned questions; approval and source/live gates remain.
 
@@ -38,7 +38,7 @@ Preserve support, contradictions and missing information. `[Validated: owner poi
 
 A persistent reconstruction run, typed tool loop, candidate/diff/evidence UI,
 revision publication and incremental re-evaluation are included.
-`[Validated: custom harness; assumed: explicit run and review/publication policy]`
+`[Validated: custom harness; owner confirmed explicit run and review/publication October 28]`
 
 ### OUT of Scope
 
@@ -58,8 +58,8 @@ for final pilot acceptance, not for each bounded early investigation.
 ### Open Scope Tensions
 
 Automation versus evidential authority: the agent proposes/investigates; validation
-and an explicit user publication action control active state. Owner must approve
-this review policy before implementation. Publish never converts unknowns to facts.
+and an explicit user publication action control active state. The owner confirmed
+this policy on October 28. Publish never converts unknowns to facts.
 
 ## 3. Acceptance Criteria
 
@@ -69,7 +69,7 @@ this review policy before implementation. Publish never converts unknowns to fac
 | RC-2 | Behavioral | Cross-document aliases map to one stable entity only with supported identity evidence; well/wellbore, sidetrack, catalog model/installed instance and planned/as-installed remain distinct in all gold cases. | 3 | [Validated] | `test_entity_resolution` |
 | RC-3 | Negative | Wrong-folder and cross-well narrative fixtures retain the actual source subject; ambiguous identities remain candidates. Unsupported edges, circular sidetrack/containment links and missing evidence cannot be published as valid. | 3 | [Validated] | `test_relationship_validation` |
 | RC-4 | Behavioral | Effective time/precision, report time and revision time remain separate. Contradictory dates/CRS/dimensions block affected conclusions; unknown initial history stays unknown and no same-day order is invented. | 3 | [Validated] | `test_temporal_reconstruction` |
-| RC-5 | Behavioral | Review shows added/changed/removed associations with citations; publish atomically advances the expected active model revision only after validation. Reject or 409 stale-base failure leaves the prior active model unchanged. | 3 | [Assumed: verify] | `test_model_publication` |
+| RC-5 | Behavioral | Review shows added/changed/removed associations with citations; publish atomically advances the expected active model revision only after validation. Reject or 409 stale-base failure leaves the prior active model unchanged. | 3 | [Validated policy; transaction implementation to verify] | `test_model_publication` |
 | RC-6 | Edge case | Re-import/retry produces no duplicate accepted entities/events; replacement sources re-evaluate dependent claims/edges/projections while old revisions remain reproducible. Unsupported old claims are not carried forward as current facts. | 3 | [Validated] | `test_reconstruction_invalidation` |
 | RC-7 | Non-behavioral | One model work unit obeys MI-5: <=4 provider attempts, <=6 tools, <=90 seconds and <=USD 0.50 reserved cost. Limit exhaustion records partial coverage/stop reason; no unattended continuation is dispatched. | 3 | [Assumed: verify limits] | `test_reconstruction_bounds` |
 | RC-8 | Edge case | Cancel/restart/provider failure persists state/usage and publishes nothing; another project/revision's IDs and hostile source instructions cannot broaden scope or execute unauthorized tools. | 3 | [Validated] | `test_reconstruction_recovery` |
@@ -167,6 +167,13 @@ per-feature projection readiness is separate from model publication.
 A reviewer may confirm source support but cannot erase unresolved critical
 references, fabricate dates or make catalog dimensions installed measurements.
 
+Use the shared [quality issue](DATA_QUALITY.md) inspector. F-12 missing dimensions
+can produce labelled generic presentation metadata only for supported component
+identities; absent placement stays unlocated. Generic meshes are not claim values.
+F-14 reference and F-12 interval conflicts remain source-linked issues; affected
+proposals stay outside accepted engineering inputs while unrelated valid claims
+may publish. Review is not an Accept anyway control.
+
 Gold set, authored independently of the model: direct identity, alias, sidetrack,
 cross-well report subject, planned/installed separation, catalog/instance separation,
 missing reference, ambiguous date, contradictory dimensions, duplicate import,
@@ -191,8 +198,8 @@ objects fails RC-3/9/10 even if every node has a real, unrelated citation.
 ## 6. Ambiguity Audit
 
 Primary reconstruction objective and Meta harness are owner requirements.
-Explicit run, review-before-publication, tool limits and exact gold thresholds
-are draft defaults. Owner decides before FL-016 handoff; G2/G3/G5 qualify live
+Explicit run and review-before-publication were confirmed October 28. Tool limits
+and exact gold/spend thresholds still require their packet approvals; G2/G3/G5 qualify live
 protocol, source-backed expectations and extraction resources respectively.
 
 ## 7. Implementation Guidance
@@ -217,7 +224,7 @@ an incomplete run cannot satisfy final G1/demo acceptance.
 
 | Assumption | Confidence | Validation / invalidation |
 |---|---|---|
-| Revision-level review is enough without a full fact editor | M | Owner approval; reopen if actual ambiguity prevents useful publication |
+| Revision-level review is enough without a full fact editor | M | Policy approved October 28; reopen if actual ambiguity prevents useful publication |
 | A small persistent tool loop fits required workflows | H | Reopen on unsupported branching/recovery after measured prototype |
 | Qualified source records allow bounded cross-document reconstruction | M | G3 live gold results; failure blocks agent acceptance, not grounding rules |
 

@@ -2,8 +2,8 @@
 
 > **Spec type:** Product/feature. **Backlog:** FL-007.
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
-> **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** Design complete; installed pilot assembly still unverified.
+> **Date:** 2026-10-28. **Decision owner:** project owner.
+> **Status:** F-12 generic fallback approved; F-14/F-5 dimensions inspected, final installed/reference qualification remains.
 > **Zero-Question Score:** 0 unowned design questions; DF-9 acceptance remains gated.
 
 ## How to Read This Spec
@@ -20,7 +20,7 @@ H/M/L are confidence; AC score 3 is binary, not proof of verified installation.
 
 Selecting equipment reveals a correctly scoped historical instance with
 attribute-level evidence or clearly labeled generic/unlocated limitations.
-Verification: EQ-1 through EQ-6. Outcome score 3.
+Verification: EQ-1 through EQ-7. Outcome score 3.
 
 ## 2. Scope
 
@@ -28,6 +28,9 @@ Verification: EQ-1 through EQ-6. Outcome score 3.
 
 Installed configurations, tubular envelopes, located device meshes, missing-data
 states and bounded cited catalog matching. `[Validated: owner equipment policy]`
+The selected cohort is F-12/F-14/F-5. F-12's missing tally is an approved generic
+fallback case, not a reason to substitute F-11 B or to invent an entire assembly.
+F-14/F-5 supply measured-dimensional candidates; reference/time validation remains.
 
 ### OUT of Scope
 
@@ -58,6 +61,7 @@ Keep run/configuration types separate, even when XML calls a component "tubing."
 | EQ-4 | Edge case | Conflicting OD/ID, invalid length, overlapping incompatible configurations, unavailable catalog and multiple variants expose affected issues without hiding unrelated valid components. | 3 | [Validated] | `test_equipment_conflicts` |
 | EQ-5 | Non-behavioral | Required equipment is included in the scene AC-9 benchmark; field view uses instancing/shared materials and detail assets load only on demand. Generic/exaggeration labels remain visible. | 3 | [Assumed: verify workload] | equipment browser benchmark |
 | EQ-6 | Dependency | One pilot configuration passes DF-9 with installed casing/tubing and a located discrete completion device; all required dimensions/placement open their evidence. | 3 | [Assumed: verify DF-9 threshold] | `test_pilot_installed_assembly` |
+| EQ-7 | Behavioral / negative | F-12's source-supported component with missing dimensions is labelled generic with an issue/evidence link; if placement is unknown/conflicting it appears only in an unlocated preview. F-14/F-5 source-dimensioned devices retain distinct labels and raw dimensions; generic values never enter calculations/engineering export. | 3 | [Validated: owner October 28] | `generic-equipment.spec.ts`, DQ-5/8 |
 
 Synthetic source/catalog/generic fixtures prove fallback logic, not EQ-6.
 
@@ -80,6 +84,14 @@ ID <= OD and lengths positive when known. Preserve source precision; radius
 exaggeration affects only the manifest's display transform.
 Unknown component orientation is not a claimed installation orientation.
 If an illustrative axial orientation is needed, label it display-only.
+
+Render parameters are separate from accepted measurement claims. Use explicit
+representation `source_dimensioned/catalog_dimensioned/generic` and placement
+`located/unlocated/blocked`; do not overload claim validity with mesh fidelity.
+Located generic proxies require valid instance/placement evidence and a visible
+display-scale label. Unlocated previews use no trajectory coordinate or fake MD.
+If identity/quantity itself is unsupported, show the assembly gap in the
+[issue inspector](DATA_QUALITY.md), not a guessed list of devices.
 
 Catalog research uses only public manufacturer/model/variant identifiers already
 documented in the source. Maximum three queries and five inspected pages per
@@ -109,7 +121,8 @@ No universal catalog or arbitrary CAD importer is required.
 
 ## 7. Implementation Guidance
 
-FL-007-A delivers procedural geometry/inspector/fallbacks and EQ tests.
+FL-007-A delivers procedural geometry/inspector/fallbacks and EQ tests, including
+the selected F-12 limitation alongside F-14/F-5 measured-dimensional evidence.
 FL-007-B optional exports occur only after EQ-6 identifies an appropriate asset.
 Planned checks: equipment Python and frontend tests, GLB inspection only if used,
 type/build and integrated scene benchmark. No assets/tests have been produced.

@@ -3,9 +3,9 @@
 > **Spec type:** Product/feature. **Backlog:** FL-015.
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
 > **Date:** 2026-10-28. **Author:** main orchestrator. **Decision owner:** project owner.
-> **Status:** Draft; owner requested project-centric behavior, not these detailed defaults.
+> **Status:** Hybrid categories, explicit review/publication and upload limits approved October 28; detailed packet review precedes dispatch.
 > **Delivery state:** specifying. **Approved revision / integration:** none.
-> **Zero-Question Score:** 0 unowned questions; owner approval blocks implementation.
+> **Zero-Question Score:** 0 unowned questions; committed packet and runtime prerequisites still gate dispatch.
 
 ## How to Read This Spec
 
@@ -15,7 +15,8 @@ criteria. QA: failure and isolation scenarios. Covers project AC-2/8/10/11.
 ## Notation Key
 
 `[Validated]` means owner-required, not implemented. `[Assumed: verify]` marks a
-proposed default for owner approval before handoff. H/M/L mean high/medium/low
+proposed detail for review before handoff. Owner-confirmed workflow choices below
+supersede their earlier draft status. H/M/L mean high/medium/low
 confidence, not statistical probability. AC score 3 means binary-testable.
 
 ## 1. Outcome Statement
@@ -33,9 +34,9 @@ Verification: PW-1 through PW-8 in a fresh PostgreSQL/browser run. Outcome score
   `[Validated: owner point 2; editing details assumed]`
 - File batches, multi-category labels, optional custom tags, processing coverage
   and original-source navigation. Upload/jobs/readers remain FL-005's implementation.
-  `[Validated: structured upload; hybrid classification assumed]`
+  `[Validated: owner confirmed hybrid classification, October 28]`
 - Source revisions separate from published asset-model revisions; a new upload
-  does not silently replace the currently inspected reconstruction. `[Assumed: verify]`
+  does not silently replace the currently inspected reconstruction. `[Validated: confirmed review workflow]`
 
 ### OUT of Scope
 
@@ -52,9 +53,9 @@ FL-005-A depends on the workspace slice, not on completion of all FL-015 criteri
 
 ### Open Scope Tensions
 
-Owner wants organization without knowing all entities in advance. Proposed
+Owner wants organization without knowing all entities in advance. Approved
 resolution: accept uncategorized files; suggest categories, then discover actual
-entities from content. Owner decides before implementation, not during upload.
+entities from content. Labels never establish engineering facts.
 
 ## 3. Acceptance Criteria
 
@@ -63,10 +64,10 @@ entities from content. Owner decides before implementation, not during upload.
 | PW-1 | Behavioral | Create two named projects, reload/restart the API, and reopen each with its saved description and correct source/model status. Empty projects display an upload action, not fabricated assets. | 3 | [Validated] | `project-lifecycle.spec.ts` |
 | PW-2 | Negative | Using project B's document/job/run/conversation/entity ID under project A returns 404; list, retrieval, graph, evidence and artifact paths expose zero B records. Same blob hash does not bypass membership. | 3 | [Validated] | `test_project_isolation` |
 | PW-3 | Behavioral | Add a second batch to a project; its new source revision retains unchanged first-batch members. Repeating bytes/idempotency key creates no duplicate document or processing job. Explicit replacement retains the previous bytes/revision. | 3 | [Validated] | `test_incremental_sources` |
-| PW-4 | Behavioral | One report can have completion/equipment and perforation/history categories plus a custom tag; suggested labels and user overrides retain distinct origins. A file with no category can be uploaded. | 3 | [Assumed: verify] | `upload-categories.spec.ts` |
+| PW-4 | Behavioral | One report can have completion/equipment and perforation/history categories plus a custom tag; suggested labels and user overrides retain distinct origins. A file with no category can be uploaded. | 3 | [Validated: owner October 28] | `upload-categories.spec.ts` |
 | PW-5 | Negative | A tag, folder or filename cannot establish well identity, installed state, effective date, CRS or a numeric claim. A mislabeled F-12/F-11 fixture is flagged by content, not forcibly reassigned to the folder label. | 3 | [Validated] | `test_category_is_not_evidence` |
 | PW-6 | Edge case | During failed/cancelled/new imports, the published model remains pinned and labeled with its source revision; the UI explicitly shows that newer sources are pending or failed. | 3 | [Assumed: verify] | `source-model-revisions.spec.ts` |
-| PW-7 | Non-behavioral | Streaming enforces 128 MiB/file, 512 MiB/batch and 200 files/batch, testing exact limit and limit+1 byte; filename/media validation precedes parsing. Oversize failure is visible and publishes no source revision. | 3 | [Assumed: verify] | `test_project_upload_bounds` |
+| PW-7 | Non-behavioral | Streaming enforces 128 MiB/file, 512 MiB/batch and 200 files/batch, testing exact limit and limit+1 byte; filename/media validation precedes parsing. Oversize failure is visible and publishes no source revision. | 3 | [Validated: owner October 28; performance unmeasured] | `test_project_upload_bounds` |
 | PW-8 | Behavioral | Keyboard-only navigation creates/opens a project and switches Sources/Reconstruction/Explore; unavailable capabilities state their prerequisite. Project switching invalidates pending requests and action acknowledgments. | 3 | [Assumed: verify] | `project-navigation.spec.ts` |
 
 Eight criteria, all score 3. Full feature acceptance requires both workspace and
@@ -91,7 +92,7 @@ and active model revision. These limits are `[Assumed: verify, H]`.
 No CRS/date is forced at project creation; source references and analysis choices
 are recorded later, never defaulted from project name or a Volve preset.
 
-Proposed category keys `[Assumed: verify, H; owner before handoff]`:
+Category keys for the confirmed hybrid policy `[Assumed: verify, H; exact labels at packet review]`:
 
 | Key | Display meaning |
 |---|---|
@@ -121,7 +122,7 @@ a stale parent returns 409 and requires refresh/retry, not silent last-writer-wi
 Metadata edits are audited; parser/profile changes create new extraction results
 and a new source revision. Prior model evidence remains reproducible.
 
-The proposed 128 MiB limit admits the inspected 54,466,467-byte F-14 PDF; the old
+The approved 128 MiB limit admits the inspected 54,466,467-byte F-14 PDF; the old
 25 MiB proposal did not. The 211,263,929-byte EDM export still requires a separately
 approved streaming profile/limit. Batch size is not a cumulative project-storage
 cap; disk-space failures remain explicit. Do not copy all 44.82 GiB into a project.
@@ -140,10 +141,10 @@ or source search fail PW-2 even if the project dropdown appears correct.
 
 ## 6. Ambiguity Audit
 
-Project scope and incremental upload are owner requirements. Hybrid labels,
-limits and three-workspace navigation are conservative proposals because the
-owner was unavailable for clarification. Owner approval is due before FL-015
-handoff. None is claimed approved by the unanswered clarification form.
+Project scope and incremental upload are owner requirements. The owner explicitly
+confirmed hybrid labels, review/publication and 128/512 MiB / 200-file limits on
+October 28. This supersedes the earlier unanswered form. Detailed packet review,
+committed contracts and runtime readiness still precede dispatch.
 
 ## 7. Implementation Guidance
 
@@ -151,6 +152,8 @@ Planned ownership: `backend/fieldlens/projects/`, project repositories/migration
 `frontend/src/features/projects/`, project navigation and focused tests.
 FL-005 owns upload/storage/jobs. Shared schemas/client have one writer.
 Use real API/database persistence from the first browser checkpoint.
+The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
+specify the lifecycle and subsequent upload handoffs, including partial PW coverage.
 
 Verification, tested SHA and integration version: not run/not assigned.
 Proposed implementation bump: minor; this specification-only update is a patch.
@@ -166,7 +169,7 @@ must expose conflicts without pretending that Publish resolves them.
 
 | Assumption | Confidence | Validation / invalidation |
 |---|---|---|
-| Hybrid labels reduce upload burden | H | Owner before handoff; invalidated if manual-only workflow is required |
+| Hybrid labels reduce upload burden | H | Policy approved October 28; actual usability checked in the upload walkthrough |
 | One project corpus is sufficient | H | Reopen if independent named datasets within a project are requested |
 | 128/512 MiB streaming limits fit selected samples and disk/RSS budgets | M | Verify exact byte-boundary tests and import/RSS measurement before acceptance |
 

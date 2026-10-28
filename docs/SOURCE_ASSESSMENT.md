@@ -82,7 +82,7 @@ earlier assistant suggestions:
 |---|---|---|
 | Volve is a credible primary source | Supported at collection level: Equinor describes about 40,000 files and 2008-2016 production history | Specific compatible files still require inspection |
 | 3-5 wells make an achievable demo | Plausible presentation scale, not proof of effort or data completeness | Prioritize complete source coverage; do not impose a five-well product cap |
-| Technical equipment data is essential to the value proposition | Agree; an original F-14 AS INSTALLED schematic now supplies device dimensions and MD intervals. Cohort, reference and history qualification remain open | Reconcile source references/dates and locate the referenced F-12 tally; apply DF-9 rather than presenting a generic-only scene as reconstruction |
+| Technical equipment data is essential to the value proposition | F-14 and F-5 drawings supply device dimensions/MD. Owner selected F-12/F-14/F-5 and accepted an explicit generic F-12 limitation | Apply DF-9 to a real installed assembly; validate references/history and expose source-linked warnings. Missing F-12 dimensions never become measurements |
 | PDF/diagram understanding can reconstruct all equipment | Overstated without dimensions, view conventions and installed-state evidence | Supported parametric geometry plus catalog/generic fallback; no universal inverse-CAD claim |
 | Meta Muse provides multimodal and agent tools | Supported by current public Meta docs, not a fabricated model family | Verify account entitlement and actual extraction/tool behavior |
 | Structured output guarantees reliable data | It constrains shape, not engineering correctness | Domain validation, evidence locators, deterministic checks |
@@ -130,10 +130,11 @@ explicit license check before adoption; they are not baseline dependencies.
 
 ## 5. Joint data audit: choose files by evidence coverage
 
-The current proposal is F-12/F-14/F-5, with F-1 C and exact F-11-family wellbores
-as reserves, based on [metadata discovery](VOLVE_DATA_DISCOVERY.md). This
-supersedes the conversation's unverified F-1/F-1 B/F-1 C/F-4 shortlist, not an
-approved manifest. Favor compatible records over names; do not conflate sidetracks.
+The owner selected **F-12/F-14/F-5** on October 28 after
+[local source inspection](VOLVE_DATA_DISCOVERY.md). F-12's generic equipment
+limitation and visible discrepancies are accepted; F-11 B is not an automatic
+replacement. This settles cohort choice, not the final hashed manifest or
+reference/history qualification. Do not conflate sidetracks or invent placement.
 
 | Required evidence | Candidate category | Audit questions |
 |---|---|---|
@@ -163,10 +164,10 @@ It must record a manifest with file hash, origin/license, format/version,
 canonical IDs, references/units, locator strategy, expected facts, conflicts,
 chosen configuration dates and missing coverage. The owner provides file paths
 or completes official access using the existing account confirmed by the owner.
-The exact candidate list is metadata-only; no pilot sample/limit approval or
-completed pilot acquisition has yet been recorded. Authentication succeeded, but
-the installed catalog lacks the advertised public schema/volume; this is now an
-access/visibility issue rather than a missing-account issue.
+The candidate list is metadata-only. The subsequent owner-supplied local download
+resolves the earlier catalog/access problem; all 33 candidates are present.
+The cohort and 128/512 MiB / 200-file upload bounds are now approved, but the
+final source/profile/window manifest and publication rights remain G1 work.
 
 The [equipment feasibility report](EQUIPMENT_DATA_FEASIBILITY.md) reassesses the
 additional original sources and records actual sample attributes. SODIR helps

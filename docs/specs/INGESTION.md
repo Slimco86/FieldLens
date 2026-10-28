@@ -3,7 +3,7 @@
 > **Spec type:** Product/feature. **Backlog:** FL-005.
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
 > **Date:** 2026-10-28. **Decision owner:** project owner.
-> **Status:** Draft revised for project uploads; source profiles/limits need approval.
+> **Status:** Upload byte/file limits approved October 28; source profiles and detailed packet qualification remain gated.
 > **Zero-Question Score:** 0 unowned design questions; G1/profile qualification remains.
 
 ## How to Read This Spec
@@ -53,11 +53,11 @@ an approved streaming profile/limit revision before accepting that file.
 |---|---|---|---|---|---|
 | IN-1 | Behavioral | Fresh project-scoped multipart upload yields source hashes, source revision/job IDs and immutable originals; repeating identical content/idempotency key creates no duplicate records. Source publication cannot move the active model pointer. | 3 | [Validated] | `test_upload_idempotency` |
 | IN-2 | Behavioral | Each CSV/XLSX/LAS/XML/native-PDF fixture retains original values/units and exact locators, extractor/profile version and counted coverage; original document header outranks filename classification. | 3 | [Validated] | `test_source_profiles` |
-| IN-3 | Negative | Traversal/absolute paths, nested ZIP/symlink/encrypted entries, XXE/DTD, macros, unsupported signatures and expanded-size violations fail explicitly without writing outside staging or making network calls. | 3 | [Validated] | `test_hostile_uploads` |
+| IN-3 | Negative | Traversal/absolute paths, nested ZIP/symlink/encrypted entries, XXE/DTD, unsupported signatures and expanded-size violations fail explicitly without writing outside staging or making network calls. Source code/macros are never executed; an approved legacy-Word profile may read inert streams despite macro presence and records that boundary. | 3 | [Validated] | `test_hostile_uploads` |
 | IN-4 | Edge case | Killing/restarting the worker mid-stage leaves an interrupted attempt; a fenced retry cannot duplicate records or let the old attempt publish. Cancellation publishes no active revision. | 3 | [Validated] | `test_job_recovery` |
 | IN-5 | Behavioral | Corrected sources create a new immutable revision; failed replacements preserve old results under old labels; partial revisions expose quarantined records/counts. | 3 | [Validated] | `test_revision_publication` |
 | IN-6 | Negative | Missing reference, unknown event code, drilling/completion mismatch and suspicious equal MD/TVD are flagged; no invented CRS, ordering, installed state or zero values enter valid claims. | 3 | [Validated] | `test_source_conflicts` |
-| IN-7 | Non-behavioral | Streaming enforces 128 MiB/file, 512 MiB/batch, 200 files and 500 PDF pages; test exact byte limits and +1 byte. Only one heavy stage runs and local reads meet project AC-9 during import. | 3 | [Assumed: verify; admits inspected F-14 PDF] | `test_ingestion_limits`, concurrent read benchmark |
+| IN-7 | Non-behavioral | Streaming enforces 128 MiB/file, 512 MiB/batch, 200 files and 500 PDF pages; test exact byte limits and +1 byte. Only one heavy stage runs and local reads meet project AC-9 during import. | 3 | [Validated byte/file limits; parser/performance limits to verify] | `test_ingestion_limits`, concurrent read benchmark |
 | IN-8 | Dependency | Every accepted pilot family has an approved profile and all manifest expected records/pages matched or explicitly quarantined; a missing mandatory family cannot pass G1. | 3 | [Validated] | `test_pilot_ingestion` |
 
 Full acceptance includes IN-8; success on invented fixtures is not real ingestion
@@ -107,6 +107,15 @@ Only the latest source revision pointer changes after source validation; active
 model publication belongs to FL-016 and requires an explicit reviewed revision.
 Progress reports processed/total when known, otherwise stage/count without a fake
 percentage. `ready_with_issues` identifies accepted versus quarantined records.
+
+All reader/job issue outputs use [QualityIssue](SHARED_CONTRACTS.md#quality-issues)
+and the [shared inspector](DATA_QUALITY.md). Missing F-12 dimensions and conflicting
+source values must stay traceable; do not code special success outputs for known
+filenames or audit hashes. The inspected F-5 Word file contains macro streams:
+the selected profile extracts inert text/images, never invokes macros/Office code.
+Storage-only success reports byte verification, not successful extraction.
+The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
+define the upload/job slice and its explicitly deferred parser acceptance.
 
 Conditional OCR evaluation: ingestion owner tests Docling on <=20 approved pages,
 measures page/table/cell accuracy and peak RSS against the same gold fixture.

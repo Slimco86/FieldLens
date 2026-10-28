@@ -4,7 +4,7 @@
 > **Load-bearing frameworks:** F2 acceptance, F4 context, F5 failures.
 > **Supporting:** F1 outcome, F3 scope, F6 ambiguity.
 > **Date:** 2026-10-28. **Decision owner:** project owner; technical owner: orchestrator.
-> **Status:** Draft revised for project/source/model separation; approval required.
+> **Status:** Workflow baseline confirmed October 28; detailed contracts require committed handoff review.
 > **Zero-Question Score:** 0 unowned design questions; G1/G2/G5 remain execution gates.
 
 ## How to Read This Spec
@@ -17,7 +17,9 @@ scope, tensions and assumptions. This implements project AC-1/2/3/6/7/8/10.
 `[Validated]` is an owner-confirmed invariant, not a runtime result.
 `[Assumed: verify]` is a proposed design/limit requiring owner approval.
 H/M/L are confidence judgments. AC score 3 is binary-testable. Unless explicitly
-validated, wire-format choices below are `[Assumed: verify, H; owner before FL-004]`.
+validated, wire-format choices below are `[Assumed: verify, H; review before FL-004]`.
+Hybrid labels, explicit review/publication and upload byte limits were confirmed
+by the owner on October 28; runtime/source compatibility is not thereby verified.
 
 ## 1. Outcome Statement
 
@@ -83,7 +85,7 @@ Date: 2026-10-27. Shared truth rules come from the project specification.
 | Reconstruction run | UUID `run_id`, optional predecessor run, project/source/base model revisions, bounded work scope, status, step/tool/budget records, coverage/stop reason, candidate revision and idempotency key |
 | Proposal / issue | Run and candidate revision, typed entity/edge/claim payload, source support, validation outcome and unresolved reasons; not an accepted fact |
 | Conversation | UUID, project, message/request IDs and per-request immutable SourceContext or QueryContext; never reuse context implicitly across projects |
-| Validation | `unreviewed/valid/conflicting/invalid/unsupported`; issues carry code, attribute/record IDs, severity and human explanation |
+| Validation | `unreviewed/valid/conflicting/invalid/unsupported`; scoped QualityIssue records carry evidence and affected-output blocking independently of severity |
 | Evidence class | `source_record/catalog_derived/derived/interpolated/generic`; no class implies validation |
 | Coverage | `complete/partial/unknown`, inspected and total page/record counts where known, missing ranges and reasons |
 | Quantity | Original value/unit/reference; normalized finite numeric value/unit only when conversion is validated; unknown result has `value:null` plus reason |
@@ -179,6 +181,38 @@ intervals, physical coverage, access, scoped flow, quantity results, coverage an
 evidence/derivations. An incomplete total is null; an independently justified
 known-subset length is a separate labeled value, never the exact total.
 
+### Quality issues
+
+`QualityIssue` is shared by source extraction, reconstruction and engineering.
+Its representation and UI acceptance are specified in [data quality](DATA_QUALITY.md).
+Fields: server UUID `issue_id`, immutable `context:EvidenceContext`, registered
+`code`, `severity:info/warning/error`, human-readable `message`, `record_ids`,
+`claim_ids`, `entity_ids`, `attribute_keys`, typed evidence links, `coverage`,
+`blocked_operations`, `producer_name/version`, revision-local `producer_key`,
+UTC `created_at`, and nullable `predecessor_issue_id`.
+
+Lists may be empty only when inapplicable (for example no claim exists in source
+context); all nonempty IDs/locators must belong to the requested context. A
+document/record extraction issue cannot require an already accepted asset.
+Blocked operations are a closed set:
+`claim_acceptance/placement/physical_geometry/calculation/temporal_state`.
+They apply to the referenced attributes/entities, not indiscriminately to a project.
+The source/model validators, not the browser, determine eligibility.
+
+Initial codes: `MISSING_EQUIPMENT_DIMENSIONS`, `UNKNOWN_PLACEMENT`,
+`REFERENCE_CONFLICT`, `INTERVAL_CONFLICT`, `IDENTITY_MISMATCH`,
+`DIMENSION_CONFLICT`, `TEMPORAL_AMBIGUITY`, `HISTORY_INCOMPLETE`,
+`EXTRACTION_PARTIAL`, `UNSUPPORTED_FORMAT`, `EXTRACTION_FAILED`,
+`GENERIC_REPRESENTATION`. New producer codes require a shared-contract change.
+Severity is not validation state or evidence class; a warning can still block
+one operation. Issue acknowledgment never changes those states.
+
+Persist issues with their producer's transaction. Retry idempotency is keyed by
+project/context revision + producer + producer_key. Do not deduplicate different
+source values into one chosen measurement. Later revisions retain history rather
+than rewriting old issue records; only a newly validated result can supersede an
+affected claim. Counts and pages are context-scoped before filtering/pagination.
+
 ### REST surface
 
 All model reads below require `revision_id`; temporal endpoints also require
@@ -188,6 +222,7 @@ All paths begin `/api/v1`.
 
 | Method/path | Request / result |
 |---|---|
+| `GET /session` | Allowed local Host/Origin -> `{csrf_token}` with `Cache-Control: no-store`; token is process-local, regenerated on restart and never a URL/log/static-bundle value |
 | `GET/POST /projects` | Cursor -> summaries; name/description -> Project, HTTP 201 |
 | `GET/PATCH /projects/{id}` | Project summary; typed name/description changes -> Project |
 | `POST /projects/{id}/imports` | Multipart files, labels, explicit replacements, expected parent source revision/idempotency key -> source revision/job IDs, HTTP 202 |
@@ -196,6 +231,8 @@ All paths begin `/api/v1`.
 | `PATCH /projects/{id}/documents/{document_id}/classification` | Categories/tags and expected metadata version -> audited classification; no engineering mutation |
 | `GET /projects/{id}/records` | SourceContext/document/cursor -> original values, locators and extraction results |
 | `GET /projects/{id}/records/{record_id}` | SourceContext -> one eligible extracted record and original locator; usable before asset attribution |
+| `GET /projects/{id}/issues` | EvidenceContext, optional severity/code/entity filters, cursor/limit -> QualityIssue page and context-scoped counts/coverage |
+| `GET /projects/{id}/issues/{issue_id}` | EvidenceContext -> issue, affected outputs and eligible evidence links; unknown/out-of-context ID is 404 |
 | `GET /projects/{id}/jobs/{job_id}` | Persistent attempt/stage/progress/issues and typed result; validate project/revision membership |
 | `POST /projects/{id}/jobs/{job_id}/cancel` | Idempotent cancellation request -> HTTP 202; terminal state unchanged |
 | `POST /projects/{id}/reconstructions` | Pinned source/base revisions, bounded scope, idempotency key -> run ID, HTTP 202 |

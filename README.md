@@ -13,8 +13,8 @@ Historical perforation events will support date-specific interval/state inspecti
 including MD/TVD placement, perforated length, production/injection, shut-in and
 reperforation history without conflating wellbore and individual interval status.
 
-The initial demonstration targets a small Volve subset, typically 3-5 wellbores.
-That number is not a product limit. The defining capability is reconstruction
+The owner-selected demonstration targets **F-12, F-14 and F-5**.
+That cohort is not a product limit. The defining capability is reconstruction
 from uploaded evidence, not a pre-authored 3D scene with a chatbot attached.
 
 ## Current state
@@ -22,8 +22,10 @@ from uploaded evidence, not a pre-authored 3D scene with a chatbot attached.
 Requirements, architecture, feature specifications, dependency-aware execution
 plan and development-agent profiles are documented. No application, database,
 containers, dataset ingestion or paid model calls have been created by this work.
-The October 28 architecture revision proposes project uploads, reconstruction
-review and early source chat before 3D. Detailed defaults await owner review.
+The owner confirmed hybrid project uploads, explicit reconstruction review/
+publication and upload limits on October 28. F-12 generic/unlocated equipment
+and real discrepancies are intentional, visibly labelled demo cases.
+Detailed implementation packets are prepared for review/commit and host preflight.
 Local source access is established; final pilot qualification, package compatibility
 and account-specific API access remain execution gates, not implementation claims.
 
@@ -32,9 +34,9 @@ The demo runs locally on the development WSL machine.
 Owner-confirmed submission: **indie track**, **public repository**, and a
 **three-minute recorded demo**. Containerized local execution is also acceptable.
 
-The **0.3.1** initial architecture package was integrated in `4ae7f7b`; there is
-still no application release. **0.3.2** is the pending documentation checkpoint
-for source inspection and the revised project/reconstruction/UI-first design.
+The **0.3.2** architecture package was integrated in `a4bf9ee`; there is
+still no application release. **0.3.3** is the pending documentation checkpoint
+for target qualification, confirmed workflow and detailed implementation handoffs.
 See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Development documents
@@ -52,13 +54,18 @@ See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
   incremental uploads, isolation and source/model revision boundaries.
 - [Composite reconstruction](docs/specs/ASSET_RECONSTRUCTION.md): primary agent
   workflow, evidence-linked entities/relationships, review and live evaluation.
-- [Implementation sequence](plan/architecture-fieldlens-1.md): 31 explicit tasks,
+- [Data quality](docs/specs/DATA_QUALITY.md): evidence-linked warnings/errors,
+  generic limitations and affected-output blocking without hiding valid records.
+- [Implementation sequence](plan/architecture-fieldlens-1.md): 32 explicit tasks,
   dependency DAG, parallel lanes, agent/worktree ownership and deadline checkpoints.
+- [First implementation packets](plan/feature-foundation-workspace-1.md):
+  foundation -> project lifecycle -> uploads/jobs, with planned files, tests,
+  isolated resources, handoffs and stop conditions.
 - [Technical baseline](docs/TECHNICAL_BASELINE.md): agreed stack, rationale,
   engineering conventions, and observed local tooling.
 - [Source assessment](docs/SOURCE_ASSESSMENT.md): conversation analysis,
   verified claims, data candidates, and feasibility gates.
-- [Volve data discovery](docs/VOLVE_DATA_DISCOVERY.md): proposed F-12/F-14/F-5
+- [Volve data discovery](docs/VOLVE_DATA_DISCOVERY.md): selected F-12/F-14/F-5
   cohort, exact candidate-file list, official access steps, rights and known gaps.
 - [Data-feasibility spec](docs/specs/DATA_FEASIBILITY.md): draft bounded sample
   audit; metadata discovery is not engineering-data verification.
@@ -95,12 +102,15 @@ verify **GPT-6 Astra / xhigh** in the host. Workers use Terra low, Sonnet medium
 or Sol high according to the task. Repository profiles do not switch an existing
 chat or create worktrees; verify the chosen worker/model/tools before execution.
 
-**Next step:** review the draft workflow defaults and sequence before implementation.
-Then qualify the host and deliver browser-visible projects/uploads, source inspection
+**Next step:** review/commit the detailed packets, verify actual host/profile
+readiness, then delegate the foundation slice in its own worktree. Deliver
+browser-visible projects/uploads, source inspection
 and early chat, reconstruction review, and finally the linked scene/history/context/
 charts. Each real-data increment needs its qualified subset; full demo acceptance
 still requires the final manifest and live evaluations.
-The owner supplied the local data, including actual F-14 installed dimensions.
-Remaining F-12/F-5 extraction/coverage and reference/history questions are recorded,
-not solved by this architecture. Both chart families and all contextual layers
+The owner supplied the local data, including inspected F-14/F-5 dimensions.
+F-12's missing tally does not block synthetic project/upload work; generic values
+never become engineering measurements. Remaining extraction/profile and
+reference/history qualification is recorded, not solved by planning.
+Both chart families and all contextual layers
 remain mandatory. No application or paid infrastructure was created.

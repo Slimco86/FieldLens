@@ -4,10 +4,10 @@
 > **Load-bearing frameworks:** F1 outcome, F2 acceptance, F3 scope, F4 executor context.
 > **Supporting:** F5 failure conditions, F6 ambiguity audit.
 > **Date:** 2026-10-26, America/New_York.
-> **Updated:** 2026-10-28: project workspaces, primary reconstruction agent and UI-first delivery.
+> **Updated:** 2026-10-28: confirmed target cohort/workflow and detailed UI-first implementation planning.
 > **Author:** Copilot-assisted synthesis. **Decision owner:** project owner.
-> **Status:** Owner-required outcomes retained; revised workflow defaults are DRAFT for review.
-> **Zero-Question Score:** 0 unowned questions; 6 owned gates below still block affected work.
+> **Status:** Target cohort and workflow confirmed; detailed implementation packets await review/integration.
+> **Zero-Question Score:** 0 unowned questions; owned data/live/runtime gates below still block affected work.
 
 ## How to Read This Spec
 
@@ -49,7 +49,7 @@ All rows are `[Validated: owner clarification in this session]`.
 | ID | Required capability | Boundary | AC |
 |---|---|---|---|
 | S-1 | Project-centric upload | Create/reopen a project for related assets, incrementally upload categorized sources, preserve isolation, provenance and revisions | 1-3, 11 |
-| S-2 | Well trajectories | Shared spatial reference; real source measurements; target 3-5 wellbores without hard-coded count limits | 3 |
+| S-2 | Well trajectories | Shared spatial reference; real source measurements; selected F-12/F-14/F-5 demo without hard-coded count limits | 3 |
 | S-3 | Equipment | Casing, tubing, pumps, packers, perforations or other components evidenced in the sample; three-tier fallback below | 4 |
 | S-4 | Geographic/geological context | Terrain or offshore seabed/bathymetry as appropriate, plus reservoir/formation representation | 5 |
 | S-5 | Linked charts | Both production time series and well-log depth charts; linked asset selection | 6 |
@@ -69,6 +69,13 @@ requires a coherent source-backed pilot assembly before accepting equipment
 feasibility; individual generic fallbacks do not make a generic-only scene
 evidence-backed. Exact checkpoint thresholds remain subject to G1 approval.
 
+On October 28 the owner selected **F-12/F-14/F-5** and accepted F-12's missing
+equipment dimensions as a generic/unlocated presentation case. F-14/F-5 provide
+source-dimensioned candidates; final reference/history qualification remains.
+Actual discrepancies are required warning/error examples in the
+[data-quality inspector](specs/DATA_QUALITY.md), not reasons to fabricate a value
+or silently substitute F-11 B. An accepted limitation is not a validated measurement.
+
 Perforation events must preserve effective time and provenance so the state at a
 selected date can be reconstructed, including repeated opening, shut-off, role
 changes and reperforation. Use **total perforated length** (perforated footage when
@@ -87,7 +94,7 @@ the proposed contract, fixtures and remaining source-data decisions.
 | Inferring reservoir connectivity from well proximity | Geometry alone is insufficient. `[Validated: source conversation]` |
 | Full CAD reverse engineering from arbitrary drawings or model names | Deterministic parametric visual assets first; complex CAD imports require a separate justified spec. `[Assumed: verify at G1]` |
 | Dedicated graph DB, application-runtime multi-agent framework, separate Node API, Kubernetes | No demonstrated requirement; typed graph and a custom persistent single-agent harness remain in scope. Development agents/worktrees are separate. `[Validated: baseline; owner reconstruction requirement]` |
-| Full manual conflict-resolution application | Arbitrary fact editing/merge/split remains deferred. A minimal candidate/evidence/diff review and publication screen is proposed, not authority to waive validation. `[Validated: deferral; Assumed: verify review policy]` |
+| Full manual conflict-resolution application | Arbitrary fact editing/merge/split remains deferred. Minimal candidate/evidence/diff review and publication plus read-only issue inspection are approved outcomes, not authority to waive validation. `[Validated: owner October 28]` |
 | Hosted multi-user deployment and authentication product | Local single-user demo is accepted; local binding and secret protection still apply. `[Validated]` |
 | Photorealism and WebGPU migration | Not a substitute for correct, navigable geometry. `[Validated: accepted baseline]` |
 
@@ -121,8 +128,8 @@ depending on an unresolved manifest or threshold is blocked, not passed.
 | AC-8 | Edge case | Missing CRS, inconsistent depth units, conflicting dimensions or event order, unknown initial perforation history, unavailable catalog, and interrupted import each produce explicit affected-record/job states. No invented value is committed as verified; prior revisions remain available and distinguishable from incomplete work. | 3 | `[Validated: reliability requirement; exact states defined in feature specs]` |
 | AC-9 | Non-behavioral | On the documented demo manifest/browser at 1920x1080, p95 frame duration during a 30-second orbit is <=33.3 ms after warmup; p95 local read API latency is <=1 s over 20 requests during one import. Report model latency separately. | 3 | `[Assumed: verify proposed budgets with owner at G1; not measured]` |
 | AC-10 | Negative / non-behavioral | Provider failure, budget exhaustion, hostile document instructions and invalid tool IDs produce explicit safe failures. Browser bundles/logs contain no credentials. Default automated tests make zero paid calls; live validation records token/tool cost against the USD 150 balance. | 3 | `[Validated: cost and integrity constraints; tests to implement]` |
-| AC-11 | Behavioral / negative | Create/reopen two projects, add categorized files incrementally and preserve their sources/jobs/conversations/models across restart; every direct-ID, retrieval, graph, evidence and artifact access rejects the other project's records. Labels never establish engineering facts. | 3 | `[Validated: owner point 2; category policy proposed in FL-015]` |
-| AC-12 | Behavioral / negative | The live reconstruction harness passes the approved 12-case RC-10 gold set, producing supported entities/relationships/dated configurations and explicit unresolved items before 3D. A user can inspect citations/diffs; publication cannot promote unsupported claims or alter another revision/project. | 3 | `[Validated: owner points 3-5; gold/review details require G0/G3]` |
+| AC-11 | Behavioral / negative | Create/reopen two projects, add categorized files incrementally and preserve their sources/jobs/conversations/models across restart; every direct-ID, retrieval, graph, evidence and artifact access rejects the other project's records. Labels never establish engineering facts. | 3 | `[Validated: owner point 2; hybrid policy confirmed October 28]` |
+| AC-12 | Behavioral / negative | The live reconstruction harness passes the approved 12-case RC-10 gold set, producing supported entities/relationships/dated configurations and explicit unresolved items before 3D. A user can inspect citations/diffs; publication cannot promote unsupported claims or alter another revision/project. | 3 | `[Validated: owner points 3-5 and October 28 review policy; gold requires G3]` |
 
 **Complexity:** complex, 12 project-level criteria; individual features need
 smaller specs. **Definition of done:** all required ACs pass on the agreed data,
@@ -181,11 +188,13 @@ Initial decisions dated 2026-10-26; additions dated explicitly below.
 | Meta key ready; public-data processing permitted (2026-10-27) | Select an appropriate entitled model after bounded testing; no waiver of source/provider terms or Contributor-mode permission |
 | Project-centric inputs and primary composite reconstruction agent (requested October 27; resumed October 28) | Source files characterize related assets; the agent establishes identities, relationships and temporally consistent configurations |
 | Intermediate deliverables must be UI-verifiable | Owner must inspect source understanding and reconstruction before investing in the full scene |
+| F-12/F-14/F-5 selected; generic F-12 equipment and visible discrepancies (October 28) | Demonstrate trustworthy partial reconstruction without waiting for a missing tally or inventing engineering values |
+| Hybrid labels; explicit reconstruction/review/publication; 128 MiB/file, 512 MiB/batch and 200 files (October 28) | Owner confirmed the remaining workflow defaults in a structured clarification |
 
-Proposals, not owner-confirmed decisions: hybrid multi-category upload, one corpus
-per project, explicit reconstruction runs, review-before-publication, 128 MiB/file
-and 512 MiB/batch limits. The owner was unavailable to answer the clarification
-form; these conservative defaults require G0 approval before implementation.
+The October 28 confirmation supersedes the earlier unanswered clarification form.
+Detailed implementation contracts still receive packet review before dispatch;
+source transformations, live allowances and runtime compatibility remain verified
+gates, not inferred from approval of the user workflow.
 
 ### Dependencies
 
@@ -232,7 +241,7 @@ Dates below are proposed decision checkpoints, not extra owner commitments.
 
 | Gate | Question / resolution needed | Owner | Due | Confidence |
 |---|---|---|---|---|
-| G0 | Approve the project/upload/reconstruction/review defaults and UI-first task sequence; clarify any changes before implementation. | Owner | Before first implementation handoff | M |
+| G0 | Workflow/cohort choices confirmed October 28: F-12/F-14/F-5, safe generic/issue visibility, hybrid labels, review/publication and upload byte/file limits. Review detailed packets/contracts and commit the approved execution base before dispatch. | Owner + orchestrator | Workflow decision resolved; packet integration/preflight before first handoff | H |
 | G1 | Which files/formats, compatible assets, contextual layers, tolerances and performance fixture satisfy scope? Include perforation history coverage, event/time precision and state mappings; approve final manifest. | Owner + implementer | Final qualification proposed Nov 1; each earlier real-source checkpoint requires its own approved subset first | M |
 | G2 | Which model/version is entitled, what is the actual credit balance, and does the selected Responses/tool protocol work? Follow the bounded Meta spec; no paid extraction/streaming dependency unless required by an approved slice. | Owner + implementer | Before FL-003-B live smoke and live assistant acceptance | M |
 | G3 | Approve independent source-chat, reconstruction and full exploration gold fixtures, expected supported/unknown outputs and tolerances. | Owner + implementer | Before the corresponding FL-011-D, FL-016-B and FL-011-C live acceptance | M |
@@ -240,7 +249,7 @@ Dates below are proposed decision checkpoints, not extra owner commitments.
 | G5 | Which pinned parser/embedding/library versions and optional container layout pass the sample/resource checks? Record in relevant feature specs. | Implementer, owner approval for material changes | 2026-10-28, before affected integration | M |
 
 **Score:** 0 unowned questions, 6 owned gates unresolved. Owner-required outcomes
-are retained; detailed workflow defaults await approval. The [architecture](ARCHITECTURE.md) and
+are retained; workflow defaults were confirmed October 28. The [architecture](ARCHITECTURE.md) and
 [feature specs](specs/README.md) now define the system with explicit execution gates.
 
 ## 7. Implementation Guidance
@@ -265,8 +274,8 @@ boundaries, explicit unknowns and bounded workloads, not optimistic promises.
 
 ### Milestones / Checkpoints
 
-1. Approve the revised design; create/reopen projects and persist categorized uploads.
-2. Inspect real extracted content/coverage and early cited source conversation.
+1. Review/commit implementation packets and preflight the host; create/reopen projects and persist categorized uploads.
+2. Inspect real extracted content/coverage, linked warnings/errors and early cited source conversation.
 3. Run reconstruction and review hierarchy, dated configurations, evidence and
    revision diff before 3D; separately verify live Meta reconstruction.
 4. Inspect published trajectories/equipment, then separately verify historical
@@ -281,8 +290,8 @@ not a promise that the full scope fits the remaining time.
 - **Full scope vs. incomplete data/time:** preserve all requirements; owner decides
   any reduction after G1 evidence, not the implementer silently.
 - **Automatic reconstruction vs. reliable data:** automate investigation and
-  validated mappings; proposed minimal source-support/revision review is not a
-  full fact editor and cannot bypass critical validators. Owner approves at G0.
+  validated mappings; approved minimal source-support/revision review is not a
+  full fact editor and cannot bypass critical validators.
 - **Grounded chat vs. web enrichment:** field facts come from uploaded evidence;
   external sources may supply product specifications, never invented installed state.
 

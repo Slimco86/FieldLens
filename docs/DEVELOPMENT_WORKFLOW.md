@@ -10,6 +10,10 @@ The [application execution plan](../plan/architecture-fieldlens-1.md) now define
 the task DAG, two resource lanes, critical-path checkpoints and acceptance sequence.
 Its [feature index](specs/README.md) maps every project requirement to tests.
 Use that plan for scheduling; the rules here remain the governing delivery policy.
+The [first detailed packets](../plan/feature-foundation-workspace-1.md) define
+foundation, project lifecycle and upload/jobs with file ownership, exact planned
+checks and isolated resources. October 28 workflow/cohort approval is not proof
+that these packets have been integrated or that a profile/runtime has been verified.
 
 ## 1. Roles and authoritative records
 

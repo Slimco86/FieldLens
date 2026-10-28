@@ -8,14 +8,22 @@ evidence-backed relationships and temporally consistent configurations is the
 primary agent task. Parsing, retrieval, deterministic engineering, 3D, charts and
 conversation support that reconstruction rather than a pre-authored scene.
 
-- The demo targets 3-5 Volve wellbores; this is a dataset choice, not an application
-  limit or a substitute for the upload-to-reconstruction workflow.
+- The owner-selected demo cohort is **F-12, F-14 and F-5** (October 28, 2026).
+  This is a dataset choice, not an application limit or a substitute for upload-
+  driven reconstruction. No automatic replacement by an F-11-family wellbore.
 - Project membership scopes files, identities, jobs, runs, conversations, retrieval
   and UI actions. Upload categories/filenames are hints, not engineering evidence.
-- Follow the draft [project workspace](../docs/specs/PROJECT_WORKSPACE.md) and
-  [reconstruction](../docs/specs/ASSET_RECONSTRUCTION.md) contracts after owner
-  approval. Proposed hybrid categories and review-before-publication are not yet
-  approved behavior; a user publication action cannot waive validation.
+- Follow the [project workspace](../docs/specs/PROJECT_WORKSPACE.md) and
+  [reconstruction](../docs/specs/ASSET_RECONSTRUCTION.md) contracts. Hybrid labels,
+  explicit reconstruction/review/publication and 128 MiB/file, 512 MiB/batch,
+  200-file limits were confirmed October 28. Detailed packets still need review,
+  committed contracts and host preflight; publication cannot waive validation.
+- F-12's missing equipment dimensions are an approved generic-display case;
+  supported identity/placement is still required, otherwise show an unlocated
+  preview or assembly gap. F-14/F-5 supply source-dimensioned candidates, not an
+  excuse to skip reference/time validation. Expose real discrepancies through the
+  [data-quality contract](../docs/specs/DATA_QUALITY.md); block affected outputs,
+  not unrelated valid records. Generic values never enter engineering calculations.
 - All contextual layers and both chart families are required for the hackathon.
   Implement them in increments; do not silently downgrade them to stretch goals.
 - Historical perforation events and date-specific completion state are required:
@@ -79,6 +87,11 @@ conversation support that reconstruction rather than a pre-authored scene.
   development usage separately from Meta application credit; do not invent savings.
 - Use [the persistent backlog](../docs/BACKLOG.md) as the cross-session work ledger.
   Do not start a blocked dependency or count a mocked integration as verified.
+- Use the [global DAG](../plan/architecture-fieldlens-1.md) and
+  [first implementation packets](../plan/feature-foundation-workspace-1.md).
+  Start foundation -> project lifecycle -> uploads/jobs after approved planning
+  integration and actual profile preflight. F-12's missing tally does not block
+  these synthetic-source slices; G1 and live-provider acceptance remain separate.
 - Worktrees isolate files, not databases, ports, secrets, processes or API budgets.
   Isolate those resources explicitly. Subagents must not modify another worktree,
   merge the integration branch, or independently edit global release metadata.

@@ -1,17 +1,16 @@
 # FieldLens application architecture
 
-Design revision: 2026-10-28. Backlog: FL-014. **Draft for owner review.
-Implementation is not approved or verified by this document.**
+Design revision: 2026-10-28. Backlog: FL-014. **Workflow/cohort baseline confirmed;
+detailed implementation packets require review, committed contracts and preflight.
+No application behavior has been implemented or verified.**
 
-The initial planning package was integrated in `4ae7f7b`. The owner subsequently
-requested project-centric categorized uploads, composite-asset reconstruction as
-the agent's primary job, a dedicated Meta harness, and early UI-verifiable
-increments. On October 28 the owner deferred remaining data qualification and
-resumed this design work. This revision addresses points 2-5 together.
-Hybrid categories, explicit reconstruction runs and review-before-publication are
-conservative proposed defaults, not confirmations from the unanswered clarification.
-The prior data-access hold no longer blocks planning; G1 and implementation
-approval remain open.
+The initial package was integrated in `4ae7f7b`, and the project/reconstruction/
+UI-first revision in `a4bf9ee`. On October 28 the owner selected F-12/F-14/F-5,
+accepted generic F-12 equipment and visible discrepancies, and confirmed hybrid
+categories, explicit reconstruction/review/publication and upload byte/file limits.
+This supersedes the earlier unanswered clarification and cohort/planning hold.
+G1 engineering qualification, live API approval and dispatch readiness remain
+separate; accepting warnings does not validate their underlying measurements.
 
 This answers the architecture request using the actual source inspection in
 [equipment feasibility](EQUIPMENT_DATA_FEASIBILITY.md) and
@@ -37,8 +36,9 @@ that outcome; a late chatbot on a pre-authored scene would not satisfy it.
 | UI | React 19, TypeScript strict, Vite 8, R3F 9, Three.js/WebGL2 | Required interactive scene and linked panels; no SSR or WebGPU dependency |
 | Retrieval | Exact IDs + PostgreSQL full text + local dense embeddings + typed graph expansion | Identifier precision and evidence coverage matter more than adding a graph service |
 | Agent | Persistent custom Python harness with reconstruction and exploration modes, shared Meta SDK adapter and budget ledger | SDK is transport; application owns planning/tools/state/validation/recovery; development agents are separate |
-| Publication | Agent stages a source-backed model/diff; user publishes only eligible results | Proposed conservative default; schema validity or model confidence cannot establish engineering truth |
+| Publication | Agent stages a source-backed model/diff; user publishes only eligible results | Owner-confirmed October 28; schema validity or model confidence cannot establish engineering truth |
 | Equipment | Procedural source-dimensioned primitives first; optional reviewed Blender GLB | Tubular records contain dimensions; Blender cannot establish missing installation facts |
+| Data quality | Shared source/draft/model issue inspector with evidence and affected-output blocking | Owner wants real discrepancies visible; severity and generic labels never waive validation |
 | Context | Source-backed seabed mesh and depth-domain formation surfaces/picks | Mandatory context, not a reservoir simulator; never interpret TWT as depth |
 | Packaging | Frontend production build served by FastAPI; Compose for DB | One local URL for demo; full application containers optional |
 
@@ -46,6 +46,10 @@ These are technical design selections, not measured compatibility claims.
 The [technical baseline](TECHNICAL_BASELINE.md) retains the environment evidence.
 The [execution plan](../plan/architecture-fieldlens-1.md) defines dependency gates.
 The [contracts](specs/SHARED_CONTRACTS.md) are normative for implementation once approved.
+The [first detailed packets](../plan/feature-foundation-workspace-1.md) define
+foundation -> projects -> upload/jobs. F-12's missing tally does not block those
+synthetic-source increments. Real model/scene acceptance still uses qualified
+records, measured F-14/F-5 equipment candidates and an explicitly limited F-12 view.
 
 ## 2. Runtime and data flow
 
@@ -210,7 +214,7 @@ improvements. Evaluate them against reviewed page/image fixtures in FL-005-C;
 source browsing exposes unsupported/partial coverage until qualification.
 No universal OCR/Word importer is promised.
 
-The 54,466,467-byte F-14 report motivates the proposed 128 MiB/file bound.
+The 54,466,467-byte F-14 report fits the approved 128 MiB/file bound.
 The 211,263,929-byte EDM export remains outside it and requires an approved
 streaming profile/limit if needed. Local availability is not permission to ingest
 the entire release or assume simulator formats are supported.
@@ -225,11 +229,15 @@ Project-first desktop workspace with three views:
 - **Explore:** published asset tree at left, scene in the center, inspector/
   evidence/assistant at right and production/log charts below.
 
-The header exposes project, source/model revision, as-of selection where relevant
-and processing state. Early source chat opens evidence without requiring a model;
+The header exposes project, source/model revision, as-of selection where relevant,
+processing state and context-scoped issue counts paired with coverage.
+The [quality inspector](specs/DATA_QUALITY.md) opens competing values, citations and
+blocked operations. It has no Accept anyway control. Generic F-12 components are
+labelled and require supported identities; unknown placement stays in an unlocated
+preview, not at an invented scene coordinate.
+Early source chat opens evidence without requiring a model;
 engineering/navigation tools appear only as their verified services become ready.
-Each delivery increment has a real persisted browser walkthrough. This is a draft
-design informed by the
+Each delivery increment has a real persisted browser walkthrough. This design is informed by the
 [visual references](design/README.md), not an existing screenshot.
 
 At 1280x720, switch side panels to accessible drawers; keep both chart families
@@ -294,7 +302,7 @@ Design limits, not measurements; approval/validation occurs before execution.
 |---|---|
 | Runtime processes | One API, one worker, one DB; no Celery/Redis broker |
 | Heavy computation | One parser/geometry/embedding job at a time; two numeric-library threads |
-| Upload | Proposed 128 MiB/file, 512 MiB/batch, 200 files/batch; streaming HTTP 413; not a lifetime project cap |
+| Upload | Owner-approved 128 MiB/file, 512 MiB/batch, 200 files/batch; streaming HTTP 413; not a lifetime project cap |
 | Archives | ZIP only, no nesting/symlinks/traversal/encryption; actual expanded bytes within the same batch limit |
 | PDF | 500 pages/file; process batches of <=20; account for every page |
 | Job | 10-minute lease with heartbeat every 10 seconds; stage deadlines and cancellation between batches; one retry only for classified transient failure |
@@ -322,7 +330,8 @@ adapter source-fixture tests; React interactions; Playwright fresh-upload
 end-to-end; opt-in live Meta evaluation. Label synthetic, mirror, replay and
 official-source evidence separately.
 
-G0 is owner approval of this revised workflow before implementation.
+G0 workflow/cohort decisions were confirmed October 28. New detailed packets and
+contract amendments still receive review before their committed execution base.
 G1 remains the accepted real-data manifest; qualified early subsets do not close
 the final gate. G2 remains actual Meta entitlement and credit verification.
 G3 covers independent source-chat, reconstruction and exploration gold fixtures.

@@ -1,10 +1,12 @@
-# Equipment data: as-installed F-14 geometry evidence found
+# Equipment data: F-14 and F-5 dimensional evidence found
 
-Reviewed 2026-10-27 after the owner identified equipment data as a project-critical
+Updated 2026-10-28 after the owner identified equipment data as a project-critical
 concern. **Latest verdict: source-backed dimensional reconstruction is feasible
-for at least F-14; the full cohort/history/reference gate is not passed.** An
-owner-supplied local completion schematic now supplies actual device dimensions
-and installed MD intervals; see [section 9](#9-local-originals-as-installed-f-14-proof-and-remaining-gaps).
+for F-14 and F-5; the full cohort/history/reference gate is not passed.** Local
+completion drawings supply device dimensions and MD intervals. F-12's specific
+installed tally remains unlocated; F-11 B is a conditional reserve, not an
+automatically better installed-data substitute. See the
+[October 28 follow-up](#10-target-qualification-and-history-follow-up-october-28).
 At earlier checkpoints we had
 inspected dimensioned XML probes and a public conversion of daily reports containing
 actual production-completion and perforation operations. We have not yet verified
@@ -311,15 +313,17 @@ and six perforation intervals. The PBR's **20 ft stroke is not its 8.440 m overa
 row length**. These measurements support source-based dimensional envelopes;
 they do not supply manufacturer CAD or every mechanical detail.
 
-Two unresolved conflicts prevent declaring the whole engineering gate passed:
+Reference and temporal qualification still prevent declaring the whole engineering
+gate passed:
 
 - The schematic gives `RKB-MSL: 53.870 m`; the ACTUAL survey and report page 56
   use 54.90/54.9 m. Keep these references separate pending reconciliation.
-- The schematic's literal `Date Shot` is `7/9/2008`, while the original
-  July 6 daily report explicitly records firing 3345-3354.2 m MDRT on July 5.
-  Its tubing-installation date also differs from the dated operation sequence.
-  Diagram update time, activity start, firing time and installation time are
-  different fields; do not silently choose a convenient date.
+- The schematic's literal `Date Shot` is `7/9/2008`. The follow-up below locates
+  all six original firing events over July 5-9: the drawing may summarize the
+  campaign's last day, rather than contradict every earlier interval date.
+  Its tubing-installation date still needs alignment with the operation sequence.
+  Diagram update time, activity windows and installation time are different fields;
+  do not apply one drawing date to every event.
 
 **Conclusion:** equipment reconstruction is not dependent on downloading seismic
 or finding a generic CAD library. At least one real pilot completion contains
@@ -349,8 +353,9 @@ locating this specific document is the highest-value remaining source task.
 Its `COMPLETION_REPORT_1.PDF` is a drilling report. The genuine completion report
 is `15_9_F_5_FWR_Completion.doc`. Local legacy-Word extraction confirmed as-run
 packer-setting/testing, liner-top/PBR operations and perforation intervals.
-Its embedded as-installed schematic/tally images remain unverified. This is an
-extraction/inspection gap, not evidence that the completion document is missing.
+The October 28 follow-up below resolves the embedded-image inspection gap:
+its dimensioned drawing is labelled **Existing**, with tubing-installation
+metadata. This is not a missing-document problem.
 
 ### Historical and extraction limits
 
@@ -367,6 +372,142 @@ local utilities: Python 3.12/pypdf 6.21.3, isolated pypdfium2/Pillow rendering,
 and antiword 0.37-16 extracted into the session directory after it was missing.
 No application dependency, system installation, OCR service or Meta call was
 introduced, and source files were not changed.
+
+## 10. Target qualification and history follow-up: October 28
+
+The owner subsequently selected **15/9-F-12, 15/9-F-14 and 15/9-F-5**, accepting
+generic/unlocated F-12 equipment and visible discrepancies. This is not a fully
+qualified engineering manifest. The source-inspection follow-up searched the
+specific missing F-12 tally, inspected F-5's embedded drawings and assessed
+**15/9-F-11 B** as a possible replacement. F-11, F-11 A, F-11 T2 and F-11 B must
+not be collapsed into one wellbore.
+
+### F-12 tally: expanded search, still not located
+
+The bounded native-text search covered **87 PDF paths, 68 distinct contents and
+3,262 pages**: cross-well completion/FWR reports, all 31 F-12 PDFs and relevant
+technical PDFs. Duplicate hashes confirm that copies of F-11 reports under F-12
+are not independent F-12 evidence. The filename inventory has no separately
+named tally/schematic/as-installed candidate. The full EDM tag scan and 112
+F-12 assembly records did not identify this completion tally; drilling/casing
+design assemblies are not a substitute.
+
+The August 18, 2016 integrity log also references the **29-01-2008 As Installed**
+tally (PDF pages 4 and 6), alongside the previously found August 15/16 plug-log
+references. These are references, not the drawing itself. The 2009 PLT ZIP
+contains four LAS files, not a tally attachment. All 20 pages of the two scanned
+November 2014 plug/perforation PDFs were rendered for overview and selected
+headers read at full resolution; they document interventions, not a full
+completion tally.
+
+**Result: not found in this search, not proven absent from the entire release.**
+There was no general OCR pass over all scans or exhaustive inspection of every
+embedded image in the 44.82 GiB download. F-12 still lacks a qualified complete
+installed device/dimension/MD table, despite useful operational and log evidence.
+
+### F-5: embedded dimensioned Existing completion verified
+
+Original: `Well_logs_pr_WELL/15_9-F-5/14.DIV.REPORTS/15_9_F_5_FWR_Completion.doc`,
+2,653,184 bytes; SHA-256
+`ebe36ba321bb098398bc0f76d8d506d43a2c502781d8d1924dc37cba6f1dda3b`.
+Nine PNGs were extracted inertly from its OLE Data stream, without running Word
+macros. The decisive table is at **Data stream byte offset 2,062,779**:
+1620 x 682 pixels, 104,397 bytes, SHA-256
+`4e9dbae71416cae81184b2fae0f788372a158f7e385691a1c0bcd418f509d782`.
+This is an embedded-image locator, not an asserted Word page number.
+
+The drawing identifies **Existing / NO 15/9-F-5 (Main Wellbore)**, Water Injector,
+`Tub.Inst.Date 8/18/2008`, `Opr.Fin.Date 8/27/2008`, and last update
+`9/2/2009 1:46:42 PM`. Preserve those distinct dates. Columns explicitly give
+MD in metres RKB, length in metres and Max OD/ID in inches.
+
+| Visually verified device | MD top-bottom, m RKB | Length, m | Max OD, inches | ID, inches |
+|---|---:|---:|---:|---:|
+| 7-inch Baker TSM 7.5 safety valve | 508.470-511.000 | 2.530 | 9.190 | 5.875 |
+| Granite packer 9 5/8-inch x 7-inch, size 831 x 600 | 2782.226-2783.766 | 1.540 | 8.310 | 6.000 |
+| 7.50-inch sealstem, described as 15 ft | 2811.072-2814.492 | 3.420 | 7.500 | 6.039 |
+| Baker Ratcheting Muleshoe | 2814.492-2815.982 | 1.490 | 7.450 | 5.994 |
+
+The source also supplies tubing/casing intervals and part/serial identifiers.
+The nominal 15-ft description is not the measured 3.420-m row length; maximum
+OD is not a uniform body diameter. This is enough for source-backed dimensional
+envelopes of these devices, not exact manufacturer mechanical detail or proof
+that the same configuration remained installed at every later date.
+
+### F-11 B: useful reserve, with a Plan-status caveat
+
+The genuine final report is
+`Well_logs_pr_WELL/15_9-F-11 B/14.DIV.REPORTS/COMPLETION_REPORT_3.PDF`,
+64 pages; SHA-256
+`359ddda1019e25e35eeb4bc16bc21f7f58ad6a12f30dc266d0ab975e9e978500`.
+Pages 17-18, sections 4.7-4.8, record completion running on June 30-July 4, 2013
+and packer setting/testing on July 4-6. Actual installation narrative therefore
+exists. **However, the dimensioned table on PDF page 59 explicitly says
+"Plan / Completion F-11 B IOR".** Its inclusion in a final report does not
+silently convert every planned dimension and depth into an installed measurement.
+The drawing is labelled page 1 of 2; the second tally sheet was not located here.
+
+F-11 B also has an ACTUAL survey to 4770 m MD, dated 2013 interval-table rows and
+later perforation operations. Those make it a credible reserve. Qualification
+still needs exact installed-table corroboration, reference/history checks and
+production identity mapping: the workbook uses `NO 15/9-F-11 H`, NPD code `7078`
+and display label `15/9-F-11` in `Daily Production Data!B748:D748`.
+Do not attribute that series to a sidetrack solely by its short display label.
+
+**Owner decision after this inspection:** retain F-14/F-5 and select F-12 with
+an explicit generic/unlocated equipment limitation. F-11 B remains a conditional
+reserve, not a replacement. A complete installed F-12 tally is not a prerequisite
+for this accepted presentation; supported component identity and placement are
+still required for located geometry, and generic dimensions cannot enter
+engineering calculations. Existing validated data remain usable while affected
+claims/results are blocked.
+
+### Perforation events exist for all three proposed targets
+
+"History reconciliation" does **not** mean that no events are available.
+The static table omits dates for all 16 pilot rows, but original daily reports
+and service logs supply dated operations:
+
+| Wellbore / effective date | Verified event evidence | Remaining distinction |
+|---|---|---|
+| F-12, February 11, 2008 | February 12 XML, activity 8, 13:30-15:00 +01:00, confirms TCP guns fired; report summary gives 3130-3281 m MDRT | Broad operation span is not one continuously perforated interval. Reconcile the five precise static intervals with the firing assembly |
+| F-12, November 26, 2014 | November 27 XML, activity 7, sets an EVO plug at 3150 m; activities 17-18 position and activate guns; service-log page 1 reports 3126.2-3130.7 m | Report summary instead says 3126.2-3139.7 m. Preserve the conflict; two agreeing detailed sources support investigation, not silent overwrite |
+| F-14, July 5-9, 2008 | Six explicit firing activities match all six static intervals exactly | Known initial physical union 73.2 m, not automatically flowing/open length at later dates |
+| F-5, August 24-25, 2008 | Three firing activities match the three intervals in its Existing drawing | Physical union 45 m |
+| F-5, October 16-17, 2008 | Two more perforation activities, 3619-3622 and 3605-3608 m | These explain why the static table has five intervals but the earlier drawing has three; combined physical union 51 m |
+| F-5, April 19, 2016 | Two further activities, 3501-3510 and 3474-3492 m | Selected known physical union becomes 78 m; the five-row static table is not the complete later history |
+
+Exact original XML locators below use **1-based activity ordinals**. Filenames are
+under `Well_technical_data/Daily Drilling Report - XML Version/`; event dates
+come from `dTimStart/dTimEnd`, not from the report filename.
+
+| Wellbore | Report basename / activity | Observed MD interval, m |
+|---|---|---:|
+| F-14 | `15_9_F_14_2008_07_06.xml` / 9 | 3345-3354.2 |
+| F-14 | `15_9_F_14_2008_07_07.xml` / 5 | 3312-3321.2 |
+| F-14 | `15_9_F_14_2008_07_08.xml` / 15 | 3287-3296.2 |
+| F-14 | `15_9_F_14_2008_07_09.xml` / 12 | 3044-3059.2 |
+| F-14 | `15_9_F_14_2008_07_10.xml` / 5, 16 | 3021-3036.2; 3005-3020.2 |
+| F-5 | `15_9_F_5_2008_08_25.xml` / 9 | 3704-3712 |
+| F-5 | `15_9_F_5_2008_08_26.xml` / 2, 9 | 3682-3700.5; 3651.5-3670 |
+| F-5 | `15_9_F_5_2008_10_17.xml` / 6 | 3619-3622 |
+| F-5 | `15_9_F_5_2008_10_18.xml` / 3 | 3605-3608 |
+| F-5 | `15_9_F_5_2016_04_20.xml` / 14, 30 | 3501-3510; 3474-3492 |
+
+Remaining work is to establish a supported initial state and bounded historical
+coverage, classify reservoir perforations versus tubing punches/abandonment
+cuts, reconcile additions/overlap and plug/isolation/removal events, and align
+MD/TVD/datum/revisions. Shut-in does not erase physical holes, and well-level
+production/injection does not establish which interval flowed. For example,
+F-14's 2016 shallow 144.5-147.5 m operation must not become reservoir-producing
+footage. These checks are substantive, not just missing-date formatting.
+
+The ignored `data/volve/source-audit/local-target-followup-audit.json` retains
+source hashes, search coverage, 17 selected original activity observations,
+static-table correspondence, exact-decimal union checks and the F-11 B survey
+probe. The extracted F-5 image is retained alongside it. Earlier audit records
+are preserved. No general OCR, application implementation, paid model call or
+final G1/cohort acceptance is claimed.
 
 ## Attribution
 

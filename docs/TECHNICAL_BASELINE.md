@@ -3,8 +3,8 @@
 Date: 2026-10-26, America/New_York. Updated 2026-10-28 with the revised
 [application architecture](ARCHITECTURE.md) and
 [implementation sequence](../plan/architecture-fieldlens-1.md).
-Core stack families are retained. Project/reconstruction workflow defaults are
-draft proposals; package resolution, host qualification and performance remain
+Core stack families are retained. Project/reconstruction workflow defaults were
+confirmed by the owner on October 28; package resolution, host qualification and performance remain
 unverified execution gates.
 
 ## 1. Prefer a small system with explicit responsibilities
