@@ -4,7 +4,7 @@
 > **Load-bearing:** F3 scope, F4 executor context, F6 ambiguity.
 > **Supporting:** F1 outcome, F2 acceptance, F5 failure conditions.
 > **Date:** 2026-10-27. **Decision owner:** Project owner.
-> **Status:** Base configuration integrated; main/backend model activation verified October 28, worker file-edit tools unavailable (DA-7 blocked).
+> **Status:** Base configuration integrated; backend editing/discovery restored in the recreated profile and used by the foundation worker. Independent foundation QA is active; delivery is not yet integrated.
 > **Extension:** FL-013 Blender skill/workflow statically verified; integration pending.
 > **Approval:** Owner confirmed 10 specialists plus orchestrator and effort defaults
 > in the 2026-10-27 preparation conversation.
@@ -87,10 +87,11 @@ Route uncertainty and engineering risk upward rather than lowering acceptance.
 | DA-4 | Negative | Research and plan repair expose no edit/execute tools, workers cannot own global release metadata, and no profile permits inferred engineering facts, unauthorized data transmission or default paid Meta tests. | 3 | [Validated: project policy]; scope/tool review |
 | DA-5 | Edge case | Missing profile/model/effort, wrong checkout/branch, unapproved contract or unavailable required tool blocks the assignment; no silent fallback or continuation under an unverified model. | 3 | [Validated: owner/workflow]; preflight scenario review |
 | DA-6 | Non-behavioral | No worker body exceeds 6,000 characters, shared policy is linked rather than copied wholesale, and assignments record bounds and usage when available (otherwise explicitly unavailable). | 3 | [Validated: approved cost-conscious setup]; static bounds and handoff check |
-| DA-7 | Dependency | Before feature delegation, host discovery resolves the chosen profile and runtime metadata confirms its model/effort; required tool access is checked. Static validation, self-reported model names and documentation are not substitutes. | 3 | [Partial: October 28 runtime confirms Astra/xhigh and backend Sonnet/medium; worker file-edit tool access unavailable]; host smoke/trace |
+| DA-7 | Dependency | Before feature delegation, host discovery resolves the chosen profile and runtime metadata confirms its model/effort; required tool access is checked. Static validation, self-reported model names and documentation are not substitutes. | 3 | [Verified for the recreated backend and independent QA: host Sonnet/medium, actual editing/discovery and browser/test use; main returned to Astra/xhigh at 16:59 EDT]; repeat host smoke/trace for each assignment |
 | DA-8 | Behavioral | The assignment uses the active feature branch in `/home/slimco/code/FieldLens`; only one writer runs, no worker switches branches, and the orchestrator waits for workers/checks/helpers before a branch switch. No new worktree is created or existing dirty worktree removed. | 3 | [Validated: owner serial-workflow amendment]; Git status, assignment and execution checks |
+| DA-9 | Behavioral | Every logical feature is tested by a different agent from its implementer. The orchestrator delegates acceptance/integration checks, routes fixes back and obtains independent re-verification before the authorized commit/merge and backlog completion. | 3 | [Validated: owner clarification October 28, 17:12 EDT]; separate-agent verdict and integration evidence |
 
-Definition of done: DA-1 through DA-6 and DA-8 pass, DA-7 is recorded for activation, and
+Definition of done: DA-1 through DA-6, DA-8 and DA-9 pass, DA-7 is recorded for activation, and
 integration is confirmed. Configuration can be ready for owner review while
 activation is pending; do not mark the implementation scheduling gate open then.
 

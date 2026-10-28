@@ -4,21 +4,22 @@ version: 2
 date_created: 2026-10-28
 last_updated: 2026-10-28
 owner: FieldLens main orchestrator
-status: On Hold
+status: In Progress
 tags: [feature, implementation, foundation, workspace, ingestion]
 ---
 
 # Introduction
 
-![Status: On Hold](https://img.shields.io/badge/status-On_Hold-orange)
+![Status: In Progress](https://img.shields.io/badge/status-In_Progress-blue)
 
 Detailed execution packets for global TASK-003, TASK-025 and TASK-006.
 The owner approved these three packets for implementation on October 28 at
 11:19 EDT. The planning package is integrated in `9d630e3`; this approval is not
 proof that any application acceptance check has passed.
-Activation is blocked: the correctly selected backend worker has no file-edit
-tool. See the [execution record](../docs/BACKLOG.md#first-packet-execution-approval-and-activation-blocker).
-Restore and verify tool access before issuing the implementation handoff.
+Backend editing/discovery worked after recreating its workspace profile.
+Candidate `3c1d2b2` implements the foundation but failed independent acceptance;
+see the [repair allocation](../docs/specs/FOUNDATION.md#independent-qa-and-bounded-repair-allocation).
+Do not start TASK-025 until the repaired foundation passes independent QA and merges.
 Owner amendment at 14:47 EDT: run each feature on its own branch in
 `/home/slimco/code/FieldLens`, with subagents launched from the main session,
 one writer at a time. No additional worktrees; preserve the old allocation inactive.

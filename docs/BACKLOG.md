@@ -12,16 +12,18 @@ States: `proposed`, `specifying`, `ready`, `in_progress`, `testing`,
 requires the integrated commit, version and acceptance evidence, not just coding.
 Owner is the project owner for approval; an execution agent is unassigned until
 delegated. [Custom profiles](../.github/agents/README.md) are now defined; actual
-host activation/tool verification is still required. The first foundation worktree
+host activation/tool verification is required per assignment. Backend editing and
+QA browser/test tools have now been exercised. The first foundation worktree
 was created after the owner's October 28 implementation approval. It is now
 inactive and preserved; the serial-checkout allocation below supersedes it.
-Neither allocation is evidence that application code has been implemented.
+The foundation implementation is in candidate `3c1d2b2`, not yet accepted or merged.
 
 The confirmed workflow [architecture](ARCHITECTURE.md), [feature specs](specs/README.md)
 and [32-task execution plan](../plan/architecture-fieldlens-1.md) define the
 implementation baseline. The [first detailed packets](../plan/feature-foundation-workspace-1.md)
 were integrated in `9d630e3` and approved for implementation by the owner at
-11:19 EDT on October 28. Host/tool preflight is underway, not claimed complete.
+11:19 EDT on October 28. The tested backend profile's tool blocker is cleared;
+the foundation is in its independent acceptance/repair cycle.
 The task plan's explicit **Depends on** column is the scheduling DAG;
 parent dependencies below describe complete-feature prerequisites, not permission
 to block every independent sub-slice. Documentation links do not imply approval.
@@ -32,14 +34,16 @@ to block every independent sub-slice. Documentation links do not imply approval.
 accepted evidence-safe generic F-12 equipment and visible discrepancies, and
 confirmed hybrid categories, explicit reconstruction/review/publication and
 128 MiB/file, 512 MiB/batch, 200-file limits. G0 workflow/cohort choices are resolved.
-The first three detailed packets are approved and committed; DA-7 tool activation
-still gates feature dispatch.
+The first three detailed packets are approved and committed; DA-7 remains a
+per-assignment check rather than a current backend tool blocker.
 At 14:47 EDT the owner approved one feature at a time on its own branch in
 `/home/slimco/code/FieldLens`, with subagents launched from the main session.
 No new worktrees or concurrent writers; model/tool preflight is still required.
 G1 remains engineering/manifest qualification, not a requirement to find F-12's
-missing tally before writing a project form. Read-only worker activation has run;
-no application implementation or paid Meta call has started.
+missing tally before writing a project form. Foundation implementation has run;
+no paid Meta call has started. Owner clarification at 17:12 EDT requires a
+different agent to test every logical feature, re-verify fixes and complete the
+authorized commit/merge cycle before the next feature.
 The planning package was integrated by the owner in `9d630e3`, version 0.3.3.
 Historical checkpoint text below records earlier states; this notice and the
 current table supersede its access/design holds.
@@ -47,10 +51,10 @@ current table supersede its access/design holds.
 | ID | Outcome / scope | Status | Prerequisites | Spec / next action |
 |---|---|---|---|---|
 | FL-000 | Adopt perforation requirements and versioned parallel-development governance | done | None | Integrated by owner in `e8b156a`, version 0.1.0; verification below |
-| FL-001 | Agree custom development-agent roles, serial branch delegation and resource boundaries | blocked | FL-000 | Base configuration integrated in `35ed5d2`, version 0.2.0. Owner approved serial shared-checkout execution at 14:47 EDT. DA-7 still requires working editing tools and current-session model/effort confirmation; DA-8 records single-writer/branch safety |
+| FL-001 | Agree custom development-agent roles, serial branch delegation and resource boundaries | integration_pending | FL-000 | Base configuration integrated in `35ed5d2`, version 0.2.0. Backend tools restored and actual Sonnet/medium verified; QA also verified. Serial branch safety and mandatory independent testing amendments await integration with foundation. DA-7 still applies to each assignment |
 | FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | in_progress | None | Owner selected F-12/F-14/F-5 and accepted generic/unlocated F-12 limitations. [Data spec](specs/DATA_FEASIBILITY.md): final hashed profiles/windows/reference/state/rights fixtures remain TASK-002/029; G1 not passed. No automatic F-11 B replacement or further tally-search blocker |
 | FL-003 | Verify Meta entitlement/protocols and agree shared budget controls | specifying | FL-004 | [Meta spec](specs/META_INTEGRATION.md): offline adapter/ledger then separate opt-in live smoke; no G1 dependency |
-| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | blocked | FL-014 | [Foundation packet](../plan/feature-foundation-workspace-1.md) approved/integrated in `9d630e3`; resume ready after DA-7 editing-tool access is verified. Serial feature branch allocated below; no G1/G2 prerequisite. G5 runtime qualification remains an output |
+| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | in_progress | FL-014 | Candidate `3c1d2b2` failed independent QA. [Repair allocation](specs/FOUNDATION.md#independent-qa-and-bounded-repair-allocation): fix contract/focus/isolation/docs/version/environment gaps and run the required CLI browser gate before re-verification and merge. No G1/G2 prerequisite |
 | FL-005 | Upload project sources into traceable, persistent, restart-safe source revisions | specifying | FL-004, FL-002 | [Ingestion](specs/INGESTION.md): TASK-025 workspace precedes upload; early native evidence, selected scanned/Word profiles, then final manifest acceptance |
 | FL-006 | Inspect published-model trajectories with evidence and deterministic closest approach | specifying | FL-005, FL-016 | [Trajectory/viewer](specs/TRAJECTORY_VIEWER.md): independent numeric engine, then reconstructed model scene |
 | FL-007 | Reconstruct equipment with catalog/generic fallbacks and source-aware placement | specifying | FL-006 | [Equipment](specs/EQUIPMENT_RECONSTRUCTION.md): procedural installed-evidence slice; optional Blender later; DF-9 still required |
@@ -473,6 +477,46 @@ backend profile includes the documented Copilot `edit` alias. This narrows the
 unresolved failure to effective tool exposure rather than proving a filesystem
 or worktree-permission issue; runtime/model-specific filtering remains a
 hypothesis, not an established root cause. No settings or permissions were changed.
+
+### Foundation implementation and independent acceptance
+
+- Recreated `fieldlens-backend` without an explicit tools list: runtime exposed
+  create/edit/discovery and implementation writes succeeded. Host events confirm
+  Sonnet 5.5/medium on the recreated-profile probe and implementation launch.
+  Global `ai-team-dev` and local `fieldlens-task` comparisons also exposed editing
+  tools. Stale profile caching is a hypothesis, not a proven root cause.
+- Main-session model switched to Sonnet/medium for diagnosis/initial dispatch;
+  host metadata confirms return to Astra/xhigh at 16:59 and 17:12 EDT.
+- Implementation candidate is `3c1d2b285fc8588d32407977d4f27bf921f0d51f` on
+  `feature/fl-004-a-foundation-serial`; master remains `9d630e3`.
+  Worker-reported checks and main-agent exploratory checks are not independent
+  acceptance. The original handoff omitted required documentation and did not
+  complete the delivery cycle.
+- Independent `fieldlens-qa` invocation `79267169-ed0c-402f-9867-025fbdb90fe3`
+  used host-confirmed Sonnet 5.5/medium and a clean frozen candidate. Verdict:
+  **FAIL**. Existing 84 backend and 3 UI tests, lint/type/build/contracts and
+  independent real migration/readiness/Retry checks passed; SC-2/SC-5 and required
+  documentation failed, with further boundary/focus/version defects. The full
+  [remediation list](specs/FOUNDATION.md#independent-qa-and-bounded-repair-allocation)
+  owns D1-D11/B1. No feature or checkpoint is marked verified.
+- Native Playwright browser installation returned explicit Ubuntu 20.04 support
+  errors on two attempts. VS Code integrated-browser checks work. Repair the
+  required CLI gate with the version-matched, test-only browser container;
+  do not call either route equivalent to an unrun test.
+- QA left the candidate clean, stopped its helper APIs/Vite and dropped its
+  test databases. The owner preview remains on 8101 with the allocated foundation
+  PostgreSQL service on loopback 55432. Stop branch-bound helpers before merge.
+- The QA handoff reports 6,963 seconds elapsed, exceeding the requested
+  35-minute checkpoint. Future repair/re-verification turns must return at their
+  bound; the excess is not an accepted new time allocation. Development usage
+  cost is unavailable here; no Meta application spend is claimed.
+- Next: same backend owner repairs this slice, then the same independent QA
+  verifies the new frozen candidate. Finalize one minor version only after gates
+  pass, commit/merge into master, verify integration and reconcile this ledger.
+  No push, next feature or worktree switch is authorized by a passing subset.
+- Schedule: October 28's projects/uploads checkpoint A has not been reached.
+  Foundation is a prerequisite, not a substitute; retain the gate and rebaseline
+  scheduling after this acceptance cycle rather than claim unmeasured slack.
 
 Add a record when scheduling, not speculative branches or fake test results:
 

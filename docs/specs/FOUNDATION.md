@@ -3,7 +3,7 @@
 > **Spec type:** Infrastructure/migration. **Backlog:** FL-004.
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
 > **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** First packet approved October 28 at base `9d630e3`; execution blocked on worker file-edit tool access (DA-7).
+> **Status:** First packet approved October 28 at base `9d630e3`; candidate `3c1d2b2` independently reviewed and FAIL. Foundation remains in progress until repairs, re-verification and integration.
 > **Zero-Question Score:** 0 unowned design questions; G5 qualification is not yet run.
 
 ## How to Read This Spec
@@ -61,6 +61,40 @@ only during this approved setup; no system-wide runtime replacement.
 
 Definition of done: all criteria plus lint/type/build checks pass on the assigned
 feature branch in the shared checkout; lockfiles and actual runtime/image versions are recorded.
+An agent other than the implementer verifies the full acceptance matrix and any
+repairs. Failed or unrun required gates prohibit merge, regardless of a working
+preview or passing subset.
+
+### Independent QA and bounded repair allocation
+
+QA reviewed frozen candidate `3c1d2b285fc8588d32407977d4f27bf921f0d51f` using
+`fieldlens-qa` on host-confirmed Sonnet 5.5/medium. Its overall verdict is **FAIL**:
+84 backend and 3 frontend tests, type/lint/build/contracts, migration roundtrip,
+real database-unavailable UI and Retry recovery passed, but those checks did not
+cover the defects below. This is not feature acceptance or checkpoint A.
+
+- D1: missing usable start/stop/migrate/test documentation and verification record.
+- D2: keyboard focus lost when Retry unmounts.
+- D3/D4: nested evidence-revision scope bypass and namespace-dependent authority
+  checks; preserve the shared-contract invariants, not just existing happy paths.
+- D5/D6/D7: nonfinite arbitrary metadata, invalid image regions, blank quantity
+  units/reasons and coercible boolean read limits.
+- D8: test database query options can override loopback connection destinations.
+- D9/D10: runtime version differs from VERSION; Node 24 is not pinned/enforced.
+- D11: exception response request-ID/status/header consistency needs correction.
+- B1: Playwright 1.64.1 browser installation genuinely rejects Ubuntu 20.04.
+  Integrated-browser verification works, but does not waive the CLI test gate.
+
+The repair is still TASK-003, not a new feature. Add regression tests and preserve
+the agreed Python/Node/application stack. For B1, the orchestrator authorizes a
+bounded, test-only official Playwright 1.64.1 Noble browser container with a
+loopback-only connection from the host runner, following the
+[documented unsupported-Linux workflow](https://playwright.dev/docs/docker#remote-connection).
+Pin the image digest, match runner/browser versions, use the existing Node 24
+runner and stop the helper after tests. No host OS upgrade, privileged container,
+application containerization or remote public listener is authorized. Report
+resource/download failure rather than silently downgrading dependencies or
+marking an unrun gate passed.
 
 ## 4. Context and Decisions
 

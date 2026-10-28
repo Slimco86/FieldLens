@@ -12,6 +12,15 @@ main orchestrator session. This replaces parallel worktree dispatch. Preserve
 existing worktrees inactive; do not create or remove them for this workflow.
 This changes scheduling, not application scope or model/tool verification gates.
 
+**Owner clarification, 2026-10-28 at 17:12 EDT:** every iterative logical feature
+requires acceptance testing by an agent other than its implementer. The main
+orchestrator assigns and reviews that work; it does not substitute its own test
+runs for independent QA. Return failures to the implementation owner, have QA
+verify the repaired candidate, and finish the authorized commit/merge cycle only
+after every required gate passes. Do not stop at a coding handoff or start the
+next feature while acceptance/integration is unfinished. The first foundation
+slice remains serial; a return to worktrees requires a subsequent allocation.
+
 The [application execution plan](../plan/architecture-fieldlens-1.md) now defines
 the task DAG, one implementation lane, critical-path checkpoints and acceptance sequence.
 Its [feature index](specs/README.md) maps every project requirement to tests.
@@ -32,10 +41,10 @@ that these packets have been integrated or that a profile/runtime has been verif
   on the orchestrator-selected feature branch as the sole active writer,
   tests it, updates feature-specific documentation, commits and returns a handoff.
   It does not switch branches, edit another checkout or merge the integration branch.
-- **Reviewer/tester:** use a configured agent when independent verification adds
-  value. Known-command checks use the Terra task worker; risk-based independent
-  acceptance uses the Sonnet QA role. The orchestrator remains accountable for
-  acceptance and tests on the combined result.
+- **Reviewer/tester:** a separate configured agent independently verifies every
+  logical feature. Known-command checks use the Terra task worker; risk-based
+  acceptance uses the Sonnet QA role. The orchestrator assigns the checks and
+  reviews evidence, including combined-result checks, rather than executing them.
 
 [BACKLOG](BACKLOG.md) is the persistent cross-session ledger.
 [Feature specs](specs/FEATURE_TEMPLATE.md) define acceptance and contracts.
@@ -62,9 +71,9 @@ resume state. `cancelled` requires an explicit owner decision and retained ratio
 | Feature spec | Define scope, input/output contracts, evidence, failures, numerical thresholds, tests and shared-file ownership. Get owner approval; a draft is not ready. |
 | Ready / scheduling | All hard prerequisites are integrated; agreed interfaces/resources exist. Record role/tier rationale, verify profile/model/effort/tools, and record the integration base commit, feature branch, absolute checkout path and pre-existing dirty files before delegation. |
 | Implementation | One active feature branch and one writer in the shared checkout. The orchestrator pauses its writes until the worker returns. Build a complete bounded slice; update its own spec and related documentation. Escalate scope or shared-contract changes. |
-| Test | Run acceptance tests plus affected type/build checks. Record exact commands, commit, environment, fixtures and live/stub status. Failed or unrun required tests block integration. |
+| Test | A separate agent checks all acceptance criteria plus affected type/build gates on a stable candidate. Record exact commands, commit, environment, fixtures and live/stub status. Return failures to the implementer and independently re-verify fixes. Failed or unrun required tests block integration. |
 | Commit / handoff | Commit tested feature work and related docs; send the contract below. Suggest a bump/changelog entry without allocating a final version. |
-| Integration preparation | Main agent incorporates latest target changes, resolves shared edits, runs combined checks and finalizes version/changelog/docs before the integration commit/merge. |
+| Integration preparation | Main agent incorporates latest target changes, resolves shared edits, delegates combined checks and finalizes version/changelog/docs before the integration commit/merge. Re-verify affected behavior if the tested candidate changes. |
 | Merge | Confirm the tested candidate still matches the target base; integrate using approved Git policy. Record success only after checking the resulting target commit. |
 | Backlog reconciliation | Mark done with integrated commit, version and acceptance evidence. Settle workers/checks/helpers and preserve dirty files before the orchestrator switches branches for the next feature. |
 

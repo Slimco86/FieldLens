@@ -70,6 +70,11 @@ conversation support that reconstruction rather than a pre-authored scene.
   backlog/spec approval -> feature branch/delegation -> implementation -> tests ->
   feature commits -> integration tests and version/changelog/docs finalization ->
   commit/merge -> backlog reconciliation.
+- Every iterative logical feature requires acceptance testing by an agent other
+  than its implementer. The orchestrator delegates, rather than runs, acceptance
+  and integration checks. Return failures to the implementer, independently
+  re-verify the repaired candidate, then finish the authorized commit/merge cycle
+  only when every required check passes. A coding handoff is not completion.
 - The main agent owns planning, dependencies, delegation, review and integration.
   Delegate implementation from the main session to configured subagents in the
   current checkout, one feature branch and one writer at a time. Do not create

@@ -93,6 +93,15 @@ Date: 2026-10-27. Shared truth rules come from the project specification.
 
 Use explicit typed claim-value variants, not arbitrary JSON accepted as engineering
 truth. UUIDs are generated server-side; filenames and display labels are not IDs.
+For this foundation, `generic.*` and `catalog.*` are reserved non-authoritative
+attribute namespaces. Generic claims must use `generic.*`; catalog-derived claims
+must use `catalog.*`, with matching evidence classes. Neither namespace can
+establish installation, placement, effective dates or authoritative installed
+measurements. Reject a generic or catalog-derived claim under any other namespace,
+including `component.outer_diameter` or `component.installation_date`; checking only
+the `installed.*` prefix is insufficient. Validation state remains independent:
+a valid generic presentation claim still is not an installed measurement.
+
 Revision membership has composite foreign keys so project/revision/subject joins
 cannot cross scopes. Source records can be inspected without resolved subjects;
 claims enter candidate model revisions only after explicit attribution.
@@ -127,6 +136,11 @@ See [workspace](PROJECT_WORKSPACE.md) and [reconstruction](ASSET_RECONSTRUCTION.
 
 All locators include document/source revision. Missing page boxes do not become
 invented highlights: open the page and display the supported locator.
+For source-backed evidence links, the link's document/source revision must agree
+with the nested locator. A source-context issue must also match that same source
+revision; omitting a link-level ID cannot bypass the nested locator scope.
+Derivation locators retain their distinct result/input-claim identity and are
+validated through those references rather than assigned a fabricated document.
 
 ### Identity and physical references
 

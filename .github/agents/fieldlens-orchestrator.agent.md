@@ -33,7 +33,9 @@ planning documents, integration fixes and global release metadata.
    branches, after workers and branch-bound checks/helpers stop.
 6. Supply bounded context, commands, acceptance and escalation criteria. Preserve
    one accountable owner through handoff; do not fan out by default or repeatedly
-   review the same evidence. Use independent QA when the risk justifies it.
+   review the same evidence. Every logical feature requires a separate testing
+   agent; delegate acceptance and combined checks instead of running them yourself.
+   Return failures to the implementer and require independent re-verification.
 7. Integrate only tested work against the current target. Finalize VERSION,
    CHANGELOG and documentation before merge; confirm integration before backlog
    completion. No automatic push/publication or destructive worktree cleanup.

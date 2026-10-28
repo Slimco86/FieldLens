@@ -39,9 +39,12 @@ preferences, not measured price/performance claims.
 4. If the approved plan cannot be executed without a new contract/decision, stop.
    Use Sol for a focused gap analysis only when separate reasoning adds value.
    Astra/owner approve the result before a domain worker resumes implementation.
-5. Use QA only where independent verification adds value. Running a known command
-   is Terra work; diagnosing coverage gaps or evaluating cross-feature behavior
-   is QA work. Do not have every agent re-read/re-review the same evidence.
+5. Every logical feature requires acceptance by an agent other than its
+   implementer (owner clarification October 28, 17:12 EDT). Running a known command
+   is Terra work; diagnosing coverage gaps or evaluating feature acceptance is
+   QA work. The main orchestrator delegates checks, returns failures to the owner
+   and requires independent re-verification before integration. Do not duplicate
+   the same review across additional agents.
 6. Workers never spawn workers. Escalation is a compact return to the orchestrator,
    not a nested agent tree or an automatic model promotion.
 

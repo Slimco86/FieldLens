@@ -6,9 +6,18 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 ## Unreleased
 
-First-packet execution approval and activation results are recorded in the
-backlog. Model selection and local Docker checks passed, but the backend worker
-has no file-edit tool; no application code or new application version is claimed.
+Foundation implementation exists in feature candidate `3c1d2b2`; independent
+acceptance returned FAIL and repairs are pending. Proposed next integration:
+0.4.0 (new local application capability), not yet allocated or released.
+The worker tool blocker is cleared for the tested backend profile; its precise
+cache/registration cause was not proven.
+
+- **FL-004-A / TASK-003:** FastAPI readiness, PostgreSQL migration baseline, typed
+  contracts and React shell are implemented but not accepted. Close QA's
+  contract, focus, test-isolation, environment and documentation findings before
+  integration; successful existing suites alone do not close those gaps.
+- **FL-001:** Record mandatory separate-agent acceptance, repair re-verification
+  and completion of the authorized commit/merge cycle for every logical feature.
 
 - **FL-001 / FL-004:** Owner approved serial development in the existing checkout:
   one feature branch and one writer at a time, subagents launched by the main
