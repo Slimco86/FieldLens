@@ -21,6 +21,12 @@ after every required gate passes. Do not stop at a coding handoff or start the
 next feature while acceptance/integration is unfinished. The first foundation
 slice remains serial; a return to worktrees requires a subsequent allocation.
 
+**Scoped foundation exception, October 28:** after recurring editor-exposure
+failures, the owner requested direct repairs with no more subagents and then
+explicitly accepted direct verification of commit `95da2b7` for the 0.4.0 merge.
+This exception applies only to TASK-003; independent QA remains required for
+future features. Record the direct checks honestly, not as a separate-agent PASS.
+
 The [application execution plan](../plan/architecture-fieldlens-1.md) now defines
 the task DAG, one implementation lane, critical-path checkpoints and acceptance sequence.
 Its [feature index](specs/README.md) maps every project requirement to tests.

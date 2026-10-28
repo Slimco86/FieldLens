@@ -6,9 +6,14 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 ## Unreleased
 
-Foundation release candidate **0.4.0** has direct-tested repairs for the failed
-independent QA of `3c1d2b2`. Acceptance/integration is pending; this is not a
-released version yet. Owner requested direct repairs without further subagents.
+No unreleased changes.
+
+## 0.4.0 - 2026-10-28
+
+First runnable local foundation. The owner accepted tested repair `95da2b7` and
+authorized merging it into master using direct verification as a **one-time
+exception**. Independent QA remains required for future features. Integration
+is recorded in the backlog; no push, tag or external publication is included.
 The initial backend invocation regained editing tools, but the repair invocation
 lost them again; its precise cache/registration/model-interaction cause is not proven.
 
@@ -31,8 +36,8 @@ lost them again; its precise cache/registration/model-interaction cause is not p
   one feature branch and one writer at a time, subagents launched by the main
   session, no new worktrees. Preserve legacy worktrees and pending changes.
   Updated scheduling, worker boundaries and resource allocations; model/tool
-  gates and application acceptance remain unchanged. Documentation-only patch
-  proposal until integration; no final version allocated.
+  gates remain per-assignment requirements. These governance amendments share
+  this one minor version; no additional bump is allocated for the merge.
 
 ## 0.3.3 - 2026-10-28
 

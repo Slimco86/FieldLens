@@ -3,7 +3,7 @@
 > **Spec type:** Infrastructure/migration. **Backlog:** FL-004.
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
 > **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** Original candidate `3c1d2b2` failed independent QA. Owner requested direct repairs without further subagents; repaired candidate passes direct checks, pending acceptance/integration.
+> **Status:** Repair `95da2b7` verified and accepted as 0.4.0 under the owner's explicit one-time direct-verification exception. Integration evidence is in the backlog; the original independent FAIL is retained below.
 > **Zero-Question Score:** 0 unowned design questions; G5 runtime compatibility verified for the foundation.
 
 ## How to Read This Spec
@@ -145,6 +145,12 @@ SQLAlchemy 2.1.6, psycopg 3.3.6, Alembic 1.20.1. The earlier worker's FastAPI
 Proposed integration remains minor **0.4.0**: first application capability, no
 previously released application API to break. Do not mark the backlog done until
 the acceptance decision and target integration are recorded.
+
+The owner subsequently accepted these direct checks for this feature only and
+authorized the 0.4.0 merge. Tested repair commit:
+`95da2b74df949e080cb4cc57dd7a2f5cb7df9783`. This closes the acceptance decision
+without rewriting the earlier independent verdict. Future features retain the
+separate-agent verification requirement.
 
 ## 4. Context and Decisions
 

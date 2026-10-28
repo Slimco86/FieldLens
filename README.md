@@ -22,8 +22,9 @@ from uploaded evidence, not a pre-authored 3D scene with a chatbot attached.
 The first foundation is implemented: a loopback FastAPI service, PostgreSQL
 migrations, typed/generated contracts and an accessible React readiness shell.
 QA's contract, focus, isolation, version and browser-tooling findings have been
-repaired and directly retested. Independent re-verification/integration is still
-pending; this is not a released or complete oilfield application.
+repaired and directly retested. The owner accepted direct verification as a
+one-time exception for foundation 0.4.0; future features still require independent
+QA. This is a runnable foundation, not the complete oilfield application.
 The owner confirmed hybrid project uploads, explicit reconstruction review/
 publication and upload limits on October 28. F-12 generic/unlocated equipment
 and real discrepancies are intentional, visibly labelled demo cases.
@@ -40,7 +41,7 @@ Owner-confirmed submission: **indie track**, **public repository**, and a
 **three-minute recorded demo**. Containerized local execution is also acceptable.
 
 The **0.3.3** planning package was integrated in `9d630e3`.
-**0.4.0 is the foundation release candidate**, not yet merged into `master`.
+**0.4.0 is the accepted foundation version**; integration evidence is in the backlog.
 See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Run the foundation locally
@@ -221,8 +222,8 @@ verify **GPT-6 Astra / xhigh** in the host. Workers use Terra low, Sonnet medium
 or Sol high according to the task. Repository profiles do not switch an existing
 chat or switch branches; verify the chosen worker/model/tools before execution.
 
-**Next step:** close the foundation acceptance/integration gate on
-`feature/fl-004-a-foundation-serial`, then implement project lifecycle. Deliver
+**Next step:** implement project lifecycle after confirming worker tool access
+and the next allocation. Deliver
 browser-visible projects/uploads, source inspection
 and early chat, reconstruction review, and finally the linked scene/history/context/
 charts. Each real-data increment needs its qualified subset; full demo acceptance

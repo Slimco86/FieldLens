@@ -19,9 +19,11 @@ proof that any application acceptance check has passed.
 Backend editing/discovery worked after recreating its workspace profile.
 Candidate `3c1d2b2` implemented the foundation but failed independent acceptance.
 The owner subsequently requested direct repairs without further subagents.
-Those repairs pass direct checks, including the required CLI browser suite;
+Those repairs pass direct checks, including the required CLI browser suite.
+The owner accepted tested commit `95da2b7` for the 0.4.0 merge as a one-time
+direct-verification exception; independent QA remains required for later features.
 see [verification](../docs/specs/FOUNDATION.md#direct-repair-verification-october-28).
-Do not start TASK-025 until the acceptance decision and foundation merge are recorded.
+Do not start TASK-025 until the foundation merge and its own tool preflight are recorded.
 Owner amendment at 14:47 EDT: run each feature on its own branch in
 `/home/slimco/code/FieldLens`, with subagents launched from the main session,
 one writer at a time. No additional worktrees; preserve the old allocation inactive.
@@ -107,14 +109,14 @@ and React UI guidance; no R3F, Blender, OCR or provider setup.
 
 | Task | Description | Completed | Date |
 |---|---|---|---|
-| TASK-FN-01 | Verify Python 3.12, uv, Node 24 and responsive Docker/Compose. If Node 24 is absent, use only approved user/project-managed setup; no system replacement. Resolve locked dependencies and the DB image digest; record actual versions and license/native-wheel issues. | | |
-| TASK-FN-02 | Implement `create_app()` in `app.py`, typed/redacted configuration, `/health` and DB/migration-aware `/ready`. Use one session factory in `persistence/session.py`; no DB work or parser work at module import. Unready DB is 503, not an empty success. | | |
-| TASK-FN-03 | Implement closed DTOs in `contracts/{identity,evidence,context,quality,errors}.py`, including project/source/model separation and source/draft/model contexts. Unknown quantities stay null with reasons; forbid extra request fields and nonfinite numbers. Export all public DTOs through a documented schema registry, not fake business endpoints. | | |
-| TASK-FN-04 | Create the first serialized Alembic migration for the core identity/revision/membership persistence used by contract fixtures. Enforce project-qualified foreign keys. Do not create speculative engineering/provider tables; later packet migrations add their own runtime records. Verify pgvector availability without downloading an embedding model. | | |
-| TASK-FN-05 | Implement the FOUNDATION token bootstrap contract: GET `/api/v1/session`, no-store `{csrf_token}`, at least 32 random bytes/process, `X-FieldLens-Token` on mutations, Host/Origin/fetch-metadata checks and no silent mutation replay after restart. Never put the token in a URL, static bundle or log. Test permitted and rejected cases. | | |
-| TASK-FN-06 | Implement `scripts/export_contracts.py` and generated strict `frontend/src/api/generated.ts` with deterministic ordering; `check:contracts` generates to a temporary file and compares without modifying the tree. Define `npm` lint/typecheck/test/build/test:e2e scripts and Python test/lint/type configuration. | | |
-| TASK-FN-07 | Implement an accessible empty shell and API error component. Loading, ready and unavailable/retry states are distinct. Serve the production build through FastAPI; unknown `/api/` paths return JSON 404, never SPA HTML. Dev origins use only allocated loopback URLs. | | |
-| TASK-FN-08 | Pass FN-1..6 and SC-1..6, focused browser readiness checks and all affected checks in section 6. Document actual start/stop/migrate commands, record tested SHA/environment and propose a minor bump without editing global release files. | | |
+| TASK-FN-01 | Verify Python 3.12, uv, Node 24 and responsive Docker/Compose. If Node 24 is absent, use only approved user/project-managed setup; no system replacement. Resolve locked dependencies and the DB image digest; record actual versions and license/native-wheel issues. | Yes | 2026-10-28 |
+| TASK-FN-02 | Implement `create_app()` in `app.py`, typed/redacted configuration, `/health` and DB/migration-aware `/ready`. Use one session factory in `persistence/session.py`; no DB work or parser work at module import. Unready DB is 503, not an empty success. | Yes | 2026-10-28 |
+| TASK-FN-03 | Implement closed DTOs in `contracts/{identity,evidence,context,quality,errors}.py`, including project/source/model separation and source/draft/model contexts. Unknown quantities stay null with reasons; forbid extra request fields and nonfinite numbers. Export all public DTOs through a documented schema registry, not fake business endpoints. | Yes | 2026-10-28 |
+| TASK-FN-04 | Create the first serialized Alembic migration for the core identity/revision/membership persistence used by contract fixtures. Enforce project-qualified foreign keys. Do not create speculative engineering/provider tables; later packet migrations add their own runtime records. Verify pgvector availability without downloading an embedding model. | Yes | 2026-10-28 |
+| TASK-FN-05 | Implement the FOUNDATION token bootstrap contract: GET `/api/v1/session`, no-store `{csrf_token}`, at least 32 random bytes/process, `X-FieldLens-Token` on mutations, Host/Origin/fetch-metadata checks and no silent mutation replay after restart. Never put the token in a URL, static bundle or log. Test permitted and rejected cases. | Yes | 2026-10-28 |
+| TASK-FN-06 | Implement `scripts/export_contracts.py` and generated strict `frontend/src/api/generated.ts` with deterministic ordering; `check:contracts` generates to a temporary file and compares without modifying the tree. Define `npm` lint/typecheck/test/build/test:e2e scripts and Python test/lint/type configuration. | Yes | 2026-10-28 |
+| TASK-FN-07 | Implement an accessible empty shell and API error component. Loading, ready and unavailable/retry states are distinct. Serve the production build through FastAPI; unknown `/api/` paths return JSON 404, never SPA HTML. Dev origins use only allocated loopback URLs. | Yes | 2026-10-28 |
+| TASK-FN-08 | Pass FN-1..6 and SC-1..6, focused browser readiness checks and all affected checks in section 6. Document actual start/stop/migrate commands, record tested SHA/environment and propose a minor bump without editing global release files. | Yes; direct-check exception | 2026-10-28 |
 
 Exit requires a fresh DB upgrade/downgrade/upgrade, persisted contract fixture,
 identical regenerated client, visible readiness failure/recovery and zero external

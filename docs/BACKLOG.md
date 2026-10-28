@@ -17,14 +17,16 @@ worked for initial implementation but is missing again in the repair worker;
 QA browser/test tools worked. The first foundation worktree
 was created after the owner's October 28 implementation approval. It is now
 inactive and preserved; the serial-checkout allocation below supersedes it.
-The foundation implementation is in candidate `3c1d2b2`, not yet accepted or merged.
+The repaired foundation is accepted at `95da2b7` for integration as 0.4.0,
+under an explicit one-time direct-verification exception.
 
 The confirmed workflow [architecture](ARCHITECTURE.md), [feature specs](specs/README.md)
 and [32-task execution plan](../plan/architecture-fieldlens-1.md) define the
 implementation baseline. The [first detailed packets](../plan/feature-foundation-workspace-1.md)
 were integrated in `9d630e3` and approved for implementation by the owner at
 11:19 EDT on October 28. The backend editing-tool blocker recurred during repair;
-the foundation has not completed its independent acceptance/repair cycle.
+the owner authorized direct repairs and accepted their checks for this foundation
+only. Future features still require independently verified acceptance.
 The task plan's explicit **Depends on** column is the scheduling DAG;
 parent dependencies below describe complete-feature prerequisites, not permission
 to block every independent sub-slice. Documentation links do not imply approval.
@@ -35,8 +37,9 @@ to block every independent sub-slice. Documentation links do not imply approval.
 accepted evidence-safe generic F-12 equipment and visible discrepancies, and
 confirmed hybrid categories, explicit reconstruction/review/publication and
 128 MiB/file, 512 MiB/batch, 200-file limits. G0 workflow/cohort choices are resolved.
-The first three detailed packets are approved and committed; DA-7 remains a
-per-assignment check rather than a current backend tool blocker.
+The first three detailed packets are approved and committed. Backend tool exposure
+remains an unresolved per-assignment gate; the foundation exception is not proof
+of a general host fix.
 At 14:47 EDT the owner approved one feature at a time on its own branch in
 `/home/slimco/code/FieldLens`, with subagents launched from the main session.
 No new worktrees or concurrent writers; model/tool preflight is still required.
@@ -55,7 +58,7 @@ current table supersede its access/design holds.
 | FL-001 | Agree custom development-agent roles, serial branch delegation and resource boundaries | blocked | FL-000 | Base configuration integrated in `35ed5d2`, version 0.2.0. Backend editing worked once but is missing again during repair despite actual Sonnet/medium selection. QA tools worked. Resolve DA-7 or obtain an explicit temporary routing exception; governance amendments await integration |
 | FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | in_progress | None | Owner selected F-12/F-14/F-5 and accepted generic/unlocated F-12 limitations. [Data spec](specs/DATA_FEASIBILITY.md): final hashed profiles/windows/reference/state/rights fixtures remain TASK-002/029; G1 not passed. No automatic F-11 B replacement or further tally-search blocker |
 | FL-003 | Verify Meta entitlement/protocols and agree shared budget controls | specifying | FL-004 | [Meta spec](specs/META_INTEGRATION.md): offline adapter/ledger then separate opt-in live smoke; no G1 dependency |
-| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | testing | FL-014 | Owner authorized direct repairs without further subagents after the tool regression. D1-D11/B1 fixes pass 124 backend, 4 UI and 3 CLI E2E tests; see [verification](specs/FOUNDATION.md#direct-repair-verification-october-28). Acceptance/integration decision remains open; no independent re-verification claimed |
+| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | integration_pending | FL-014 | Accepted repair `95da2b7`, version 0.4.0, passes 124 backend, 4 UI and 3 CLI E2E tests. Owner explicitly approved a one-time direct-verification exception and merge; see [verification](specs/FOUNDATION.md#direct-repair-verification-october-28). Await target confirmation before done |
 | FL-005 | Upload project sources into traceable, persistent, restart-safe source revisions | specifying | FL-004, FL-002 | [Ingestion](specs/INGESTION.md): TASK-025 workspace precedes upload; early native evidence, selected scanned/Word profiles, then final manifest acceptance |
 | FL-006 | Inspect published-model trajectories with evidence and deterministic closest approach | specifying | FL-005, FL-016 | [Trajectory/viewer](specs/TRAJECTORY_VIEWER.md): independent numeric engine, then reconstructed model scene |
 | FL-007 | Reconstruct equipment with catalog/generic fallbacks and source-aware placement | specifying | FL-006 | [Equipment](specs/EQUIPMENT_RECONSTRUCTION.md): procedural installed-evidence slice; optional Blender later; DF-9 still required |
@@ -544,6 +547,11 @@ hypothesis, not an established root cause. No settings or permissions were chang
   and operational gaps are repaired, but the main's direct checks are not a
   separate-agent PASS. Resolve the acceptance exception before merge; do not
   invent an independent verdict or mark the feature done early.
+- The owner selected `merge-direct-exception`: accept direct verification for
+  TASK-003 only and merge 0.4.0 now; retain independent QA for future features.
+  Tested repair commit `95da2b74df949e080cb4cc57dd7a2f5cb7df9783` has a clean
+  tree and passing full relevant checks. API/Vite/browser helper listeners are
+  stopped before the branch switch; the allocated persistent DB remains healthy.
 
 Add a record when scheduling, not speculative branches or fake test results:
 
