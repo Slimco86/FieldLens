@@ -3,7 +3,7 @@
 > **Spec type:** Infrastructure/migration. **Backlog:** FL-004.
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
 > **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** First packet approved October 28 at base `9d630e3`; candidate `3c1d2b2` independently reviewed and FAIL. Foundation remains in progress until repairs, re-verification and integration.
+> **Status:** First packet approved October 28 at base `9d630e3`; candidate `3c1d2b2` independently reviewed and FAIL. Repair is blocked again on backend editing-tool exposure; no acceptance or integration.
 > **Zero-Question Score:** 0 unowned design questions; G5 qualification is not yet run.
 
 ## How to Read This Spec
@@ -95,6 +95,13 @@ runner and stop the helper after tests. No host OS upgrade, privileged container
 application containerization or remote public listener is authorized. Report
 resource/download failure rather than silently downgrading dependencies or
 marking an unrun gate passed.
+
+The repair preflight at base `923b1bf` reported no `apply_patch`, `create` or
+`edit`; a focused discovery attempt confirmed no local editor was available.
+Host metadata still selected backend Sonnet 5.5/medium. No repair files were
+written and no browser image was pulled. The earlier successful profile
+recreation was not a durable fix. Do not use shell-writing or patch-return
+workarounds; resolve capability or obtain an explicit temporary routing exception.
 
 ## 4. Context and Decisions
 

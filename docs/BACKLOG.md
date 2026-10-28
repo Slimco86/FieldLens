@@ -12,8 +12,9 @@ States: `proposed`, `specifying`, `ready`, `in_progress`, `testing`,
 requires the integrated commit, version and acceptance evidence, not just coding.
 Owner is the project owner for approval; an execution agent is unassigned until
 delegated. [Custom profiles](../.github/agents/README.md) are now defined; actual
-host activation/tool verification is required per assignment. Backend editing and
-QA browser/test tools have now been exercised. The first foundation worktree
+host activation/tool verification is required per assignment. Backend editing
+worked for initial implementation but is missing again in the repair worker;
+QA browser/test tools worked. The first foundation worktree
 was created after the owner's October 28 implementation approval. It is now
 inactive and preserved; the serial-checkout allocation below supersedes it.
 The foundation implementation is in candidate `3c1d2b2`, not yet accepted or merged.
@@ -22,8 +23,8 @@ The confirmed workflow [architecture](ARCHITECTURE.md), [feature specs](specs/RE
 and [32-task execution plan](../plan/architecture-fieldlens-1.md) define the
 implementation baseline. The [first detailed packets](../plan/feature-foundation-workspace-1.md)
 were integrated in `9d630e3` and approved for implementation by the owner at
-11:19 EDT on October 28. The tested backend profile's tool blocker is cleared;
-the foundation is in its independent acceptance/repair cycle.
+11:19 EDT on October 28. The backend editing-tool blocker recurred during repair;
+the foundation has not completed its independent acceptance/repair cycle.
 The task plan's explicit **Depends on** column is the scheduling DAG;
 parent dependencies below describe complete-feature prerequisites, not permission
 to block every independent sub-slice. Documentation links do not imply approval.
@@ -51,10 +52,10 @@ current table supersede its access/design holds.
 | ID | Outcome / scope | Status | Prerequisites | Spec / next action |
 |---|---|---|---|---|
 | FL-000 | Adopt perforation requirements and versioned parallel-development governance | done | None | Integrated by owner in `e8b156a`, version 0.1.0; verification below |
-| FL-001 | Agree custom development-agent roles, serial branch delegation and resource boundaries | integration_pending | FL-000 | Base configuration integrated in `35ed5d2`, version 0.2.0. Backend tools restored and actual Sonnet/medium verified; QA also verified. Serial branch safety and mandatory independent testing amendments await integration with foundation. DA-7 still applies to each assignment |
+| FL-001 | Agree custom development-agent roles, serial branch delegation and resource boundaries | blocked | FL-000 | Base configuration integrated in `35ed5d2`, version 0.2.0. Backend editing worked once but is missing again during repair despite actual Sonnet/medium selection. QA tools worked. Resolve DA-7 or obtain an explicit temporary routing exception; governance amendments await integration |
 | FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | in_progress | None | Owner selected F-12/F-14/F-5 and accepted generic/unlocated F-12 limitations. [Data spec](specs/DATA_FEASIBILITY.md): final hashed profiles/windows/reference/state/rights fixtures remain TASK-002/029; G1 not passed. No automatic F-11 B replacement or further tally-search blocker |
 | FL-003 | Verify Meta entitlement/protocols and agree shared budget controls | specifying | FL-004 | [Meta spec](specs/META_INTEGRATION.md): offline adapter/ledger then separate opt-in live smoke; no G1 dependency |
-| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | in_progress | FL-014 | Candidate `3c1d2b2` failed independent QA. [Repair allocation](specs/FOUNDATION.md#independent-qa-and-bounded-repair-allocation): fix contract/focus/isolation/docs/version/environment gaps and run the required CLI browser gate before re-verification and merge. No G1/G2 prerequisite |
+| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | blocked | FL-014 | Candidate `3c1d2b2` failed independent QA. Repair preflight lacks native editing tools; resume in_progress after explicit unblock. [Repair allocation](specs/FOUNDATION.md#independent-qa-and-bounded-repair-allocation) remains required before re-verification and merge. No G1/G2 prerequisite |
 | FL-005 | Upload project sources into traceable, persistent, restart-safe source revisions | specifying | FL-004, FL-002 | [Ingestion](specs/INGESTION.md): TASK-025 workspace precedes upload; early native evidence, selected scanned/Word profiles, then final manifest acceptance |
 | FL-006 | Inspect published-model trajectories with evidence and deterministic closest approach | specifying | FL-005, FL-016 | [Trajectory/viewer](specs/TRAJECTORY_VIEWER.md): independent numeric engine, then reconstructed model scene |
 | FL-007 | Reconstruct equipment with catalog/generic fallbacks and source-aware placement | specifying | FL-006 | [Equipment](specs/EQUIPMENT_RECONSTRUCTION.md): procedural installed-evidence slice; optional Blender later; DF-9 still required |
@@ -517,6 +518,15 @@ hypothesis, not an established root cause. No settings or permissions were chang
 - Schedule: October 28's projects/uploads checkpoint A has not been reached.
   Foundation is a prerequisite, not a substitute; retain the gate and rebaseline
   scheduling after this acceptance cycle rather than claim unmeasured slack.
+- Repair worker `05eb0074-fd9b-4bdf-b353-025224b93969` selected backend
+  Sonnet 5.5/medium at base `923b1bf`, but exposed neither `apply_patch`, `create`
+  nor `edit`. One bounded inventory/discovery follow-up confirmed the absence.
+  No application writes, image pulls or tests ran. The original implementation
+  handle was no longer available, so this was a fresh same-profile repair worker.
+  Tool exposure remains session/invocation-dependent; its root cause is unproven.
+  Main stopped the 8101 preview before repair; the foundation DB remains running.
+  Current blocker: restore native editors or authorize a temporary known-working
+  agent/model route. No fallback or merge has been performed.
 
 Add a record when scheduling, not speculative branches or fake test results:
 

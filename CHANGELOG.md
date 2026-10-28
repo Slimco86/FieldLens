@@ -9,8 +9,8 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 Foundation implementation exists in feature candidate `3c1d2b2`; independent
 acceptance returned FAIL and repairs are pending. Proposed next integration:
 0.4.0 (new local application capability), not yet allocated or released.
-The worker tool blocker is cleared for the tested backend profile; its precise
-cache/registration cause was not proven.
+The initial backend invocation regained editing tools, but the repair invocation
+lost them again; its precise cache/registration/model-interaction cause is not proven.
 
 - **FL-004-A / TASK-003:** FastAPI readiness, PostgreSQL migration baseline, typed
   contracts and React shell are implemented but not accepted. Close QA's
