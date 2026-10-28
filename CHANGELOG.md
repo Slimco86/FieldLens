@@ -6,7 +6,20 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 ## Unreleased
 
-**Candidate: 0.3.3**, matching [VERSION](VERSION), pending integration.
+First-packet execution approval and activation results are recorded in the
+backlog. Model selection and local Docker checks passed, but the backend worker
+has no file-edit tool; no application code or new application version is claimed.
+
+- **FL-001 / FL-004:** Owner approved serial development in the existing checkout:
+  one feature branch and one writer at a time, subagents launched by the main
+  session, no new worktrees. Preserve legacy worktrees and pending changes.
+  Updated scheduling, worker boundaries and resource allocations; model/tool
+  gates and application acceptance remain unchanged. Documentation-only patch
+  proposal until integration; no final version allocated.
+
+## 0.3.3 - 2026-10-28
+
+Integrated by the owner in `9d630e3`, matching [VERSION](VERSION).
 Patch bump: source qualification and implementation-planning documentation only; no implemented
 API/schema or application behavior change.
 

@@ -52,7 +52,7 @@ earlier assistant suggestions:
 - Historical perforations require MD/TVD placement, total perforated length,
   reperforation and separate production/injection/shut-in/access state. See the
   [draft feature contract](specs/PERFORATION_HISTORY.md) for proposed semantics.
-- Development uses orchestrated parallel worktrees and versioned integration;
+- Development uses orchestrated serial feature branches and versioned integration;
   this does not add a multi-agent framework to the runtime application.
 - The owner initially had no prepared dataset and chose joint sample inspection
   before final architecture; an official local download is now available.

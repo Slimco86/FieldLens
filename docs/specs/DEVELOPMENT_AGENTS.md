@@ -4,10 +4,13 @@
 > **Load-bearing:** F3 scope, F4 executor context, F6 ambiguity.
 > **Supporting:** F1 outcome, F2 acceptance, F5 failure conditions.
 > **Date:** 2026-10-27. **Decision owner:** Project owner.
-> **Status:** Base configuration integrated; host activation pending.
+> **Status:** Base configuration integrated; main/backend model activation verified October 28, worker file-edit tools unavailable (DA-7 blocked).
 > **Extension:** FL-013 Blender skill/workflow statically verified; integration pending.
 > **Approval:** Owner confirmed 10 specialists plus orchestrator and effort defaults
 > in the 2026-10-27 preparation conversation.
+> **Scheduling amendment:** Owner approved one feature branch at a time in the
+> existing checkout, with subagents launched by the main session, October 28 at
+> 14:47 EDT. No new worktrees; existing worktrees remain inactive and preserved.
 > **Zero-Question Score:** 0 unowned questions; host activation remains a verification gate.
 
 ## How to Read This Spec
@@ -42,6 +45,9 @@ Outcome score: 3; static configuration alone does not prove runtime selection.
   `[Validated: owner approval; capability/cost assumptions are not benchmarks]`
 - Shared routing/preflight/handoff policy, relevant existing skills, no nested
   worker delegation and dependency/resource isolation. `[Validated: owner/workflow]`
+- Serial feature execution in the main checkout: one writer, no worker branch
+  switches, no concurrent orchestrator writes; finish/integrate before the next
+  feature. `[Validated: owner amendment, 2026-10-28]`
 - Reconcile FL-000 against actual commit `e8b156a`; propose a new version for this
   opt-in developer capability, without claiming a merge. `[Validated: Git evidence]`
 - FL-013 adds an offline Blender equipment-authoring skill to the existing 3D role,
@@ -79,11 +85,12 @@ Route uncertainty and engineering risk upward rather than lowering acceptance.
 | DA-2 | Behavioral | All model/effort pairs match the approved four tiers; only the orchestrator is user-invocable, and worker profiles prohibit child delegation. | 3 | [Validated: owner]; metadata/body checks |
 | DA-3 | Behavioral | Routing cases distinguish known tests from QA design, boilerplate from interconnected implementation, and plan gaps from code execution; no case defaults to Astra as a worker. | 3 | [Validated: owner]; routing-table check |
 | DA-4 | Negative | Research and plan repair expose no edit/execute tools, workers cannot own global release metadata, and no profile permits inferred engineering facts, unauthorized data transmission or default paid Meta tests. | 3 | [Validated: project policy]; scope/tool review |
-| DA-5 | Edge case | Missing profile/model/effort, wrong worktree, unapproved contract or unavailable required tool blocks the assignment; no silent fallback or continuation under an unverified model. | 3 | [Validated: owner/workflow]; preflight scenario review |
+| DA-5 | Edge case | Missing profile/model/effort, wrong checkout/branch, unapproved contract or unavailable required tool blocks the assignment; no silent fallback or continuation under an unverified model. | 3 | [Validated: owner/workflow]; preflight scenario review |
 | DA-6 | Non-behavioral | No worker body exceeds 6,000 characters, shared policy is linked rather than copied wholesale, and assignments record bounds and usage when available (otherwise explicitly unavailable). | 3 | [Validated: approved cost-conscious setup]; static bounds and handoff check |
-| DA-7 | Dependency | Before feature delegation, host discovery resolves the chosen profile and runtime metadata confirms its model/effort; required tool access is checked. Static validation, self-reported model names and documentation are not substitutes. | 3 | [Unknown: orchestrator at first activation]; host smoke/trace |
+| DA-7 | Dependency | Before feature delegation, host discovery resolves the chosen profile and runtime metadata confirms its model/effort; required tool access is checked. Static validation, self-reported model names and documentation are not substitutes. | 3 | [Partial: October 28 runtime confirms Astra/xhigh and backend Sonnet/medium; worker file-edit tool access unavailable]; host smoke/trace |
+| DA-8 | Behavioral | The assignment uses the active feature branch in `/home/slimco/code/FieldLens`; only one writer runs, no worker switches branches, and the orchestrator waits for workers/checks/helpers before a branch switch. No new worktree is created or existing dirty worktree removed. | 3 | [Validated: owner serial-workflow amendment]; Git status, assignment and execution checks |
 
-Definition of done: DA-1 through DA-6 pass, DA-7 is recorded for activation, and
+Definition of done: DA-1 through DA-6 and DA-8 pass, DA-7 is recorded for activation, and
 integration is confirmed. Configuration can be ready for owner review while
 activation is pending; do not mark the implementation scheduling gate open then.
 

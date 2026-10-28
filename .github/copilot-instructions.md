@@ -52,7 +52,7 @@ conversation support that reconstruction rather than a pre-authored scene.
   Define outcome, boundaries, inputs, data/contracts, failure behavior, measurable
   acceptance criteria, tests, and unresolved decisions. Agree these with the owner.
 - A draft spec is not implementation approval. Each delegated assignment is one
-  verifiable vertical slice; independent slices may run in parallel. Update the spec
+  verifiable vertical slice; execute one feature at a time. Update the spec
   when evidence changes. Documentation-only corrections do not require a feature spec.
 - Maintain requirement-to-test traceability. Mark a feature verified only after
   its acceptance checks pass; distinguish mocks, cached replays, and live results.
@@ -64,15 +64,16 @@ conversation support that reconstruction rather than a pre-authored scene.
   for a demonstrated requirement. Do not scaffold infrastructure or download the
   full Volve release merely because it appears in a research inventory.
 
-## Parallel development and delivery
+## Serial development and delivery
 
 - Follow [the development workflow](../docs/DEVELOPMENT_WORKFLOW.md):
-  backlog/spec approval -> worktree/delegation -> implementation -> tests ->
+  backlog/spec approval -> feature branch/delegation -> implementation -> tests ->
   feature commits -> integration tests and version/changelog/docs finalization ->
   commit/merge -> backlog reconciliation.
 - The main agent owns planning, dependencies, delegation, review and integration.
-  Delegate implementation to configured subagents in separate branches/worktrees,
-  with explicit base commits, file/contract ownership and acceptance checks.
+  Delegate implementation from the main session to configured subagents in the
+  current checkout, one feature branch and one writer at a time. Do not create
+  additional worktrees. Record base commits, file/contract ownership and checks.
   Use the approved [agent roster and routing policy](agents/README.md).
 - Keep the main session on **GPT-6 Astra / xhigh** for global orchestration.
   Route fully specified low-risk tests/boilerplate to **GPT-6.1 Terra / low**;
@@ -92,9 +93,11 @@ conversation support that reconstruction rather than a pre-authored scene.
   Start foundation -> project lifecycle -> uploads/jobs after approved planning
   integration and actual profile preflight. F-12's missing tally does not block
   these synthetic-source slices; G1 and live-provider acceptance remain separate.
-- Worktrees isolate files, not databases, ports, secrets, processes or API budgets.
-  Isolate those resources explicitly. Subagents must not modify another worktree,
-  merge the integration branch, or independently edit global release metadata.
+- A feature branch does not isolate databases, ports, secrets, processes or API
+  budgets. Isolate those resources explicitly. The orchestrator alone switches
+  branches, after workers and branch-bound checks/helpers stop. Subagents must
+  not modify another checkout, merge the integration branch, or independently
+  edit global release metadata. Pause orchestrator writes during worker edits.
 - The orchestrator finalizes [VERSION](../VERSION) and
   [CHANGELOG](../CHANGELOG.md) before every accepted change is integrated:
   breaking change = major, new feature = minor, fix/docs = patch. Assess compatibility
@@ -103,7 +106,7 @@ conversation support that reconstruction rather than a pre-authored scene.
   changelog entry/bump in their handoff. Allocate final versions serially against
   the latest integration tip; revalidate if that tip moves.
 - Mark backlog items done only after integration is confirmed and evidence recorded.
-  Preserve dirty worktrees; never force-remove them. No automatic push, publication
+  Preserve existing inactive worktrees; never force-remove them. No automatic push, publication
   or destructive Git operation is authorized by this workflow.
 
 ## Agreed technical direction

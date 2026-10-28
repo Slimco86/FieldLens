@@ -53,7 +53,7 @@ them. A checkbox or mocked run cannot replace the required evidence class.
 ## Acceptance rules
 
 - Criterion IDs are stable and unique within their declared prefix.
-- A feature spec's approved revision is recorded before worktree creation.
+- A feature spec's approved revision is recorded before feature implementation dispatch.
 - A real-data gate is not closed by schema-valid synthetic data or public metadata.
 - A qualified early subset can verify its checkpoint without full final G1;
   record its hashes/rights/profile/expected outputs and limits. It cannot verify

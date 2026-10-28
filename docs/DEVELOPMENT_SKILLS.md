@@ -28,9 +28,9 @@ Use only the skills matching the task, not all eight on every request. The
 always-on project instructions and approved feature specs govern scope. Skills
 do not approve implementation, authorize external data transmission, install
 dependencies, or expose runtime tools to the application agent.
-For parallel work, the orchestrator assigns these skills to configured development
-agents under the [worktree workflow](DEVELOPMENT_WORKFLOW.md). Skills do not create
-agent roles or isolated worktrees. The approved
+The orchestrator assigns these skills to configured development agents, one
+feature at a time under the [serial workflow](DEVELOPMENT_WORKFLOW.md). Skills do
+not create agent roles, switch branches or allocate checkouts. The approved
 [development-agent roster](../.github/agents/README.md) maps roles and model tiers:
 Terra handles exact low-risk tasks, Sonnet handles domain execution, Sol repairs
 bounded plan gaps, and Astra retains global planning. A Terra assignment still

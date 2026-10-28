@@ -1,19 +1,27 @@
 ---
 goal: Deliver the first persistent browser checkpoint through three bounded implementation handoffs
-version: 1
+version: 2
 date_created: 2026-10-28
 last_updated: 2026-10-28
 owner: FieldLens main orchestrator
-status: Planned
+status: On Hold
 tags: [feature, implementation, foundation, workspace, ingestion]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: On Hold](https://img.shields.io/badge/status-On_Hold-orange)
 
 Detailed execution packets for global TASK-003, TASK-025 and TASK-006.
-This is a handoff plan, not an application implementation or a worker launch.
+The owner approved these three packets for implementation on October 28 at
+11:19 EDT. The planning package is integrated in `9d630e3`; this approval is not
+proof that any application acceptance check has passed.
+Activation is blocked: the correctly selected backend worker has no file-edit
+tool. See the [execution record](../docs/BACKLOG.md#first-packet-execution-approval-and-activation-blocker).
+Restore and verify tool access before issuing the implementation handoff.
+Owner amendment at 14:47 EDT: run each feature on its own branch in
+`/home/slimco/code/FieldLens`, with subagents launched from the main session,
+one writer at a time. No additional worktrees; preserve the old allocation inactive.
 The [global DAG](architecture-fieldlens-1.md) remains authoritative.
 Local TASK-FN/PRJ/UP identifiers below are steps inside those global tasks.
 
@@ -34,15 +42,17 @@ exit criteria and section 6. Paths below are planned, not existing code.
 - **REQ-002**: Python 3.12/uv, FastAPI/Pydantic 2, SQLAlchemy 2/Alembic,
   PostgreSQL 17/pgvector 0.8; React 19/strict TypeScript/Vite, Node 24 tooling.
   Resolve/pin compatible patches, image digest and lockfiles in TASK-003.
-- **REQ-003**: One accountable `fieldlens-backend` worker per packet, in a new
-  worktree; the minimal UI is part of each vertical slice. No nested agents.
+- **REQ-003**: One accountable `fieldlens-backend` worker per packet, on its own
+  feature branch in the shared checkout; the minimal UI is part of each slice.
+  Launch from the main orchestrator session. No nested agents or concurrent writers.
   Complex UI follow-ons route to the frontend profile, not a competing scaffold.
 - **SEC-001**: Loopback only; default tests deny external network/provider
   calls. No cloud, system runtime replacement, Meta call or original-data commit.
-- **CON-001**: At most two code workers and one heavy workload; each assignment
+- **CON-001**: At most one code worker and one heavy workload; each assignment
   checkpoints at 90 minutes and stops after two attempts without new evidence.
-- **CON-002**: Current integrated base is `a4bf9ee`; it does not contain these
-  uncommitted packets. Do not branch from it and assume this handoff is present.
+- **CON-002**: Approved packet base is
+  `9d630e32af898cdc9292451b5258f9c2f9a1a06d`. Later packets branch only from the
+  integrated result of their own prerequisite, not this original planning tip.
 - **PAT-001**: Main agent commits/integrates approved planning only when authorized,
   records the resulting full SHA, verifies the selected profile/model/effort/tools
   from host evidence, and allocates resources before dispatch. No invented hashes.
@@ -54,17 +64,18 @@ exit criteria and section 6. Paths below are planned, not existing code.
 2. Complete TASK-001/DA-7. Static profile files are not proof of actual model/tools.
    If host trace/selection evidence is unavailable, request owner confirmation and
    keep dispatch blocked; do not silently substitute a worker.
-3. Check assigned worktree path/branch/base ancestry and preserve unrelated dirt.
-   Use a new `feature/fl-004-a-foundation`, `feature/fl-015-a-projects` or
-   `feature/fl-005-a-upload` branch when its dependencies are integrated.
-   Worktree root: `/home/slimco/code/FieldLens-worktrees/`, suffix matching the branch
-   without `feature/`. Do not create all three before their bases exist.
+3. Check checkout path/branch/base ancestry and preserve unrelated dirt.
+   The new foundation branch is `feature/fl-004-a-foundation-serial` in
+   `/home/slimco/code/FieldLens`; the old foundation branch/worktree stays inactive.
+   Create `feature/fl-015-a-projects` and `feature/fl-005-a-upload` only after
+   their predecessors are integrated. The orchestrator alone switches branches,
+   after workers/checks/helpers stop. Do not create additional worktrees.
 4. Allocate lane 1 API `8101`, Vite `5174`, shared DB service loopback `55432`.
    Database names respectively `fieldlens_fl004a_w1`, `fieldlens_fl015a_w1`,
    `fieldlens_fl005a_w1`; test DBs append `_test_<run_id>` where run_id is eight
    lowercase hex characters generated at launch. Separate task-scoped roles.
    No test/migration command may target `fieldlens_demo` or another assignment.
-5. Storage/temp root is `<assigned-worktree>/.local/fieldlens/`, Git-ignored.
+5. Storage/temp root is `<checkout>/.local/fieldlens/<slice>/`, Git-ignored.
    Only approved synthetic fixtures in the first three packets; source
    qualification is a separate task. Do not mount/import the 44.82 GiB corpus.
 6. Orchestrator owns any shared Compose service and integration environment.
@@ -176,7 +187,7 @@ known limitations, actual exposed model/usage metadata, proposed minor bump and
 release note. Workers do not edit VERSION/CHANGELOG/BACKLOG or merge/push.
 Orchestrator rechecks affected combined behavior against the latest target,
 allocates one version, integrates only with authorization and updates the ledger.
-Keep dirty worktrees; stop only helpers owned by the assignment.
+Keep pending changes and inactive worktrees; stop only helpers owned by the assignment.
 
 ## 3. Alternatives
 
@@ -191,11 +202,11 @@ Keep dirty worktrees; stop only helpers owned by the assignment.
 
 ## 4. Dependencies
 
-| Global task | Requires | Independent work after that prerequisite |
+| Global task | Requires | Other eligible work (queued, not concurrent) |
 |---|---|---|
-| TASK-003 | TASK-001, approved committed packet | TASK-002 source qualification may use an independently allocated heavy slot |
-| TASK-025 | TASK-003 integrated | TASK-004 offline Meta adapter or TASK-007/008 numeric engine, one at a time in lane 2 |
-| TASK-006 | TASK-025 integrated | Continue one contract-isolated lane-2 task; serialize generated client/migrations |
+| TASK-003 | TASK-001, approved committed packet | TASK-002 source qualification remains separate; no parallel worker |
+| TASK-025 | TASK-003 integrated | TASK-004 offline Meta adapter or TASK-007/008 numeric engine may be scheduled as a later feature |
+| TASK-006 | TASK-025 integrated | Provider/numeric work stays queued; no second code lane |
 | TASK-009 / TASK-032 | TASK-006 / TASK-009 respectively | Next UI checkpoint: evidence and quality issues; use their feature contracts |
 
 No full G1 or live G2 is a prerequisite for the three synthetic first packets.

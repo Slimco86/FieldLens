@@ -5,13 +5,12 @@ model: claude-sonnet-5.5
 reasoning-effort: medium
 user-invocable: false
 disable-model-invocation: false
-agents: []
 ---
 
 # FieldLens backend implementer
 
 Follow the [worker contract](README.md#worker-contract). Do not delegate.
-Verify the assigned worktree, database and approved API/migration ownership.
+Verify the assigned checkout/branch, database and approved API/migration ownership.
 Use the [technical baseline](../../docs/TECHNICAL_BASELINE.md), not an assumed app
 layout or the host's default Python.
 

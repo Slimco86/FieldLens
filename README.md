@@ -25,7 +25,10 @@ containers, dataset ingestion or paid model calls have been created by this work
 The owner confirmed hybrid project uploads, explicit reconstruction review/
 publication and upload limits on October 28. F-12 generic/unlocated equipment
 and real discrepancies are intentional, visibly labelled demo cases.
-Detailed implementation packets are prepared for review/commit and host preflight.
+The owner approved the first three implementation packets and then switched
+development to one feature branch at a time in this checkout. The old foundation
+worktree is preserved inactive; worker editing-tool access still needs verification;
+see the [activation record](docs/BACKLOG.md#first-packet-execution-approval-and-activation-blocker).
 Local source access is established; final pilot qualification, package compatibility
 and account-specific API access remain execution gates, not implementation claims.
 
@@ -34,9 +37,9 @@ The demo runs locally on the development WSL machine.
 Owner-confirmed submission: **indie track**, **public repository**, and a
 **three-minute recorded demo**. Containerized local execution is also acceptable.
 
-The **0.3.2** architecture package was integrated in `a4bf9ee`; there is
-still no application release. **0.3.3** is the pending documentation checkpoint
-for target qualification, confirmed workflow and detailed implementation handoffs.
+The **0.3.3** planning package was integrated in `9d630e3`; there is
+still no application release. The first implementation handoffs are approved,
+with host/tool activation still incomplete.
 See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Development documents
@@ -57,7 +60,7 @@ See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 - [Data quality](docs/specs/DATA_QUALITY.md): evidence-linked warnings/errors,
   generic limitations and affected-output blocking without hiding valid records.
 - [Implementation sequence](plan/architecture-fieldlens-1.md): 32 explicit tasks,
-  dependency DAG, parallel lanes, agent/worktree ownership and deadline checkpoints.
+  dependency DAG, serial feature ownership and deadline checkpoints.
 - [First implementation packets](plan/feature-foundation-workspace-1.md):
   foundation -> project lifecycle -> uploads/jobs, with planned files, tests,
   isolated resources, handoffs and stop conditions.
@@ -83,7 +86,7 @@ See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
   and actual assets are deferred, and simple tubes remain procedural in Three.js.
 - [Perforation history spec](docs/specs/PERFORATION_HISTORY.md): draft event/state,
   depth, perforated-length and temporal acceptance contracts.
-- [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): parallel agent worktrees,
+- [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): one checkout and feature at a time,
   ownership, testing, integration and version/changelog policy.
 - [Development agents](.github/agents/README.md): ten specialists, the main
   orchestrator, model/effort routing and activation instructions.
@@ -93,17 +96,20 @@ See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Delivery workflow
 
-The main agent plans and orchestrates; implementation agents work in separate
-worktrees on approved, dependency-ready feature specs. Each integration requires
+The main agent plans and orchestrates; implementation subagents launch from that
+session and work sequentially in the current checkout, one feature branch and
+one writer at a time, on approved dependency-ready specs. No new worktrees.
+Only the orchestrator switches branches after workers/checks/helpers stop.
+Each integration requires
 tests, related documentation, and an assessed major/minor/patch update before merge.
 After integration, the orchestrator reconciles the backlog. Select
 **fieldlens-orchestrator** in the Copilot harness after refreshing agent discovery;
 verify **GPT-6 Astra / xhigh** in the host. Workers use Terra low, Sonnet medium
 or Sol high according to the task. Repository profiles do not switch an existing
-chat or create worktrees; verify the chosen worker/model/tools before execution.
+chat or switch branches; verify the chosen worker/model/tools before execution.
 
-**Next step:** review/commit the detailed packets, verify actual host/profile
-readiness, then delegate the foundation slice in its own worktree. Deliver
+**Next step:** restore and verify file-edit tools for the backend worker, then
+delegate the foundation slice on `feature/fl-004-a-foundation-serial` here. Deliver
 browser-visible projects/uploads, source inspection
 and early chat, reconstruction review, and finally the linked scene/history/context/
 charts. Each real-data increment needs its qualified subset; full demo acceptance

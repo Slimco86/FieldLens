@@ -3,7 +3,7 @@
 Approved 2026-10-27. These are Copilot development profiles, not the application's
 Meta RAG agents. The [FL-001 spec](../../docs/specs/DEVELOPMENT_AGENTS.md) records
 approval and verification; the [workflow](../../docs/DEVELOPMENT_WORKFLOW.md)
-governs worktrees, tests and integration.
+governs serial feature branches, tests and integration.
 
 ## Roster and model defaults
 
@@ -71,11 +71,14 @@ and only the relevant spec/skill sections before acting.
 
 - Require backlog/spec approval, exact objective and stop condition, base commit,
   owned files/contracts, actual checks, external-data permissions and resource
-  limits. Read-only research/plan repair may use the assigned checkout without a
-  writable worktree; tests still need isolated databases/ports/output directories.
-- Before writing, verify assigned absolute worktree, branch and base ancestry.
+  limits. All roles use the assigned shared checkout; tests still need isolated
+  databases/ports/output directories.
+- Before writing, verify assigned absolute checkout, branch and base ancestry.
   Check for unrelated dirty work and ownership conflicts. An agent file does not
-  set `cwd` or create a worktree. Never edit the primary/another worker's tree.
+  set `cwd` or switch a branch. The owner-approved checkout is
+  `/home/slimco/code/FieldLens`; one feature and one writer are active at a time.
+  Never switch branches or edit preserved worktrees. The orchestrator pauses
+  writes during worker turns and switches branches only after workers/helpers stop.
 - Implement only the approved slice, keep existing behavior and trace requirements
   to tests. Source records, normalized claims, deterministic computations and
   display geometry stay separate. Missing engineering evidence blocks affected
@@ -135,9 +138,9 @@ to populate a checklist. Runtime failures never count as static validation passe
 
 Use the smallest complete context: approved slice, relevant paths/contracts,
 acceptance checks and concise handoff. Do not paste whole histories or all skills.
-Start only independent ready work; allocate WSL RAM/CPU, test DBs and ports before
-parallel workers. OCR, embeddings and browser/GPU work can compete for the same
-host resources even in separate worktrees.
+Start only one ready feature at a time; allocate WSL RAM/CPU, test DBs and ports
+before its worker. Do not overlap implementation with QA or another writer.
+OCR, embeddings and browser/GPU work still share host resources.
 
 Record requested/actual model, effort, attempts, elapsed time and tokens/usage if
 the host exposes them. Do not fabricate monetary savings, quotas or balances.

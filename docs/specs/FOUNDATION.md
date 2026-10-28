@@ -3,7 +3,7 @@
 > **Spec type:** Infrastructure/migration. **Backlog:** FL-004.
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
 > **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** Workflow baseline confirmed; detailed packet review/commit and host activation required before execution.
+> **Status:** First packet approved October 28 at base `9d630e3`; execution blocked on worker file-edit tool access (DA-7).
 > **Zero-Question Score:** 0 unowned design questions; G5 qualification is not yet run.
 
 ## How to Read This Spec
@@ -60,7 +60,7 @@ only during this approved setup; no system-wide runtime replacement.
 | FN-6 | Non-behavioral | Default test command blocks external network/provider calls and uses a uniquely named test database, never the demo database. | 3 | [Validated] | `test_test_isolation` |
 
 Definition of done: all criteria plus lint/type/build checks pass on the assigned
-worktree; lockfiles and actual runtime/image versions are recorded.
+feature branch in the shared checkout; lockfiles and actual runtime/image versions are recorded.
 
 ## 4. Context and Decisions
 

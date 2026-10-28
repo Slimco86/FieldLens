@@ -13,3 +13,8 @@ node_modules/
 dist/
 coverage/
 /data/
+/.local/
+frontend/.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/

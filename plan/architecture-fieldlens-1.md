@@ -1,6 +1,6 @@
 ---
 goal: Deliver the complete evidence-backed FieldLens local hackathon application
-version: 3
+version: 4
 date_created: 2026-10-27
 last_updated: 2026-10-28
 owner: FieldLens project owner and main orchestrator
@@ -16,8 +16,13 @@ tags: [architecture, implementation, orchestration, evidence, hackathon]
 F-12/F-14/F-5, accepted evidence-safe generic F-12 equipment and visible
 discrepancies, and explicitly confirmed hybrid categories, review/publication and
 128 MiB/file, 512 MiB/batch, 200-file limits. The cohort/planning hold is released.
-Final G1, live-spend approval, committed packet review and host/model preflight
-remain separate gates. This request prepares handoffs; no worker has been launched.
+Final G1, live-spend approval and host/tool preflight remain separate gates.
+The owner integrated these packets in `9d630e3` and authorized the first three
+handoffs. Activation verified the requested models but found no worker file-edit
+tool; application implementation is blocked pending host capability repair.
+At 14:47 EDT the owner replaced parallel worktrees with one feature branch at a
+time in the existing checkout. Subagents launch from the main session; tool
+preflight still applies. Existing worktrees remain inactive and preserved.
 
 No application is implemented. This is the revised sequence for the
 [architecture](../docs/ARCHITECTURE.md)
@@ -50,11 +55,11 @@ launch-time assignment only after prerequisite interfaces/source subsets freeze.
 - **CON-002**: USD 150 total Meta allowance is not the current balance. Default
   tests use zero paid calls; all live allowances require the shared ledger/approval.
 - **CON-003**: Current WSL has 7.6 GiB RAM, not twenty workers' worth of memory.
-  At most two active code workers; one heavy test/parser/build workload at a time.
+  At most one active code worker; one heavy test/parser/build workload at a time.
 - **GUD-001**: Do not start a task until its explicit dependencies are integrated,
   its spec approved and its profile/model/tools/resources verified.
-- **PAT-001**: Freeze shared contracts first, use independent worktrees for complete
-  vertical slices, and serialize migrations, generated clients and release metadata.
+- **PAT-001**: Freeze shared contracts first, use one feature branch at a time in
+  the shared checkout, and serialize all writers, tests and integration.
 
 ## 2. Implementation Steps
 
@@ -163,21 +168,23 @@ boilerplate; domain Sonnet for the substantive slices above; Sol for one bounded
 contract gap only. Do not use a short diff as proof of low engineering risk.
 Missing actual model/tool capability blocks dispatch; no silent model override.
 
-At launch, assign a new branch `feature/<slice>-<slug>` and worktree
-`/home/slimco/code/FieldLens-worktrees/<slice>-<slug>`. Capture
-`git rev-parse master` only after approved specs are committed; current observed
-base `a4bf9ee` does not contain this uncommitted planning/data-follow-up revision.
-Do not invent future hashes or create speculative worktrees during planning.
+At launch, assign a new branch `feature/<slice>-<slug>` in
+`/home/slimco/code/FieldLens`. Capture
+`git rev-parse master` only after approved specs are committed; the first packet's
+approved base is `9d630e32af898cdc9292451b5258f9c2f9a1a06d`.
+Do not invent future hashes or create additional worktrees. Only the orchestrator
+switches branches, after workers/checks/helpers stop and pending changes are safe.
+Finish and integrate the active feature before starting the next.
 
-| Resource | Lane 1 | Lane 2 | Integration/demo |
-|---|---|---|---|
-| API port | 8101 | 8102 | 8100 |
-| Frontend port | 5174 | 5175 | 5173 |
-| PostgreSQL | Shared loopback 55432 service, distinct task database | Same service, different task database | Dedicated demo/integration databases |
-| Database naming | `fieldlens_<slice>_w1`, hyphens replaced by underscores | `fieldlens_<slice>_w2`, same normalization | `fieldlens_demo`, separate `fieldlens_integration` |
-| DB identities | Task-scoped role; no access to another task/demo DB | Same isolation rule | Owner-provisioned integration role |
-| Storage | Task-specific untracked source/output/temp roots | Separate roots; immutable approved originals may be read-only shared | Dedicated accepted manifest/artifacts |
-| Heavy workload | At most one across all lanes | Wait while lane 1 uses heavy slot | Rehearsal owns the slot exclusively |
+| Resource | Single implementation lane | Integration/demo |
+|---|---|---|
+| API port | 8101 | 8100 |
+| Frontend port | 5174 | 5173 |
+| PostgreSQL | Loopback 55432 service, distinct task database | Dedicated demo/integration databases |
+| Database naming | `fieldlens_<slice>_w1`, hyphens replaced by underscores | `fieldlens_demo`, separate `fieldlens_integration` |
+| DB identities | Task-scoped role; no access to another task/demo DB | Owner-provisioned integration role |
+| Storage | Task-specific untracked source/output/temp roots | Dedicated accepted manifest/artifacts |
+| Heavy workload | At most one; no concurrent feature or QA work | Rehearsal owns the slot exclusively |
 
 Verify ports/database ownership before use; if occupied, main agent records a new
 specific allocation rather than terminating someone else's process. Only one
@@ -237,7 +244,7 @@ Integration is serialized: receive tested commit/handoff -> reconcile with lates
 master -> run affected combined checks -> classify compatibility -> allocate one
 version bump -> finalize changelog/docs -> commit/merge using authorized policy ->
 verify target SHA -> reconcile backlog. No automatic push/tag/publication.
-Dirty worktrees are preserved; only known clean merged worktrees are cleanup candidates.
+Pending changes and inactive legacy worktrees are preserved; no automatic removal.
 
 ## 3. Alternatives
 
@@ -307,8 +314,9 @@ absent from required task ancestors, and consistent pending version metadata.
   full demo. Owner/provider resolution is not an autonomous permission change.
 - **RISK-002**: Native parsing may expose unsupported profiles/OCR memory costs.
   Preserve failed evidence and narrow work; do not invent content or install every parser.
-- **RISK-003**: Parallel branches can conflict on contracts/migrations or exhaust
-  WSL RAM. Enforce single writers, two code lanes and one heavy slot.
+- **RISK-003**: Switching the shared checkout while workers or watchers are active
+  can invalidate tests or mix feature files. Enforce one feature/writer and one
+  heavy slot; stop branch-bound work before the orchestrator switches branches.
 - **RISK-004**: Late live-provider/rules failures can block delivery. Run G2/G4
   checks early; keep final live rehearsal and a four-hour submission buffer.
 - **ASSUMPTION-001**: The owner can approve the design and arrange authorized

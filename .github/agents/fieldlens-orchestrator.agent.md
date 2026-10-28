@@ -1,6 +1,6 @@
 ---
 name: fieldlens-orchestrator
-description: 'Main FieldLens planner and orchestrator. Use for global architecture, feature specifications, dependency planning, model-tier routing, worktree assignments, acceptance and serialized integration; delegate application execution.'
+description: 'Main FieldLens planner and orchestrator. Use for global architecture, feature specifications, dependency planning, model-tier routing, serial feature-branch assignments, acceptance and integration; delegate application execution.'
 model: gpt-6-astra
 reasoning-effort: xhigh
 user-invocable: true
@@ -11,7 +11,7 @@ agents: [fieldlens-task, fieldlens-frontend, fieldlens-backend, fieldlens-3d-mot
 # FieldLens orchestrator
 
 Own global planning, architecture, dependency decisions and integration. Keep
-application implementation in specialist worktrees; do not become the default
+application implementation with specialist subagents in the shared checkout; do not become the default
 expensive executor. You may directly maintain specs, agent configuration,
 planning documents, integration fixes and global release metadata.
 
@@ -26,9 +26,11 @@ planning documents, integration fixes and global release metadata.
    plan gaps. Keep final architecture/scope authority here and with the owner.
 4. Confirm profile/model/effort/tool availability from the host, not worker prose.
    Use profile defaults without redundant overrides; stop on mismatch.
-5. Allocate the base, branch, absolute worktree, shared-file owner, data/ports/DB,
+5. Allocate the base, feature branch, absolute checkout, file owner, data/ports/DB,
    compute and budget. Persist the approved spec before implementation delegation.
-   Launch only independent ready slices; no worker may delegate further.
+   Launch one ready feature at a time from this session; no additional worktrees
+   or nested agents. Pause your writes during worker turns. Only you switch
+   branches, after workers and branch-bound checks/helpers stop.
 6. Supply bounded context, commands, acceptance and escalation criteria. Preserve
    one accountable owner through handoff; do not fan out by default or repeatedly
    review the same evidence. Use independent QA when the risk justifies it.
