@@ -1,0 +1,34 @@
+candidate_id,wave,wellbore,family,relative_path,bytes,sha256,evidence_status
+PV-01,first,,production,Production_data/Volve production data.xlsx,,,metadata_only
+PV-02,first,,well_metadata,Geophysical_Interpretations/Wells/README.txt,,,metadata_only
+PV-03,first,,perforations,Geophysical_Interpretations/Wells/Well_perforations_Volve.dat,,,metadata_only
+PV-04,first,,formation_picks,Geophysical_Interpretations/Wells/Well_picks_Volve_v1.dat,,,metadata_only
+PV-05,first,,surface_metadata,Geophysical_Interpretations/Horizons/README.txt,,,metadata_only
+PV-06,first,,surface_format,Geophysical_Interpretations/Horizons/Horizon-OW-IO-formatfile.xml,,,metadata_only
+PV-07,first,,seabed,Geophysical_Interpretations/Horizons/Horizons_DEPTH/Other_Horizons/Seabed+VelBuild_04_08+PUB+DEPTH.dat,,,metadata_only
+PV-08,first,,formation_top,Geophysical_Interpretations/Horizons/Horizons_DEPTH/Official_Horizons/Hugin_Fm_Top+ST10010ZC11_Near_190314_adj2_2760_EasyDC+STAT+DEPTH.dat,,,metadata_only
+PV-09,first,,formation_base,Geophysical_Interpretations/Horizons/Horizons_DEPTH/Official_Horizons/Hugin_Fm_Base+ST10010ZC11_Near_190314_adj_2999_EasyDC+STAT+DEPTH.dat,,,metadata_only
+PV-10,first,15/9-F-12,survey,Well_technical_data/WellWellbore/15_9-F-12/15_9-F-12/Standard Survey Report_Volve F_F-12_F-12_F-12_ACTUAL.pdf,,,metadata_only
+PV-11,first,15/9-F-12,completion,Well_logs/14.DIV. REPORTS/15_9-F-12/COMPLETION_REPORT_1.PDF,,,metadata_only
+PV-12,first,15/9-F-12,completion,Well_logs/14.DIV. REPORTS/15_9-F-12/COMPLETION_REPORT_2.PDF,,,metadata_only
+PV-13,first,15/9-F-12,completion,Well_logs/14.DIV. REPORTS/15_9-F-12/COMPLETION_REPORT_3.PDF,,,metadata_only
+PV-14,first,15/9-F-12,completion_plot,Well_logs/14.DIV. REPORTS/15_9-F-12/COMPLETION_LOG_MD_PLOT_2.PDF,,,metadata_only
+PV-15,first,15/9-F-12,well_log,Well_logs/02.LWD_EWL/15_9-F-12/WL_RAW_BHPR-GR-MECH_MWD_1.LAS,,,metadata_only
+PV-16,second,15/9-F-14,survey,Well_technical_data/WellWellbore/15_9-F-14/15_9-F-14/Standard Survey Report_Volve F_F-14_F-14_F-14_ACTUAL.pdf,,,metadata_only
+PV-17,second,15/9-F-14,completion,Well_logs/14.DIV. REPORTS/15_9-F-14/FWR_Completion_F14.pdf,,,metadata_only
+PV-18,second,15/9-F-14,completion_plot,Well_logs/14.DIV. REPORTS/15_9-F-14/completion_log_F14.pdf,,,metadata_only
+PV-19,second,15/9-F-14,well_log,Well_logs/02.LWD_EWL/15_9-F-14/WL_RAW_BHPR-GR-MECH_MWD_1.LAS,,,metadata_only
+PV-20,second,15/9-F-5,survey,Well_technical_data/WellWellbore/15_9-F-5/15_9-F-5/Standard Survey Report_Volve F_F-5_F-5_F-5_ACTUAL.pdf,,,metadata_only
+PV-21,second,15/9-F-5,completion,Well_logs/14.DIV. REPORTS/15_9-F-5/COMPLETION_REPORT_1.PDF,,,metadata_only
+PV-22,second,15/9-F-5,well_log,Well_logs/02.LWD_EWL/15_9-F-5/WL_RAW_BHPR-GR-MECH_MWD_1.LAS,,,metadata_only
+PV-23,first,,engineering_metadata,Well_technical_data/EDT_EDM_read_me.txt,,,metadata_only
+PV-24,deferred_large,,engineering_export,Well_technical_data/EDM.XML/Volve F.edm.xml,,,metadata_only
+PV-25,first,15/9-F-12,tubular,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-12/1/tubular/1.xml,,,metadata_only
+PV-26,first,15/9-F-12,bha_run,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-12/1/bhaRun/1.xml,,,metadata_only
+PV-27,first,15/9-F-12,bore_geometry,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-12/1/wbGeometry/1.xml,,,metadata_only
+PV-28,second,15/9-F-14,tubular,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-14/1/tubular/1.xml,,,metadata_only
+PV-29,second,15/9-F-14,bha_run,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-14/1/bhaRun/1.xml,,,metadata_only
+PV-30,second,15/9-F-14,bore_geometry,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-14/1/wbGeometry/1.xml,,,metadata_only
+PV-31,second,15/9-F-5,tubular,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-5/1/tubular/1.xml,,,metadata_only
+PV-32,second,15/9-F-5,bha_run,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-5/1/bhaRun/1.xml,,,metadata_only
+PV-33,second,15/9-F-5,bore_geometry,WITSML Realtime drilling data/Norway-Statoil-NO 15_$47$_9-F-5/1/wbGeometry/1.xml,,,metadata_only

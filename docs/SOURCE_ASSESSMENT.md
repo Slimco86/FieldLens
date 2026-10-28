@@ -3,8 +3,12 @@
 Reviewed 2026-10-26, America/New_York. No engineering dataset was downloaded or
 validated and no paid API call was made. Public documentation was inspected;
 account entitlements and authenticated event rules were not.
-Updated 2026-10-27: owner adds date-specific perforation/state history and completion
-footage. Terminology was researched; no actual perforation records were inspected.
+Updated 2026-10-27: historical perforation terminology, official access/license
+documents, public wellbore records and a metadata-only catalog were inspected.
+Pilot engineering files and actual perforation records remain unacquired. A later
+equipment follow-up inspected three small public mirrored F-4/F-7 WITSML files,
+with explicit drilling-versus-installed-state limits. See the
+[data-discovery findings and access handoff](VOLVE_DATA_DISCOVERY.md).
 
 ## 1. Source and precedence
 
@@ -34,6 +38,11 @@ earlier assistant suggestions:
   [draft feature contract](specs/PERFORATION_HISTORY.md) for proposed semantics.
 - Development uses orchestrated parallel worktrees and versioned integration;
   this does not add a multi-agent framework to the runtime application.
+- The owner has no prepared dataset and chose joint sample inspection before
+  final architecture. Indie track, public repository, three-minute recorded
+  demo, and local WSL/container runtime are owner-confirmed requirements.
+- A Meta key is ready locally and processing public data is authorized, subject
+  to source/provider terms; entitlement, balance and protocol behavior are untested.
 
 ## 2. Most important ideas worth retaining
 
@@ -56,6 +65,7 @@ earlier assistant suggestions:
 |---|---|---|
 | Volve is a credible primary source | Supported at collection level: Equinor describes about 40,000 files and 2008-2016 production history | Specific compatible files still require inspection |
 | 3-5 wells make an achievable demo | Plausible presentation scale, not proof of effort or data completeness | Prioritize complete source coverage; do not impose a five-well product cap |
+| Technical equipment data is essential to the value proposition | Agree; mirrored WITSML samples contain real dimensions, but a coherent installed pilot completion is not yet verified | Prioritize completion reports plus EDM/WITSML; apply the proposed DF-9 gate instead of presenting a generic-only scene as reconstruction |
 | PDF/diagram understanding can reconstruct all equipment | Overstated without dimensions, view conventions and installed-state evidence | Supported parametric geometry plus catalog/generic fallback; no universal inverse-CAD claim |
 | Meta Muse provides multimodal and agent tools | Supported by current public Meta docs, not a fabricated model family | Verify account entitlement and actual extraction/tool behavior |
 | Structured output guarantees reliable data | It constrains shape, not engineering correctness | Domain validation, evidence locators, deterministic checks |
@@ -79,10 +89,13 @@ compatible measurements or validate engineering semantics.
 
 | Source | What was verified | What was not |
 |---|---|---|
-| [Equinor Volve](https://www.equinor.com/energy/volve-data-sharing) | Official collection description and current Databricks access link, using rendered page | Individual contents, full applicable license terms, account access |
-| [Equinor Marketplace provider](https://marketplace.databricks.com/provider/006d1a44-e5d8-4d20-8bd7-e9a311106007/Equinor-ASA) | Destination linked by Equinor | Download/access workflow not exercised |
-| [Community metadata index](https://github.com/985185/volve-metadata-index) | Listed in source conversation | Independent accuracy, completeness and currency not audited |
-| [SODIR FactPages](https://factpages.sodir.no/) / [FactMaps](https://factmaps.sodir.no/map) | Official-source candidates identified in source conversation | Relevant records/layers not retrieved in this task |
+| [Equinor Volve](https://www.equinor.com/energy/volve-data-sharing) | Collection description, official access guide and operative license/use/sharing clauses inspected | Engineering contents, account access and per-file rights/provenance |
+| [Volve Marketplace listing](https://marketplace.databricks.com/details/5c3558ef-315c-44dd-baef-7062ac301f22/Equinor-ASA_Volve-Data-Village) | Free listing, sign-in access guide, source/license links | Authenticated acquisition/export and any workspace/compute cost |
+| [Community metadata index](https://github.com/985185/volve-metadata-index) | v1.0 CSV hash verified; exact candidate paths, counts and identity anomalies inspected | Independent accuracy, completeness, freshness and original-file bytes |
+| [Original conversation's detailed inventory](https://github.com/gabrielserrao/spe-2026-challenge/blob/main/DATA_SOURCES.md) | Documents EDT/EDM assembly/casing tags and WITSML object families; official license also identifies EDT exports | Actual large EDM bytes/schema semantics and installed-versus-designed configuration; old direct-download URL now redirects |
+| [Public WITSML sample mirror](https://github.com/f0nzie/volve-drilling/tree/3698c43d4adc0ee11ffa8fd5f876fa961c9c846d) | Three pinned files, 8 component and 4 geometry records, sizes/hashes/metric fields inspected | Current official-byte equivalence, pilot coverage, installation dates, depth datum and complete device geometry |
+| [PetroRAG](https://github.com/yohanesnuwara/PetroRAG/tree/ac4f27ef4e1683e9b79c661cf50451dff2b00fd9) | Secondary extract's "Completion Report" label conflicts with its F-15-family drilling-report header | Original PDFs absent; no installed-completion proof from the label or chunks |
+| [SODIR FactPages](https://factpages.sodir.no/) / [FactMaps](https://factmaps.sodir.no/map) | Volve field and F-12 references; F-5 injection and base F-11 observation purpose | Full trajectories, dated interval state, spatial-layer downloads |
 | [Public event page](https://cerebralvalley.ai/e/meta-ai-developer-hackathon) | Nov 4, 9 PM ET deadline; Meta model families; tracks/themes | Full contest rules and required final artifacts |
 | [Event details/rules entry](https://cerebralvalley.ai/e/meta-ai-developer-hackathon/details) | Access redirects to login | Authenticated content not inspected |
 | [Meta overview/models](https://dev.meta.ai/docs/models) | Muse Spark/Wonder multimodal inputs and documented API availability | This team's permitted models, credit balance, limits or successful calls |
@@ -98,20 +111,20 @@ explicit license check before adoption; they are not baseline dependencies.
 
 ## 5. Joint data audit: choose files by evidence coverage
 
-Candidate identifiers from the source conversation: `15/9-F-1`, `15/9-F-1 B`,
-`15/9-F-1 C`, `15/9-F-4`. These are leads, not a selected or validated demo set.
-Favor compatible records over those exact names. Sidetracks and well-level
-production must not be conflated.
+The current proposal is F-12/F-14/F-5, with F-1 C and exact F-11-family wellbores
+as reserves, based on [metadata discovery](VOLVE_DATA_DISCOVERY.md). This
+supersedes the conversation's unverified F-1/F-1 B/F-1 C/F-4 shortlist, not an
+approved manifest. Favor compatible records over names; do not conflate sidetracks.
 
 | Required evidence | Candidate category | Audit questions |
 |---|---|---|
 | Well locations and trajectories | EDM export, directional-survey tables, relevant WITSML records | Same wellbore/revision? MD/INC/AZI or documented positions? CRS, north reference, vertical/depth datum? |
-| Installed components | Completion reports, schematics, well-technical exports | Model/revision, dimensions, units, intervals, dates, installation context? |
+| Installed components | Completion reports, schematics, EDT/EDM exports, WITSML tubular/run/geometry records | Model/revision, dimensions, units, intervals, dates, installation context? Explicitly distinguish drilling assemblies, planned designs and permanent completion |
 | Historical perforations and state | Perforation/reperforation reports, completion/workover histories, dated well/interval status records | Event effective date versus report date? MD/TVD endpoints/references? Scope of shut-off? Production/injection evidence? Footage meaning, overlaps, initial coverage and corrections? |
 | Catalog specifications | Manufacturer datasheets identified from actual model names | Exact product match? Authoritative source? Terms permit use? No invented installed state? |
 | Terrain/bathymetry | Relevant geospatial surfaces/grids | Geographic coverage, horizontal/vertical references, resolution and source rights? |
 | Reservoir/formations | Geological picks, interpreted surfaces, reservoir boundaries/grids | What is measured versus interpreted? Enough metadata to align with wells? Required importer? |
-| Production series | Owner's existing production data; Volve production files | Rates/volumes, units, dates/timezone, missingness, well versus wellbore association? |
+| Production series | Official Volve production workbook candidate; owner has no prepared data | Rates/volumes, units, dates/timezone, missingness, well versus wellbore association? |
 | Well-log curves | LAS/DLIS or another documented export | Depth basis, null sentinels, mnemonics/units, intervals, wellbore identity? |
 
 A location point layer does not replace a downhole survey. Production data alone
@@ -126,12 +139,27 @@ and reservoir/formations. Inspect jointly, then
 expand to the related wellbores needed for cross-well questions. Do not bulk-fetch
 the whole collection.
 
-The audit must record a manifest with file hash, origin/license, format/version,
+The [draft feasibility spec](specs/DATA_FEASIBILITY.md) defines the audit.
+It must record a manifest with file hash, origin/license, format/version,
 canonical IDs, references/units, locator strategy, expected facts, conflicts,
 chosen configuration dates and missing coverage. The owner provides file paths
-or authorizes selective acquisition; none are assumed here.
+or completes official access using the existing account confirmed by the owner.
+The exact candidate list is metadata-only; no pilot sample/limit approval or
+completed pilot acquisition has yet been recorded. Authentication succeeded, but
+the installed catalog lacks the advertised public schema/volume; this is now an
+access/visibility issue rather than a missing-account issue.
 
-## 6. What must be verified before architecture
+The [equipment feasibility report](EQUIPMENT_DATA_FEASIBILITY.md) reassesses the
+additional original sources and records actual sample attributes. SODIR helps
+with identity/geospatial cross-checks; OPM/Norne is a separate simulation benchmark,
+not a substitute source of Volve installed hardware.
+
+## 6. What must be verified before affected implementation and acceptance
+
+The [architecture](ARCHITECTURE.md) and [feature contracts](specs/README.md)
+are now defined from the inspected evidence. The following remain execution/
+acceptance gates; they no longer prevent source-independent design or foundation
+work after approval.
 
 1. **Data:** approve the exact subset and the minimum truthful representation of
    every mandatory contextual layer. Set coordinate tolerances from the actual
@@ -139,10 +167,12 @@ or authorizes selective acquisition; none are assumed here.
 2. **Reconstruction:** independently check at least one real trajectory; establish
    golden fixtures for survey interpolation, closest approach, equipment placement
    and as-of perforation state/unique MD length, including overlap and reperforation.
-3. **Extraction:** run a representative document through a candidate parser and
-   Meta extraction; compare claimed values and source locators with human-checked facts.
+3. **Extraction:** run representative documents through selected native readers;
+   compare values/locators with human-checked facts. OCR or paid Meta extraction
+   needs a demonstrated gap and its own approval, not automatic activation.
 4. **API/cost:** with authorization, perform a bounded Meta smoke test covering
-   text, image/PDF if needed, structured extraction, tool round-trip and streaming.
+   text and the selected tool round-trip/replay behavior. Add image/PDF, structured
+   extraction or streaming tests only when an approved feature uses them.
    Confirm remaining credit and cost accounting, without exposing credentials.
 5. **Retrieval:** construct answerable and unanswerable questions with expected
    sources/tool results; test exact identifiers as well as semantic matching.
@@ -150,7 +180,7 @@ or authorizes selective acquisition; none are assumed here.
    dataset/catalog processing and redistribution rights before external transmission
    or publication. Public-source availability is not blanket training permission.
 
-These gates are requirements for the next feature specs, not tests already run.
+These gates are represented in the completed feature specs, not tests already run.
 
 ## 7. Perforation terminology follow-up
 

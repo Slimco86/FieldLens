@@ -1,15 +1,18 @@
 # Technical baseline and engineering conventions
 
-Date: 2026-10-26, America/New_York. This is an initial, owner-agreed direction,
-not a completed architecture or a claim that packages have been tested together.
-Updated 2026-10-27 with historical perforation and parallel-delivery requirements.
+Date: 2026-10-26, America/New_York. Updated 2026-10-27 with the selected
+[application architecture](ARCHITECTURE.md) and
+[implementation sequence](../plan/architecture-fieldlens-1.md).
+The architecture and technology choices are defined; package resolution,
+host qualification and actual performance remain unverified execution gates.
 
 ## 1. Prefer a small system with explicit responsibilities
 
-Use one Python application for API, ingestion coordination, engineering tools and
-agent integration; one React frontend; and PostgreSQL. A bounded worker process
-may isolate CPU-heavy ingestion without becoming an independently deployed service.
-Decide process/container boundaries in feature specs after representative tests.
+Use one Python application package for API, ingestion coordination, engineering
+tools and agent integration; one React frontend; and PostgreSQL. Run one separate
+bounded worker process for CPU-heavy parsing/geometry/indexing, backed by a
+PostgreSQL job queue. No broker or independently deployed microservice is selected.
+Production frontend files are served by FastAPI; Compose supplies the local DB.
 
 Node is needed to build/develop the frontend, not to duplicate Python endpoints.
 The renderer consumes derived geometry; it does not own engineering facts.
@@ -17,29 +20,34 @@ Application tools, not the model, control calculations and allowable scene actio
 
 ## 2. Stack decisions
 
-| Area | Initial choice | Rationale / condition |
+| Area | Selected design baseline | Rationale / qualification gate |
 |---|---|---|
 | Python | 3.12 via uv; project virtual environment | Already installed; conservative scientific-package compatibility |
 | API and contracts | FastAPI + Pydantic | Typed boundaries, OpenAPI; generate frontend API types from the contract |
 | Engineering | NumPy, pyproj, welleng behind tested adapters | Deterministic numeric/CRS handling; verify exact reader APIs and source format versions |
-| Structured ingestion | Native CSV/XML/XLSX parsers; pandas/openpyxl only where useful | Preserve typed values, units and locators instead of asking an LLM to recalculate tables |
-| PDF/OCR | Evaluate Docling on the selected samples | Layout/OCR capabilities are documented; cost, memory, accuracy and model licenses need measurement |
+| Structured ingestion | Standard CSV, openpyxl, lasio and defusedxml; versioned source profiles | Preserve typed values, units and locators; no mandatory pandas for small streaming inputs |
+| PDF/OCR | pypdf/pdfplumber for native text/tables; Docling first conditional OCR candidate | Account for every page; accuracy, memory and model licenses gate OCR activation |
 | CAD/asset inputs | Format-specific import or deterministic procedural mesh generation | Do not promise arbitrary CAD-to-3D reconstruction; select needed formats at G1 |
 | Offline equipment authoring | Optional Blender 4.5 LTS candidate plus bundled glTF exporter | Skill/workflow approved; exact build, installation and asset creation deferred. Not a runtime dependency |
-| Frontend | React + strict TypeScript + Vite | Small client application; no SSR requirement |
-| 3D | Three.js + React Three Fiber; Drei helpers as needed; WebGL2 | Stable interactive rendering; no alpha/WebGPU dependency |
+| Frontend | React 19 + strict TypeScript + Vite 8; TanStack Query and a selection reducer | Server-state caching and one shared selection; no SSR requirement |
+| 3D | Three.js + React Three Fiber 9; Drei helpers as needed; WebGL2 | Paired peer-compatible patches resolved at foundation; no alpha/WebGPU dependency |
 | Charts and evidence | Apache ECharts; PDF.js | Production/log series and source-document inspection; load heavy viewers on demand |
-| Persistence | PostgreSQL + pgvector; SQLAlchemy/Alembic for access/migrations | One relational and retrieval store; versioned schema and transactional integrity |
+| Persistence | PostgreSQL 17 + pgvector 0.8 families; SQLAlchemy 2, psycopg 3, Alembic | One relational and retrieval store; pin compatible patch/image digest at setup |
 | Knowledge graph | Typed entity/relationship/claim records in PostgreSQL | Graph semantics with foreign keys and provenance; bounded SQL traversal initially |
-| Embeddings | Small local CPU model through FastEmbed, subject to sample evaluation | No assumed Meta embeddings API; no additional paid embedding service |
+| Embeddings | FastEmbed with BAAI/bge-small-en-v1.5, 384 dimensions, CPU candidate | Pin model revision/license/preprocessing and pass recall/RSS gate; no assumed Meta embeddings API |
 | Agent | Official OpenAI-compatible Python SDK targeting Meta; Pydantic tool schemas | A bounded single-agent tool loop first; Pydantic AI/LangGraph only if justified by real requirements |
 | Frontend tooling | Supported Node 24 LTS patch, npm and a committed lockfile | Installed Node 20 is EOL and below current Vite's minimum |
-| Tests | pytest, Ruff, Python type checking; TypeScript/ESLint, Vitest, Playwright | Install/configure with the corresponding feature; test actual behavior, not only snapshots |
-| Local services | Docker Compose for PostgreSQL/pgvector is the preferred option | Docker now works; full application containers/devcontainer remain optional |
+| Tests | pytest, Ruff, mypy; TypeScript/ESLint, Vitest, Playwright | Foundation creates actual commands; live Meta tests are explicit opt-in |
+| Local services | Docker Compose for PostgreSQL/pgvector | Current daemon/Compose readiness is unverified; recheck after owner startup. Full app containers remain optional |
 
 Freeze compatible stable versions in manifests and lockfiles after resolution.
 Do not use floating `latest` images or install whole research inventories.
 No dependency manifests or runnable test commands exist yet.
+
+Registry check on 2026-10-27: React 19.3.1, R3F 9.8.2 and Vite 8.3.5.
+R3F advertises React `>=19 <19.4`; Vite requires Node
+`^20.19.0 || >=22.12.0`. These support the selected Node 24/React 19 baseline,
+but are not a substitute for a resolved lockfile, typecheck and build.
 
 ## 3. Why one database can support three needs
 
@@ -119,9 +127,10 @@ export/consumer tests remain deferred, not satisfied by these instructions.
 
 For offshore Volve, surface context may be seabed/bathymetry, not land terrain.
 Formation picks do not establish a measured continuous surface or reservoir
-volume. Interpolation must state its method and limits; simulator grids/metadata
-must be labeled according to their source. Reservoir representation is required,
-but its minimum truthful form awaits the data audit.
+volume. The selected representation is source-interpreted depth horizons plus
+well formation picks, with explicit interpolation/coverage and no inferred closed
+reservoir volume. G1 must validate that the real sources support this
+[context-layer contract](specs/CONTEXT_LAYERS.md); notices alone do not pass.
 
 Charts preserve date/timezone, depth reference, curve mnemonic and units. Distinguish
 rates from daily volumes and cumulative production. Link well-level production to
@@ -158,6 +167,9 @@ events rather than storing only the latest completion snapshot.
 Public [Meta documentation](https://dev.meta.ai/docs/overview) confirms base URL
 `https://api.meta.ai/v1` and Muse Spark models. Initial candidate:
 `muse-spark-1.3` in **Standard** mode, subject to account entitlement.
+On 2026-10-27 the owner confirmed a local API key and permission to process public
+data using an appropriate model. Key contents were not read; no entitlement,
+balance or live-protocol test has run. Source/provider terms still apply.
 
 [Responses](https://dev.meta.ai/docs/protocols) is the documented default for new
 agent workflows. Use typed tools, explicit call/result IDs and supported replay
@@ -233,8 +245,9 @@ arrays; keep original chart values for tool calculations despite display decimat
 
 ## 7. Observed WSL environment
 
-Read-only checks on 2026-10-26; these are observed tools, not installed project
-dependencies or performance certification.
+Initial read-only checks on 2026-10-26, refreshed where noted on 2026-10-27.
+These are observed tools, not installed project dependencies or performance
+certification.
 
 | Resource | Observation | Consequence |
 |---|---|---|
@@ -245,12 +258,19 @@ dependencies or performance certification.
 | Node / npm | 20.11.1 / 10.2.4; no alternate Node found in inspected common locations | Provision supported Node 24 at setup, not an obsolete Vite workaround |
 | CPU / WSL memory | 20 logical CPUs; 7.6 GiB RAM, 2 GiB swap visible | Concurrency must be bounded; this is not total host RAM |
 | GPU | NVIDIA RTX 3070 Ti Laptop, 8,192 MiB reported | Does not prove browser acceleration or model/parser compatibility |
-| Docker | CLI 26.1.3; Desktop daemon 29.8.2; Compose v5.6.0 | Rechecked successfully after owner enabled Docker Desktop |
+| Docker | CLI 26.1.3; 2026-10-27 daemon unreachable and `docker compose` unavailable in the current shell | Earlier Desktop 29.8.2/Compose 5.6.0 success is historical; owner can start Docker, then recheck before setup |
 | Database clients | `psql`, `sqlite3` on PATH | No FieldLens database/pgvector service has been provisioned |
 | OCR utilities | `tesseract`, `pdftotext`, `pdfinfo` not on PATH | Do not assume a ready OCR pipeline |
 
+Latest resource snapshot: approximately 4.2 GiB available WSL RAM and 163 GiB
+free disk. Capacity is shared and transient; do not allocate workers from CPU
+count alone.
+
 Install or change tools only during approved setup work. No system/runtime
-upgrades, package installations, image pulls or paid calls were performed here.
+upgrades, project package installations, image pulls or paid calls were performed.
+Data discovery used temporary `uv --no-project --python 3.12 --with pypdf`
+analysis after a missing-package failure; resolved `pypdf` 6.21.3 was used only
+to inspect public access/license PDFs. It is not a finalized ingestion dependency.
 
 ## References
 

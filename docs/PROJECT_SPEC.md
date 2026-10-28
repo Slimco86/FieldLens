@@ -4,7 +4,7 @@
 > **Load-bearing frameworks:** F1 outcome, F2 acceptance, F3 scope, F4 executor context.
 > **Supporting:** F5 failure conditions, F6 ambiguity audit.
 > **Date:** 2026-10-26, America/New_York.
-> **Updated:** 2026-10-27: historical perforations and model-tiered, versioned delivery.
+> **Updated:** 2026-10-27: historical perforations, versioned delivery and data-first planning/submission decisions.
 > **Author:** Copilot-assisted synthesis. **Decision owner:** project owner.
 > **Status:** Product scope approved; DRAFT for implementation until external gates close.
 > **Zero-Question Score:** 0 unowned questions; 5 explicitly owned TBDs below still block affected work.
@@ -64,6 +64,11 @@ research the documented manufacturer/model and label results as catalog-derived;
 if identification/specifications remain unknown, show a generic asset with a
 missing-information explanation. Unknown placement means an unlocated asset,
 not a guessed installation depth. Display defaults are never engineering facts.
+The owner reaffirmed that technical equipment evidence is essential. The
+[data-feasibility spec's proposed DF-9 checkpoint](specs/DATA_FEASIBILITY.md)
+requires a coherent source-backed pilot assembly before accepting equipment
+feasibility; individual generic fallbacks do not make a generic-only scene
+evidence-backed. Exact checkpoint thresholds remain subject to G1 approval.
 
 Perforation events must preserve effective time and provenance so the state at a
 selected date can be reconstructed, including repeated opening, shut-off, role
@@ -167,15 +172,19 @@ Initial decisions dated 2026-10-26; additions dated explicitly below.
 | Historical perforation events, state and footage (2026-10-27) | Changes across completion/production/injection history must be inspectable |
 | Parallel development agents in separate worktrees (2026-10-27) | Main-agent orchestration with independent implementation and serialized integration |
 | Major/minor/patch version and changelog discipline (2026-10-27) | Breaking/features/fixes-docs assessed for each accepted integration |
+| Inspect real samples before final architecture (2026-10-27) | Source probes inform the completed architecture; pilot mappings/feasibility remain gated rather than invented. Source-independent contracts do not assert pilot readiness |
+| Indie track, public repository and three-minute recorded demo (2026-10-27) | Owner-confirmed submission constraints; full authenticated rules still need review |
+| WSL-local or containerized runtime; owner can start Docker (2026-10-27) | No hosted deployment or cloud account is required by the product |
+| Meta key ready; public-data processing permitted (2026-10-27) | Select an appropriate entitled model after bounded testing; no waiver of source/provider terms or Contributor-mode permission |
 
 ### Dependencies
 
 | Dependency | Status | Owner | Blocker |
 |---|---|---|---|
-| Compatible surveys, equipment/perforation event documents, dated state evidence, context layers, production and logs | Some production data exists per owner; remainder unverified | Owner + implementer | Yes, G1 |
-| Meta account entitlement and remaining credit | Public API capabilities verified; account not tested | Owner + implementer | Yes, G2 |
+| Compatible surveys, equipment/perforation event documents, dated state evidence, context layers, production and logs | No prepared files; [metadata-only candidates](VOLVE_DATA_DISCOVERY.md) identified, actual sample access/audit pending | Owner + implementer | Yes, G1 |
+| Meta account entitlement and remaining credit | Owner confirms local key and public-data processing permission; entitlement/balance/protocol untested | Owner + implementer | Yes, G2 |
 | Supported frontend runtime and project packages | Python available; Node update and dependency resolution pending | Implementer | Before scaffolding |
-| Detailed event rules and publication rights | Details page requires login; dataset/source-specific terms pending | Owner | G4, before publication |
+| Detailed event rules and publication rights | Owner confirms track/public repo/video; Volve license reviewed, per-file/publication and authenticated-rule checks remain | Owner | G4, before publication |
 
 ### Constraints
 
@@ -189,6 +198,8 @@ or additional paid services are implied. `[Validated]`
 Project owner approves scope, expenditure, sources and submission. Implementer
 owns technical proposals, fixtures and validation. Judges are demo consumers;
 their authenticated submission requirements remain to be checked.
+The three-minute video must fit the owner-confirmed submission limit; a public
+code repository does not imply publishing raw engineering files under its license.
 
 ## 5. Failure Conditions
 
@@ -211,14 +222,15 @@ Dates below are proposed decision checkpoints, not extra owner commitments.
 
 | Gate | Question / resolution needed | Owner | Due | Confidence |
 |---|---|---|---|---|
-| G1 | Which files/formats, compatible assets, contextual layers, tolerances and performance fixture satisfy scope? Include perforation history coverage, event/time precision and state mappings; approve manifest and ingestion spec. | Owner + implementer | 2026-10-27, before architecture/scaffolding | M |
-| G2 | Which model/version is entitled, what is the actual credit balance, and do streaming/tools/structured extraction work? Bounded authorized smoke test. | Owner + implementer | 2026-10-27, before model implementation | M |
-| G3 | Which fixed queries and retrieval/answer success criteria define the agent evaluation? Create source-answer/tool fixtures. | Owner + implementer | 2026-10-28, before RAG feature approval | M |
-| G4 | What are full submission rules, chosen track, deliverables, and publication/licensing constraints? Owner supplies authenticated requirements. | Owner | 2026-10-28; recheck before submission | L |
+| G1 | Which files/formats, compatible assets, contextual layers, tolerances and performance fixture satisfy scope? Include perforation history coverage, event/time precision and state mappings; approve manifest and ingestion spec. | Owner + implementer | Proposed Oct 28 checkpoint; before pilot adapter/real-data acceptance, not synthetic foundation | M |
+| G2 | Which model/version is entitled, what is the actual credit balance, and does the selected Responses/tool protocol work? Follow the bounded Meta spec; no paid extraction/streaming dependency unless required by an approved slice. | Owner + implementer | Before FL-003-B live smoke and live assistant acceptance | M |
+| G3 | Evaluation composition/thresholds are specified in the retrieval/assistant spec; approve source-backed gold questions/answers and tolerances. | Owner + implementer | Before FL-011-A gold retrieval acceptance and FL-011-C live evaluation | M |
+| G4 | Indie track, public repository and three-minute video confirmed by owner; review remaining authenticated rules and per-file/provider/publication constraints. | Owner | 2026-10-28; recheck before submission | M |
 | G5 | Which pinned parser/embedding/library versions and optional container layout pass the sample/resource checks? Record in relevant feature specs. | Implementer, owner approval for material changes | 2026-10-28, before affected integration | M |
 
 **Score:** 0 unowned questions, 5 owned gates unresolved. This is an approved
-product direction, not an unconditionally executable system design.
+product direction; the [architecture](ARCHITECTURE.md) and
+[feature specs](specs/README.md) now define the system with explicit execution gates.
 
 ## 7. Implementation Guidance
 
@@ -241,10 +253,12 @@ boundaries, explicit unknowns and bounded workloads, not optimistic promises.
 
 ### Milestones / Checkpoints
 
-1. G1/G2: credible data/API feasibility before detailed architecture.
-2. First vertical slice: upload -> validated trajectory -> selectable source.
-3. Enriched slice: sourced equipment/context -> linked charts -> agent tools.
-4. Rehearsal: fresh import, live model evaluation, failure tests and submission check.
+1. Review/integrate the [design and task sequence](../plan/architecture-fieldlens-1.md);
+   qualify source-independent foundation while G1/G2 proceed separately.
+2. First real vertical slice after G1: upload -> validated trajectory -> source.
+3. Enriched slices: sourced equipment/history/context -> both charts -> agent tools.
+4. Rehearsal after all real/live gates: fresh import, model evaluation, failure
+   tests and submission check.
 
 Effort cannot be estimated credibly before the data audit; these are checkpoints,
 not a promise that the full scope fits the remaining time.

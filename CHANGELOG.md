@@ -6,9 +6,72 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 ## Unreleased
 
-**Candidate: 0.3.0**, matching [VERSION](VERSION), pending integration.
-Minor bump: newly invocable offline Blender authoring skill; no application
-API/schema change. No commit, merge or release of this candidate is claimed.
+**Candidate: 0.3.1**, matching [VERSION](VERSION), pending integration.
+Patch bump: architecture/specification and data-discovery documentation;
+no implemented application API/schema change or completed pilot/live audit.
+
+### Added
+
+- **FL-002:** Public-source discovery report, official access/license handoff,
+  expanded 33-file metadata-only pilot list and draft data-feasibility spec.
+- **FL-002 / FL-007:** Equipment-source reassessment, three pinned WITSML probes
+  with dimensions/locators/hashes, EDT/EDM and tubular/run priorities, and a
+  proposed installed-assembly feasibility checkpoint distinct from generic/BHA geometry.
+- **FL-014:** Complete modular-monolith architecture, selected stack/process model,
+  revision/evidence/time/API contracts, feature specifications and requirement-to-test
+  traceability based on inspected evidence.
+- **FL-014:** A 24-task dependency-aware implementation plan with independent
+  source-free slices, required real-data/live gates, agent/worktree/file ownership,
+  two resource lanes, serialized integration and deadline/rehearsal checkpoints.
+
+### Changed
+
+- Recorded owner-confirmed indie track, public repository, three-minute demo,
+  local/container runtime and ready Meta key/public-data processing permission.
+- Corrected the earlier prepared-data assumption, refreshed Docker availability,
+  and distinguished metadata findings from inspected engineering samples.
+- Recorded successful account sign-in and the actual catalog visibility blocker:
+  missing public schema/volume, not a missing account. No access-policy changes.
+- Completed the bounded alternative-source search and documented another
+  drilling/completion label mismatch, plus the distinction between provider
+  inspection privileges and shared-volume read access.
+- Reconciled FL-013 and version 0.3.0 against the owner's `88b177e` integration;
+  Blender execution and agent-host activation remain unverified.
+- Moved FL-014 from data-blocked design to documentation integration-pending;
+  pilot access still blocks FL-002 and real-data acceptance, not all design work.
+- Split existing feature IDs into bounded implementation increments without
+  removing seabed/formations, production/log charts or historical perforations.
+- Selected native PDF readers with conditional measured OCR, CPU local embeddings,
+  strict generated API types, finite provider budgets and separate display/analytic
+  projections. Runtime/model/package qualifications remain explicit future checks.
+
+### Validation
+
+- Official license/access documents and selected SODIR identities inspected;
+  community metadata catalog checksum verified. No pilot files, account creation,
+  paid Meta calls, cloud provisioning or application implementation.
+- Three public mirrored WITSML files (7,776 bytes) passed fixed-revision/blob/hash,
+  bounded XML and structural field checks across 8 components and 4 bore sections;
+  these are not validated installation/datum claims.
+- Initial static checks passed: 22 unique candidate paths matched catalog rows, unknown
+  bytes/hashes remain blank, 86 local documentation links, 15 unique backlog IDs
+  with acyclic dependencies, candidate version agreement and `git diff --check`.
+  These do not satisfy the draft audit's content/numerical acceptance criteria.
+- Equipment follow-up checks passed for 33 exact candidate paths, 95 local
+  documentation links, 15 acyclic backlog items, DF-1 through DF-9, version
+  agreement, sample hashes and `git diff --check`. Pilot acceptance remains blocked.
+- Architecture-package checks passed: 185 local links, 24 unique acyclic tasks,
+  six phase goals, 15 acyclic backlog parents, 10 new spec structures, 84 unique
+  feature/data/history criteria and traceability for all 10 project ACs. All
+  13 new design documents passed table/fence/whitespace checks; independent lanes,
+  optional-asset exclusion, fixture arithmetic and EST deadline/version consistency
+  were checked. These are documentation checks, not executed application tests.
+
+## 0.3.0 - 2026-10-27
+
+Offline Blender authoring skill integrated by owner on `master` in `88b177e`.
+Minor bump for a newly invocable development skill; no application API/schema
+change or operational Blender validation.
 
 ### Added
 

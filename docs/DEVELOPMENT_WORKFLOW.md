@@ -6,6 +6,11 @@ agents**, not the application's Meta RAG agent. The approved
 boundaries and host activation checks. See [FL-001](specs/DEVELOPMENT_AGENTS.md)
 for configuration versus runtime verification.
 
+The [application execution plan](../plan/architecture-fieldlens-1.md) now defines
+the task DAG, two resource lanes, critical-path checkpoints and acceptance sequence.
+Its [feature index](specs/README.md) maps every project requirement to tests.
+Use that plan for scheduling; the rules here remain the governing delivery policy.
+
 ## 1. Roles and authoritative records
 
 - **Owner:** approves feature outcomes/specs and material scope/compatibility changes.

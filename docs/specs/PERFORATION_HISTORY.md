@@ -59,11 +59,13 @@ source/time mapping gates; no field validation has been performed.
 
 ### Scope Dependencies
 
-FL-005 traceable ingestion and FL-006 validated trajectory/selection contracts
-are hard prerequisites for the complete slice. Event parsing and aggregation
-may be split into separately approved contract-ready work. FL-010 charts and
-FL-011 RAG consume this contract; their integration tests remain those items'
-responsibility, avoiding circular dependencies.
+FL-008-A implements the deterministic state engine and persistence against
+FL-004-A's [shared contracts](SHARED_CONTRACTS.md), using the explicitly synthetic
+fixture below. It does not depend on the renderer or completed pilot acquisition.
+FL-008-B connects source events, trajectory placement, inspector and time controls
+after FL-005-B and FL-006-B. Full verification still requires PH-1 real history.
+FL-010-C and FL-011 consume the canonical state result; their integration tests
+remain those items' responsibility, avoiding circular dependencies.
 
 ### Open Scope Tensions
 
@@ -210,8 +212,8 @@ must reject these results.
 | Gate | Unresolved question | Owner / due |
 |---|---|---|
 | PH-G1 | Actual event fields/codes, depth references, temporal precision, state validity and initial-history completeness; real-data tolerances | Owner + data implementer / G1 audit, before FL-008 readiness |
-| PH-G2 | Approve proposed state/result contract, metric naming and synthetic fixture; choose exact API/schema layout | Owner + orchestrator / before FL-008 readiness |
-| PH-G3 | Agree selection/time-control behavior and cross-feature chart/RAG contract tests | Orchestrator + consumer implementers / before affected consumer specs are ready |
+| PH-G2 | State/result layout and API are now specified in [shared contracts](SHARED_CONTRACTS.md); owner approval of those contracts/metric/fixture remains required | Owner + orchestrator / before FL-008 readiness |
+| PH-G3 | Shared instant/day query semantics and selection are specified; [charts](LINKED_CHARTS.md) CH-5 and [assistant](RETRIEVAL_ASSISTANT.md) RG-3/4 define cross-feature tests | Orchestrator + consumer implementers / approve before affected consumer assignments |
 
 ## 7. Implementation Guidance
 
@@ -220,6 +222,22 @@ inside the existing Python/PostgreSQL stack. No LLM replay of history, model-wri
 SQL, new event bus or runtime multi-agent framework is required.
 Follow [delivery workflow](../DEVELOPMENT_WORKFLOW.md); commit tests and evidence,
 then let the orchestrator allocate version/changelog updates at integration.
+
+FL-008-A owner: `fieldlens-geospatial`, planned paths
+`backend/fieldlens/engineering/temporal.py` and `backend/tests/history/`.
+It implements PH-2/3/5/6/7/9 with synthetic inputs and PostgreSQL persistence;
+reported source values and derived depths remain separate.
+FL-008-B owner: `fieldlens-frontend`, planned history feature, typed state endpoint
+and integrated PH-1/4/8 checks. Shared migrations/types are serialized by the
+orchestrator. No worker is assigned until approval, base, worktree and resources
+are recorded under the [execution plan](../../plan/architecture-fieldlens-1.md).
+
+Selection uses an explicit instant or calendar day/timezone. A day whose state
+changes within the day returns changing/ambiguous ranges, not invented event
+ordering. The numeric fixture's exact instants remain unchanged. Synthetic
+replay tolerance is 1e-6 m; source mapping/tolerances remain PH-G1.
+Planned checks: `uv run pytest backend/tests/history`, frontend history/overlay
+interaction tests and type/build checks. These commands/tests are not yet created.
 
 ## Open Tensions
 

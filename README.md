@@ -17,16 +17,22 @@ from uploaded evidence, not a pre-authored 3D scene with a chatbot attached.
 
 ## Current state
 
-Requirements, engineering guidance and development-agent profiles only. No application, database,
-containers, dataset ingestion, or paid model calls have been created by this work.
-Product scope and the initial stack are agreed; data feasibility, exact package
-compatibility, and account-specific API access remain unverified.
+Requirements, architecture, feature specifications, dependency-aware execution
+plan and development-agent profiles are documented. No application, database,
+containers, dataset ingestion or paid model calls have been created by this work.
+The selected stack and system boundaries are defined; real pilot feasibility,
+resolved package compatibility and account-specific API access remain execution
+gates, not claims of successful implementation.
 
 Deadline: **November 4, 2026, 9 PM Eastern Time**. API credit budget: **USD 150**.
 The demo runs locally on the development WSL machine.
+Owner-confirmed submission: **indie track**, **public repository**, and a
+**three-minute recorded demo**. Containerized local execution is also acceptable.
 
-The **0.2.0** development-agent configuration is committed. **0.3.0** is the
-offline Blender skill candidate, not an integrated application release.
+The **0.3.0** preparation baseline, including the offline Blender skill, is
+committed in `88b177e`; there is still no application release. **0.3.1** is the
+pending documentation checkpoint for the architecture/specification package and
+data-source assessment.
 See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Development documents
@@ -34,10 +40,25 @@ See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 - [Copilot instructions](.github/copilot-instructions.md): always-on project rules.
 - [Project specification](docs/PROJECT_SPEC.md): required outcomes, exclusions,
   acceptance criteria, and explicitly owned open questions.
+- [Application architecture](docs/ARCHITECTURE.md): module/process boundaries,
+  selected stack, data flow, engineering authority, UI and resource budgets.
+- [Feature specs and traceability](docs/specs/README.md): complete feature
+  breakdown and project requirement-to-test mapping.
+- [Shared contracts](docs/specs/SHARED_CONTRACTS.md): identity, evidence,
+  revision/time, API, errors, caches and validated actions.
+- [Implementation sequence](plan/architecture-fieldlens-1.md): 24 explicit tasks,
+  dependency DAG, parallel lanes, agent/worktree ownership and deadline checkpoints.
 - [Technical baseline](docs/TECHNICAL_BASELINE.md): agreed stack, rationale,
   engineering conventions, and observed local tooling.
 - [Source assessment](docs/SOURCE_ASSESSMENT.md): conversation analysis,
   verified claims, data candidates, and feasibility gates.
+- [Volve data discovery](docs/VOLVE_DATA_DISCOVERY.md): proposed F-12/F-14/F-5
+  cohort, exact candidate-file list, official access steps, rights and known gaps.
+- [Data-feasibility spec](docs/specs/DATA_FEASIBILITY.md): draft bounded sample
+  audit; metadata discovery is not engineering-data verification.
+- [Equipment-data feasibility](docs/EQUIPMENT_DATA_FEASIBILITY.md): actual
+  dimensioned XML probes, additional source assessment, and the remaining
+  installed-completion go/no-go gate.
 - [Feature specification template](docs/specs/FEATURE_TEMPLATE.md): use before
   each implementation increment.
 - [Visual reference gallery](docs/design/README.md): the conversation wireframe
@@ -68,7 +89,12 @@ verify **GPT-6 Astra / xhigh** in the host. Workers use Terra low, Sonnet medium
 or Sol high according to the task. Repository profiles do not switch an existing
 chat or create worktrees; verify the chosen worker/model/tools before execution.
 
-**Next step:** jointly inspect a compact, authorized data sample and approve its
-feasibility/ingestion spec before committing to a detailed architecture. Both
-chart families and all contextual layers remain required; incomplete data is a
-scope risk to resolve, not permission to silently omit them.
+**Next execution step:** approve and integrate the design/specification package,
+verify agent activation, then run the foundation and source-independent contract
+slices while resolving pilot access. The native pilot-import slice waits for its
+approved source mappings. Both chart families and all contextual layers remain
+required; incomplete data is not permission to omit them.
+Sign-in succeeded, but the installed shared catalog currently lacks its advertised
+public data volume. Pilot access needs owner/provider resolution or an authorized
+local copy. Small public equipment probes demonstrate available fields, not a
+verified installed pilot completion. No paid infrastructure was created.
