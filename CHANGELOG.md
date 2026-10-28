@@ -6,16 +6,24 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 ## Unreleased
 
-Foundation implementation exists in feature candidate `3c1d2b2`; independent
-acceptance returned FAIL and repairs are pending. Proposed next integration:
-0.4.0 (new local application capability), not yet allocated or released.
+Foundation release candidate **0.4.0** has direct-tested repairs for the failed
+independent QA of `3c1d2b2`. Acceptance/integration is pending; this is not a
+released version yet. Owner requested direct repairs without further subagents.
 The initial backend invocation regained editing tools, but the repair invocation
 lost them again; its precise cache/registration/model-interaction cause is not proven.
 
-- **FL-004-A / TASK-003:** FastAPI readiness, PostgreSQL migration baseline, typed
-  contracts and React shell are implemented but not accepted. Close QA's
-  contract, focus, test-isolation, environment and documentation findings before
-  integration; successful existing suites alone do not close those gaps.
+- **FL-004-A / TASK-003:** Added FastAPI health/readiness, PostgreSQL migration
+  baseline, typed/generated contracts, local session guards and React shell.
+  Repaired nested evidence scope, generic/catalog authority bypasses, finite
+  metadata/image/quantity validation, read limits and test database isolation.
+  Retry retains keyboard focus, runtime metadata derives from VERSION, Node 24
+  is pinned/enforced, and startup/test documentation is usable.
+- Added a digest-pinned, test-only Playwright Noble browser with Docker Desktop
+  loopback forwarding. The CLI suite now verifies loading, network failure,
+  real database-unavailable state and keyboard Retry recovery against an owned,
+  disposable API/database. No application container or host OS upgrade.
+- Direct validation: 124 backend, 4 UI and 3 CLI E2E tests pass; affected
+  lint/type/build/contracts checks pass. This is not independent re-verification.
 - **FL-001:** Record mandatory separate-agent acceptance, repair re-verification
   and completion of the authorized commit/merge cycle for every logical feature.
 

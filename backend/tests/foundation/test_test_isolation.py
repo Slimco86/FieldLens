@@ -63,6 +63,33 @@ def test_safe_url_accepted_and_sibling_names_are_unique() -> None:
     assert support.TEST_DB_NAME.fullmatch(a.database or "")
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "host=evil.example.com",
+        "hostaddr=8.8.8.8",
+        "service=external",
+        "host=localhost&host=evil.example.com",
+        "dbname=fieldlens_demo",
+        "port=5432",
+        "options=-csearch_path%3Dpublic",
+    ],
+)
+def test_connection_query_options_cannot_override_test_isolation(query: str) -> None:
+    with pytest.raises(support.UnsafeTestDatabase):
+        support.validate_test_database_url(f"{OK}?{query}")
+
+
+@pytest.mark.parametrize("variable", ["PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE"])
+def test_ambient_libpq_redirects_are_rejected(
+    variable: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(variable, "external")
+    with pytest.raises(support.UnsafeTestDatabase):
+        support.validate_test_database_url(OK)
+
+
 def test_active_database_is_postgres_with_unique_name(
     migrated_url: URL, test_database_base: URL
 ) -> None:

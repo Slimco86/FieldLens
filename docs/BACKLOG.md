@@ -55,7 +55,7 @@ current table supersede its access/design holds.
 | FL-001 | Agree custom development-agent roles, serial branch delegation and resource boundaries | blocked | FL-000 | Base configuration integrated in `35ed5d2`, version 0.2.0. Backend editing worked once but is missing again during repair despite actual Sonnet/medium selection. QA tools worked. Resolve DA-7 or obtain an explicit temporary routing exception; governance amendments await integration |
 | FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | in_progress | None | Owner selected F-12/F-14/F-5 and accepted generic/unlocated F-12 limitations. [Data spec](specs/DATA_FEASIBILITY.md): final hashed profiles/windows/reference/state/rights fixtures remain TASK-002/029; G1 not passed. No automatic F-11 B replacement or further tally-search blocker |
 | FL-003 | Verify Meta entitlement/protocols and agree shared budget controls | specifying | FL-004 | [Meta spec](specs/META_INTEGRATION.md): offline adapter/ledger then separate opt-in live smoke; no G1 dependency |
-| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | blocked | FL-014 | Candidate `3c1d2b2` failed independent QA. Repair preflight lacks native editing tools; resume in_progress after explicit unblock. [Repair allocation](specs/FOUNDATION.md#independent-qa-and-bounded-repair-allocation) remains required before re-verification and merge. No G1/G2 prerequisite |
+| FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | testing | FL-014 | Owner authorized direct repairs without further subagents after the tool regression. D1-D11/B1 fixes pass 124 backend, 4 UI and 3 CLI E2E tests; see [verification](specs/FOUNDATION.md#direct-repair-verification-october-28). Acceptance/integration decision remains open; no independent re-verification claimed |
 | FL-005 | Upload project sources into traceable, persistent, restart-safe source revisions | specifying | FL-004, FL-002 | [Ingestion](specs/INGESTION.md): TASK-025 workspace precedes upload; early native evidence, selected scanned/Word profiles, then final manifest acceptance |
 | FL-006 | Inspect published-model trajectories with evidence and deterministic closest approach | specifying | FL-005, FL-016 | [Trajectory/viewer](specs/TRAJECTORY_VIEWER.md): independent numeric engine, then reconstructed model scene |
 | FL-007 | Reconstruct equipment with catalog/generic fallbacks and source-aware placement | specifying | FL-006 | [Equipment](specs/EQUIPMENT_RECONSTRUCTION.md): procedural installed-evidence slice; optional Blender later; DF-9 still required |
@@ -527,6 +527,23 @@ hypothesis, not an established root cause. No settings or permissions were chang
   Main stopped the 8101 preview before repair; the foundation DB remains running.
   Current blocker: restore native editors or authorize a temporary known-working
   agent/model route. No fallback or merge has been performed.
+- At the owner's request, the backend profile was deleted and recreated without
+  a `tools` field, retaining its name/model/effort/body. A fresh invocation still
+  exposed no `apply_patch`, `create` or `edit` and stopped before any smoke write.
+  Recreating the file is therefore not a reliable unblock in this session.
+- Owner then switched the main model and instructed it to fix the foundation
+  directly, without any subagents. The main implemented regression tests first:
+  29 contract/isolation counterexamples and Retry-focus initially failed.
+  Repairs now pass 124 backend, 4 UI and 3 actual Playwright CLI E2E tests plus
+  affected checks. No new subagent was invoked for these repairs.
+- Docker Desktop's host network was not WSL loopback. The reproducible browser
+  setup now publishes only 127.0.0.1:9323 and tunnels only loopback destinations;
+  the Noble image matches Playwright 1.64.1. Native Ubuntu 20.04 installation is
+  not retried and integrated-browser success is not substituted for the CLI.
+- VERSION is 0.4.0 on the repair candidate; master is still 0.3.3. Required code
+  and operational gaps are repaired, but the main's direct checks are not a
+  separate-agent PASS. Resolve the acceptance exception before merge; do not
+  invent an independent verdict or mark the feature done early.
 
 Add a record when scheduling, not speculative branches or fake test results:
 

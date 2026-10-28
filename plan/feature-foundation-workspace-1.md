@@ -17,9 +17,11 @@ The owner approved these three packets for implementation on October 28 at
 11:19 EDT. The planning package is integrated in `9d630e3`; this approval is not
 proof that any application acceptance check has passed.
 Backend editing/discovery worked after recreating its workspace profile.
-Candidate `3c1d2b2` implements the foundation but failed independent acceptance;
-see the [repair allocation](../docs/specs/FOUNDATION.md#independent-qa-and-bounded-repair-allocation).
-Do not start TASK-025 until the repaired foundation passes independent QA and merges.
+Candidate `3c1d2b2` implemented the foundation but failed independent acceptance.
+The owner subsequently requested direct repairs without further subagents.
+Those repairs pass direct checks, including the required CLI browser suite;
+see [verification](../docs/specs/FOUNDATION.md#direct-repair-verification-october-28).
+Do not start TASK-025 until the acceptance decision and foundation merge are recorded.
 Owner amendment at 14:47 EDT: run each feature on its own branch in
 `/home/slimco/code/FieldLens`, with subagents launched from the main session,
 one writer at a time. No additional worktrees; preserve the old allocation inactive.
@@ -216,7 +218,8 @@ TASK-003, not a falsely completed prerequisite.
 
 ## 5. Files
 
-- **FILE-001**: Packet-specific planned paths above; no application files exist yet.
+- **FILE-001**: Foundation paths above now exist. Project/upload packet paths
+  remain planned; this foundation does not implement those business features.
 - **FILE-002**: `tests/fixtures/synthetic/` contains clearly labelled generated test
   files only; original Volve data and runtime outputs remain ignored.
 - **FILE-003**: Feature specs receive actual verification/handoff records from
@@ -226,7 +229,9 @@ TASK-003, not a falsely completed prerequisite.
 
 ## 6. Testing
 
-Foundation must establish these commands; they are **planned, not run**:
+Foundation implements these commands. Direct repair checks pass; see
+[README](../README.md#tests) for Node, test-database and browser-helper setup,
+and the foundation spec for acceptance status:
 
 ```text
 uv sync --frozen

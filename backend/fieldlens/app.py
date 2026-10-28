@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -25,6 +26,7 @@ from fieldlens.persistence.readiness import evaluate_readiness
 from fieldlens.persistence.session import create_db_engine, create_session_factory
 
 _STATUS_CODES: dict[int, ErrorCode] = {
+    403: ErrorCode.FORBIDDEN,
     404: ErrorCode.NOT_FOUND,
     405: ErrorCode.METHOD_NOT_ALLOWED,
     409: ErrorCode.CONFLICT,
@@ -34,6 +36,7 @@ _STATUS_CODES: dict[int, ErrorCode] = {
     429: ErrorCode.CAPACITY_PAUSED,
     503: ErrorCode.SERVICE_UNAVAILABLE,
 }
+logger = logging.getLogger(__name__)
 
 
 def _request_id(request: Request) -> str:
@@ -47,15 +50,18 @@ def error_response(
     message: str,
     details: dict[str, Any] | None = None,
 ) -> JSONResponse:
+    request_id = _request_id(request)
     envelope = ErrorEnvelope(
-        error=ErrorBody(
-            code=code, message=message, request_id=_request_id(request), details=details
-        )
+        error=ErrorBody(code=code, message=message, request_id=request_id, details=details)
     )
     return JSONResponse(
         envelope.model_dump(mode="json"),
         status_code=status_code,
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            "X-Request-ID": request_id,
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -96,13 +102,15 @@ def _register_errors(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
+        logger.error("Unhandled %s (request_id=%s)", type(exc).__name__, _request_id(request))
         return error_response(request, 500, ErrorCode.INTERNAL_ERROR, "internal error")
 
 
 def _build_system_router() -> APIRouter:
     router = APIRouter()
 
-    def health() -> HealthResponse:
+    def health(response: Response) -> HealthResponse:
+        response.headers["Cache-Control"] = "no-store"
         return HealthResponse(status="ok", version=__version__)
 
     def ready(request: Request) -> Response:

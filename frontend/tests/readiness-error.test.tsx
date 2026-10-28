@@ -48,4 +48,28 @@ describe("readiness shell", () => {
     render(<App />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/unreachable/i);
   });
+
+  it("retains keyboard focus through retry loading, repeated failure and recovery", async () => {
+    const user = userEvent.setup();
+    const failure = { error: { code: "NOT_READY", message: "Unavailable", request_id: "req-2" } };
+    let completeRetry!: (value: Response) => void;
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(json(failure, 503))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { completeRetry = resolve; }))
+      .mockResolvedValueOnce(json(ready)));
+    render(<App />);
+    const retry = await screen.findByRole("button", { name: "Retry" });
+    retry.focus();
+    await user.keyboard("{Enter}");
+    expect(screen.getByText(/checking local services/i)).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveFocus();
+    completeRetry(json(failure, 503));
+    await screen.findByRole("alert");
+    expect(screen.getByRole("main")).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Retry" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    await screen.findByRole("heading", { name: "Workspace" });
+    expect(screen.getByRole("main")).toHaveFocus();
+  });
 });

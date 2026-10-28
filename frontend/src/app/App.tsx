@@ -9,6 +9,7 @@ type State =
 export function App() {
   const [state, setState] = useState<State>({ kind: "loading" });
   const controller = useRef<AbortController | null>(null);
+  const main = useRef<HTMLElement | null>(null);
 
   const check = useCallback(() => {
     controller.current?.abort();
@@ -43,7 +44,7 @@ export function App() {
       <header>
         <h1>FieldLens</h1>
       </header>
-      <main id="main" tabIndex={-1} aria-busy={state.kind === "loading"}>
+      <main ref={main} id="main" tabIndex={-1} aria-busy={state.kind === "loading"}>
         {state.kind === "loading" && (
           <p role="status">Checking local services…</p>
         )}
@@ -52,7 +53,7 @@ export function App() {
             <h2 id="unavailable-title">Local services unavailable</h2>
             <p>{state.message}</p>
             {state.requestId && <p>Request ID: {state.requestId}</p>}
-            <button type="button" onClick={check}>
+            <button type="button" onClick={() => { main.current?.focus(); check(); }}>
               Retry
             </button>
           </section>

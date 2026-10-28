@@ -3,8 +3,8 @@
 > **Spec type:** Infrastructure/migration. **Backlog:** FL-004.
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
 > **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** First packet approved October 28 at base `9d630e3`; candidate `3c1d2b2` independently reviewed and FAIL. Repair is blocked again on backend editing-tool exposure; no acceptance or integration.
-> **Zero-Question Score:** 0 unowned design questions; G5 qualification is not yet run.
+> **Status:** Original candidate `3c1d2b2` failed independent QA. Owner requested direct repairs without further subagents; repaired candidate passes direct checks, pending acceptance/integration.
+> **Zero-Question Score:** 0 unowned design questions; G5 runtime compatibility verified for the foundation.
 
 ## How to Read This Spec
 
@@ -103,6 +103,49 @@ written and no browser image was pulled. The earlier successful profile
 recreation was not a durable fix. Do not use shell-writing or patch-return
 workarounds; resolve capability or obtain an explicit temporary routing exception.
 
+### Direct repair verification, October 28
+
+After the repeated editor preflight failed, the owner switched the main model
+and explicitly requested direct repairs without more subagents. No further
+subagent was used. These are **direct implementation checks**, not an independent
+QA PASS or a claim that the prior failed verdict was automatically superseded.
+
+| Criteria / finding | Actual evidence |
+|---|---|
+| FN-1 / D9/D10 | Python 3.12.13, uv 0.11.20, Node 24.22.2; Node 24 enforced by npm engines/engine-strict, patch pinned in `.node-version`. Hatch package metadata reads root VERSION (0.4.0 candidate); `/health` consistency test passes. |
+| FN-2 | Real PostgreSQL migration/fixture/constraint/downgrade/upgrade tests pass; migration is unchanged from independent QA's drift-checked baseline. PostgreSQL 17.8, pgvector 0.8.1, pinned image. |
+| FN-3 / D11 | Local-boundary regression tests pass; 500 response headers match envelope request ID, logging excludes exception-message secrets, generic 403 is `FORBIDDEN`, health is no-store. |
+| FN-4/FN-5 / D2 | Four UI interaction tests pass, including focus during pending Retry, repeated failure and success. Three real CLI browser tests pass through the supported browser container. |
+| SC-1/SC-2 / D3 | Typed roundtrips and project-qualified DB constraints pass. Source evidence links require matching nested document/revision IDs; missing outer IDs cannot bypass source-issue scope. |
+| SC-3 / D5/D6/D7 | Recursive JSON rejects nonfinite numbers without converting to null; image regions are normalized and ordered; blank units/reasons fail. New counterexample regressions pass. |
+| SC-4 | Context/time/cache identity and allowed-context tests pass. Downstream project-scoped endpoints and stale scene responses remain their owning packets, not new foundation business routes. |
+| SC-5 / D4 | Reserved generic/catalog namespaces require matching provenance and reject arbitrary-key bypasses; evidence class remains independent of validation state. |
+| SC-6 / D7 | Booleans/floats/decimal-looking strings cannot masquerade as integer limits; ordinary decimal HTTP query limits still work and respect 200/5,000 caps. |
+| FN-6 / D8 | Unsafe test URLs and all connection query overrides are rejected, as are ambient libpq host-address/service overrides. Unique DB and Python external-network guard tests pass. |
+| D1 / TASK-FN-08 | README documents dependency selection, secret setup, start/stop, migration, build, isolated tests, browser helper and limits. |
+| B1 | Playwright 1.64.1 CLI runs on Node 24 against the matching digest-pinned Noble browser image. Docker Desktop requires host-loopback port publishing plus `PW_TEST_CONNECT_EXPOSE_NETWORK='<loopback>'`, not host networking. |
+
+Result: **124 backend tests, 4 UI tests, 3 CLI E2E tests pass**; ruff and mypy pass,
+frontend lint/typecheck/build and deterministic generated contracts pass.
+The E2E runner owns a unique migrated DB and API, cleans both up, and has a
+30-second API startup and 180-second suite bound. The browser helper is test-only,
+nonprivileged, capped at 1 GiB RAM and approximately 2.52 GB cached image size.
+Host port 9323 is loopback-only; the container-private listener is not public.
+
+Browser evidence distinguishes an intercepted network failure from the separate
+**real test-DB removal -> repeated 503 -> recreation/migration -> Retry -> ready**
+scenario. The original owner DB is not dropped or stopped. No live Meta/source
+ingestion is involved. One existing Starlette warning recommends a future httpx2
+test-client migration; tests currently pass and that unrelated migration is not
+included here.
+
+Resolved Python versions: FastAPI 0.162.0, Starlette 1.10.0, Pydantic 2.14.1,
+SQLAlchemy 2.1.6, psycopg 3.3.6, Alembic 1.20.1. The earlier worker's FastAPI
+1.10.0 report confused it with Starlette; installed metadata above is authoritative.
+Proposed integration remains minor **0.4.0**: first application capability, no
+previously released application API to break. Do not mark the backlog done until
+the acceptance decision and target integration are recorded.
+
 ## 4. Context and Decisions
 
 Executor: `fieldlens-backend`; it owns the coherent foundation including the small
@@ -152,7 +195,7 @@ versions before acceptance; no guessed compatibility is considered verified.
 
 ## 7. Implementation Guidance
 
-Establish these **planned commands**, then record actual results:
+The commands are implemented; see README for required Node/test-DB setup:
 
 ```text
 uv sync --frozen
@@ -173,8 +216,9 @@ opt-in marker and are excluded from ordinary runs.
 Assignment resources and commit base are allocated by the execution plan at launch.
 The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
 define TASK-003 steps, exact planned files, tests, ownership and stop conditions.
-No feature commit/test result yet. New runtime capability proposes a minor bump;
-orchestrator finalizes version and integration, not the worker.
+Original feature candidate: `3c1d2b2`; repair contract: `923b1bf`; direct repair
+base: `e7ad07b`. Direct verification is recorded above. The final tested repair
+commit and target integration are recorded in the backlog, not guessed here.
 
 ## Open Tensions
 

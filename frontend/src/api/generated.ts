@@ -349,7 +349,7 @@ export interface components {
          * @description Stable machine-readable error codes. New codes require a contract change.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "NOT_FOUND" | "CONFLICT" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "CAPACITY_PAUSED" | "SERVICE_UNAVAILABLE" | "NOT_READY" | "FORBIDDEN_HOST" | "FORBIDDEN_ORIGIN" | "FORBIDDEN_FETCH_SITE" | "SESSION_TOKEN_INVALID" | "CONTEXT_KIND_NOT_ALLOWED" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR";
+        ErrorCode: "VALIDATION_ERROR" | "NOT_FOUND" | "CONFLICT" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "CAPACITY_PAUSED" | "SERVICE_UNAVAILABLE" | "NOT_READY" | "FORBIDDEN" | "FORBIDDEN_HOST" | "FORBIDDEN_ORIGIN" | "FORBIDDEN_FETCH_SITE" | "SESSION_TOKEN_INVALID" | "CONTEXT_KIND_NOT_ALLOWED" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR";
         /**
          * ErrorEnvelope
          * @description ``{error:{code,message,request_id,details}}`` for every non-2xx API response.
@@ -425,6 +425,7 @@ export interface components {
          * @enum {string}
          */
         IssueSeverity: "info" | "warning" | "error";
+        JsonValue: unknown;
         /**
          * Locator
          * @description Closed locator variants keyed by ``kind``.
@@ -797,7 +798,7 @@ export interface components {
             document_id: string;
             /** Origin Metadata */
             origin_metadata?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
             /** Original Filename */
             original_filename: string;

@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, RootModel, field_validator, model_validator
+from pydantic import BeforeValidator, Field, RootModel, field_validator, model_validator
 
 from .base import (
     DEFAULT_PAGE_LIMIT,
@@ -174,10 +174,21 @@ def context_cache_key(
 # --- Bounded reads -------------------------------------------------------------------------
 
 
+def _read_limit(value: object) -> object:
+    if isinstance(value, (bool, float)):
+        raise ValueError("read limit must be an integer, not a boolean or float")
+    if isinstance(value, str) and not (value.isascii() and value.isdecimal()):
+        raise ValueError("query read limit must contain decimal digits")
+    return value
+
+
+ReadLimit = Annotated[int, BeforeValidator(_read_limit)]
+
+
 class PageParams(ContractModel):
     """Cursor pagination. Out-of-range limits fail with 422; they are never clamped."""
 
-    limit: int = Field(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT)
+    limit: ReadLimit = Field(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT)
     cursor: str | None = Field(default=None, max_length=2048)
 
 
@@ -186,7 +197,7 @@ class NumericWindowParams(ContractModel):
 
     start: float
     end: float
-    limit: int = Field(default=1000, ge=1, le=MAX_WINDOW_POINTS)
+    limit: ReadLimit = Field(default=1000, ge=1, le=MAX_WINDOW_POINTS)
 
     @model_validator(mode="after")
     def _ordered(self) -> NumericWindowParams:
@@ -196,5 +207,5 @@ class NumericWindowParams(ContractModel):
 
 
 class PageInfo(ContractModel):
-    limit: int = Field(ge=1, le=MAX_PAGE_LIMIT)
+    limit: ReadLimit = Field(ge=1, le=MAX_PAGE_LIMIT)
     next_cursor: str | None = None

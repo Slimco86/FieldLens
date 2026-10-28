@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import secrets
 import socket
@@ -9,8 +10,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from ipaddress import ip_address
 
+from alembic import command
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import ArgumentError
+
+from fieldlens.persistence.readiness import alembic_config
 
 # fieldlens_<slice>_w<lane>_test_<8 lowercase hex>
 TEST_DB_NAME = re.compile(r"^fieldlens_[a-z0-9]+_w[0-9]+_test_[0-9a-f]{8}$")
@@ -31,12 +36,16 @@ def validate_test_database_url(raw: str | None) -> URL:
         )
     try:
         url = make_url(raw)
-    except Exception as exc:
+    except (ArgumentError, ValueError) as exc:
         raise UnsafeTestDatabase(f"{ENV_VAR} is not a valid URL") from exc
     if url.drivername != "postgresql+psycopg":
         raise UnsafeTestDatabase(f"{ENV_VAR} must use postgresql+psycopg:// (never SQLite)")
     if url.host not in LOOPBACK_HOSTS:
         raise UnsafeTestDatabase(f"{ENV_VAR} must target a loopback host")
+    if url.query:
+        raise UnsafeTestDatabase(f"{ENV_VAR} must not contain connection query overrides")
+    if any(os.environ.get(key) for key in ("PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE")):
+        raise UnsafeTestDatabase("unset libpq host-address/service environment overrides for tests")
     name = url.database or ""
     if "demo" in name.lower() or not TEST_DB_NAME.fullmatch(name):
         raise UnsafeTestDatabase(
@@ -69,6 +78,17 @@ def drop_database(url: URL) -> None:
     with eng.connect() as conn:
         conn.execute(text(f'DROP DATABASE IF EXISTS "{url.database}" WITH (FORCE)'))
     eng.dispose()
+
+
+def migrate(url: URL, revision: str = "head") -> None:
+    engine = create_engine(url)
+    try:
+        with engine.begin() as conn:
+            config = alembic_config()
+            config.attributes["connection"] = conn
+            command.upgrade(config, revision)
+    finally:
+        engine.dispose()
 
 
 @contextmanager

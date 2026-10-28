@@ -1,6 +1,6 @@
 [project]
 name = "fieldlens"
-version = "0.0.0"
+dynamic = ["version"]
 description = "FieldLens local API, contracts and persistence foundation"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -27,6 +27,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend/fieldlens"]
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = '(?P<version>[0-9]+\.[0-9]+\.[0-9]+)'
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]

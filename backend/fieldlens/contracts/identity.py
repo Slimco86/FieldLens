@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
 from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
-from .base import ContractModel, UtcDatetime
+from .base import ContractModel, FiniteJsonValue, UtcDatetime
 from .evidence import Coverage
 
 SHA256_PATTERN = r"^[0-9a-f]{64}$"
@@ -89,7 +88,7 @@ class SourceDocument(ContractModel):
     size_bytes: int = Field(ge=0)
     original_filename: str = Field(min_length=1, max_length=512)
     detected_media_type: str | None = None
-    origin_metadata: dict[str, Any] = Field(default_factory=dict)
+    origin_metadata: dict[str, FiniteJsonValue] = Field(default_factory=dict)
     created_at: UtcDatetime
 
 

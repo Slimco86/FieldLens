@@ -6,12 +6,10 @@ import os
 from collections.abc import Iterator
 
 import pytest
-from alembic import command
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL, Engine
 
 from fieldlens.config import Settings
-from fieldlens.persistence.readiness import alembic_config
 from tests import support
 
 
@@ -42,14 +40,7 @@ def empty_database(test_database_base: URL) -> Iterator[URL]:
 
 
 def migrate(url: URL, revision: str = "head") -> None:
-    engine = create_engine(url)
-    try:
-        with engine.begin() as conn:
-            cfg = alembic_config()
-            cfg.attributes["connection"] = conn
-            command.upgrade(cfg, revision)
-    finally:
-        engine.dispose()
+    support.migrate(url, revision)
 
 
 @pytest.fixture

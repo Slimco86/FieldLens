@@ -437,7 +437,10 @@ def test_installed_source_claim_needs_source_records() -> None:
 def test_evidence_class_is_independent_of_validation_state() -> None:
     for cls in EvidenceClass:
         for state in ValidationState:
-            key = "generic.outside_diameter" if cls in (EvidenceClass.GENERIC,) else "catalog.x"
+            key = {
+                EvidenceClass.GENERIC: "generic.outside_diameter",
+                EvidenceClass.CATALOG_DERIVED: "catalog.x",
+            }.get(cls, "component.x")
             built = claim(key, cls, state)
             assert (built.evidence_class, built.validation_state) == (cls, state)
     assert claim("installed.depth", EvidenceClass.SOURCE_RECORD).validation_state is (

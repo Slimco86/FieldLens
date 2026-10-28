@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, RootModel, model_validator
+from pydantic import AfterValidator, Field, RootModel, field_validator, model_validator
 
 from .base import ContractModel, UtcDatetime
 
@@ -68,22 +68,26 @@ class _LocatorBase(ContractModel):
     source_revision_id: UUID
 
 
+def _normalized_rect(value: list[float]) -> list[float]:
+    x0, y0, x1, y1 = value
+    if not all(0.0 <= v <= 1.0 for v in value) or x0 >= x1 or y0 >= y1:
+        raise ValueError("region must be normalized within [0,1] with x0<x1 and y0<y1")
+    return value
+
+
+NormalizedRect = Annotated[
+    list[float], Field(min_length=4, max_length=4), AfterValidator(_normalized_rect)
+]
+
+
 class PdfLocator(_LocatorBase):
     kind: Literal["pdf"] = "pdf"
     page: int = Field(ge=1)
     table_id: str | None = None
     cell_id: str | None = None
-    rect: Annotated[list[float], Field(min_length=4, max_length=4)] | None = Field(
+    rect: NormalizedRect | None = Field(
         default=None, description="[x0,y0,x1,y1] normalized, top-left origin."
     )
-
-    @model_validator(mode="after")
-    def _rect_valid(self) -> PdfLocator:
-        if self.rect is not None:
-            x0, y0, x1, y1 = self.rect
-            if not all(0.0 <= v <= 1.0 for v in self.rect) or x0 >= x1 or y0 >= y1:
-                raise ValueError("rect must be normalized within [0,1] with x0<x1 and y0<y1")
-        return self
 
 
 class XlsxLocator(_LocatorBase):
@@ -136,7 +140,7 @@ class EmbeddedImageLocator(_LocatorBase):
     kind: Literal["embedded_image"] = "embedded_image"
     container_item_index: int = Field(ge=0)
     image_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    region: Annotated[list[float], Field(min_length=4, max_length=4)] | None = None
+    region: NormalizedRect | None = None
 
 
 class DerivationLocator(ContractModel):
@@ -170,6 +174,16 @@ class EvidenceLink(ContractModel):
     record_id: UUID | None = None
     locator: Locator
 
+    @model_validator(mode="after")
+    def _source_ids_agree(self) -> EvidenceLink:
+        source = self.locator.root
+        if isinstance(source, _LocatorBase) and (
+            self.document_id != source.document_id
+            or self.source_revision_id != source.source_revision_id
+        ):
+            raise ValueError("source evidence link IDs must match its nested locator")
+        return self
+
 
 # --- Quantities and claims --------------------------------------------------------------
 
@@ -185,6 +199,13 @@ class Quantity(ContractModel):
     normalized_value: float | None = None
     normalized_unit: str | None = None
     conversion_validated: bool = False
+
+    @field_validator("unit", "normalized_unit", "unknown_reason")
+    @classmethod
+    def _nonblank(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("quantity units and unknown reasons must not be blank")
+        return value
 
     @model_validator(mode="after")
     def _unknown_or_known(self) -> Quantity:
@@ -259,6 +280,14 @@ class Claim(ContractModel):
                 )
             if self.evidence_class is EvidenceClass.SOURCE_RECORD and not self.source_record_ids:
                 raise ValueError("source_record evidence requires source_record_ids")
+        for evidence_class, prefix in (
+            (EvidenceClass.GENERIC, "generic."),
+            (EvidenceClass.CATALOG_DERIVED, "catalog."),
+        ):
+            if (self.evidence_class is evidence_class) != self.attribute_key.startswith(prefix):
+                raise ValueError(
+                    f"{evidence_class.value} evidence requires a matching {prefix} key"
+                )
         return self
 
 
