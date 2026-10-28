@@ -37,7 +37,9 @@ without dated inputs, planned/as-built substitution, equipment modeling, charts.
 ### Scope Dependencies
 
 FL-006-A numeric engine depends on FL-004-A only. FL-006-B integrated scene depends
-on FL-006-A and FL-005-B. Real trajectory acceptance requires approved G1 fixtures.
+on FL-006-A and FL-016-A's published model, sourced through qualified FL-005
+profiles. Early checks use an approved survey subset; full pilot acceptance still
+requires G1. The source/draft workspace is not an authoritative geometry endpoint.
 
 ### Open Scope Tensions
 
@@ -66,8 +68,8 @@ survey/reference/proximity modules and tests. FL-006-B owner:
 `fieldlens-3d-motion`, scene feature, asset tree integration, render manifest
 endpoint/artifacts and scene tests. Shared contract changes remain serialized.
 
-Inputs: typed survey station claims, reference metadata, approved transform and
-survey revision. Outputs: physical trajectory/provenance, render manifest with
+Inputs: project/published model context, typed survey station claims, reference
+metadata, approved transform and survey revision. Outputs: physical trajectory/provenance, render manifest with
 local origin/axes, closest result with both MDs/points/error bounds.
 Use [shared contracts](SHARED_CONTRACTS.md) and
 [architecture physical frame](../ARCHITECTURE.md).

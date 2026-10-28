@@ -36,7 +36,8 @@ invented reservoir volume and global land terrain acquisition for offshore Volve
 
 ### Scope Dependencies
 
-FL-005-B approved source profiles and FL-006-B scene/reference contracts.
+FL-005-B approved source profiles, FL-016-A published model associations and
+FL-006-B scene/reference contracts.
 FL-009-A seabed and FL-009-B formations are independent slices after those inputs.
 G1 validates real coverage for both; neither can be silently dropped.
 

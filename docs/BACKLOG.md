@@ -1,6 +1,6 @@
 # FieldLens backlog
 
-Updated 2026-10-27. Main-agent-owned, persistent work ledger.
+Updated 2026-10-28. Main-agent-owned, persistent work ledger.
 See [workflow](DEVELOPMENT_WORKFLOW.md) for gates and
 [project scope](PROJECT_SPEC.md) for mandatory requirements.
 
@@ -15,31 +15,41 @@ delegated. [Custom profiles](../.github/agents/README.md) are now defined; actua
 host activation/model verification is still required. No additional worktrees
 have been created by the preparation tasks.
 
-The complete [architecture](ARCHITECTURE.md), [feature specs](specs/README.md)
-and [24-task execution plan](../plan/architecture-fieldlens-1.md) are ready for
+The revised draft [architecture](ARCHITECTURE.md), [feature specs](specs/README.md)
+and [31-task execution plan](../plan/architecture-fieldlens-1.md) are ready for
 review. The task plan's explicit **Depends on** column is the scheduling DAG;
 parent dependencies below describe complete-feature prerequisites, not permission
 to block every independent sub-slice. Documentation links do not imply approval.
 
 ## Work items
 
+**Current planning authority (October 28):** the owner deferred the remaining
+data follow-up and resumed requirements 2-5. Planning is unblocked; implementation
+is not. Hybrid categories, explicit bounded runs, review-before-publication and
+new upload limits are draft defaults because the owner was unavailable to answer
+the clarification. G0 approval is required before dispatch.
+Historical checkpoint text below records earlier states; this notice and the
+current table supersede its access/design holds.
+
 | ID | Outcome / scope | Status | Prerequisites | Spec / next action |
 |---|---|---|---|---|
 | FL-000 | Adopt perforation requirements and versioned parallel-development governance | done | None | Integrated by owner in `e8b156a`, version 0.1.0; verification below |
 | FL-001 | Agree custom development-agent roles, worktree delegation and resource boundaries | testing | FL-000 | Configuration integrated in `35ed5d2`, version 0.2.0; [DA-7 host activation](specs/DEVELOPMENT_AGENTS.md) still needs evidence before feature delegation |
-| FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | blocked | None | [Draft audit spec](specs/DATA_FEASIBILITY.md), [access findings](VOLVE_DATA_DISCOVERY.md) and [equipment probes](EQUIPMENT_DATA_FEASIBILITY.md); authenticated catalog lacks advertised public volume. Pilot installed-state/history audit and cohort/limit approval remain open |
+| FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | in_progress | None | [Local data audit](VOLVE_DATA_DISCOVERY.md#8-owner-supplied-local-data-content-audit): owner supplied 33,678 files and all 33 candidates are present. Surveys, depth surfaces, logs, production and selected original history inspected. Equipment attribution/extraction, historical/reference reconciliation and owner-approved manifest remain open; not integrated or G1-passed |
 | FL-003 | Verify Meta entitlement/protocols and agree shared budget controls | specifying | FL-004 | [Meta spec](specs/META_INTEGRATION.md): offline adapter/ledger then separate opt-in live smoke; no G1 dependency |
 | FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | specifying | FL-014 | [Foundation](specs/FOUNDATION.md), [contracts](specs/SHARED_CONTRACTS.md); no pilot/provider prerequisite for synthetic foundation |
-| FL-005 | Upload supported records into traceable, persistent, restart-safe dataset revisions | specifying | FL-004, FL-002 | [Ingestion](specs/INGESTION.md): independent upload/jobs slice first, inspected native profiles second |
-| FL-006 | Reconstruct/inspect real trajectories with evidence and deterministic closest approach | specifying | FL-005 | [Trajectory/viewer](specs/TRAJECTORY_VIEWER.md): foundation-only numeric engine, then imported scene |
+| FL-005 | Upload project sources into traceable, persistent, restart-safe source revisions | specifying | FL-004, FL-002 | [Ingestion](specs/INGESTION.md): TASK-025 workspace precedes upload; early native evidence, selected scanned/Word profiles, then final manifest acceptance |
+| FL-006 | Inspect published-model trajectories with evidence and deterministic closest approach | specifying | FL-005, FL-016 | [Trajectory/viewer](specs/TRAJECTORY_VIEWER.md): independent numeric engine, then reconstructed model scene |
 | FL-007 | Reconstruct equipment with catalog/generic fallbacks and source-aware placement | specifying | FL-006 | [Equipment](specs/EQUIPMENT_RECONSTRUCTION.md): procedural installed-evidence slice; optional Blender later; DF-9 still required |
 | FL-008 | Inspect dated perforation intervals, state transitions and total/open perforated length | specifying | FL-005, FL-006 | [History](specs/PERFORATION_HISTORY.md): foundation-only engine, then real event/scene integration |
 | FL-009 | Display aligned terrain/bathymetry and reservoir/formation context | specifying | FL-006 | [Context](specs/CONTEXT_LAYERS.md): independent seabed and formation slices; both mandatory |
-| FL-010 | Link production and depth logs to asset/time selection and perforation overlays | specifying | FL-006, FL-008 | [Charts](specs/LINKED_CHARTS.md): independent production/logs, then history overlays |
-| FL-011 | Deliver evidence-backed hybrid/graph retrieval and Meta tool-driven exploration | specifying | FL-003, FL-005, FL-006, FL-007, FL-008, FL-010 | [Retrieval/assistant](specs/RETRIEVAL_ASSISTANT.md): retrieval, offline tools/UI, then fixed live evaluation |
+| FL-010 | Link production and depth logs to asset/time selection and perforation overlays | specifying | FL-005, FL-016, FL-008 | [Charts](specs/LINKED_CHARTS.md): production/log views need model context, not finished 3D; overlays follow history |
+| FL-011 | Deliver early source chat, then evidence-backed model/graph/tool exploration | specifying | FL-003, FL-005, FL-006, FL-007, FL-008, FL-010, FL-016 | [Retrieval/assistant](specs/RETRIEVAL_ASSISTANT.md): TASK-011/019/027 source chat precedes reconstruction/3D; full domain tools and 32-case evaluation follow |
 | FL-012 | Verify complete fresh-upload -> scene/history -> charts -> cited-answer demo | specifying | FL-002, FL-009, FL-011 | [Demo acceptance](specs/DEMO_ACCEPTANCE.md): offline combined checks, real/live verification, then authorized release/recording |
 | FL-013 | Curate offline Blender equipment-authoring skill and export handoff | done | None | Integrated by owner in `88b177e`, version 0.3.0; skill/workflow only, installation and asset creation deferred |
-| FL-014 | Finalize data-backed architecture, stack, feature specs and dependency-aware orchestration plan | integration_pending | None | [Architecture](ARCHITECTURE.md), [spec index](specs/README.md) and [execution plan](../plan/architecture-fieldlens-1.md) complete for review; pilot/provider gates remain explicit, not falsely closed |
+| FL-014 | Finalize project-centric architecture, primary reconstruction agent and UI-verifiable orchestration plan | specifying | None for planning | Initial package integrated in `4ae7f7b`; October 28 revised [architecture](ARCHITECTURE.md), [specs](specs/README.md) and [plan](../plan/architecture-fieldlens-1.md) drafted for G0 review. Final data acceptance remains FL-002, not a planning blocker |
+| FL-015 | Create/reopen isolated projects with categorized, incremental sources | specifying | FL-004 | [Workspace](specs/PROJECT_WORKSPACE.md): TASK-025 lifecycle first; TASK-006 upload integration completes PW criteria. Hybrid labels/limits need approval |
+| FL-016 | Reconstruct composite entities/relationships/configurations with evidence and reviewed model publication | specifying | FL-004 | [Reconstruction](specs/ASSET_RECONSTRUCTION.md): TASK-026 consumes early retrieval/chat, not full FL-011; TASK-028 qualifies live behavior. Review defaults/gold fixtures need approval |
 
 **Scheduling gate for implementation across all rows:** FL-001 agent configuration
 must be integrated and the selected profile/model/tools verified in the host;
@@ -95,6 +105,13 @@ all equipment reconstruction.
 
 ## Data-first planning checkpoint
 
+**Owner hold, 2026-10-27:** do not advance architecture/specification changes or
+application implementation until all essential data for the intended project is
+accessible and its required coverage has been checked. Acquisition, access
+diagnosis and evidence-coverage verification may continue. This overrides earlier
+permission in the plan to advance source-independent slices while G1 is blocked.
+Partial mirrored files and metadata inventories do not release this hold.
+
 At the initial discovery checkpoint, FL-002/FL-014 were both blocked. Discovery inspected public documentation,
 license clauses, SODIR identities and a checksum-verified metadata catalog. The
 expanded 33-file pilot candidate list has no acquired pilot bytes/hashes. No application
@@ -130,9 +147,9 @@ After the equipment follow-up, checks passed for 33 exact candidate paths,
 agreement, the three source hashes and `git diff --check`.
 
 Documentation handoff candidate: `0.3.1` (patch; no API/schema behavior change).
-Integration pending; the data audit remains blocked.
+Subsequently integrated by the owner in `4ae7f7b`; the data audit remains blocked.
 
-## Architecture package handoff
+## Historical architecture package handoff (October 27)
 
 FL-014 now has a selected modular-monolith stack/process model, typed shared
 contracts, complete feature specifications, requirement-to-test traceability,
@@ -146,9 +163,11 @@ foundation and synthetic engineering/history/adapter slices. Native pilot import
 and full-demo acceptance still require real evidence. Source-first inspection
 findings inform the architecture rather than becoming fabricated source mappings.
 
-Next: review/approve and integrate this documentation package, verify FL-001
-activation, then dispatch dependency-ready slices from the task DAG. `done`
-for FL-014 awaits confirmed integration, not merely saved documents.
+The owner integrated this initial package in `4ae7f7b`, then reopened its
+requirements. FL-014 is now `blocked` on the owner's essential-data gate: address data acquisition,
+project/categorized uploads, composite-asset reconstruction, the Meta harness and
+UI-verifiable increments one by one. The old DAG is not authorization to start
+implementation before those design changes are agreed.
 
 Documentation validation on 2026-10-27 passed: 185 local Markdown links;
 24 unique tasks with an acyclic dependency graph and six phase goals; 15 valid
@@ -159,7 +178,73 @@ All 13 new design documents passed table/fence/whitespace checks; fixture arithm
 EST deadline offset, pending version consistency and `git diff --check` passed.
 This validates the documents, not the planned application tests.
 
+## Historical acquisition follow-up and architecture reconsideration
+
+The pinned public production workbook and daily-report conversion are now local,
+outside Git, with hashes and source provenance. The workbook has 15,634 daily
+rows across seven labels. The report corpus has 1,759 unique records, including
+402 under F-12/F-14/F-5. Selected records show production-completion operations
+and actual perforation firing; they also demonstrate an F-14 report discussing
+F-12 equipment. Cross-document subject attribution is therefore a real source
+requirement, not just a hypothetical architecture concern.
+
+These findings narrow the source gap but do not close FL-002: original access,
+full geometry, units/datum reconciliation, complete history and sample approval
+remain open. Points 2-5 of the owner's reconsideration are not yet resolved.
+Current documentation handoff candidate: `0.3.2`, patch, pending integration;
+no application implementation, paid API call or accepted pilot is claimed.
+
+Further acquisition added four mirrored F-5 actual-trajectory section XMLs and
+their mapping file (542,300 bytes). Hash/unit/station checks passed, but overlapping
+samples differ and physical references remain unverified. Verified acquired files
+and provenance now have durable copies under Git-ignored `data/volve/source-audit/`;
+session originals were preserved. The current listing's 90-day installation
+policy and the May 27 installation make expired access a concrete hypothesis.
+No authorization to reinstall was received and no account changes were made.
+The [essential-data coverage table](VOLVE_DATA_DISCOVERY.md#7-f-5-trajectory-acquisition-and-essential-data-coverage)
+remains incomplete; neither FL-002 nor the owner hold is released.
+
+The subsequent October 27 recovery attempt is also blocked at browser login:
+the existing workspace displays "Signed in to a different account", including
+when its original workspace-scoped URL is used. Correct-account sign-in is now
+a prerequisite to testing the expiry hypothesis; reinstall authorization still
+has not been received. No account or catalog modification was performed.
+
+### Owner-supplied local dataset: superseding access checkpoint
+
+The owner subsequently shared a working volume in another workspace and supplied
+the local official download. A complete metadata walk found 33,678 files,
+48,121,671,122 bytes and all 33 candidates. The [content audit](VOLVE_DATA_DISCOVERY.md#8-owner-supplied-local-data-content-audit)
+verified actual survey records, formation/depth surfaces, a seabed block, log
+curves, production and original operational evidence. It also found mislabeled
+completion documents, undated pilot interval rows and mixed DEPTH/TIME blocks
+inside the nominal seabed file. Earlier access/reinstall questions are no longer
+the reason for holding local work. FL-002 is `in_progress`, not done; the
+engineering manifest and owner acceptance remain open, and FL-014 stays on hold.
+
+The focused completion audit confirms an F-14 AS INSTALLED schematic with actual
+safety-valve, PBR and packer OD/length/MD. Its reference/date conflicts are explicit.
+The exact remaining F-12 source lead is the **29-01-2008 As Installed completion
+tally**, referenced in 2016 plug logs but not located in inspected documents.
+F-5's correct completion Word report exists; its embedded schematic images remain
+unverified. Do not equate these extraction/qualification tasks with missing
+seismic or an inaccessible official release.
+
 ## Assignment record for each active feature
+
+October 28 planning handoff: new FL-015/016 specs, source/model context contracts,
+early evidence/chat/reconstruction UI checkpoints and 31-task DAG. Candidate
+version remains 0.3.2 (one unintegrated documentation patch, no runtime API change).
+No new feature is ready/done, no implementation branch is assigned, and no paid
+model call or resumed source audit is implied.
+
+Documentation checks passed on October 28: 26 Markdown files, 188 local
+links/headings, table/fence structure, 31 unique tasks and six goals with an acyclic
+DAG, 17 backlog items with acyclic parent prerequisites, and all 12 project ACs
+traced. Early source/chat/reconstruction and chart paths do not wait for 3D;
+all mandatory tasks reach release and optional Blender does not block it.
+The 18 new PW/RC criteria are binary-testable; these are specification checks,
+not executed application tests or evidence of live agent performance.
 
 Add a record when scheduling, not speculative branches or fake test results:
 

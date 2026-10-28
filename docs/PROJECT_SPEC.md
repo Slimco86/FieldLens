@@ -4,10 +4,10 @@
 > **Load-bearing frameworks:** F1 outcome, F2 acceptance, F3 scope, F4 executor context.
 > **Supporting:** F5 failure conditions, F6 ambiguity audit.
 > **Date:** 2026-10-26, America/New_York.
-> **Updated:** 2026-10-27: historical perforations, versioned delivery and data-first planning/submission decisions.
+> **Updated:** 2026-10-28: project workspaces, primary reconstruction agent and UI-first delivery.
 > **Author:** Copilot-assisted synthesis. **Decision owner:** project owner.
-> **Status:** Product scope approved; DRAFT for implementation until external gates close.
-> **Zero-Question Score:** 0 unowned questions; 5 explicitly owned TBDs below still block affected work.
+> **Status:** Owner-required outcomes retained; revised workflow defaults are DRAFT for review.
+> **Zero-Question Score:** 0 unowned questions; 6 owned gates below still block affected work.
 
 ## How to Read This Spec
 
@@ -30,13 +30,12 @@
 
 ## 1. Outcome Statement
 
-After implementation, a user can upload the agreed historical field dataset and
-inspect its evidence-backed wellbores, equipment, terrain/bathymetry and
-reservoir/formation layers and date-specific perforation state in a linked 3D/chart
-interface, using a Meta-powered assistant to answer source-grounded questions and
-navigate those same assets.
+After implementation, a user can create a project, upload related historical
+sources and use a Meta-powered reconstruction agent to establish an evidence-linked,
+temporally consistent composite-asset model that they can inspect through source
+review, linked 3D/charts and conversation.
 
-**Verification:** execute AC-1 through AC-10 against an approved, versioned demo
+**Verification:** execute AC-1 through AC-12 against an approved, versioned demo
 manifest, with a live Meta integration and a fresh import.
 **Outcome rubric score:** 3, conditional on the manifest and layer definitions
 being approved; these are explicit dependencies, not completed work.
@@ -49,12 +48,12 @@ All rows are `[Validated: owner clarification in this session]`.
 
 | ID | Required capability | Boundary | AC |
 |---|---|---|---|
-| S-1 | Upload and reconstruction | Supported, declared formats from the chosen subset; source traceability and repeatable ingestion | 1-3 |
+| S-1 | Project-centric upload | Create/reopen a project for related assets, incrementally upload categorized sources, preserve isolation, provenance and revisions | 1-3, 11 |
 | S-2 | Well trajectories | Shared spatial reference; real source measurements; target 3-5 wellbores without hard-coded count limits | 3 |
 | S-3 | Equipment | Casing, tubing, pumps, packers, perforations or other components evidenced in the sample; three-tier fallback below | 4 |
 | S-4 | Geographic/geological context | Terrain or offshore seabed/bathymetry as appropriate, plus reservoir/formation representation | 5 |
 | S-5 | Linked charts | Both production time series and well-log depth charts; linked asset selection | 6 |
-| S-6 | Agentic RAG | Exact/full-text/vector retrieval, typed knowledge graph relationships, cited answers and deterministic tools | 7 |
+| S-6 | Agentic reconstruction and exploration | Discover composite entities/hierarchy/dated configurations from evidence; exact/full-text/vector/graph retrieval, cited answers and deterministic tools support the same model | 7, 12 |
 | S-7 | Catalog enrichment | Bounded web research for identified equipment whose uploaded specifications are insufficient | 4, 7 |
 | S-8 | Reliable local demo | Explicit partial/error states, persistent revisions, bounded cost, responsive interaction | 8-10 |
 | S-9 | Historical perforations | Dated events, MD/TVD intervals, perforated length, open/isolated state and separately evidenced producing/injecting/shut-in status; scoped to wellbore or interval | 4, 6-8 |
@@ -87,8 +86,8 @@ the proposed contract, fixtures and remaining source-data decisions.
 | Live telemetry, operational control, reservoir simulation, anti-collision certification | Historical exploration cannot establish current operating state or safety. `[Validated: source conversation boundary]` |
 | Inferring reservoir connectivity from well proximity | Geometry alone is insufficient. `[Validated: source conversation]` |
 | Full CAD reverse engineering from arbitrary drawings or model names | Deterministic parametric visual assets first; complex CAD imports require a separate justified spec. `[Assumed: verify at G1]` |
-| Dedicated graph DB, application-runtime multi-agent framework, separate Node API, Kubernetes | No demonstrated requirement; graph semantics remain in scope. This does not exclude the required parallel development agents/worktrees. `[Validated: accepted baseline; owner clarification 2026-10-27]` |
-| Full manual conflict-resolution application | Owner defers this unless actual conflicts require it; detection and safe blocking remain mandatory. `[Validated]` |
+| Dedicated graph DB, application-runtime multi-agent framework, separate Node API, Kubernetes | No demonstrated requirement; typed graph and a custom persistent single-agent harness remain in scope. Development agents/worktrees are separate. `[Validated: baseline; owner reconstruction requirement]` |
+| Full manual conflict-resolution application | Arbitrary fact editing/merge/split remains deferred. A minimal candidate/evidence/diff review and publication screen is proposed, not authority to waive validation. `[Validated: deferral; Assumed: verify review policy]` |
 | Hosted multi-user deployment and authentication product | Local single-user demo is accepted; local binding and secret protection still apply. `[Validated]` |
 | Photorealism and WebGPU migration | Not a substitute for correct, navigable geometry. `[Validated: accepted baseline]` |
 
@@ -100,10 +99,10 @@ adding it. Terrain, geological layers, and both charts are NOT excluded.
 
 ### Open Scope Tensions
 
-The owner requires the full enriched scene by November 4, but the complete,
-compatible dataset has not been acquired. Preserve the requirement and audit
-the minimum truthful representation for each layer. Do not count placeholder
-terrain or invented reservoirs as fulfillment. Owner decision due at G1.
+The owner requires the full enriched scene by November 4. Local access is now
+established, but source compatibility/history and complete extraction remain
+unqualified. On October 28 the owner deferred that follow-up and resumed planning.
+Do not count placeholders as fulfillment; final evidence still requires G1.
 
 ## 3. Acceptance Criteria
 
@@ -113,7 +112,7 @@ depending on an unresolved manifest or threshold is blocked, not passed.
 | ID | Type | Pass condition | Score | Annotation |
 |---|---|---|---|---|
 | AC-1 | Dependency | Approved manifest identifies every demo file, checksum, rights/access status, asset IDs, format, CRS/depth/unit references, expected outputs and numerical tolerances; includes every required layer, both chart families and perforation/state events with temporal precision and coverage limits. | 3 | `[Unknown: TBD, G1 / owner + implementer]` |
-| AC-2 | Behavioral | Starting from an empty project dataset, uploading the manifest produces versioned records and source locators without hand-editing geometry. Re-importing identical content creates no duplicate facts; importing a changed source creates a traceable revision. | 3 | `[Validated: upload-driven objective; operational contract proposed for G1 approval]` |
+| AC-2 | Behavioral | From an empty project, upload the manifest, inspect extracted evidence, run reconstruction, review/publish eligible results and inspect derived geometry without hand-editing it. Re-import creates no duplicate facts; replacement creates a traceable source/model revision and preserves old evidence. | 3 | `[Validated: upload/reconstruction objective; Assumed: verify publication policy]` |
 | AC-3 | Behavioral | Every accepted survey reconstructs within the manifest's independently checked coordinate tolerances. Selection resolves to the correct wellbore/source. Counts come from imported records, not five fixed slots. | 3 | `[Validated: source-backed trajectories and non-limiting count]` |
 | AC-4 | Behavioral / negative | Three equipment fixtures exercise documented, catalog-derived and unknown/generic states. Each shows its evidence/missing-data label. Generic dimensions and unknown placement never participate in physical measurements; catalog lookup cannot overwrite an installed configuration. Perforation fixtures pass the dedicated spec's historical-state, MD/TVD and unique-length checks, including shut-off/reopening and reperforation without duplicate footage. | 3 | `[Validated: owner scope; detailed temporal contract pending feature approval]` |
 | AC-5 | Behavioral | The approved scene displays the manifest's terrain/bathymetry and reservoir/formation layers aligned to its wells. Every layer exposes source and measured/interpolated/illustrative status. A missing-data notice alone does not pass this requirement. | 3 | `[Validated: all layers mandatory; representation TBD at G1]` |
@@ -122,8 +121,10 @@ depending on an unresolved manifest or threshold is blocked, not passed.
 | AC-8 | Edge case | Missing CRS, inconsistent depth units, conflicting dimensions or event order, unknown initial perforation history, unavailable catalog, and interrupted import each produce explicit affected-record/job states. No invented value is committed as verified; prior revisions remain available and distinguishable from incomplete work. | 3 | `[Validated: reliability requirement; exact states defined in feature specs]` |
 | AC-9 | Non-behavioral | On the documented demo manifest/browser at 1920x1080, p95 frame duration during a 30-second orbit is <=33.3 ms after warmup; p95 local read API latency is <=1 s over 20 requests during one import. Report model latency separately. | 3 | `[Assumed: verify proposed budgets with owner at G1; not measured]` |
 | AC-10 | Negative / non-behavioral | Provider failure, budget exhaustion, hostile document instructions and invalid tool IDs produce explicit safe failures. Browser bundles/logs contain no credentials. Default automated tests make zero paid calls; live validation records token/tool cost against the USD 150 balance. | 3 | `[Validated: cost and integrity constraints; tests to implement]` |
+| AC-11 | Behavioral / negative | Create/reopen two projects, add categorized files incrementally and preserve their sources/jobs/conversations/models across restart; every direct-ID, retrieval, graph, evidence and artifact access rejects the other project's records. Labels never establish engineering facts. | 3 | `[Validated: owner point 2; category policy proposed in FL-015]` |
+| AC-12 | Behavioral / negative | The live reconstruction harness passes the approved 12-case RC-10 gold set, producing supported entities/relationships/dated configurations and explicit unresolved items before 3D. A user can inspect citations/diffs; publication cannot promote unsupported claims or alter another revision/project. | 3 | `[Validated: owner points 3-5; gold/review details require G0/G3]` |
 
-**Complexity:** complex, 10 project-level criteria; individual features need
+**Complexity:** complex, 12 project-level criteria; individual features need
 smaller specs. **Definition of done:** all required ACs pass on the agreed data,
 proposed thresholds are approved, external gates close, and evidence of validation
 is recorded. A prerecorded or cached demo alone does not verify live integration.
@@ -146,10 +147,12 @@ do not replace the Meta application model or relax source/acceptance requirement
 | Term | Meaning here |
 |---|---|
 | Digital twin | Historical reconstructed representation; no implied live synchronization |
+| Project | User workspace containing related source files, asset identities, runs and conversations; not synonymous with a field |
+| Source / model revision | Immutable source membership/extraction snapshot versus its evidence-linked reconstructed asset model |
 | Well / wellbore | Well identity versus an individual drilled path or sidetrack; not interchangeable |
 | MD / TVD | Distance along the well path / vertical depth from a stated datum |
 | Total perforated length | Unique perforated MD interval coverage, excluding gaps/overlap; a precisely defined project metric, not horizontal width |
-| As-of state | State effective at the selected historical time, evaluated within an identified dataset revision |
+| As-of state | State effective at the selected historical time, evaluated within an identified project/model revision |
 | CRS / datum | Horizontal coordinate system / physical reference for positions or elevations |
 | Completion | Installed well equipment and intervals for a specified configuration/date |
 | Knowledge graph | Typed entities and evidence-backed relations; not necessarily a graph DB product |
@@ -176,12 +179,19 @@ Initial decisions dated 2026-10-26; additions dated explicitly below.
 | Indie track, public repository and three-minute recorded demo (2026-10-27) | Owner-confirmed submission constraints; full authenticated rules still need review |
 | WSL-local or containerized runtime; owner can start Docker (2026-10-27) | No hosted deployment or cloud account is required by the product |
 | Meta key ready; public-data processing permitted (2026-10-27) | Select an appropriate entitled model after bounded testing; no waiver of source/provider terms or Contributor-mode permission |
+| Project-centric inputs and primary composite reconstruction agent (requested October 27; resumed October 28) | Source files characterize related assets; the agent establishes identities, relationships and temporally consistent configurations |
+| Intermediate deliverables must be UI-verifiable | Owner must inspect source understanding and reconstruction before investing in the full scene |
+
+Proposals, not owner-confirmed decisions: hybrid multi-category upload, one corpus
+per project, explicit reconstruction runs, review-before-publication, 128 MiB/file
+and 512 MiB/batch limits. The owner was unavailable to answer the clarification
+form; these conservative defaults require G0 approval before implementation.
 
 ### Dependencies
 
 | Dependency | Status | Owner | Blocker |
 |---|---|---|---|
-| Compatible surveys, equipment/perforation event documents, dated state evidence, context layers, production and logs | No prepared files; [metadata-only candidates](VOLVE_DATA_DISCOVERY.md) identified, actual sample access/audit pending | Owner + implementer | Yes, G1 |
+| Compatible surveys, equipment/perforation event documents, dated state evidence, context layers, production and logs | [Local content audit](VOLVE_DATA_DISCOVERY.md#8-owner-supplied-local-data-content-audit) confirms source availability and F-14 installed dimensions; final cohort/history/reference/extraction qualification remains open | Owner + implementer | Yes for full demo, G1; qualified subsets support earlier checkpoints |
 | Meta account entitlement and remaining credit | Owner confirms local key and public-data processing permission; entitlement/balance/protocol untested | Owner + implementer | Yes, G2 |
 | Supported frontend runtime and project packages | Python available; Node update and dependency resolution pending | Implementer | Before scaffolding |
 | Detailed event rules and publication rights | Owner confirms track/public repo/video; Volve license reviewed, per-file/publication and authenticated-rule checks remain | Owner | G4, before publication |
@@ -222,23 +232,25 @@ Dates below are proposed decision checkpoints, not extra owner commitments.
 
 | Gate | Question / resolution needed | Owner | Due | Confidence |
 |---|---|---|---|---|
-| G1 | Which files/formats, compatible assets, contextual layers, tolerances and performance fixture satisfy scope? Include perforation history coverage, event/time precision and state mappings; approve manifest and ingestion spec. | Owner + implementer | Proposed Oct 28 checkpoint; before pilot adapter/real-data acceptance, not synthetic foundation | M |
+| G0 | Approve the project/upload/reconstruction/review defaults and UI-first task sequence; clarify any changes before implementation. | Owner | Before first implementation handoff | M |
+| G1 | Which files/formats, compatible assets, contextual layers, tolerances and performance fixture satisfy scope? Include perforation history coverage, event/time precision and state mappings; approve final manifest. | Owner + implementer | Final qualification proposed Nov 1; each earlier real-source checkpoint requires its own approved subset first | M |
 | G2 | Which model/version is entitled, what is the actual credit balance, and does the selected Responses/tool protocol work? Follow the bounded Meta spec; no paid extraction/streaming dependency unless required by an approved slice. | Owner + implementer | Before FL-003-B live smoke and live assistant acceptance | M |
-| G3 | Evaluation composition/thresholds are specified in the retrieval/assistant spec; approve source-backed gold questions/answers and tolerances. | Owner + implementer | Before FL-011-A gold retrieval acceptance and FL-011-C live evaluation | M |
+| G3 | Approve independent source-chat, reconstruction and full exploration gold fixtures, expected supported/unknown outputs and tolerances. | Owner + implementer | Before the corresponding FL-011-D, FL-016-B and FL-011-C live acceptance | M |
 | G4 | Indie track, public repository and three-minute video confirmed by owner; review remaining authenticated rules and per-file/provider/publication constraints. | Owner | 2026-10-28; recheck before submission | M |
 | G5 | Which pinned parser/embedding/library versions and optional container layout pass the sample/resource checks? Record in relevant feature specs. | Implementer, owner approval for material changes | 2026-10-28, before affected integration | M |
 
-**Score:** 0 unowned questions, 5 owned gates unresolved. This is an approved
-product direction; the [architecture](ARCHITECTURE.md) and
+**Score:** 0 unowned questions, 6 owned gates unresolved. Owner-required outcomes
+are retained; detailed workflow defaults await approval. The [architecture](ARCHITECTURE.md) and
 [feature specs](specs/README.md) now define the system with explicit execution gates.
 
 ## 7. Implementation Guidance
 
 ### Suggested Approach
 
-Use separate specs for data feasibility/import, trajectory exploration, equipment,
-perforation history, contextual layers, linked charts and agentic retrieval.
-Sequence trajectory/evidence contracts first; delegate independent or contract-ready
+Use separate specs for projects, source ingestion, composite reconstruction,
+trajectory exploration, equipment, history, context, charts and retrieval.
+Sequence project/source/model contracts and visible evidence/reconstruction first;
+delegate independent or contract-ready
 slices in parallel worktrees. Track actual prerequisites in the
 [backlog](BACKLOG.md), not assumed ordering. Apply the
 [versioned integration workflow](DEVELOPMENT_WORKFLOW.md) before marking work done.
@@ -253,12 +265,13 @@ boundaries, explicit unknowns and bounded workloads, not optimistic promises.
 
 ### Milestones / Checkpoints
 
-1. Review/integrate the [design and task sequence](../plan/architecture-fieldlens-1.md);
-   qualify source-independent foundation while G1/G2 proceed separately.
-2. First real vertical slice after G1: upload -> validated trajectory -> source.
-3. Enriched slices: sourced equipment/history/context -> both charts -> agent tools.
-4. Rehearsal after all real/live gates: fresh import, model evaluation, failure
-   tests and submission check.
+1. Approve the revised design; create/reopen projects and persist categorized uploads.
+2. Inspect real extracted content/coverage and early cited source conversation.
+3. Run reconstruction and review hierarchy, dated configurations, evidence and
+   revision diff before 3D; separately verify live Meta reconstruction.
+4. Inspect published trajectories/equipment, then separately verify historical
+   state, geological context and both chart families with expanding agent tools.
+5. Rehearse the full fresh-project workflow after final data/live/performance gates.
 
 Effort cannot be estimated credibly before the data audit; these are checkpoints,
 not a promise that the full scope fits the remaining time.
@@ -267,9 +280,9 @@ not a promise that the full scope fits the remaining time.
 
 - **Full scope vs. incomplete data/time:** preserve all requirements; owner decides
   any reduction after G1 evidence, not the implementer silently.
-- **Automatic reconstruction vs. reliable data:** automate validated paths, expose
-  missing information, and block only affected engineering conclusions. Manual
-  resolution remains deferred unless actual failures force an owner decision.
+- **Automatic reconstruction vs. reliable data:** automate investigation and
+  validated mappings; proposed minimal source-support/revision review is not a
+  full fact editor and cannot bypass critical validators. Owner approves at G0.
 - **Grounded chat vs. web enrichment:** field facts come from uploaded evidence;
   external sources may supply product specifications, never invented installed state.
 

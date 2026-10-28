@@ -4,10 +4,10 @@
 > **Load-bearing frameworks:** F1 outcome, F6 ambiguity, F2 acceptance.
 > **Supporting:** F3 scope, F4 executor context, F5 access/data failures.
 > **Date:** 2026-10-27. **Author:** main agent. **Decision owner:** project owner.
-> **Status:** DRAFT; acquisition choices and limits await owner confirmation.
-> **Backlog ID:** FL-002. **Delivery state:** blocked on engineering sample access.
+> **Status:** DRAFT for manifest approval; owner-authorized local source inspection performed.
+> **Backlog ID:** FL-002. **Delivery state:** local originals available; remaining qualification deferred by owner on October 28 while architecture planning resumes. Manifest approval remains open.
 > **Approved revision / integration:** not yet approved or integrated.
-> **Zero-Question Score:** 0 unowned questions; three owned decisions still block approval.
+> **Zero-Question Score:** 0 unowned questions; two owned decisions still block approval.
 
 ## How to Read This Spec
 
@@ -48,6 +48,11 @@ does not close G1 or mark FL-002 done.
 - `[Assumed: verify, M]` Initial acquisition ceiling: 25 MiB per engineering file,
   100 MiB total, one download/parser at a time; stop for approval before exceeding
   either ceiling. The already-inspected metadata catalog is not an engineering file.
+- `[Validated: owner, 2026-10-27]` The owner subsequently supplied the official
+  local download and requested an adequacy audit, excluding seismic/OW archive.
+  The earlier network-acquisition proposal is not a limit on that owner download.
+  Inspection used bounded native readers and selected PDF pages; no full-dataset
+  extraction, source modification or paid Meta work.
 
 ### OUT of Scope
 
@@ -105,7 +110,7 @@ Decisions and dependencies:
 | Item | Status / rationale |
 |---|---|
 | Data-first sequencing | [Validated: owner] Avoid final contracts based on invented source schemas |
-| Official access | [Validated: authenticated listing installed]; [Unknown: TBD by owner/provider before pilot acquisition] Catalog exposes only `information_schema`; advertised volume returns missing-schema 404. Do not reinstall, alter permissions or provision services without approval |
+| Official access | [Validated: owner, 2026-10-27] A working volume in another workspace and a local official download are available; all 33 candidates are present. No reinstall or permission change is needed for local inspection |
 | Licensing | [Validated: published license inspected] Conditional use/sharing permitted; per-file provenance, third-party rights and publication review still required |
 | Cohort and numerical fixtures | [Unknown: TBD by owner + orchestrator before G1 closure] Candidate filenames do not establish compatibility |
 | Host | [Validated: observed] Python 3.12 available, 7.6 GiB WSL RAM; no application environment established |
@@ -145,11 +150,11 @@ independent fixtures, preventing that result from being called ready.
 
 | Question | Owner / deadline | Resolution |
 |---|---|---|
-| Which access route and local sample location? | Owner/provider, before pilot acquisition resumes | [Unknown: TBD]; sign-in succeeded, but published data volume is not visible; an authorized local copy remains an alternative |
+| Which access route and local sample location? | Owner/provider, before pilot acquisition resumes | [Resolved: owner, 2026-10-27]; local official download under `Downloads/Hackathon_Data`, exact root in the Git-ignored local inventory |
 | Approve cohort, sampling/byte limits and DF-9 threshold? | Owner, before pilot acquisition/G1 closure | [Unknown: TBD]; not inferred from lack of response |
 | Which common historical window, reference mapping and tolerances? | Owner + orchestrator, after inspection and before G1 closure | [Unknown: TBD]; derive from source precision and coverage |
 
-Zero-Question Score: 0 unowned; three owned decisions remain. Status stays draft.
+Zero-Question Score: 0 unowned; two owned decisions remain. Status stays draft.
 
 ## 7. Implementation Guidance
 
@@ -173,14 +178,24 @@ were inspected under the owner's equipment-research request (7,776 bytes total).
 They are outside the proposed pilot cohort; structural field/hash checks do not
 pass DF-7/9, establish effective installation dates, or approve the full sample.
 
+Subsequently acquired: a pinned production workbook and 1,759 converted daily
+reports, including 402 under the proposed pilot labels. Selected narratives
+provide production-completion operations and an explicit perforation interval
+with an activity time window. The
+[acquisition evidence](../VOLVE_DATA_DISCOVERY.md#6-acquired-mirrors-and-the-remaining-acquisition-gap)
+and [record-level limitations](../EQUIPMENT_DATA_FEASIBILITY.md#8-daily-report-conversion-real-completion-and-perforation-evidence)
+do not close the audit: full installed dimensions, referenced trajectories,
+conversion fidelity, history completeness and cohort/limit approval remain open.
+
 ## Open Tensions
 
 The owner chose real-data inspection first; the inspected probes now inform the
 [architecture](../ARCHITECTURE.md) without pretending the pilot audit passed.
-The completed [execution plan](../../plan/architecture-fieldlens-1.md) permits
-approved source-independent foundation/analytic fixtures while pilot access is
-resolved. Source mappings and real acceptance remain gated here; no required layer
-is demoted and no draft spec grants implementation approval.
+The [execution plan](../../plan/architecture-fieldlens-1.md) remains on hold under
+the owner's later essential-data instruction. Local availability resolves access,
+not manifest/engineering acceptance. Source mappings and real acceptance remain
+gated here; no required layer is demoted and no draft spec grants implementation
+approval.
 
 ## Assumption Registry
 

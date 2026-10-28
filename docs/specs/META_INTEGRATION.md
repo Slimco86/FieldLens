@@ -2,7 +2,7 @@
 
 > **Spec type:** API contract. **Backlog:** FL-003.
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
-> **Date:** 2026-10-27. **Decision owner:** project owner.
+> **Date:** 2026-10-28. **Decision owner:** project owner.
 > **Status:** Design complete; live entitlement/balance and spending approval unverified.
 > **Zero-Question Score:** 0 unowned design questions; live calls remain opt-in.
 
@@ -31,7 +31,8 @@ retry/deadline/cancellation behavior and sanitized usage. `[Validated: project]`
 
 ### OUT of Scope
 
-Retrieval/tool selection/UI (FL-011), paid bulk extraction, provider subscriptions,
+Retrieval/exploration tool selection/UI (FL-011), reconstruction policy/UI (FL-016),
+paid bulk extraction, provider subscriptions,
 Contributor mode, non-Meta fallback and new runtime agent frameworks.
 
 ### Scope Dependencies
@@ -67,6 +68,14 @@ budget repository/migration coordinated with backend, and
 `https://api.meta.ai/v1`, Responses and `muse-spark-1.3` Standard as the selected
 test candidate. If entitlement or required protocol semantics differ, report the
 actual supported option for an amendment; do not silently switch provider/mode.
+
+This adapter is shared by reconstruction and exploration. The application harness,
+not the SDK, owns persisted run state, bounded evidence-dependent tool selection,
+validation, review gates, cancellation and recovery. FL-016 adds proposal tools;
+FL-011 exposes read/navigation tools. Neither mode can bypass the same global
+ledger. MI-5 bounds one work unit, not an entire project corpus; explicit continued
+work needs a new reservation. Upload and local extraction never implicitly start
+paid model work.
 
 Budget is global across worktrees and requests, not USD 150 per process.
 Persist `budget_period`, ledger cap, known starting balance/time/source, usage,

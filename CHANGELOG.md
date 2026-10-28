@@ -6,7 +6,79 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 ## Unreleased
 
-**Candidate: 0.3.1**, matching [VERSION](VERSION), pending integration.
+**Candidate: 0.3.2**, matching [VERSION](VERSION), pending integration.
+Patch bump: source evidence and revised planning/specifications only; no
+implemented API/schema or application behavior change.
+
+### Changed
+
+- **FL-014 / FL-015 / FL-016:** Resumed planning on October 28 at the owner's
+  request while leaving final data qualification and implementation approval open.
+  Drafted project-scoped categorized uploads, separate source/model revisions,
+  composite-asset reconstruction and minimal evidence/diff review/publication.
+- Made the custom persistent Meta harness responsible for reconstruction as well
+  as exploration; separated proposal, validation, accepted facts and tool permissions.
+  Added early source conversation and independent reconstruction gold evaluation.
+- Reworked delivery into UI-verifiable project/source/reconstruction/scene/enrichment
+  checkpoints, with a 31-task dependency DAG and 12 project acceptance criteria.
+  Preserved all required history, context and chart families.
+- Proposed streaming limits that admit the inspected F-14 PDF and explicit
+  qualification of required scanned/legacy-Word equipment evidence. Hybrid labels,
+  limits and review-before-publication remain defaults awaiting owner approval;
+  no confirmation is inferred from the unanswered clarification form.
+
+- **FL-002 / FL-007:** Recorded acquisition of the pinned production workbook and
+  1,759-report WITSML conversion, including 402 reports under the proposed pilot
+  labels. Added byte/hash provenance and exact completion/perforation locators.
+- Distinguished nominal equipment sizes from actual geometry, report dates from
+  operation windows, missing converted unit/datum attributes and cross-well
+  activity subjects. Complete installed geometry/history gates remain open.
+- Recorded the repeated official missing-volume failure and documented shared
+  volume read-privilege checks without changing access or assuming an upgrade.
+- Reconciled the owner's `4ae7f7b` integration as version 0.3.1, then reopened
+  **FL-014** for project-centric uploads, reconstruction-agent/harness ownership
+  and UI-first verification. The previous architecture is explicitly provisional;
+  those design changes have not yet been agreed or implemented.
+- Recorded the owner's subsequent hard data gate: pause further design and
+  application implementation until essential-data access/coverage is established,
+  overriding the old plan's source-independent dispatch permission.
+- **FL-002:** Acquired four pinned F-5 trajectory XML sections and their mapping;
+  recorded unit/overlap/reference limits and an essential-data coverage table.
+  Verified local copies now live under the existing Git-ignored data directory.
+- Identified the official listing's 90-day installation policy and the May 27
+  installation as an expiration hypothesis. Recorded the provider support route;
+  no agent-performed reinstall or account change is claimed.
+- **FL-002:** Inspected the owner's subsequent local official download: 33,678
+  files, all 33 candidate paths, referenced ACTUAL surveys, depth horizons,
+  production, logs and original operational evidence. Recorded that the earlier
+  workspace failures no longer block local inspection.
+- Found report/folder misattribution, undated pilot perforation-table rows and
+  an embedded TIME horizon in the nominal seabed DEPTH file. Kept raw/interpreted
+  curves, conflicting depth/position references and installed/design equipment
+  separate. Seismic/OW archive acquisition is unnecessary for interpreted depth
+  layers; this does not close G1 or authorize application implementation.
+- Verified dimensional/MD evidence in F-14's AS INSTALLED completion schematic,
+  including a safety valve, PBR and packer. Identified the specifically referenced
+  29-01-2008 F-12 tally as not located in inspected sources, and distinguished
+  F-5's genuine Word completion report from its mislabeled drilling PDF.
+
+### Validation
+
+- October 28 planning checks: 26 Markdown files, 188 local links/headings,
+  table/fence structure, 31-task/six-goal acyclic DAG, 17 backlog items and all
+  12 project acceptance criteria traced. Verified early UI/agent independence,
+  optional Blender exclusion and explicit source/draft/model scopes. No runtime
+  tests, live Meta calls or implementation approval are claimed.
+- Acquired mirror bytes/hashes, row counts and selected source locators checked.
+  Parquet inspection used temporary Python 3.12/PyArrow 26.0.0, not an application
+  dependency change. No paid model calls, application tests or pilot acceptance.
+- Local filesystem inventory, native structured-data checks and source hashes
+  recorded in Git-ignored audit sidecars. Document-only review; the full 44.82 GiB
+  was not content-validated and no app performance claim is made.
+
+## 0.3.1 - 2026-10-27
+
+Integrated by the owner in `4ae7f7b`.
 Patch bump: architecture/specification and data-discovery documentation;
 no implemented application API/schema change or completed pilot/live audit.
 

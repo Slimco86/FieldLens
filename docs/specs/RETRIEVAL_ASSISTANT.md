@@ -2,8 +2,8 @@
 
 > **Spec type:** Product/feature. **Backlog:** FL-011.
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
-> **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** Design complete; corpus/model evaluation and live acceptance not run.
+> **Date:** 2026-10-28. **Decision owner:** project owner.
+> **Status:** Draft revised for early evidence chat and shared reconstruction retrieval.
 > **Zero-Question Score:** 0 unowned design questions; G1/G2/G3/G5 are execution gates.
 
 ## How to Read This Spec
@@ -19,7 +19,8 @@ The evaluation design is complete; actual gold source answers await G1.
 
 ## 1. Outcome Statement
 
-The assistant answers supported field questions with validated evidence and
+The assistant first answers source-content questions before a model exists, then
+answers supported field questions with validated evidence and
 deterministic numbers, proposes valid UI actions and explicitly declines unsupported
 claims, including when the provider or budget is unavailable.
 Verification: RG-1 through RG-7. Outcome score 3.
@@ -39,10 +40,12 @@ general web enrichment, inferred installation/interval flow and a non-Meta fallb
 
 ### Scope Dependencies
 
-FL-011-A retrieval needs FL-005-B accepted evidence/chunks.
-FL-011-B offline assistant/tools/UI needs FL-011-A, FL-003-A, FL-007-A,
-FL-008-B and FL-010-C. FL-011-C live acceptance additionally requires FL-003-B
-and G1/G3 gold cases. Source-independent mocks do not close these live gates.
+FL-011-A source retrieval needs FL-005-B extracted records/chunks, not a completed
+asset graph. FL-011-B provides offline source chat/evidence UI after FL-011-A and
+FL-003-A. FL-011-D verifies that early chat live after FL-003-B and approved source
+fixtures. None requires 3D/equipment/charts. FL-011-E extends tools after domain
+services integrate; FL-011-C retains the complete 32-case live evaluation after E.
+Reconstruction uses the same retrieval through FL-016. Mocks close no live gate.
 
 ### Open Scope Tensions
 
@@ -60,8 +63,13 @@ and compare factual answer claims against source-backed gold evidence during QA.
 | RG-5 | Edge case | Stale/rejected actions are not described as applied; cancellation, provider outage, malformed results and unavailable vector index expose explicit state without fake success. | 3 | [Validated] | `test_action_ack`, assistant interactions |
 | RG-6 | Dependency | The fixed 32-case evaluation runs with the entitled live Meta model, produces >=22 correct supported answers of 24, passes all 8 controls, and records protocol/usage within approved USD 3/run. | 3 | [Assumed: verify evaluation allowance] | opt-in `test_assistant_live_gold` |
 | RG-7 | Behavioral | Public model research is limited to documented public identifiers, <=3 queries/5 pages/60 seconds and permission/budget; conflicting variants return alternatives, not invented installation. | 3 | [Validated scope; assumed limits] | `test_equipment_research_tool` |
+| RG-8 | Behavioral | With no model revision, project source chat returns cited extracted content and coverage, opens the correct source, and refuses installed-state/geometry assertions or actions needing a model. Cross-project evidence is never returned. | 3 | [Validated objective; assumed workflow] | `source-chat.spec.ts`, opt-in early live check |
 
-Full verification requires RG-6. Offline replay measures contracts and regressions,
+Full verification requires RG-6 and RG-8. The early live check uses three approved
+cases: source lookup with locator, extraction-gap explanation and refusal of an
+unsupported installed-state assertion. All three must pass within a separately
+approved <=USD 1 allowance; this does not replace the 32-case evaluation.
+Offline replay measures contracts and regressions,
 not live model performance. Source support and numerical correctness must be 100%
 for claims actually emitted; an unanswerable reply to a positive case counts wrong,
 not permission to invent an answer to meet the overall score.
@@ -89,11 +97,15 @@ Executor: `fieldlens-rag`, owning `backend/fieldlens/{retrieval,assistant}`,
 assistant frontend feature and tests. Shared evidence/series/engineering APIs
 are consumed, not reimplemented. The main agent serializes migrations/contracts.
 
-Chunks contain document/revision, page/record locators, entity/claim IDs, temporal
+Chunks contain project/source revision, page/record locators, nullable resolved
+entity/claim IDs, temporal
 coverage and extraction quality. Preserve table headers/units and row locators;
 do not split a number from its attribute/unit. Target <=800 tokens/chunk with
 <=100-token overlap; split oversized tables by row groups repeating headers.
-Keep the original record as the evidence authority.
+Keep the original record as the evidence authority. SourceContext admits
+unresolved observations with explicit extraction quality; QueryContext filters to
+eligible published model facts and time. Draft proposals never leak into a
+published-fact answer merely because they share similar text.
 
 Use the [architecture ranking recipe](../ARCHITECTURE.md): exact lookup,
 PostgreSQL `simple` full text and exact cosine vectors, RRF constant 60, bounded
@@ -114,7 +126,7 @@ Tool names: `search_evidence`, `get_equipment`, `get_perforation_state`,
 [shared contracts](SHARED_CONTRACTS.md). Maximum six tool calls includes failed
 calls. Return compact statistics/intervals, not raw trajectories or log arrays.
 
-Answer envelope: status, QueryContext, ordered text blocks with evidence/tool
+Answer envelope: status, SourceContext or QueryContext, ordered text blocks with evidence/tool
 references, uncertainty notes, action proposals/ack status and usage.
 Sanitize Markdown; external links never become server fetch instructions.
 Discard unsupported citation IDs and fail answer validation explicitly rather
@@ -144,7 +156,9 @@ Actual embedding suitability is G5; no unknown model endpoint is assumed.
 
 ## 7. Implementation Guidance
 
-FL-011-A: retrieval/index tests and RG-1/2. FL-011-B: offline tools/UI RG-3/4/5/7.
+FL-011-A: source retrieval/index tests; model graph expansion follows FL-016.
+FL-011-B/D: offline/live source chat and RG-8 with applicable RG-1/3/4/5 checks.
+FL-011-E: complete domain tools, graph retrieval and RG-1..5/7.
 FL-011-C: live RG-6 and authorized research check. Planned commands: retrieval/
 assistant pytest files, frontend assistant interactions, type/build, separate
 live marker only after allowance approval. Record model/index revisions,

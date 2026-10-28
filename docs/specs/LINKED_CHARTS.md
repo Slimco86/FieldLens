@@ -37,8 +37,10 @@ of invented values. CSV export is not required for the first increment.
 
 ### Scope Dependencies
 
-FL-010-A production and FL-010-B logs depend on FL-005-B/FL-006-B and can run
-independently. FL-010-C overlays additionally needs FL-008-B plus both chart slices.
+FL-010-A production and FL-010-B logs depend on qualified FL-005-B source records
+and FL-016-A published asset/series associations; they can run independently
+without a finished 3D viewer. FL-010-C overlays additionally needs FL-008-B plus
+both chart slices and verifies the linked scene/inspector state.
 
 ### Open Scope Tensions
 

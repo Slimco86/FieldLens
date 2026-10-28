@@ -5,10 +5,26 @@ validated and no paid API call was made. Public documentation was inspected;
 account entitlements and authenticated event rules were not.
 Updated 2026-10-27: historical perforation terminology, official access/license
 documents, public wellbore records and a metadata-only catalog were inspected.
-Pilot engineering files and actual perforation records remain unacquired. A later
-equipment follow-up inspected three small public mirrored F-4/F-7 WITSML files,
-with explicit drilling-versus-installed-state limits. See the
+Later follow-ups acquired three small mirrored F-4/F-7 WITSML files, a production
+workbook and a converted corpus of 1,759 daily reports. Selected narratives now
+establish source-reported production-completion and perforation operations, but
+not a complete dimensioned pilot assembly or historical coverage. Official
+candidate files remain unacquired. See the
 [data-discovery findings and access handoff](VOLVE_DATA_DISCOVERY.md).
+Four additional mirrored F-5 trajectory sections now preserve explicit units,
+but overlap/reference/position validation remains open. Read-only access diagnosis
+also found the listing's 90-day policy and the older May 27 installation; an
+authorized refresh is a recovery candidate, not a completed fix.
+
+**Latest checkpoint:** the owner has now supplied an official local download.
+The earlier access failures above are historical. All 33 pilot candidate files
+are present within a 33,678-file inventory. Actual source surveys, interpreted
+depth horizons, seabed, production, logs and selected original event reports
+were inspected. Important report-attribution, time/depth-domain and historical
+coverage limitations are documented in the
+[local content audit](VOLVE_DATA_DISCOVERY.md#8-owner-supplied-local-data-content-audit).
+Seismic and the geoscience archive are not required for the existing interpreted
+depth-layer scope; file availability is not a passed engineering manifest.
 
 ## 1. Source and precedence
 
@@ -38,8 +54,9 @@ earlier assistant suggestions:
   [draft feature contract](specs/PERFORATION_HISTORY.md) for proposed semantics.
 - Development uses orchestrated parallel worktrees and versioned integration;
   this does not add a multi-agent framework to the runtime application.
-- The owner has no prepared dataset and chose joint sample inspection before
-  final architecture. Indie track, public repository, three-minute recorded
+- The owner initially had no prepared dataset and chose joint sample inspection
+  before final architecture; an official local download is now available.
+  Indie track, public repository, three-minute recorded
   demo, and local WSL/container runtime are owner-confirmed requirements.
 - A Meta key is ready locally and processing public data is authorized, subject
   to source/provider terms; entitlement, balance and protocol behavior are untested.
@@ -65,7 +82,7 @@ earlier assistant suggestions:
 |---|---|---|
 | Volve is a credible primary source | Supported at collection level: Equinor describes about 40,000 files and 2008-2016 production history | Specific compatible files still require inspection |
 | 3-5 wells make an achievable demo | Plausible presentation scale, not proof of effort or data completeness | Prioritize complete source coverage; do not impose a five-well product cap |
-| Technical equipment data is essential to the value proposition | Agree; mirrored WITSML samples contain real dimensions, but a coherent installed pilot completion is not yet verified | Prioritize completion reports plus EDM/WITSML; apply the proposed DF-9 gate instead of presenting a generic-only scene as reconstruction |
+| Technical equipment data is essential to the value proposition | Agree; an original F-14 AS INSTALLED schematic now supplies device dimensions and MD intervals. Cohort, reference and history qualification remain open | Reconcile source references/dates and locate the referenced F-12 tally; apply DF-9 rather than presenting a generic-only scene as reconstruction |
 | PDF/diagram understanding can reconstruct all equipment | Overstated without dimensions, view conventions and installed-state evidence | Supported parametric geometry plus catalog/generic fallback; no universal inverse-CAD claim |
 | Meta Muse provides multimodal and agent tools | Supported by current public Meta docs, not a fabricated model family | Verify account entitlement and actual extraction/tool behavior |
 | Structured output guarantees reliable data | It constrains shape, not engineering correctness | Domain validation, evidence locators, deterministic checks |
@@ -89,11 +106,13 @@ compatible measurements or validate engineering semantics.
 
 | Source | What was verified | What was not |
 |---|---|---|
-| [Equinor Volve](https://www.equinor.com/energy/volve-data-sharing) | Collection description, official access guide and operative license/use/sharing clauses inspected | Engineering contents, account access and per-file rights/provenance |
+| [Equinor Volve](https://www.equinor.com/energy/volve-data-sharing) | Official access/license documents and the owner's local download inspected; all 33 candidates present; selected engineering contents and hashes checked | Full-cohort reference/history qualification, uninspected documents and publication rights remain open |
 | [Volve Marketplace listing](https://marketplace.databricks.com/details/5c3558ef-315c-44dd-baef-7062ac301f22/Equinor-ASA_Volve-Data-Village) | Free listing, sign-in access guide, source/license links | Authenticated acquisition/export and any workspace/compute cost |
 | [Community metadata index](https://github.com/985185/volve-metadata-index) | v1.0 CSV hash verified; exact candidate paths, counts and identity anomalies inspected | Independent accuracy, completeness, freshness and original-file bytes |
 | [Original conversation's detailed inventory](https://github.com/gabrielserrao/spe-2026-challenge/blob/main/DATA_SOURCES.md) | Documents EDT/EDM assembly/casing tags and WITSML object families; official license also identifies EDT exports | Actual large EDM bytes/schema semantics and installed-versus-designed configuration; old direct-download URL now redirects |
 | [Public WITSML sample mirror](https://github.com/f0nzie/volve-drilling/tree/3698c43d4adc0ee11ffa8fd5f876fa961c9c846d) | Three pinned files, 8 component and 4 geometry records, sizes/hashes/metric fields inspected | Current official-byte equivalence, pilot coverage, installation dates, depth datum and complete device geometry |
+| [Production workbook mirror](https://github.com/f0nzie/volve_eclipse_reservoir/tree/0d34eaf1be7003a6c251dea938de3e3738501d71/inst/rawdata) | Pinned 2,344,094-byte XLSX acquired; blob/SHA-256 and daily/monthly structure checked; 15,634 daily rows | Official equality, units, identity/quantity semantics and interval-scoped flow |
+| [Daily-report conversion](https://huggingface.co/datasets/bengsoon/volve_daily_drilling_report/tree/f0cbe11bfebb23f007b57a52cb903d9075db777c) | Pinned 2,180,278-byte Parquet acquired; LFS hash, 1,759 unique reports and selected completion/perforation narratives inspected | Original XML fidelity, numeric unit/datum attributes, complete installed geometry/history; header wellbore can differ from the activity subject |
 | [PetroRAG](https://github.com/yohanesnuwara/PetroRAG/tree/ac4f27ef4e1683e9b79c661cf50451dff2b00fd9) | Secondary extract's "Completion Report" label conflicts with its F-15-family drilling-report header | Original PDFs absent; no installed-completion proof from the label or chunks |
 | [SODIR FactPages](https://factpages.sodir.no/) / [FactMaps](https://factmaps.sodir.no/map) | Volve field and F-12 references; F-5 injection and base F-11 observation purpose | Full trajectories, dated interval state, spatial-layer downloads |
 | [Public event page](https://cerebralvalley.ai/e/meta-ai-developer-hackathon) | Nov 4, 9 PM ET deadline; Meta model families; tracks/themes | Full contest rules and required final artifacts |

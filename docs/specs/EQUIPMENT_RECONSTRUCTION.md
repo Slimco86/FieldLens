@@ -37,7 +37,9 @@ Blender art polish is optional; evidence-backed equipment is mandatory.
 
 ### Scope Dependencies
 
-FL-005-B source claims and FL-006-B scene/trajectory precede FL-007-A.
+FL-016-A published claims and FL-006-B scene/trajectory precede FL-007-A.
+Selected scanned/legacy-Word sources additionally require FL-005-C qualification;
+the F-14 AS INSTALLED schematic cannot be replaced with native-PDF empty text.
 DF-9 must pass before real installed-equipment acceptance. Optional FL-007-B
 Blender export requires an approved source/model asset assignment.
 

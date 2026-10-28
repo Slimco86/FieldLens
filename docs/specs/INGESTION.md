@@ -1,9 +1,9 @@
-# Specification: Upload to restart-safe, attributed dataset revisions
+# Specification: Project upload to restart-safe, attributed source revisions
 
 > **Spec type:** Product/feature. **Backlog:** FL-005.
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
-> **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** Design complete; real source profiles remain gated by inspected evidence.
+> **Date:** 2026-10-28. **Decision owner:** project owner.
+> **Status:** Draft revised for project uploads; source profiles/limits need approval.
 > **Zero-Question Score:** 0 unowned design questions; G1/profile qualification remains.
 
 ## How to Read This Spec
@@ -18,8 +18,9 @@ H/M/L are confidence; all AC scores are 3. Synthetic fixtures are not pilot evid
 
 ## 1. Outcome Statement
 
-The user uploads supported files and obtains a persistent, evidence-linked dataset
-revision or explicit record/job failures without hand-editing scene geometry.
+The user uploads supported files within a project and obtains a persistent,
+evidence-linked source revision or explicit record/job failures; ingestion does
+not publish an asset model.
 Verification: IN-1 through IN-8. Outcome score 3.
 
 ## 2. Scope
@@ -27,17 +28,17 @@ Verification: IN-1 through IN-8. Outcome score 3.
 ### IN Scope
 
 Upload UI/API, source storage, persistent jobs, native readers, record validation,
-source evidence navigation and revision publication. `[Validated: project]`
+source evidence navigation and source-revision finalization. `[Validated: project]`
 
 ### OUT of Scope
 
-LLM-authored facts, universal PDF/CAD parsing, full-release download, manual
-adjudication UI, engineering projections and retrieval ranking. OCR is an explicit
+LLM-authored accepted facts, universal PDF/CAD parsing, full-release download, manual
+adjudication UI, asset-model publication, engineering projections and retrieval ranking. OCR is an explicit
 conditional adapter, not an invisible fallback that marks all pages processed.
 
 ### Scope Dependencies
 
-FL-004-A shared contract/environment precedes implementation. Native profiles
+FL-004-A contracts and FL-015-A project workspace precede upload implementation. Native profiles
 require individually reviewed sample mappings; full G1 is required for pilot
 acceptance, not for synthetic upload/job tests.
 
@@ -50,13 +51,13 @@ an approved streaming profile/limit revision before accepting that file.
 
 | ID | Type | Pass condition | Score | Annotation | Test |
 |---|---|---|---|---|---|
-| IN-1 | Behavioral | Fresh multipart upload yields source hashes, revision/job IDs and immutable originals; repeating identical content/idempotency key creates no duplicate records. | 3 | [Validated] | `test_upload_idempotency` |
+| IN-1 | Behavioral | Fresh project-scoped multipart upload yields source hashes, source revision/job IDs and immutable originals; repeating identical content/idempotency key creates no duplicate records. Source publication cannot move the active model pointer. | 3 | [Validated] | `test_upload_idempotency` |
 | IN-2 | Behavioral | Each CSV/XLSX/LAS/XML/native-PDF fixture retains original values/units and exact locators, extractor/profile version and counted coverage; original document header outranks filename classification. | 3 | [Validated] | `test_source_profiles` |
 | IN-3 | Negative | Traversal/absolute paths, nested ZIP/symlink/encrypted entries, XXE/DTD, macros, unsupported signatures and expanded-size violations fail explicitly without writing outside staging or making network calls. | 3 | [Validated] | `test_hostile_uploads` |
 | IN-4 | Edge case | Killing/restarting the worker mid-stage leaves an interrupted attempt; a fenced retry cannot duplicate records or let the old attempt publish. Cancellation publishes no active revision. | 3 | [Validated] | `test_job_recovery` |
 | IN-5 | Behavioral | Corrected sources create a new immutable revision; failed replacements preserve old results under old labels; partial revisions expose quarantined records/counts. | 3 | [Validated] | `test_revision_publication` |
 | IN-6 | Negative | Missing reference, unknown event code, drilling/completion mismatch and suspicious equal MD/TVD are flagged; no invented CRS, ordering, installed state or zero values enter valid claims. | 3 | [Validated] | `test_source_conflicts` |
-| IN-7 | Non-behavioral | Streaming enforces 25 MiB/file, 100 MiB/revision, 200 files and 500 PDF pages; only one heavy stage runs and local reads meet project AC-9 during import. | 3 | [Assumed: verify] | `test_ingestion_limits`, concurrent read benchmark |
+| IN-7 | Non-behavioral | Streaming enforces 128 MiB/file, 512 MiB/batch, 200 files and 500 PDF pages; test exact byte limits and +1 byte. Only one heavy stage runs and local reads meet project AC-9 during import. | 3 | [Assumed: verify; admits inspected F-14 PDF] | `test_ingestion_limits`, concurrent read benchmark |
 | IN-8 | Dependency | Every accepted pilot family has an approved profile and all manifest expected records/pages matched or explicitly quarantined; a missing mandatory family cannot pass G1. | 3 | [Validated] | `test_pilot_ingestion` |
 
 Full acceptance includes IN-8; success on invented fixtures is not real ingestion
@@ -65,7 +66,9 @@ verification. A supported format with an unknown schema returns `unsupported_pro
 ## 4. Context and Decisions
 
 Executor: FL-005-A backend worker for upload/jobs/evidence UI; FL-005-B ingestion
-worker for approved readers and claim publication. Owned planned paths:
+worker for early qualified native readers; FL-005-C for selected scanned-PDF and
+legacy-Word evidence; FL-005-D for full manifest/profile acceptance. B/C provide
+source observations, not active engineering claims. Owned planned paths:
 `backend/fieldlens/{jobs,ingestion,evidence}`, upload/evidence frontend features
 and matching tests. Both serialize migrations/generated API changes.
 
@@ -82,6 +85,15 @@ PDF extraction uses pypdf/pdfplumber, counts all pages and reports empty/scanned
 pages as `ocr_required`. Evidence UI opens PDF.js at the cited page or a structured
 cell/XML/text locator view. Do not synthesize absent bounding boxes.
 
+The inspected F-14 equipment schematic is scanned; the F-5 completion report
+contains legacy-Word embedded images. These are required selected-source profiles
+for pilot equipment acceptance, not optional polish or proof that native PDF text
+alone is enough. FL-005-C must account for each required page/image with a reviewed
+extraction fixture, original locator and safe image/text view. Unknown formats may
+be retained only as explicitly unsupported sources under an approved safe storage
+profile; they never report successful extraction. No macros/document code execute.
+An archive's expanded bytes count against the same batch limit.
+
 Persist jobs as `queued/running/succeeded/partial/failed/cancelled/interrupted`;
 attempts carry lease owner, expiry, heartbeat, fencing token and stage progress.
 Claim jobs with transactionally locked rows (`SKIP LOCKED`); one heavy worker.
@@ -91,7 +103,8 @@ transient failures retry once. Validation failures do not auto-retry.
 Source blobs are written before metadata publication using atomic rename.
 If a transaction fails, unreferenced blobs remain eligible for an explicit,
 scoped cleanup job; never delete referenced originals as retry cleanup.
-Active revision changes in one transaction only after final validation.
+Only the latest source revision pointer changes after source validation; active
+model publication belongs to FL-016 and requires an explicit reviewed revision.
 Progress reports processed/total when known, otherwise stage/count without a fake
 percentage. `ready_with_issues` identifies accepted versus quarantined records.
 

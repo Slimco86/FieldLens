@@ -3,8 +3,8 @@
 > **Spec type:** API contract. **Backlog:** FL-004, consumed by FL-005 through FL-012.
 > **Load-bearing frameworks:** F2 acceptance, F4 context, F5 failures.
 > **Supporting:** F1 outcome, F3 scope, F6 ambiguity.
-> **Date:** 2026-10-27. **Decision owner:** project owner; technical owner: orchestrator.
-> **Status:** Design proposal complete; owner approval required before implementation.
+> **Date:** 2026-10-28. **Decision owner:** project owner; technical owner: orchestrator.
+> **Status:** Draft revised for project/source/model separation; approval required.
 > **Zero-Question Score:** 0 unowned design questions; G1/G2/G5 remain execution gates.
 
 ## How to Read This Spec
@@ -29,7 +29,8 @@ Verification: SC-1 through SC-6; outcome score 3.
 
 ### IN Scope
 
-Identity, evidence, revision/time/selection, error and bounded read contracts.
+Project isolation, identity, source/model revisions, reconstruction proposals,
+evidence, time/selection, error and bounded read contracts.
 Engineering truth and time separation are `[Validated: project requirements]`.
 
 ### OUT of Scope
@@ -52,9 +53,9 @@ versioned adapter profiles; canonical contracts reject missing critical metadata
 | ID | Type | Pass condition | Score | Annotation | Test |
 |---|---|---|---|---|---|
 | SC-1 | Behavioral | OpenAPI schemas generate strict TS types; representative valid request/results round-trip without lost IDs, units, time precision or evidence locators. | 3 | [Assumed: verify] | `test_contract_roundtrip` |
-| SC-2 | Negative | A source/object/claim outside requested dataset revision cannot be returned through direct ID lookup, graph expansion, chart or source navigation. | 3 | [Validated] | `test_revision_scope` |
+| SC-2 | Negative | A source/object/claim/job/run/conversation outside the requested project and source/model revision cannot be returned by ID, graph, retrieval, chart, artifact or evidence navigation; a known blob hash grants no access. | 3 | [Validated] | `test_revision_scope`, `test_project_isolation` |
 | SC-3 | Edge case | Unknown measurements carry no numeric zero default; nonfinite floats, invalid enums and unrecognized request fields receive 422 with a stable error code. | 3 | [Validated] | `test_invalid_contracts` |
-| SC-4 | Behavioral | Changing revision, selected entity or as-of precision changes cache/context keys; a response with the old context cannot update the current view. | 3 | [Validated] | `test_context_keys` |
+| SC-4 | Behavioral | Changing project, context kind, source/model revision, selected entity or as-of precision changes cache/context keys; old responses cannot update the current view. Source browsing works with no model revision, while scene/engineering calls reject source-only context. | 3 | [Validated] | `test_context_keys` |
 | SC-5 | Negative | A generic OD and catalog installation date are rejected as authoritative installed measurements; evidence class is independent of validation state. | 3 | [Validated] | `test_evidence_classes` |
 | SC-6 | Non-behavioral | Collection results never exceed 200 rows; numeric display windows never exceed 5,000 points; invalid bounds fail rather than silently widen. | 3 | [Assumed: verify] | `test_read_bounds` |
 
@@ -72,11 +73,16 @@ Date: 2026-10-27. Shared truth rules come from the project specification.
 
 | Record | Required fields and invariants |
 |---|---|
-| Dataset | UUID `dataset_id`, display name, nullable `active_revision_id` |
-| Revision | UUID `revision_id`, dataset FK, nullable parent revision, manifest hash, UTC `created_at`, status `staging/ready/ready_with_issues/failed`; published content immutable |
-| Source document | UUID `document_id`, dataset, source revision ID, SHA-256, bytes, original filename, media type, origin/rights metadata, server-owned storage key |
+| Project | UUID `project_id`, name, description, created/updated timestamps, nullable `latest_source_revision_id` and `active_model_revision_id`; project is not a field |
+| Source revision | UUID `source_revision_id`, project FK, parent source revision, manifest hash, UTC creation time, `staging/ready/ready_with_issues/failed`; finalized membership/extraction snapshot immutable |
+| Model revision | UUID `revision_id`, project FK, pinned source revision, nullable base model revision, reconstruction run, `draft/validated/published/rejected`, coverage/issues; published content immutable |
+| Source document | UUID `document_id`, project, SHA-256, bytes, original filename, detected media type, origin/rights metadata, server-owned storage key; membership in explicit source revisions |
 | Source record | UUID `record_id`, document/source revision, typed locator, original values, extractor name/version/profile, extraction coverage |
-| Claim | UUID `claim_id`, subject UUID/type, attribute key, typed original value/unit, normalized value/unit when valid, source record IDs, validation/evidence class, optional superseded claim |
+| Classification | Document, suggested/user category sets, custom tags, method/version and override audit; none establishes asset identity or installed state |
+| Claim | UUID `claim_id`, project/model revision, subject UUID/type, attribute key, typed original value/unit, normalized value/unit when valid, source record IDs, validation/evidence class, optional superseded claim |
+| Reconstruction run | UUID `run_id`, optional predecessor run, project/source/base model revisions, bounded work scope, status, step/tool/budget records, coverage/stop reason, candidate revision and idempotency key |
+| Proposal / issue | Run and candidate revision, typed entity/edge/claim payload, source support, validation outcome and unresolved reasons; not an accepted fact |
+| Conversation | UUID, project, message/request IDs and per-request immutable SourceContext or QueryContext; never reuse context implicitly across projects |
 | Validation | `unreviewed/valid/conflicting/invalid/unsupported`; issues carry code, attribute/record IDs, severity and human explanation |
 | Evidence class | `source_record/catalog_derived/derived/interpolated/generic`; no class implies validation |
 | Coverage | `complete/partial/unknown`, inspected and total page/record counts where known, missing ranges and reasons |
@@ -85,9 +91,18 @@ Date: 2026-10-27. Shared truth rules come from the project specification.
 
 Use explicit typed claim-value variants, not arbitrary JSON accepted as engineering
 truth. UUIDs are generated server-side; filenames and display labels are not IDs.
-Revision membership has composite foreign keys so dataset/revision/subject joins
-cannot cross scopes. Immutable blobs may be reused, but authorization/context
+Revision membership has composite foreign keys so project/revision/subject joins
+cannot cross scopes. Source records can be inspected without resolved subjects;
+claims enter candidate model revisions only after explicit attribution.
+Immutable blobs may be reused, but authorization/context
 checks operate on document membership, not knowledge of a hash.
+
+Uploads finalize source revisions only. Reconstruction stages a model revision;
+only the explicit user publication endpoint advances `active_model_revision_id`
+using compare-and-swap against the expected base. A newer source revision leaves
+the current model pinned and visibly stale until a new reconstruction is reviewed.
+Published model membership is immutable; its active pointer may change.
+See [workspace](PROJECT_WORKSPACE.md) and [reconstruction](ASSET_RECONSTRUCTION.md).
 
 ### Evidence locators
 
@@ -100,6 +115,12 @@ checks operate on document membership, not knowledge of a hash.
   for attribute claims. Never evaluate arbitrary user XPath.
 - `text`: 1-based line range; CSV also includes logical record and column name;
   LAS includes section, mnemonic and data-line locator.
+- `converted_text`: immutable extraction artifact ID/hash and 1-based line range,
+  linked to the original document and extractor version. A converted Word text
+  line is not presented as an original page/line location.
+- `embedded_image`: original container stream/item index and source-image hash,
+  plus optional normalized region. A decoded preview is a derived artifact linked
+  to this locator; do not invent page numbers for unpaginated Word extraction.
 - `derivation`: algorithm result ID plus input claim IDs, not a fake source page.
 
 All locators include document/source revision. Missing page boxes do not become
@@ -138,10 +159,20 @@ states/ambiguous ranges, not an arbitrary midnight or end-of-day state.
 No enumeration of factorial event orders: interval constraints and conservative
 unknown/conflicting results are acceptable; invented ordering is not.
 
-`QueryContext = {dataset_id, revision_id, selected_entity_type,
-selected_entity_id, as_of}`. Entity types are `field/well/wellbore/component/interval`.
+`QueryContext = {kind:"model", project_id, revision_id, selected_entity_type,
+selected_entity_id, as_of}`. Entity types are
+`field/well/wellbore/completion/component/interval`.
 Queries without an entity use explicit null entity fields, not an implicit bore.
 Series keep measurement/acquisition time alongside this selection context.
+
+`SourceContext = {kind:"source", project_id, source_revision_id}` supports source
+inspection and early evidence chat without an accepted graph. It returns labeled
+source observations, never installed-state/engineering results.
+`DraftContext = {kind:"draft", project_id, run_id, revision_id}` is limited to
+candidate review; ordinary scene/engineering reads require a published model.
+`EvidenceContext` is the discriminated union of all three; each endpoint/tool
+declares allowed kinds. Body/path project IDs must agree. SourceContext has no
+invented entity/as-of defaults. Conversation answers expose their actual kind.
 
 State/result status: `resolved/partial/unknown/conflicting`. State result includes
 intervals, physical coverage, access, scoped flow, quantity results, coverage and
@@ -150,33 +181,47 @@ known-subset length is a separate labeled value, never the exact total.
 
 ### REST surface
 
-All dataset reads below require `revision_id`; temporal endpoints also require
-`as_of` and its precision. Requests use generated query/body schemas, not free SQL.
+All model reads below require `revision_id`; temporal endpoints also require
+`as_of` and its precision. Source and draft reads use their explicit context.
+Requests use generated query/body schemas, not free SQL.
 All paths begin `/api/v1`.
 
 | Method/path | Request / result |
 |---|---|
-| `POST /datasets` | Name -> Dataset, HTTP 201 |
-| `POST /datasets/{id}/imports` | Multipart files + typed manifest, optional parent revision/idempotency key -> revision/job IDs, HTTP 202 |
-| `GET /datasets/{id}/revisions` | Cursor -> bounded revision summaries |
-| `GET /jobs/{id}` | Persistent job/attempt/stage/progress/issues and typed result/artifact reference when complete; validate dataset/revision membership |
-| `POST /jobs/{id}/cancel` | Idempotent cancellation request -> HTTP 202; terminal state unchanged |
-| `GET /datasets/{id}/assets` | Context/filter/cursor -> bounded typed asset summaries |
-| `GET /datasets/{id}/scene` | Context -> render origin, object IDs, layer/configuration manifests and bounded artifact URLs |
-| `GET /datasets/{id}/equipment/{component_id}` | Context -> installed/catalog/generic attribute envelopes |
-| `GET /datasets/{id}/wellbores/{bore_id}/perforations` | Context -> canonical temporal state result |
-| `GET /datasets/{id}/series` | Context, entity and family `production/log` -> associated definitions, scope and units |
-| `GET /datasets/{id}/series/{series_id}/points` | Time/depth bounds, display flag, limit -> points plus acquisition/decimation metadata |
-| `POST /datasets/{id}/closest-approach` | Revision, two bore/survey IDs, MD bounds -> HTTP 200 cached distance/points/MDs/error/evidence, or HTTP 202 computation job ID |
-| `GET /datasets/{id}/evidence/{claim_id}` | Revision -> claims, locators and derivations |
-| `GET /datasets/{id}/documents/{document_id}/content` | Revision, validated HTTP Range -> original bytes; no arbitrary paths/URLs |
-| `GET /datasets/{id}/artifacts/{artifact_id}` | Revision -> immutable render/series artifact bytes |
-| `POST /datasets/{id}/assistant/requests` | Question + QueryContext -> assistant request ID, HTTP 202 |
-| `GET /datasets/{id}/assistant/requests/{request_id}` | Revision -> pending/completed/failed/cancelled result, validated answer/citations/actions/usage |
-| `POST /datasets/{id}/assistant/requests/{request_id}/cancel` | Revision -> cancellation request, HTTP 202 |
-| `POST /datasets/{id}/assistant/actions/{action_id}/ack` | Revision/context + `applied/rejected/stale`, reason -> recorded acknowledgment |
+| `GET/POST /projects` | Cursor -> summaries; name/description -> Project, HTTP 201 |
+| `GET/PATCH /projects/{id}` | Project summary; typed name/description changes -> Project |
+| `POST /projects/{id}/imports` | Multipart files, labels, explicit replacements, expected parent source revision/idempotency key -> source revision/job IDs, HTTP 202 |
+| `GET /projects/{id}/source-revisions` | Cursor -> source membership/coverage summaries |
+| `GET /projects/{id}/documents` | SourceContext/cursor -> file labels, format, coverage and issues |
+| `PATCH /projects/{id}/documents/{document_id}/classification` | Categories/tags and expected metadata version -> audited classification; no engineering mutation |
+| `GET /projects/{id}/records` | SourceContext/document/cursor -> original values, locators and extraction results |
+| `GET /projects/{id}/records/{record_id}` | SourceContext -> one eligible extracted record and original locator; usable before asset attribution |
+| `GET /projects/{id}/jobs/{job_id}` | Persistent attempt/stage/progress/issues and typed result; validate project/revision membership |
+| `POST /projects/{id}/jobs/{job_id}/cancel` | Idempotent cancellation request -> HTTP 202; terminal state unchanged |
+| `POST /projects/{id}/reconstructions` | Pinned source/base revisions, bounded scope, idempotency key -> run ID, HTTP 202 |
+| `GET /projects/{id}/reconstructions/{run_id}` | Run status/coverage/usage, candidate model, issues and diff |
+| `POST /projects/{id}/reconstructions/{run_id}/cancel` | Stop future tools/provider calls, preserve audit, HTTP 202 |
+| `POST /projects/{id}/reconstructions/{run_id}/continue` | Expected source/base, new approved allowance/idempotency key -> new successor run/draft seeded from prior evidence, HTTP 202; never implicit paid resume |
+| `GET /projects/{id}/revisions` | Cursor -> candidate/published model summaries, with explicit status |
+| `POST /projects/{id}/revisions/{revision_id}/reviews` | DraftContext, selected proposal IDs and source-support decision/locators -> audited review; cannot waive critical validators |
+| `POST /projects/{id}/revisions/{revision_id}/publish` | User session, expected base -> validated immutable publication and active pointer, or 409; not a model tool |
+| `POST /projects/{id}/revisions/{revision_id}/reject` | User decision/reason -> rejected draft; active model unchanged |
+| `GET /projects/{id}/assets` | QueryContext/filter/cursor -> bounded typed asset summaries |
+| `GET /projects/{id}/scene` | QueryContext -> render origin, object IDs, layer/configuration manifests and bounded artifact URLs |
+| `GET /projects/{id}/equipment/{component_id}` | QueryContext -> installed/catalog/generic attribute envelopes |
+| `GET /projects/{id}/wellbores/{bore_id}/perforations` | QueryContext -> canonical temporal state result |
+| `GET /projects/{id}/series` | QueryContext, entity and family `production/log` -> associated definitions, scope and units |
+| `GET /projects/{id}/series/{series_id}/points` | QueryContext, time/depth bounds, display flag, limit -> points/acquisition/decimation metadata |
+| `POST /projects/{id}/closest-approach` | QueryContext, two bore/survey IDs, MD bounds -> HTTP 200 cached result/evidence, or HTTP 202 computation job ID |
+| `GET /projects/{id}/evidence/{claim_id}` | Model/draft context -> claims, locators and derivations |
+| `GET /projects/{id}/documents/{document_id}/content` | EvidenceContext, validated HTTP Range -> original bytes; no arbitrary paths/URLs |
+| `GET /projects/{id}/artifacts/{artifact_id}` | EvidenceContext -> eligible immutable extraction/render/series bytes |
+| `POST /projects/{id}/assistant/requests` | Question, conversation ID and SourceContext or QueryContext -> request ID, HTTP 202 |
+| `GET /projects/{id}/assistant/requests/{request_id}` | Pinned context -> state, validated answer/citations/actions/usage |
+| `POST /projects/{id}/assistant/requests/{request_id}/cancel` | Pinned context -> cancellation request, HTTP 202 |
+| `POST /projects/{id}/assistant/actions/{action_id}/ack` | Expected context + `applied/rejected/stale`, reason -> recorded acknowledgment |
 
-Assistant requests use the persisted job infrastructure but execute async provider
+Assistant and reconstruction requests use the persisted job infrastructure but execute async provider
 I/O in a bounded API-owned task with a stored lease/terminal result. On API restart,
 in-flight provider work becomes `interrupted`, not automatically replayed/billed.
 The CPU worker never monopolizes provider execution or vice versa.
@@ -186,8 +231,8 @@ API event loop. The UI polls the job; the assistant tool awaits the same typed
 result only within its remaining deadline. Busy/expired computation returns an
 explicit pending/timeout result, never a guessed or best-so-far exact distance.
 Cancellation affects only jobs owned by that request, not unrelated imports.
-Temporal interval projections are materialized at event boundaries during
-ingestion; ordinary as-of reads select those projections rather than replaying
+Temporal interval projections are materialized from validated model revisions at
+event boundaries; ordinary as-of reads select those projections rather than replaying
 unbounded histories inside the API handler.
 
 Successful read envelope: `{context, data, coverage, issues, provenance}`.
@@ -205,7 +250,8 @@ invalid requests and failed jobs do not return success-shaped empty arrays.
 
 ### Cache, tools and actions
 
-Cache key: dataset/revision + selected entity + as-of value/precision/timezone +
+Cache key: project + context kind + source/model revision + draft run when applicable +
+selected entity + as-of value/precision/timezone +
 query parameters + algorithm/survey/index version. Model, extractor, source or
 normalization changes invalidate only derived projections, not original evidence.
 Content hashes alone do not determine temporal cache eligibility.
@@ -215,6 +261,11 @@ Allowed action types: `select_asset`, `focus_asset`, `show_chart`, `open_evidenc
 `set_as_of`, `set_layer_visibility`. Action includes UUID, expected context and
 validated target; the client acknowledges only after applying it. A changed
 context rejects stale actions. No arbitrary JS, SQL, XPath, URLs or filesystem IO.
+Source-only conversations may open evidence but cannot invoke model-dependent
+actions. Reconstruction tools write validated proposals, not viewer actions or
+active facts. Review/publication is a user permission, not an exploration tool.
+For SourceContext, `open_evidence` targets a document/record/locator rather than
+requiring a model claim ID; model-context citations may additionally target claims.
 
 ## 5. Failure Conditions
 

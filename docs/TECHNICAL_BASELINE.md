@@ -1,10 +1,11 @@
 # Technical baseline and engineering conventions
 
-Date: 2026-10-26, America/New_York. Updated 2026-10-27 with the selected
+Date: 2026-10-26, America/New_York. Updated 2026-10-28 with the revised
 [application architecture](ARCHITECTURE.md) and
 [implementation sequence](../plan/architecture-fieldlens-1.md).
-The architecture and technology choices are defined; package resolution,
-host qualification and actual performance remain unverified execution gates.
+Core stack families are retained. Project/reconstruction workflow defaults are
+draft proposals; package resolution, host qualification and performance remain
+unverified execution gates.
 
 ## 1. Prefer a small system with explicit responsibilities
 
@@ -17,6 +18,9 @@ Production frontend files are served by FastAPI; Compose supplies the local DB.
 Node is needed to build/develop the frontend, not to duplicate Python endpoints.
 The renderer consumes derived geometry; it does not own engineering facts.
 Application tools, not the model, control calculations and allowable scene actions.
+The product boundary is a project, with separate immutable source and asset-model
+revisions. The application agent reconstructs composite entities and relationships;
+retrieval, charts and rendering serve that model rather than defining it.
 
 ## 2. Stack decisions
 
@@ -35,7 +39,7 @@ Application tools, not the model, control calculations and allowable scene actio
 | Persistence | PostgreSQL 17 + pgvector 0.8 families; SQLAlchemy 2, psycopg 3, Alembic | One relational and retrieval store; pin compatible patch/image digest at setup |
 | Knowledge graph | Typed entity/relationship/claim records in PostgreSQL | Graph semantics with foreign keys and provenance; bounded SQL traversal initially |
 | Embeddings | FastEmbed with BAAI/bge-small-en-v1.5, 384 dimensions, CPU candidate | Pin model revision/license/preprocessing and pass recall/RSS gate; no assumed Meta embeddings API |
-| Agent | Official OpenAI-compatible Python SDK targeting Meta; Pydantic tool schemas | A bounded single-agent tool loop first; Pydantic AI/LangGraph only if justified by real requirements |
+| Agent | Meta-compatible Python SDK transport, custom persistent harness and Pydantic tools | Reconstruction and exploration modes share run state, budget/recovery and retrieval; SDK alone is not the agent. Pydantic AI/LangGraph only for demonstrated complexity |
 | Frontend tooling | Supported Node 24 LTS patch, npm and a committed lockfile | Installed Node 20 is EOL and below current Vite's minimum |
 | Tests | pytest, Ruff, mypy; TypeScript/ESLint, Vitest, Playwright | Foundation creates actual commands; live Meta tests are explicit opt-in |
 | Local services | Docker Compose for PostgreSQL/pgvector | Current daemon/Compose readiness is unverified; recheck after owner startup. Full app containers remain optional |
@@ -56,7 +60,8 @@ an automatic requirement for three database products.
 
 - **Relational:** wells/wellbores, component instances, survey revisions, source
   documents, extraction jobs, series metadata, dated perforation/state events,
-  claims and provenance. Effective event time is distinct from report/import time.
+  claims and provenance, project memberships, reconstruction proposals/reviews and
+  model publications. Effective event time is distinct from report/import time.
 - **Vector/full-text:** passages and catalog excerpts with document/asset filters.
   Exact IDs/model numbers must remain searchable even if embeddings miss them.
 - **Graph:** typed edges such as `well_has_wellbore`, `sidetrack_of`,
@@ -68,6 +73,14 @@ Use explicit tables/foreign keys for core domain facts; avoid a universal
 entity-attribute-value schema. A typed relationship table can express additional
 traversals without erasing the core schema. Distinguish catalog models from
 installed component instances.
+Scope all reads/writes/tools by project and the appropriate source/model revision.
+Source search must work before entity resolution; uncertain extracted observations
+remain distinguishable from accepted model facts. Filenames/categories are hints.
+
+The [reconstruction spec](specs/ASSET_RECONSTRUCTION.md) defines persistent runs,
+typed candidate writes, semantic-support validation and proposed user publication.
+One orchestrator/tool registry is enough initially; do not install a runtime agent
+framework merely to relabel an SDK call as agentic.
 
 Implement filtered full-text + vector retrieval with bounded, evidence-returning
 graph expansion. Start with exact vector search for a small corpus; add HNSW only

@@ -2,14 +2,20 @@
 
 ## Product and scope
 
-FieldLens turns uploaded historical field data and engineering documents into an
-evidence-backed, interactive 3D representation of an oilfield. Users inspect
-wellbores and equipment, explore terrain/bathymetry and reservoir/formation
-context, view linked production and well-log charts, and investigate the data
-through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
+FieldLens uses a Meta-powered agent to reconstruct composite oilfield assets from
+related historical sources within a user-created project. Identifying entities,
+evidence-backed relationships and temporally consistent configurations is the
+primary agent task. Parsing, retrieval, deterministic engineering, 3D, charts and
+conversation support that reconstruction rather than a pre-authored scene.
 
 - The demo targets 3-5 Volve wellbores; this is a dataset choice, not an application
   limit or a substitute for the upload-to-reconstruction workflow.
+- Project membership scopes files, identities, jobs, runs, conversations, retrieval
+  and UI actions. Upload categories/filenames are hints, not engineering evidence.
+- Follow the draft [project workspace](../docs/specs/PROJECT_WORKSPACE.md) and
+  [reconstruction](../docs/specs/ASSET_RECONSTRUCTION.md) contracts after owner
+  approval. Proposed hybrid categories and review-before-publication are not yet
+  approved behavior; a user publication action cannot waive validation.
 - All contextual layers and both chart families are required for the hackathon.
   Implement them in increments; do not silently downgrade them to stretch goals.
 - Historical perforation events and date-specific completion state are required:
@@ -42,6 +48,10 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
   when evidence changes. Documentation-only corrections do not require a feature spec.
 - Maintain requirement-to-test traceability. Mark a feature verified only after
   its acceptance checks pass; distinguish mocks, cached replays, and live results.
+- Deliver UI-verifiable increments: projects/uploads -> source inspection/chat ->
+  reconstruction review -> published scene -> history/context/both charts. Do not
+  postpone all agent behavior until the scene is complete. Backend-only tasks are
+  supporting work, not substitutes for browser checkpoints.
 - Keep changes focused. Reuse existing patterns; add dependencies or services only
   for a demonstrated requirement. Do not scaffold infrastructure or download the
   full Volve release merely because it appears in a research inventory.
@@ -140,6 +150,13 @@ through a Meta-powered agentic retrieval-augmented generation (RAG) assistant.
 
 ## RAG and agent boundaries
 
+- The SDK supplies model transport; the application harness owns persistent runs,
+  bounded planning/tool execution, validation, cancellation, recovery and budget.
+  Reconstruction proposes entities/edges/claims; exploration reads and navigates.
+  Model tools never publish active revisions or bypass engineering validation.
+- Keep source observations searchable before an accepted asset graph exists.
+  Distinguish source, draft and published-model context; unresolved proposals
+  must not appear as accepted engineering facts in tools or the scene.
 - Combine exact identifiers, relational filters, full-text/vector retrieval, and
   bounded graph traversal. Link passages and graph edges back to source claims.
 - Use typed, allowlisted tools for retrieval, calculations, charts, and viewer

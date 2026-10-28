@@ -1,9 +1,14 @@
-# Equipment data: real dimensions found; installed completion still unverified
+# Equipment data: as-installed F-14 geometry evidence found
 
 Reviewed 2026-10-27 after the owner identified equipment data as a project-critical
-concern. **Verdict: promising but not a completed feasibility gate.** We have
-inspected real-format equipment records from a public Volve mirror. We have not
-yet verified a coherent, date-specific installed completion for the chosen pilot.
+concern. **Latest verdict: source-backed dimensional reconstruction is feasible
+for at least F-14; the full cohort/history/reference gate is not passed.** An
+owner-supplied local completion schematic now supplies actual device dimensions
+and installed MD intervals; see [section 9](#9-local-originals-as-installed-f-14-proof-and-remaining-gaps).
+At earlier checkpoints we had
+inspected dimensioned XML probes and a public conversion of daily reports containing
+actual production-completion and perforation operations. We have not yet verified
+a complete, dimensioned, date-specific installed assembly for the chosen pilot.
 
 ## 1. What 3D reconstruction actually requires
 
@@ -31,7 +36,7 @@ missing attributes; it cannot prove dataset feasibility.
 | Volve completion and well-engineering reports | Installed tubing/casing, discrete equipment, completion drawings and dated configurations where documented | Exact candidate PDFs located; their contents remain uninspected |
 | Volve EDT/EDM export | Hole sections, casing designs, assemblies/components, well/wellbore identities and surveys | Official license Exhibit 1 identifies this export. [Community inventory](https://github.com/gabrielserrao/spe-2026-challenge/blob/main/DATA_SOURCES.md) documents its tags; not independently verified against the large XML |
 | Volve WITSML `tubular`, `bhaRun`, `wbGeometry` | Component dimensions, assembly order, run context and bore/casing sections | Three small mirrored XML files inspected below; drilling equipment is not automatically permanent completion equipment |
-| Daily drilling/workover reports | Operations, installation/removal context, configuration dates and narrative evidence | Candidate dates alone do not establish event history |
+| Daily drilling/workover reports | Operations, installation/removal context, configuration dates and narrative evidence | A pinned conversion now provides 1,759 reports, including 402 under the proposed pilot labels; selected completion/perforation narratives inspected in section 8, not a complete history audit |
 | [Equinor Ask Volve](https://github.com/equinor/industrial-hackathon-2026/blob/main/ask-volve/README.md) | Official confirmation of the report/production corpus and access route | Another challenge description, not a separate equipment dataset or proof of complete geometry |
 | [SODIR FactPages](https://factpages.sodir.no/) / [FactMaps](https://factmaps.sodir.no/map) | Official identities, wellhead coordinates, drilling/completion attributes and spatial context | Useful cross-checks, not a replacement for a downhole equipment tally; the open-data landing-page fetch returned 403 during this follow-up |
 | [OPM/Norne](https://opm-project.org/?page_id=559) | Eclipse-format simulation benchmarks and reservoir-grid importer tests; ODbL terms apply | Different field and model inputs. Cannot supply Volve installed hardware or actual historical perforation events |
@@ -169,8 +174,8 @@ do not claim Free Edition is definitely unsupported, or that paying will fix it.
 No catalog was removed/reinstalled, permissions changed, compute started or
 subscription created. Next action is to have the owner/provider restore visibility
 of the published share, or supply an authorized local copy of the selected files.
-The three public mirror probes let us examine fields, but do not resolve pilot
-completion/perforation coverage or this official-access problem.
+The public XML probes and subsequent report/production mirror acquisitions let us
+examine real records, but do not resolve full pilot coverage or official access.
 
 ### Documented, non-destructive diagnostic handoff
 
@@ -184,14 +189,15 @@ A privileged catalog owner/provider needs to verify:
 
 1. The published share still contains the advertised `public.volve` volume and
    the catalog is mounted from that share.
-2. The recipient's catalog/schema/volume read privileges cover those objects.
+2. The recipient's catalog/schema/volume read privileges cover those objects,
+   including the documented `READ VOLUME` privilege for the shared volume.
 3. The intended files are visible before any compute, export or parser is run.
 
 Do not prescribe an account upgrade, LinkedIn verification, catalog deletion or
 reinstallation as a proven fix. The inspected Free Edition documentation does
 not establish that one of these resolves this missing-schema failure.
 
-## 7. Alternative-report search and final assessment
+## 7. Earlier alternative-report search
 
 The follow-up checked additional public repository inventories, web discovery,
 Zenodo metadata and report-source references. No independently verifiable
@@ -209,21 +215,166 @@ original. The original report type, full page coverage and installed equipment
 must therefore be verified before admitting any extracted claims. Private
 document-system links embedded in the export were not followed.
 
-**Assessment complete; project equipment feasibility remains conditional.**
-Available public source records demonstrate dimensional tubular/component data,
-and the official inventory identifies richer engineering/completion sources.
-The inspected samples do not demonstrate a complete installed pilot assembly,
-and additional reports mislabeled by downstream tooling cannot supply that proof.
-The next decisive input is actual pilot completion documentation, obtained through
-restored share visibility or an authorized local copy. No further autonomous
-permission change, paid service or invented geometry is justified by this search.
+At that checkpoint, the inspected samples did not demonstrate an installed pilot
+assembly. The subsequent acquisition below improves the evidence substantially,
+but does not validate complete geometry or history. Reports mislabeled by
+downstream tooling still cannot supply that proof. No permission change, paid
+service or invented geometry is justified by an access failure.
+
+## 8. Daily-report conversion: real completion and perforation evidence
+
+Acquired 2026-10-27 from
+[bengsoon/volve_daily_drilling_report](https://huggingface.co/datasets/bengsoon/volve_daily_drilling_report/tree/f0cbe11bfebb23f007b57a52cb903d9075db777c).
+The publisher describes a WITSML-to-JSON conversion, distributed as
+[one Parquet file](https://huggingface.co/datasets/bengsoon/volve_daily_drilling_report/resolve/f0cbe11bfebb23f007b57a52cb903d9075db777c/data/all-00000-of-00001.parquet).
+Its **2,180,278 bytes** match the published LFS SHA-256:
+
+```text
+revision: f0cbe11bfebb23f007b57a52cb903d9075db777c
+sha256: e4aec121079ad17cd2d3913646dd7d240e3a75d189458ce66ab3bf2af6ed2f56
+```
+
+The file has 1,759 rows with 1,759 unique `docName` values and 26 distinct
+`nameWellbore` labels. F-12 has 165 reports, F-14 134, and F-5 103: **402
+reports**, not 402 exclusively single-well records or a continuous daily history.
+It retains activity narratives and offset-aware start/end strings. Python 3.12
+with temporary PyArrow 26.0.0 read the Parquet after the reader was found missing;
+this does not add PyArrow to the application stack.
+
+The following are summaries of source-reported facts, not validated geometry.
+Record and activity indices are **zero-based within the pinned file**. `docName`
+plus the field locator provides a more readable record reference.
+
+| Record / `docName` | Field locator | Source-reported evidence | Boundary |
+|---|---|---|---|
+| 740 / `15_9_F_12_2008_01_25` | `activity[5].comments` | Running a `7" x 9 5/8"` Granite production packer, tubing joints and a `7" 20 ft` PBR assembly; activity window 2008-01-24 21:00 to 2008-01-25 00:00, UTC+01:00 | A real model/family and assembly lead. Nominal size designations do not establish the packer's actual OD, length, exact variant or final MD |
+| 746 / `15_9_F_12_2008_01_31` | `activity[3].comments` | Packer-setting/tubing-test operation; 2008-01-30 02:00-02:45, UTC+01:00 | Later configuration evidence, not an independently identified device or exact setting instant |
+| 748 / `15_9_F_12_2008_02_02` | `activity[0].comments` | Testing the production packer from below and holding pressure on a TRSCSSV control line | Supports production-completion context; does not provide a complete tally or device dimensions |
+| 866 / `15_9_F_14_2008_07_06` | `activity[8].comments` | Guns fired over interval 1, **3345-3354.2 m MDRT**; 2008-07-05 11:30-11:45, UTC+02:00 | An actual reported perforation event, not merely preparation. Preserve MDRT; do not call this TVD, total well perforated length or proof of interval flow |
+| 832 / `15_9_F_14_2008_06_02` | `activity[6].comments` | Opening **F-12's** DHSV in a report whose `nameWellbore` is **F-14** | Claim subject cannot automatically inherit the report's wellbore. Cross-document entity and temporal reconciliation are essential |
+
+Important limits:
+
+- The conversion's structured survey/status numeric fields expose no corresponding
+  unit/datum attributes. For example, `elevKelly="54.9"` is not permission to
+  assume metres, silently replace the SODIR RKB value, or calculate coordinates.
+  Units written explicitly in narratives remain evidence for those statements.
+- Report filenames/end dates differ from activity dates. An operation's time
+  window is not an exact event timestamp, and preparation/running-in is not firing.
+- The full XML conversion was not audited for omissions or fidelity. Original
+  XML UIDs, units and locators cannot be reconstructed by guessing.
+- The dataset card declares CC BY 4.0. That label does not override underlying
+  Volve-specific restrictions. Retain both provenance layers, attribute the
+  original partners and mirror, and keep raw data outside Git.
+- Complete casing/tubing continuity, installed discrete-device geometry, referenced
+  surveys, all historical state changes and interval-scoped flow remain unverified.
+  **DF-9 and the full pilot gate remain open.**
+
+The checksum-verified metadata catalog contains exact XML, HTML and PDF basenames
+for the three example reports ending `2008_01_25`, `2008_07_06` and `2008_06_02`
+above. Their XML prefix is
+`Well_technical_data/Daily Drilling Report - XML Version/`; append the complete
+`docName` and `.xml`. This matches an inventory, not the original contents.
+These small originals are useful fidelity checks once official access works.
+
+**Verdict at the mirror-only checkpoint:** meaningful production-completion and dated perforation
+evidence is now acquired, so the earlier evidence gap is narrower. A complete
+source-backed 3D pilot is still not demonstrated. Prioritize the original
+completion tally/drawing and referenced survey; use the Granite designation for
+bounded product research only, without guessing a manufacturer or variant.
+
+## 9. Local originals: as-installed F-14 proof and remaining gaps
+
+The owner's local download resolves the source-access problem. All 33 candidate
+files exist, but inspecting the originals changes several filename-based
+assumptions. Source hashes, page/text counts, original report locators and scope
+limits are retained in Git-ignored `data/volve/source-audit/local-completion-audit.json`.
+This was a bounded source audit, not a reconstruction of every historical state.
+
+### F-14: real installed geometry, not a drilling-assembly substitute
+
+Source: `Well_logs_pr_WELL/15_9-F-14/14.DIV.REPORTS/FWR_Completion_F14.pdf`,
+**PDF page 57, section 8.8, Completion Schematic, AS INSTALLED**.
+The 60-page scanned PDF is 54,466,467 bytes; SHA-256:
+`07206e97cba67eedd0ba2f6e67a20e7be654bfae2fd91159912f2f2595f7f334`.
+The diagram labels MD as metres RKB, length as metres and Max OD/ID as inches.
+These rows were read visually from rendered page crops; they are not OCR results.
+
+| Source device | MD top-bottom, m RKB | Length, m | Max OD, inches | ID, inches |
+|---|---:|---:|---:|---:|
+| 7-inch Baker TSM 7.5 safety valve | 489.980-492.210 | 2.230 | 9.190 | 5.875 |
+| Baker PBR size 190-60, 20 ft stroke | 2583.580-2592.020 | 8.440 | 8.240 | 6.043 |
+| Granite packer 9 5/8-inch x 7-inch, size 831 x 600 | 2596.050-2597.590 | 1.540 | 8.300 | 6.000 |
+
+The drawing also supplies tubing joints, other mandrels/carriers, casing intervals
+and six perforation intervals. The PBR's **20 ft stroke is not its 8.440 m overall
+row length**. These measurements support source-based dimensional envelopes;
+they do not supply manufacturer CAD or every mechanical detail.
+
+Two unresolved conflicts prevent declaring the whole engineering gate passed:
+
+- The schematic gives `RKB-MSL: 53.870 m`; the ACTUAL survey and report page 56
+  use 54.90/54.9 m. Keep these references separate pending reconciliation.
+- The schematic's literal `Date Shot` is `7/9/2008`, while the original
+  July 6 daily report explicitly records firing 3345-3354.2 m MDRT on July 5.
+  Its tubing-installation date also differs from the dated operation sequence.
+  Diagram update time, activity start, firing time and installation time are
+  different fields; do not silently choose a convenient date.
+
+**Conclusion:** equipment reconstruction is not dependent on downloading seismic
+or finding a generic CAD library. At least one real pilot completion contains
+the type, dimensions and MD placement needed. Compatible references and the
+date-specific configuration still need qualification.
+
+### F-12: a specific as-installed tally is still not located
+
+The three `COMPLETION_REPORT_1/2/3.PDF` files in its report folder describe the
+**F-11/F-11 A/F-11 B family**, not F-12. Its two legacy Word documents are a
+drilling programme and recommendation, not an as-installed completion report.
+`COMPLETION_LOG_MD_PLOT_2.PDF` is a geological summary, despite its filename.
+The inspected drilling report supplies casing MD intervals; daily reports
+provide actual packer-running/setting/testing events, but not a full device tally.
+
+The 2016-08-15 and 2016-08-16 production plug logs explicitly refer to a
+**"Completion tally dated 29-01-2008 As Installed"**. The first log, page 3,
+also reports 7-inch tubing with ID 6.195 inches to 3024 m and a transition near
+2918 m MD. This is a valuable source lead, not the referenced tally itself.
+That tally was **not located in the inspected sources**; absence from the entire
+release is not established. No separately named `tally` file appears in the
+community catalog. If F-12 must have a fully dimensioned completion in the demo,
+locating this specific document is the highest-value remaining source task.
+
+### F-5: correct completion source exists in Word
+
+Its `COMPLETION_REPORT_1.PDF` is a drilling report. The genuine completion report
+is `15_9_F_5_FWR_Completion.doc`. Local legacy-Word extraction confirmed as-run
+packer-setting/testing, liner-top/PBR operations and perforation intervals.
+Its embedded as-installed schematic/tally images remain unverified. This is an
+extraction/inspection gap, not evidence that the completion document is missing.
+
+### Historical and extraction limits
+
+All 402 pilot-labelled original daily-report XMLs parsed without DTD/entity
+content. The five earlier activity probes were confirmed against originals,
+including the explicit F-14 firing interval and an F-14-labelled report
+discussing F-12 equipment. Report counts and keyword matches are not a complete
+history, an initial state, or interval-level flow attribution.
+
+The audit profiled 20 PDFs, read six legacy Word documents, inspected six F-12
+production-log PDFs and rendered selected pages. Several scans/embedded images
+and later state transitions remain unread or unreconciled. Readers were temporary
+local utilities: Python 3.12/pypdf 6.21.3, isolated pypdfium2/Pillow rendering,
+and antiword 0.37-16 extracted into the session directory after it was missing.
+No application dependency, system installation, OCR service or Meta call was
+introduced, and source files were not changed.
 
 ## Attribution
 
 Underlying Volve data: Equinor, ExxonMobil Exploration & Production Norway AS,
 and Bayerngas Norge AS, under the
 [Volve-specific terms](https://equinoropendata.blob.core.windows.net/disclaimers/HRS%20and%20Terms%20and%20conditions%20for%20license%20to%20data%20-%20Volve.pdf).
-Sample mirror: Alfonso Reyes / `f0nzie/volve-drilling`. This report selects,
+Sample mirrors: Alfonso Reyes / `f0nzie/volve-drilling`, and
+`bengsoon/volve_daily_drilling_report` for the report conversion. This report selects,
 summarizes and rounds source values; it does not alter the original files.
 No endorsement is implied. Source terms are separate from any application code
 license, and third-party rights still require review before broader publication.

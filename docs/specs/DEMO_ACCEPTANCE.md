@@ -2,14 +2,14 @@
 
 > **Spec type:** Process/workflow. **Backlog:** FL-012.
 > **Load-bearing frameworks:** F3, F4, F6. **Supporting:** F1, F2, F5.
-> **Date:** 2026-10-27. **Decision owner:** project owner.
-> **Status:** Acceptance design complete; no application/rehearsal/submission verified.
+> **Date:** 2026-10-28. **Decision owner:** project owner.
+> **Status:** Revised draft; no application/rehearsal/submission verified.
 > **Zero-Question Score:** 0 unowned design questions; G1/G2/G4/G5 remain live gates.
 
 ## How to Read This Spec
 
 Owner: delivery/rights. QA: DM scenarios. Orchestrator: dependencies and checkpoints.
-Covers every project AC-1 through AC-10; screenshots alone do not pass.
+Covers every project AC-1 through AC-12; screenshots alone do not pass.
 
 ## Notation Key
 
@@ -18,8 +18,9 @@ budget/checkpoint. H/M/L are confidence. AC score 3 = reproducible pass/fail.
 
 ## 1. Outcome Statement
 
-A clean local installation demonstrates fresh upload through evidence-backed
-scene/history/charts to a live cited Meta answer, and the owner has a compliant
+A clean local installation demonstrates project creation, fresh upload and live
+Meta reconstruction/review through evidence-backed scene/history/charts and cited
+conversation, and the owner has a compliant
 public-code package and recording no longer than three minutes.
 Verification: DM-1 through DM-7. Outcome score 3.
 
@@ -39,7 +40,8 @@ without authenticated rules review.
 ### Scope Dependencies
 
 FL-012-A integrates offline browser checks after all mandatory feature slices.
-FL-012-B requires G1 and live FL-011-C. FL-012-C prepares release/recording after
+FL-012-B requires G1, live source chat FL-011-D, reconstruction FL-016-B and full
+exploration FL-011-C. FL-012-C prepares release/recording after
 FL-012-B; publication remains an explicit owner action under G4.
 
 ### Open Scope Tensions
@@ -51,8 +53,8 @@ mocked answers or import latency as live behavior. Keep raw measured run evidenc
 
 | ID | Type | Pass condition | Score | Annotation | Test |
 |---|---|---|---|---|---|
-| DM-1 | Behavioral | From an empty isolated DB/storage, upload the accepted manifest and navigate imported wellbore -> equipment -> history -> both charts -> evidence -> cited answer without manual geometry edits. | 3 | [Validated] | Playwright `fresh-import.spec.ts` |
-| DM-2 | Dependency | G1/DF-9, real trajectories/context/charts/history and MI/RG live criteria pass with hashes, revision and tested commit recorded; mocks are separately labeled. | 3 | [Validated] | acceptance evidence matrix |
+| DM-1 | Behavioral | From empty isolated DB/storage, create a project, upload the accepted manifest, inspect evidence, run reconstruction, review/publish eligible results and navigate wellbore -> equipment -> history -> both charts -> evidence -> cited answer without manual geometry edits; a second project stays isolated. | 3 | [Validated objective; draft publication policy] | Playwright `fresh-import.spec.ts` |
+| DM-2 | Dependency | G1/DF-9, PW/RC, real trajectories/context/charts/history and MI/RG live criteria pass with source/model revisions, hashes and tested commit recorded; mocks are separately labeled. | 3 | [Validated] | acceptance evidence matrix |
 | DM-3 | Non-behavioral | Combined scene passes project AC-9 and <=3 GiB aggregate API/DB/worker RSS target; local read p95 <=1 s over 20 requests during import; model latency reported separately. | 3 | [Assumed: verify RSS; existing AC-9] | combined performance run |
 | DM-4 | Edge case | Interrupted import, conflicting data, missing history, rapid selection change, provider outage and exhausted budget show the specified failure/partial states while preserving prior revision integrity. | 3 | [Validated] | Playwright `failure-paths.spec.ts` |
 | DM-5 | Negative | Default suite has zero paid calls; scanned public release files/browser bundle contain no credentials/private data; unsupported generic geometry never appears as measured truth. | 3 | [Validated] | offline/network checks, release inventory review |
@@ -80,10 +82,11 @@ Default suite uses synthetic sources plus a deterministic provider stub; a
 separate real-data/live profile cannot run without required paths/budget.
 Do not mutate the accepted demo DB in failure/destructive migration tests.
 
-Proposed 180-second recording allocation: 20 s problem/source upload, 35 s
-trajectory/evidence, 30 s installed equipment, 30 s historical intervals,
-25 s seabed/formations and both charts, 30 s live cited assistant/tool action,
-10 s limitations/source attribution. If waiting is edited, disclose it and retain
+Proposed 180-second recording allocation: 20 s problem/project/upload, 40 s
+agent reconstruction/evidence/review, 25 s trajectories/installed equipment,
+25 s historical intervals, 35 s seabed/formations and both charts, 25 s cited
+conversation/tool action, 10 s limitations/source attribution.
+If waiting is edited, disclose it and retain
 the complete measured run. Do not spend the recording on generic scene animation.
 
 Submission checklist: indie track, public code repository, <=3-minute recording,

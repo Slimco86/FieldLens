@@ -1,7 +1,7 @@
 # Development workflow: parallel implementation, serialized integration
 
 Adopted 2026-10-27 from the owner's requirements. This governs **development
-agents**, not the application's Meta RAG agent. The approved
+agents**, not the application's Meta reconstruction/exploration harness. The approved
 [agent registry](../.github/agents/README.md) defines model-tier routing, role
 boundaries and host activation checks. See [FL-001](specs/DEVELOPMENT_AGENTS.md)
 for configuration versus runtime verification.
@@ -60,6 +60,14 @@ resume state. `cancelled` requires an explicit owner decision and retained ratio
 Backlog state changes are persisted as work proceeds. `Verified` in a feature spec
 means its acceptance checks passed; it does not by itself mean merged or released.
 Only integration plus recorded evidence permits `done`.
+
+Product increments must end with an owner-verifiable browser workflow using real
+API/database persistence: projects/uploads, source inspection/chat, reconstruction
+review, then scene/history/context/charts. Numeric engines and provider adapters
+are supporting tasks, not substitute UX milestones. Record which qualified source
+subset and which live/mock provider mode each checkpoint uses; partial acceptance
+cannot mark a complete feature or final demo verified. Review the checkpoint
+before widening scope so identity, temporal or UX drift is visible early.
 
 ## 3. Dependency-aware parallelism
 

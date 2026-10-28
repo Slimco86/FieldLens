@@ -62,8 +62,9 @@ source/time mapping gates; no field validation has been performed.
 FL-008-A implements the deterministic state engine and persistence against
 FL-004-A's [shared contracts](SHARED_CONTRACTS.md), using the explicitly synthetic
 fixture below. It does not depend on the renderer or completed pilot acquisition.
-FL-008-B connects source events, trajectory placement, inspector and time controls
-after FL-005-B and FL-006-B. Full verification still requires PH-1 real history.
+FL-008-B connects validated events from FL-016-A's published model, trajectory
+placement, inspector and time controls after qualified FL-005 profiles and
+FL-006-B. Full verification still requires PH-1 real history.
 FL-010-C and FL-011 consume the canonical state result; their integration tests
 remain those items' responsibility, avoiding circular dependencies.
 
