@@ -8,6 +8,24 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.5.1 - 2026-10-28
+
+- **FL-018:** Replaced the per-lane Compose files and `db.env` credentials with one
+  root `compose.yaml` (project `fieldlens`: PostgreSQL plus a `test`-profile browser) and
+  one gitignored root `.env`. The API, Alembic, tests and the E2E runner load `.env`
+  automatically (real environment variables still win); `MODEL_API_KEY` is never loaded
+  into application or test processes. `uv run python scripts/init_env.py` creates the
+  missing keys idempotently, with 0600 mode and a generated password.
+- Fresh names: role `fieldlens`, database `fieldlens_app`, volume `fieldlens_pgdata`.
+  **Data in the old `fl004a`/`fl015a` volumes is not migrated** and the volumes are
+  untouched. Tests derive a throwaway `fieldlens_app_test_<hex>` database and never use
+  the application database. `infra/compose*.yaml` was removed.
+- Independent QA of `2bc4129` passed AC-1..8 from a clean shell: 219 backend, 15 UI,
+  9 E2E, lint/type/contract/build checks. Known limitations: hand-edited passwords
+  containing `@`, `$` or `%` are not validated (generated passwords are safe), the
+  not-configured readiness message does not yet name the bootstrap script, and
+  `frontend_dist` stays cwd-relative.
+
 ## 0.5.0 - 2026-10-28
 
 - **FL-015-A / TASK-025:** Added persistent project list/create/open/edit APIs

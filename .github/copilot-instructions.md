@@ -216,3 +216,38 @@ conversation support that reconstruction rather than a pre-authored scene.
 - Run the smallest relevant checks plus affected type/build checks. No application
   commands exist yet: add and document actual commands when scaffolding; do not
   claim unrun tests or performance measurements.
+
+## Commands and code layout
+
+Run from the repo root; see README "Run the foundation locally" and "Tests" for the full
+setup (Node 24.22.2 on PATH, `uv sync --frozen`, `npm --prefix frontend ci`). Configuration is one
+root `.env` (gitignored) created by `uv run python scripts/init_env.py` (template `.env.example`);
+the code loads it automatically, so no exports or `db.env` sourcing. Postgres and the test browser
+come from one root `compose.yaml` (project `fieldlens`): `docker compose up -d --wait`
+(`--profile test` adds the Playwright browser).
+
+```bash
+# Backend (tests derive a throwaway fieldlens_app_test_<hex> DB from .env; the app DB is never used)
+uv run pytest backend/tests
+uv run pytest backend/tests/contracts/test_contracts.py::test_registry_complete   # single test
+uv run ruff check backend scripts && uv run ruff format --check backend scripts
+uv run mypy backend/fieldlens scripts                                             # strict
+uv run alembic -c backend/alembic.ini upgrade head
+uv run uvicorn fieldlens.app:create_app --factory --host 127.0.0.1 --port 8101
+
+# Frontend
+npm --prefix frontend run lint   # also: typecheck, test, check:contracts, build
+npm --prefix frontend run test -- tests/readiness-error.test.tsx                  # single vitest file
+npm --prefix frontend run dev                                                      # :5174, needs API running
+npm --prefix frontend run test:e2e -- tests/e2e/readiness.spec.ts                  # Playwright; see README for browser container
+```
+
+- Contracts flow one way: Pydantic DTOs in `backend/fieldlens/contracts/` -> must be listed in
+  `contracts/registry.py` -> `scripts/export_contracts.py` OpenAPI -> `frontend/src/api/generated.ts`.
+  After changing a DTO run `npm --prefix frontend run generate:contracts`; `check:contracts` fails on drift.
+- Backend tests deny non-loopback sockets and create/drop uniquely named sibling databases; never
+  point them at the application or demo DB. Default tests must not call Meta; opt-in tests use
+  the `live_meta` marker.
+- `VERSION` is the single version source (hatch reads it); run `uv sync --frozen` after editing it.
+- FastAPI app is built by `fieldlens.app:create_app` (factory); the built frontend is served from it.
+  Ruff ignores `backend/migrations/versions`; line length 100.
