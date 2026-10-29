@@ -28,6 +28,7 @@ See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
 | FL-015 | [Project workspace](PROJECT_WORKSPACE.md) | A: project lifecycle/category/navigation contract; upload integration completes PW-3/4/6/7 through FL-005-A |
 | FL-016 | [Composite-asset reconstruction](ASSET_RECONSTRUCTION.md) | A: persistent candidates/support/review/publication UI; B: independent live reconstruction gold evaluation |
 | FL-017 | [Data quality](DATA_QUALITY.md) | A: source-first warning/error inspector; consumers add review/generic boundaries; real-source/combined checks complete acceptance |
+| FL-018 | [Dev environment](DEV_ENVIRONMENT.md) | Single Compose project and root `.env` auto-loaded by code; no app behavior change |
 
 ## Project requirement -> acceptance -> verification
 
