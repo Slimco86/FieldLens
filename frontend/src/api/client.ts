@@ -52,12 +52,16 @@ async function bootstrap(): Promise<string> {
  * Guarded mutation. The token lives in memory only. On SESSION_TOKEN_INVALID the token is
  * re-bootstrapped but the mutation is NOT replayed; the caller must decide to retry.
  */
-export async function mutate(path: string, init: { method: string; body?: unknown }): Promise<Response> {
+export async function mutate(
+  path: string,
+  init: { method: string; body?: unknown; signal?: AbortSignal },
+): Promise<Response> {
   const current = token ?? (await bootstrap());
   const res = await fetch(path, {
     method: init.method,
     headers: { "content-type": "application/json", "x-fieldlens-token": current },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    signal: init.signal,
   });
   if (res.ok) return res;
   const err = await toApiError(res);
@@ -66,4 +70,21 @@ export async function mutate(path: string, init: { method: string; body?: unknow
     await bootstrap();
   }
   throw err;
+}
+
+/** Guarded JSON read: a non-2xx answer or an unreadable body rejects; nothing is defaulted. */
+export async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(path, { signal, headers: { accept: "application/json" } });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()) as T;
+}
+
+export async function sendJson<T>(
+  path: string,
+  method: "POST" | "PATCH",
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const res = await mutate(path, { method, body, signal });
+  return (await res.json()) as T;
 }

@@ -8,6 +8,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -18,11 +19,84 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from tests import support  # noqa: E402
 
+API_PORT = 8101
+RESTART_TIMEOUT_S = 60
+SUITE_TIMEOUT_S = 300
+
+
+def _start_api(env: dict[str, str]) -> subprocess.Popen[bytes]:
+    return subprocess.Popen(  # noqa: S603
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "fieldlens.app:create_app",
+            "--factory",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(API_PORT),
+        ],
+        cwd=ROOT,
+        env=env,
+    )
+
+
+def _wait_ready(api: subprocess.Popen[bytes]) -> None:
+    with httpx.Client(trust_env=False, timeout=1) as client:
+        deadline = time.monotonic() + 30
+        while True:
+            if api.poll() is not None:
+                raise RuntimeError("E2E API exited before becoming ready")
+            try:
+                ready = client.get(f"http://127.0.0.1:{API_PORT}/ready").status_code == 200
+            except httpx.TransportError:
+                ready = False
+            if ready:
+                return
+            if time.monotonic() >= deadline:
+                raise RuntimeError("E2E API did not become ready within 30 seconds")
+            time.sleep(0.1)
+
+
+def _stop_api(api: subprocess.Popen[bytes]) -> None:
+    api.terminate()
+    try:
+        api.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        api.kill()
+        api.wait()
+
+
+def _request_api_restart() -> int:
+    """Ask the runner that owns the API to restart it (a real process restart, same database).
+
+    This is a file handshake inside the runner's private control directory, not an HTTP endpoint
+    of the application.
+    """
+    control = os.environ.get("FIELDLENS_E2E_CONTROL_DIR")
+    if not control:
+        raise RuntimeError("FIELDLENS_E2E_CONTROL_DIR is not set; run through the E2E runner")
+    request, done = Path(control) / "restart.request", Path(control) / "restart.done"
+    done.unlink(missing_ok=True)
+    request.touch()
+    deadline = time.monotonic() + RESTART_TIMEOUT_S
+    while not done.exists():
+        if time.monotonic() >= deadline:
+            request.unlink(missing_ok=True)
+            raise RuntimeError("API restart was not acknowledged")
+        time.sleep(0.1)
+    done.unlink(missing_ok=True)
+    return 0
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database-state", choices=("down", "up"))
+    parser.add_argument("--api-restart", action="store_true")
     args, selectors = parser.parse_known_args()
+    if args.api_restart:
+        return _request_api_restart()
     if args.database_state:
         url = support.validate_test_database_url(os.environ.get("FIELDLENS_E2E_DATABASE_URL"))
         if args.database_state == "down":
@@ -39,60 +113,57 @@ def main() -> int:
     if not (ROOT / "frontend/dist/index.html").is_file():
         raise RuntimeError("Build the frontend before running E2E tests")
     with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 8101))
-    with support.temporary_database(base) as url:
+        probe.setsockopt(
+            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1
+        )  # like uvicorn: ignore TIME_WAIT
+        probe.bind(("127.0.0.1", API_PORT))
+    storage_base = os.environ.get("FIELDLENS_STORAGE_ROOT")
+    storage = (
+        Path(storage_base) / "e2e"
+        if storage_base
+        else ROOT / ".local/fieldlens/fl-004-a-foundation/tmp/e2e"
+    )
+    storage.mkdir(parents=True, exist_ok=True)
+    with (
+        support.temporary_database(base) as url,
+        tempfile.TemporaryDirectory(prefix="control-", dir=storage) as control,
+    ):
         support.migrate(url)
         env = os.environ | {
             "FIELDLENS_DATABASE_URL": url.render_as_string(hide_password=False),
             "FIELDLENS_E2E_DATABASE_URL": url.render_as_string(hide_password=False),
             "FIELDLENS_FRONTEND_DIST": str(ROOT / "frontend/dist"),
-            "FIELDLENS_STORAGE_ROOT": str(ROOT / ".local/fieldlens/fl-004-a-foundation/tmp/e2e"),
+            "FIELDLENS_STORAGE_ROOT": str(storage),
+            "FIELDLENS_E2E_CONTROL_DIR": control,
         }
-        api = subprocess.Popen(  # noqa: S603
-            [
-                sys.executable,
-                "-m",
-                "uvicorn",
-                "fieldlens.app:create_app",
-                "--factory",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "8101",
-            ],
-            cwd=ROOT,
-            env=env,
-        )
+        api = _start_api(env)
         try:
-            with httpx.Client(trust_env=False, timeout=1) as client:
-                deadline = time.monotonic() + 30
-                while True:
-                    if api.poll() is not None:
-                        raise RuntimeError("E2E API exited before becoming ready")
-                    try:
-                        ready = client.get("http://127.0.0.1:8101/ready").status_code == 200
-                    except httpx.TransportError:
-                        ready = False
-                    if ready:
-                        break
-                    if time.monotonic() >= deadline:
-                        raise RuntimeError("E2E API did not become ready within 30 seconds")
-                    time.sleep(0.1)
-            result = subprocess.run(  # noqa: S603
+            _wait_ready(api)
+            suite = subprocess.Popen(  # noqa: S603
                 [node, str(ROOT / "frontend/node_modules/playwright/cli.js"), "test", *selectors],
                 cwd=ROOT / "frontend",
                 env=env,
-                check=False,
-                timeout=180,
             )
-            return result.returncode
-        finally:
-            api.terminate()
+            request, done = Path(control) / "restart.request", Path(control) / "restart.done"
+            deadline = time.monotonic() + SUITE_TIMEOUT_S
             try:
-                api.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                api.kill()
-                api.wait()
+                while suite.poll() is None:
+                    if time.monotonic() >= deadline:
+                        raise subprocess.TimeoutExpired("playwright", SUITE_TIMEOUT_S)
+                    if request.exists():
+                        request.unlink()
+                        _stop_api(api)
+                        api = _start_api(env)
+                        _wait_ready(api)
+                        done.touch()
+                    time.sleep(0.05)
+            finally:
+                if suite.poll() is None:
+                    suite.kill()
+                    suite.wait()
+            return int(suite.returncode)
+        finally:
+            _stop_api(api)
 
 
 if __name__ == "__main__":

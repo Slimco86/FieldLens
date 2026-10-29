@@ -27,3 +27,44 @@ button {
   min-height: 2.5rem;
   padding: 0 1rem;
 }
+.field {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 36rem;
+  margin-bottom: 0.75rem;
+}
+input,
+textarea {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+}
+ul.projects,
+ul.tabs {
+  list-style: none;
+  padding: 0;
+}
+ul.projects li {
+  border: 1px solid GrayText;
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  max-width: 40rem;
+  overflow-wrap: anywhere;
+}
+ul.tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+button[aria-current="page"] {
+  font-weight: 700;
+  text-decoration: underline;
+}
+[role="alert"] {
+  border-left: 4px solid CanvasText;
+  padding-left: 0.75rem;
+}
+dd {
+  margin-left: 0;
+  margin-bottom: 0.5rem;
+  overflow-wrap: anywhere;
+}

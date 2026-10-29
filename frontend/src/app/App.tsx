@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, fetchReadiness, type ReadinessResponse } from "../api/client";
+import { ProjectWorkspace } from "../features/projects/ProjectWorkspace";
 
 type State =
   | { kind: "loading" }
@@ -62,7 +63,7 @@ export function App() {
           <section aria-labelledby="workspace-title">
             <h2 id="workspace-title">Workspace</h2>
             <p role="status">Local services ready.</p>
-            <p>No project is open yet. Import sources to begin.</p>
+            <ProjectWorkspace />
           </section>
         )}
       </main>

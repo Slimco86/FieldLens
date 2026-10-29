@@ -149,7 +149,15 @@ creates/migrates its own unique DB, serves the built UI, then stops its own API
 and drops that DB even on test failure. One browser worker runs three scenarios:
 live ready; intercepted network failure/loading and keyboard recovery; **real test
 database removal, repeated 503 and recovery after recreation**. No test-only API
-route is added to the product. Native-browser hosts may omit the container and
+route is added to the product.
+
+Project lifecycle specs (`project-lifecycle`, `project-navigation`) run against that
+same real API/PostgreSQL. A test requests a **true API process restart** with
+`run_e2e.py --api-restart`: a file handshake in the runner's private control directory
+(`FIELDLENS_E2E_CONTROL_DIR`), not an application endpoint. The runner stops and
+restarts its own uvicorn against the same database, so the session token is regenerated.
+Run everything with `npm --prefix frontend run test:e2e`, or one file as shown above.
+`FIELDLENS_STORAGE_ROOT`, when set, relocates the runner's `e2e` scratch directory. Native-browser hosts may omit the container and
 the two `PW_TEST_*` variables after installing the matching browser.
 
 Verified versions and requirement-to-test evidence are recorded in

@@ -16,6 +16,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     MetaData,
     String,
     Table,
@@ -59,6 +60,12 @@ project = Table(
     Column("latest_source_revision_id", UUID(as_uuid=True), nullable=True),
     Column("active_model_revision_id", UUID(as_uuid=True), nullable=True),
     CheckConstraint("char_length(name) >= 1 AND name = btrim(name)", name="name_trimmed"),
+    CheckConstraint("char_length(description) <= 4000", name="description_max_length"),
+    Index(
+        "ix_project_created_at_project_id",
+        text("created_at DESC"),
+        text("project_id DESC"),
+    ),
 )
 
 source_revision = Table(

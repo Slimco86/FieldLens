@@ -16,15 +16,25 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-afterEach(() => vi.unstubAllGlobals());
+const emptyPage = { items: [], page: { limit: 50, next_cursor: null } };
+
+// Readiness is the system under test here; the project list answers with an empty page.
+function byUrl(input: RequestInfo | URL): Promise<Response> {
+  return Promise.resolve(String(input).startsWith("/api/v1/projects") ? json(emptyPage) : json(ready));
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  window.localStorage.clear();
+});
 
 describe("readiness shell", () => {
   it("shows loading, then the empty workspace", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(ready)));
+    vi.stubGlobal("fetch", vi.fn(byUrl));
     render(<App />);
     expect(screen.getByText(/checking local services/i)).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Workspace" })).toBeInTheDocument();
-    expect(screen.getByText(/no project is open/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no projects yet/i)).toBeInTheDocument();
   });
 
   it("shows an actionable unavailable state with request id, then recovers on Retry", async () => {
@@ -32,7 +42,8 @@ describe("readiness shell", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(json(envelope, 503))
-      .mockResolvedValueOnce(json(ready));
+      .mockResolvedValueOnce(json(ready))
+      .mockImplementation(byUrl);
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Database is not reachable.");
@@ -40,7 +51,7 @@ describe("readiness shell", () => {
     expect(screen.queryByText(/local services ready/i)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("heading", { name: "Workspace" })).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/ready")).toHaveLength(2);
   });
 
   it("treats a network failure as unavailable, never as ready", async () => {
@@ -56,7 +67,8 @@ describe("readiness shell", () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(json(failure, 503))
       .mockImplementationOnce(() => new Promise<Response>((resolve) => { completeRetry = resolve; }))
-      .mockResolvedValueOnce(json(ready)));
+      .mockResolvedValueOnce(json(ready))
+      .mockImplementation(byUrl));
     render(<App />);
     const retry = await screen.findByRole("button", { name: "Retry" });
     retry.focus();

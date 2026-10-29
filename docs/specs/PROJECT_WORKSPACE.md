@@ -4,7 +4,7 @@
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
 > **Date:** 2026-10-28. **Author:** main orchestrator. **Decision owner:** project owner.
 > **Status:** First lifecycle and upload packets approved October 28 at 11:19 EDT.
-> **Delivery state:** TASK-025 implementation assigned; upload-dependent criteria remain pending.
+> **Delivery state:** TASK-025 implemented on `feature/fl-015-a-projects`; awaiting independent QA. Upload-dependent criteria remain pending.
 > **Approved revision / integration:** packet `9d630e3`; foundation integrated as 0.4.0 at `1293f55`.
 > **Zero-Question Score:** 0 unowned questions for the approved lifecycle slice.
 
@@ -156,7 +156,30 @@ Use real API/database persistence from the first browser checkpoint.
 The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
 specify the lifecycle and subsequent upload handoffs, including partial PW coverage.
 
-Verification, tested SHA and integration version: lifecycle acceptance not run.
+Verification, tested SHA and integration version: TASK-025 implementation checks ran
+on the feature branch (tested SHA recorded in the worker handoff); independent QA and
+integration are pending. Proposed implementation bump: minor (new project API,
+migration `0002_project_lifecycle`, project UI); no global release files were edited.
+
+#### TASK-025 implementation record (not acceptance)
+
+API: `GET/POST /api/v1/projects`, `GET/PATCH /api/v1/projects/{project_id}`. DTOs
+`ProjectCreate`, `ProjectUpdate`, `ProjectPage` reuse the foundation `Project` and
+`PageInfo`. List is newest first with an opaque `(created_at, project_id)` keyset cursor.
+Migration `0002_project_lifecycle` adds `char_length(description) <= 4000` and a
+newest-first index; no data is rewritten.
+
+| Criterion | Implemented-surface evidence | Not covered |
+|---|---|---|
+| PW-1 | `project-lifecycle.spec.ts` (real API/PostgreSQL, true API restart): two projects, edit, reload, restart, reopen, descriptions, null revision pointers | The empty-project **upload action** is deliberately absent (no fake controls); it arrives with FL-005 |
+| PW-2 / SC-2 | `test_project_isolation`: project-qualified lookups, editing B leaves A, cross-project revision pointer refused by composite FK | Nested document/job/run/conversation/entity/graph routes do not exist yet |
+| PW-5 | `test_category_is_not_evidence`: name/description are opaque; no well/CRS/date fields | Content-vs-label upload mislabel (F-12/F-11) needs uploads |
+| PW-8 | `project-navigation.spec.ts` keyboard-only flow; delayed-A open and delayed-A save switched to B show no A content/ack; saved-ID reload and missing-ID explanation | |
+| SC-4 | Request keys include project ID; abort on switch; obsolete responses and acknowledgements rejected (unit + browser) | Context-kind/revision/as-of keys beyond project are later features |
+| PW-3/4/6/7 | Not run: require upload/storage/jobs | all |
+
+Interaction unit tests (`tests/projects.test.tsx`) use a stubbed `fetch` and are not
+persistence evidence.
 Proposed implementation bump: minor; this specification-only update is a patch.
 Record exact runtime commands after foundation, not invented test successes.
 

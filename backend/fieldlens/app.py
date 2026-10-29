@@ -24,6 +24,7 @@ from fieldlens.contracts.registry import export_component_schemas
 from fieldlens.contracts.system import HealthResponse, ReadinessResponse, SessionResponse
 from fieldlens.persistence.readiness import evaluate_readiness
 from fieldlens.persistence.session import create_db_engine, create_session_factory
+from fieldlens.projects import build_projects_router
 
 _STATUS_CODES: dict[int, ErrorCode] = {
     403: ErrorCode.FORBIDDEN,
@@ -214,6 +215,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
 
     _register_errors(app)
     app.include_router(_build_system_router())
+    app.include_router(build_projects_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
