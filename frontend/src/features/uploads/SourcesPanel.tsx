@@ -128,7 +128,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
         {items.length > 0 && (
           // Scrollable region must be keyboard focusable so keyboard users can scroll it.
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-          <div role="region" aria-label="Source revisions table" tabIndex={0} style={{ overflowX: "auto", maxWidth: "100%" }}>
+          <div role="region" aria-label="Source revisions table" tabIndex={0} className="table-scroll">
           <table>
             <caption>Source revisions, newest first</caption>
             <thead>

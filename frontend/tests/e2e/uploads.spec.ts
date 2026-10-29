@@ -150,3 +150,35 @@ test("UP-2: classification edit is keyboard operable and persists", async ({ pag
   await expect(row.getByText(/pilot, review/)).toBeVisible();
   await expect(row.getByText(/set by you/)).toBeVisible();
 });
+
+test("UP-3: 320px viewport never scrolls the page; the revisions region scrolls from the keyboard", async ({ page }) => {
+  const name = unique("Narrow");
+  await page.goto("/");
+  await createProject(page, name, "narrow e2e");
+  await page.getByRole("button", { name: `Open project ${name}` }).click();
+  await page.getByLabel("Choose files").setInputFiles([
+    { name: "seed.csv", mimeType: "text/csv", buffer: csvBytes(unique("n")) },
+  ]);
+  await page.getByRole("button", { name: "Upload 1 file(s)" }).click();
+  await expect(page.getByText("Ready (files stored; not extracted)")).toBeVisible({ timeout: 30_000 });
+
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.getByLabel("Choose files").setInputFiles([
+    { name: "a-rather-long-file-name-for-narrow-viewports.csv", mimeType: "text/csv", buffer: csvBytes(unique("m")) },
+  ]);
+  await expect(page.getByRole("button", { name: /^Remove a-rather-long/ })).toBeVisible();
+  const dims = () =>
+    page.locator("html").evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+  const page320 = await dims();
+  expect(page320.client).toBe(320);
+  expect(page320.scroll).toBeLessThanOrEqual(page320.client);
+
+  const region = page.getByRole("region", { name: "Source revisions table" });
+  const metrics = await region.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
+  expect(metrics.sw).toBeGreaterThan(metrics.cw);
+  await region.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(() => region.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+  const after = await dims();
+  expect(after.scroll).toBeLessThanOrEqual(after.client);
+});

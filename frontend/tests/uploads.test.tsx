@@ -339,6 +339,24 @@ describe("upload form", () => {
   });
 });
 
+describe("focus after removing a selected file", () => {
+  it("moves focus to the next remove button, then the previous, then the file picker", async () => {
+    install(emptyHandler);
+    panel(null);
+    const user = userEvent.setup();
+    await screen.findByText(/no source files yet/i);
+    await user.upload(screen.getByLabelText("Choose files"), [csv(), txt()]);
+    await user.click(screen.getByRole("button", { name: "Remove wells.csv" }));
+    expect(screen.getByRole("button", { name: "Remove notes.txt" })).toHaveFocus();
+    await user.upload(screen.getByLabelText("Choose files"), [csv()]);
+    // Remove the last entry: focus falls back to the previous remove button.
+    await user.click(screen.getAllByRole("button", { name: "Remove wells.csv" })[0] as HTMLElement);
+    expect(screen.getByRole("button", { name: "Remove notes.txt" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Remove notes.txt" }));
+    expect(screen.getByLabelText("Choose files")).toHaveFocus();
+  });
+});
+
 describe("source list", () => {
   it("shows loading, then the empty state", async () => {
     install(emptyHandler);

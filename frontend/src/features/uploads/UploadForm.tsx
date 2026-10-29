@@ -155,6 +155,18 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
   const controller = useRef<AbortController | null>(null);
   const idemKey = useRef<string | null>(null);
   const failedRegion = useRef<HTMLDivElement | null>(null);
+  const pickerRef = useRef<HTMLInputElement | null>(null);
+  const removeButtons = useRef(new Map<number, HTMLButtonElement>());
+  // Id of the entry whose button should receive focus after a removal (null = the file picker).
+  const focusAfterRemove = useRef<{ id: number | null } | null>(null);
+
+  useEffect(() => {
+    const target = focusAfterRemove.current;
+    if (target === null) return;
+    focusAfterRemove.current = null;
+    const btn = target.id === null ? undefined : removeButtons.current.get(target.id);
+    (btn ?? pickerRef.current)?.focus();
+  }, [entries]);
 
   useEffect(() => () => controller.current?.abort(), []);
   // The Abort button unmounts when the upload ends; keep focus on a persistent element.
@@ -175,6 +187,14 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
     if (list === null || list.length === 0) return;
     const added = Array.from(list).map((file): Entry => ({ id: nextEntryId++, file, category: "" }));
     changed([...entries, ...added]);
+  }
+
+  function removeEntry(id: number) {
+    const index = entries.findIndex((x) => x.id === id);
+    const next = entries.filter((x) => x.id !== id);
+    const neighbour = next[index] ?? next[index - 1];
+    focusAfterRemove.current = { id: neighbour === undefined ? null : neighbour.id };
+    changed(next);
   }
 
   function onPick(event: ChangeEvent<HTMLInputElement>) {
@@ -257,7 +277,7 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
         >
           <p>Drop files here, or choose them with the file picker.</p>
           <label htmlFor={`${ids}-files`}>Choose files</label>{" "}
-          <input id={`${ids}-files`} type="file" multiple disabled={uploading} onChange={onPick} />
+          <input ref={pickerRef} id={`${ids}-files`} type="file" multiple disabled={uploading} onChange={onPick} />
         </div>
 
         {entries.length > 0 && (
@@ -295,7 +315,11 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
                   <button
                     type="button"
                     disabled={uploading}
-                    onClick={() => changed(entries.filter((x) => x.id !== e.id))}
+                    ref={(el) => {
+                      if (el === null) removeButtons.current.delete(e.id);
+                      else removeButtons.current.set(e.id, el);
+                    }}
+                    onClick={() => removeEntry(e.id)}
                   >
                     Remove {e.file.name}
                   </button>

@@ -26,12 +26,22 @@ main {
 button {
   min-height: 2.5rem;
   padding: 0 1rem;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .field {
   display: grid;
   gap: 0.25rem;
   max-width: 36rem;
   margin-bottom: 0.75rem;
+}
+input,
+textarea,
+select {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 input,
 textarea {
@@ -73,6 +83,8 @@ dd {
   border-radius: 0.25rem;
   padding: 0.75rem;
   max-width: 40rem;
+  box-sizing: border-box;
+  min-width: 0;
 }
 .dropzone.dragging {
   border-style: solid;
@@ -93,9 +105,13 @@ ul.documents li {
 }
 table {
   border-collapse: collapse;
-  display: block;
+}
+.table-scroll {
   overflow-x: auto;
   max-width: 100%;
+}
+.table-scroll > table {
+  min-width: max-content;
 }
 th,
 td {
