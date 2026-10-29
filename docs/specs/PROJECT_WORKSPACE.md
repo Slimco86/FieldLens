@@ -3,9 +3,10 @@
 > **Spec type:** Product/feature. **Backlog:** FL-015.
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
 > **Date:** 2026-10-28. **Author:** main orchestrator. **Decision owner:** project owner.
-> **Status:** Hybrid categories, explicit review/publication and upload limits approved October 28; detailed packet review precedes dispatch.
-> **Delivery state:** specifying. **Approved revision / integration:** none.
-> **Zero-Question Score:** 0 unowned questions; committed packet and runtime prerequisites still gate dispatch.
+> **Status:** First lifecycle and upload packets approved October 28 at 11:19 EDT.
+> **Delivery state:** TASK-025 implementation assigned; upload-dependent criteria remain pending.
+> **Approved revision / integration:** packet `9d630e3`; foundation integrated as 0.4.0 at `1293f55`.
+> **Zero-Question Score:** 0 unowned questions for the approved lifecycle slice.
 
 ## How to Read This Spec
 
@@ -78,7 +79,7 @@ upload integration; a project form alone is not PW-3/6/7 verification.
 Executor: backend owner for project persistence/API and the small initial UI;
 frontend owner extends linked panels later. Main agent allocates exact base,
 worktree, database, ports and single-writer contracts before delegation.
-Owner approves scope/defaults. No branch or resource has been allocated.
+Owner approves scope/defaults. The TASK-025 allocation below owns the lifecycle slice.
 
 **Project** is a user workspace for related assets, potentially spanning multiple
 fields; it is not itself a field. **Source revision** is an immutable membership/
@@ -155,9 +156,63 @@ Use real API/database persistence from the first browser checkpoint.
 The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
 specify the lifecycle and subsequent upload handoffs, including partial PW coverage.
 
-Verification, tested SHA and integration version: not run/not assigned.
+Verification, tested SHA and integration version: lifecycle acceptance not run.
 Proposed implementation bump: minor; this specification-only update is a patch.
 Record exact runtime commands after foundation, not invented test successes.
+
+### TASK-025 execution allocation, October 28
+
+- Approved outcome: packet TASK-PRJ-01..05, PW-1/2/5/8 for implemented surfaces
+  and SC-2/4. Create/edit/list/open two persistent empty projects, keyboard
+  navigation, restart/reload recovery and stale-response/action isolation.
+  Upload-dependent PW criteria, accounts, sharing, deletion, reconstruction and
+  engineering data qualification are outside this assignment.
+- Sole implementer: `fieldlens-backend`; interconnected API, persistence and small
+  UI changes require the domain specialist, with `fieldlens-react-ui` guidance.
+  A different `fieldlens-qa` invocation owns subsequent acceptance.
+- Base: `b4a02b2f8c4ec5fd71d97aea240514e6d5fd2260`, target `master`, branch
+  `feature/fl-015-a-projects`, checkout `/home/slimco/code/FieldLens`.
+  Preserve the pre-existing dirty `.github/copilot-instructions.md` and inactive
+  foundation worktree; neither belongs to the feature commit.
+- Activation: session host events resolve the backend to `claude-sonnet-5.5`.
+  Native `create`, `edit` and `view` completed the disposable editing smoke.
+  CLI 1.0.65 warns that profile `reasoning-effort` is ignored, so the supported
+  task invocation explicitly selects `medium`; provider-internal effort telemetry
+  is not exposed. The owner explicitly accepts main `gpt-6-astra/high` for this
+  continuation instead of requiring xhigh. No global model policy is changed.
+- Owned paths: `backend/fieldlens/projects/`, project DTOs/registry and generated
+  client, project persistence/migration if needed, app/API composition,
+  `frontend/src/features/projects/`, focused backend/UI/browser tests,
+  necessary E2E runner support, this spec and related README run instructions.
+  Shared contracts/app composition are allocated serially to this worker.
+  No worker edits to global VERSION, CHANGELOG, BACKLOG or agent configuration.
+- Resources: task-specific Compose project `fieldlens-fl015a`, container
+  `fieldlens-fl015a-postgres`, volume
+  `fieldlens-fl015a_fieldlens_fl004a_pgdata`, role `fieldlens_fl015a`,
+  database `fieldlens_fl015a_w1`, loopback port 55432. The foundation container
+  is stopped with its volume preserved. Credentials and Compose override stay
+  ignored under `.local/fieldlens/fl-015-a-projects/`; never print credentials.
+  Tests use `fieldlens_fl015a_w1_test_<8-lowercase-hex>` and fresh sibling DBs.
+  API 8101 and Vite 5174 are reserved; browser helper Compose project
+  `fieldlens-fl015a-browser` is healthy on loopback 9323.
+- Python 3.12.13/uv 0.11.20; use the existing project-local Node 24.22.2 runtime
+  described in README, not the ambient Node 20. Shared host has 3.9 GiB available
+  RAM and 161 GiB disk at allocation. One writer/heavy workload; no nested agents.
+- Baseline and affected checks: `uv run pytest backend/tests`,
+  `uv run ruff check backend scripts`, `uv run ruff format --check backend scripts`,
+  `uv run mypy backend/fieldlens scripts`; frontend `lint`, `typecheck`, `test`,
+  `check:contracts`, `build` scripts run separately. Focused additions use
+  `uv run pytest backend/tests/projects` and
+  `npm --prefix frontend run test:e2e -- tests/e2e/project-lifecycle.spec.ts`;
+  retain readiness regression coverage and verify real API restart persistence.
+  Run the frozen-candidate acceptance independently before integration.
+- Budget: synthetic fixtures only, zero Meta/provider calls, no original corpus,
+  no new paid services or system runtime changes. Checkpoint at 90 minutes; stop
+  after two attempts without new evidence. Escalate contract gaps, tool/model
+  mismatch, unsafe resource use or failing prerequisite checks; do not weaken ACs.
+- Handoff: exact tested SHA, commands/results, scoped criteria and unrun portions,
+  resources/PIDs, migration impact, exposed development usage (otherwise
+  unavailable), proposed minor release note. Coding alone is not acceptance.
 
 ## Open Tensions
 

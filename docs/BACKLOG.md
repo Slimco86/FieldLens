@@ -55,7 +55,7 @@ current table supersede its access/design holds.
 | ID | Outcome / scope | Status | Prerequisites | Spec / next action |
 |---|---|---|---|---|
 | FL-000 | Adopt perforation requirements and versioned parallel-development governance | done | None | Integrated by owner in `e8b156a`, version 0.1.0; verification below |
-| FL-001 | Agree custom development-agent roles, serial branch delegation and resource boundaries | blocked | FL-000 | Base configuration integrated in `35ed5d2`, version 0.2.0; governance amendments integrated with 0.4.0 in `1293f55`. Backend editing remains invocation-dependent. The owner exception covered TASK-003 only; resolve/verify DA-7 before the next delegated implementation |
+| FL-001 | Agree custom development-agent roles, serial branch delegation and resource boundaries | in_progress | FL-000 | TASK-025 backend native editing smoke passes; host resolves Sonnet 5.5. CLI ignores YAML effort, so worker medium is selected explicitly. Owner accepts main Astra/high for this continuation. Remaining profiles still require per-assignment activation; no blanket host fix claimed |
 | FL-002 | Approve compact demo data/rights manifest, including dated perforation/state evidence | in_progress | None | Owner selected F-12/F-14/F-5 and accepted generic/unlocated F-12 limitations. [Data spec](specs/DATA_FEASIBILITY.md): final hashed profiles/windows/reference/state/rights fixtures remain TASK-002/029; G1 not passed. No automatic F-11 B replacement or further tally-search blocker |
 | FL-003 | Verify Meta entitlement/protocols and agree shared budget controls | specifying | FL-004 | [Meta spec](specs/META_INTEGRATION.md): offline adapter/ledger then separate opt-in live smoke; no G1 dependency |
 | FL-004 | Establish runnable stack, database/migrations and common identity/evidence/time contracts | done | FL-014 | Tested repair `95da2b7` integrated into master at `1293f55`, version 0.4.0. 124 backend, 4 UI and 3 CLI E2E tests plus quality gates pass. Owner explicitly approved a one-time direct-verification exception; [evidence](specs/FOUNDATION.md#direct-repair-verification-october-28) |
@@ -69,7 +69,7 @@ current table supersede its access/design holds.
 | FL-012 | Verify complete fresh-upload -> scene/history -> charts -> cited-answer demo | specifying | FL-002, FL-009, FL-011 | [Demo acceptance](specs/DEMO_ACCEPTANCE.md): offline combined checks, real/live verification, then authorized release/recording |
 | FL-013 | Curate offline Blender equipment-authoring skill and export handoff | done | None | Integrated by owner in `88b177e`, version 0.3.0; skill/workflow only, installation and asset creation deferred |
 | FL-014 | Finalize project-centric architecture, primary reconstruction agent and UI-verifiable orchestration plan | done | None for planning | Owner integrated the 32-task DAG/specifications/first packets in `9d630e3`, version 0.3.3, and authorized first-packet implementation October 28. Document checks recorded below; no application verification implied |
-| FL-015 | Create/reopen isolated projects with categorized, incremental sources | ready | FL-004 | [Workspace packet](../plan/feature-foundation-workspace-1.md) approved and foundation integrated. TASK-025 is next, but requires a fresh tool/model/resource preflight; no worker is dispatched. TASK-006 completes upload-related PW criteria |
+| FL-015 | Create/reopen isolated projects with categorized, incremental sources | in_progress | FL-004 | TASK-025 allocated to backend on `feature/fl-015-a-projects` from `b4a02b2`; [assignment](specs/PROJECT_WORKSPACE.md#task-025-execution-allocation-october-28). Independent QA and integration remain required. TASK-006 completes upload-related PW criteria |
 | FL-016 | Reconstruct composite entities/relationships/configurations with evidence and reviewed model publication | specifying | FL-004 | [Reconstruction](specs/ASSET_RECONSTRUCTION.md): review policy confirmed; TASK-026 consumes early chat and TASK-032 issues, not full FL-011. Gold fixtures/live allowance remain separate gates |
 | FL-017 | Inspect source-linked warnings/errors and the exact effect of missing/conflicting data | specifying | FL-004, FL-005 | [Data quality](specs/DATA_QUALITY.md): TASK-032 source-first issue inspector; FL-016/007 wire publication/generic boundaries; TASK-022 verifies all DQ criteria. No manual override/fact editor or new telemetry service |
 
@@ -95,6 +95,22 @@ These are priorities, not permission to bypass dependencies. Future packets
 freeze their source mappings and exact contracts before dispatch; only the first
 three runtime packets have step-by-step handoffs now. Known-command validation
 routes to Terra; substantial implementation to the relevant domain specialist.
+
+### TASK-025 activation and next implementation
+
+October 28 continuation confirms TASK-003 is done at `1293f55` (0.4.0);
+current integration base is `b4a02b2`. Two bounded backend preflights confirmed
+the checkout and native create/edit/read/delete capability. Host events resolve
+`claude-sonnet-5.5`; medium is explicitly selected in task arguments because
+CLI 1.0.65 ignores profile `reasoning-effort`. Lower-level provider effort
+telemetry is unavailable. The owner accepts main Astra/high for this continuation.
+No paid Meta calls were made.
+
+The approved lifecycle slice has one backend owner and a dedicated PostgreSQL
+Compose project/volume/role, with a separate browser helper. See the project
+spec allocation for ports, credentials location, ownership, bounds and checks.
+Preserve the unrelated dirty Copilot-instructions file and old foundation
+worktree. No project acceptance or release is claimed by these preflights.
 
 ## Completed integration record
 
