@@ -8,6 +8,18 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.6.0 - 2026-10-29
+
+- **FL-006-A (TASK-007):** Added the deterministic trajectory engine
+  `fieldlens.engineering.trajectory`: double-precision minimum-curvature coordinates,
+  survey validation that blocks affected geometry (missing CRS/datum/depth/north reference,
+  unresolved magnetic/true conversion, nonfinite angles, bad MD), and bounded 3D closest
+  approach with an explicit error bound (<= 0.02 m). Adds `numpy`. Engine and unit tests
+  only: no API, renderer or pyproj transform. Proximity is not proof of connectivity or
+  safe clearance. Independent QA of `532d517` passed TR-1/2/3 (233 backend tests); known
+  low gaps: deadline can overrun inside piece construction, near-duplicate MD is not
+  flagged, `depth_reference` is not compared between bores.
+
 ## 0.5.1 - 2026-10-28
 
 - **FL-018:** Replaced the per-lane Compose files and `db.env` credentials with one
