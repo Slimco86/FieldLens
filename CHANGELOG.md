@@ -8,6 +8,27 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.8.0 - 2026-10-29
+
+- **FL-005-A (TASK-006):** Added project-scoped upload, storage and persistent jobs plus the
+  upload/source UI. Backend: `POST /api/v1/projects/{id}/imports` (metadata part first, files
+  aligned by index; 202 new / 200 replay / 409 one staging import per project / 415 unknown
+  binaries), streamed 128 MiB/file, 512 MiB/batch and 200-file limits, content-hash blob
+  storage, immutable source revisions with idempotent replay, fenced restart-safe jobs with one
+  automatic retry, staging sweep, migration `0003_upload_jobs`, `python-multipart`. Files are
+  stored and hash-verified only: no extraction, evidence claims or asset-model publication
+  (unknown plain text is `unsupported`; readers and the 500-page PDF / XLSX XXE and ZIP-entry
+  parse-time checks arrive with TASK-009). UI (`features/uploads`): multi-file upload with
+  limit validation, progress and abort, explicit stored/unsupported/pending-extraction
+  labels, revision/quarantine/partial-revision warnings, label edit with version conflicts,
+  job status/cancel and idle-stopping polling; keyboard/focus and 320 px layouts. Independent
+  QA: backend passed IN-1/3/4/5/7 after two repair rounds (rejected-import blob, stale staging
+  files); UI passed after three rounds (focus management, "superseded" wording, 320 px
+  overflow, keyboard-scrollable table, focus after removal). 380 backend (1 skipped: TASK-009),
+  38 vitest and 12 browser E2E tests. Known low gaps: tab buttons break mid-word at 320 px;
+  orphan-blob sweep, a real quarantined-revision browser run, 128 MiB/200-file browser runs and
+  non-Chromium browsers are unverified; "superseded" is judged from the loaded page only.
+
 ## 0.7.0 - 2026-10-29
 
 - **FL-008-A (TASK-008):** Added the deterministic perforation state engine
