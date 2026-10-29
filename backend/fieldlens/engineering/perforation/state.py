@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any
@@ -49,12 +50,12 @@ def _normalise(segments: list[Segment]) -> tuple[Segment, ...]:
 def assign(
     segments: tuple[Segment, ...], lo: Decimal, hi: Decimal, **changes: Any
 ) -> tuple[Segment, ...]:
+    """Set attributes over [lo, hi); O(log S + k) search, only the touched slice is rebuilt."""
+    i = bisect_right(segments, lo, key=lambda s: s.end)  # first segment ending after lo
+    j = bisect_left(segments, hi, key=lambda s: s.start)  # first segment starting at/after hi
     out: list[Segment] = []
     cursor = lo
-    for seg in segments:
-        if seg.end <= lo or seg.start >= hi:
-            out.append(seg)
-            continue
+    for seg in segments[i:j]:
         if seg.start < lo:
             out.append(replace(seg, end=lo))
         a, b = max(seg.start, lo), min(seg.end, hi)
@@ -66,7 +67,37 @@ def assign(
             out.append(replace(seg, start=hi))
     if cursor < hi:
         out.append(Segment(cursor, hi, **changes))
-    return _normalise(out)
+    left = max(i - 1, 0)
+    right = min(j + 1, len(segments))
+    merged = _normalise([*segments[left:i], *out, *segments[j:right]])
+    return segments[:left] + merged + segments[right:]
+
+
+def extract(state: CoverageState, lo: Decimal, hi: Decimal) -> CoverageState:
+    """Local copy of the state clipped to [lo, hi) (for sub-component exploration)."""
+    i = bisect_right(state.segments, lo, key=lambda s: s.end)
+    j = bisect_left(state.segments, hi, key=lambda s: s.start)
+    clipped = [replace(s, start=max(s.start, lo), end=min(s.end, hi)) for s in state.segments[i:j]]
+    return CoverageState(tuple(clipped), state.baseline, state.wellbore_status)
+
+
+def splice(state: CoverageState, lo: Decimal, hi: Decimal, local: CoverageState) -> CoverageState:
+    """Replace the [lo, hi) part of ``state`` with ``local`` (inverse of ``extract``)."""
+    i = bisect_right(state.segments, lo, key=lambda s: s.end)
+    j = bisect_left(state.segments, hi, key=lambda s: s.start)
+    mid: list[Segment] = []
+    for seg in state.segments[i:j]:
+        if seg.start < lo:
+            mid.append(replace(seg, end=lo))
+    mid.extend(local.segments)
+    for seg in state.segments[i:j]:
+        if seg.end > hi:
+            mid.append(replace(seg, start=hi))
+    left = max(i - 1, 0)
+    right = min(j + 1, len(state.segments))
+    merged = _normalise([*state.segments[left:i], *mid, *state.segments[j:right]])
+    segs = state.segments[:left] + merged + state.segments[right:]
+    return CoverageState(segs, local.baseline, local.wellbore_status)
 
 
 def apply_event(state: CoverageState, event: PerforationEvent) -> CoverageState:

@@ -464,17 +464,186 @@ def test_revision_before_any_event_is_unknown() -> None:
     assert state.status == "unknown"
 
 
-def test_oversized_same_time_cluster_is_reported_unresolved_not_guessed() -> None:
-    records = [ev("b", "baseline", t(0), baseline_intervals=[])]
-    records += [ev(f"p{i}", "perforate", t(1), lo=100 + i, hi=101 + i) for i in range(8)]
-    state = build(records).state_at(t(1), 1)
-    assert state.status == "conflicting" and state.total_length is None
-    assert state.unresolved[0].reason == "ambiguous_component_too_large"
-
-
-def test_baseline_and_event_at_same_instant_is_unresolved() -> None:
+def test_baseline_precedes_same_instant_events_assumption_d5() -> None:
+    """Assumption (pending owner confirmation): a baseline establishes the initial state at
+    the START of its instant, so same-instant events apply on top of it."""
     records = [
-        ev("b", "baseline", t(1), baseline_intervals=[]),
-        ev("p", "perforate", t(1), lo=100, hi=110),
+        ev("b", "baseline", t(0), status="shut_in", baseline_intervals=[]),
+        ev("p", "perforate", t(0), lo=100, hi=110),
+        ev("o", "open", t(0), lo=100, hi=110),
     ]
-    assert build(records).state_at(t(1), 1).status == "conflicting"
+    state = build(records).state_at(t(0), 1)
+    assert state.status == "resolved" and approx(state.total_length, 10.0)
+    assert approx(state.open_length, 10.0) and state.wellbore_status == "shut_in"
+    assert build(records[::-1]).state_at(t(0), 1) == state
+    assert build(records).state_at(t(0) - JUST_BEFORE, 1).status == "unknown"
+
+
+def test_two_different_baselines_at_one_instant_are_unresolved() -> None:
+    records = [
+        ev("b1", "baseline", t(0), baseline_intervals=[]),
+        ev("b2", "baseline", t(0), status="producing", baseline_intervals=[]),
+    ]
+    assert build(records).state_at(t(0), 1).status == "conflicting"
+    same = [ev("b1", "baseline", t(0), baseline_intervals=[]), ev("b2", "baseline", t(0))]
+    assert build(same).state_at(t(0), 1).status == "resolved"
+
+
+def test_baseline_vs_overlapping_day_event_stays_unresolved() -> None:
+    records = [
+        day_ev("p", "perforate", "2000-01-01", lo=100, hi=110),
+        ev("b", "baseline", datetime(2000, 1, 1, 12, tzinfo=UTC), baseline_intervals=[]),
+    ]
+    assert build(records).state_at(t(2), 1).status == "conflicting"
+
+
+# ----------------------------------------------------------------------------- D1/D3
+def _opened(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [ev("b", "baseline", t(0), baseline_intervals=[]), *records]
+
+
+def test_twenty_same_instant_perforates_resolve_exactly() -> None:
+    records = _opened(
+        [ev(f"p{i}", "perforate", t(1), lo=100 + i, hi=102 + i) for i in range(20)]
+        + [ev("o", "open", t(1), lo=100, hi=122)]
+    )
+    state = build(records).state_at(t(1), 1)
+    assert state.status == "resolved" and state.unresolved == ()
+    assert approx(state.total_length, 21.0) and approx(state.open_length, 21.0)
+
+
+def test_seven_identical_perforates_and_commuting_mixed_ops_resolve() -> None:
+    records = _opened(
+        [ev(f"p{i}", "perforate", t(1), lo=100, hi=110) for i in range(7)]
+        + [ev("o", "open", t(1), lo=100, hi=105), ev("i", "isolate", t(1), lo=105, hi=110)]
+    )
+    state = build(records).state_at(t(1), 1)
+    assert state.status == "resolved" and approx(state.open_length, 5.0)
+
+
+def test_many_same_day_commuting_events_resolve_when_day_is_complete() -> None:
+    records = _opened(
+        [day_ev(f"d{i}", "perforate", "2000-01-02", lo=100 + i, hi=101 + i) for i in range(30)]
+        + [day_ev("do", "open", "2000-01-02", lo=100, hi=130)]
+    )
+    state = build(records).state_at(t(2), 1)
+    assert state.status == "resolved" and approx(state.total_length, 30.0)
+
+
+def test_non_commuting_interaction_only_marks_interacting_subcomponent() -> None:
+    records = _opened(
+        [
+            ev("p", "perforate", t(1), lo=100, hi=200),
+            ev("po", "open", t(1), lo=100, hi=200),
+            ev("i", "isolate", t(2), lo=100, hi=120),
+            ev("r", "open", t(2), lo=110, hi=130),  # conflicts with i on [110,120)
+            ev("far", "isolate", t(2), lo=150, hi=160),  # commutes: resolved
+        ]
+    )
+    state = build(records).state_at(t(2), 1)
+    assert state.status == "conflicting"
+    entry = next(u for u in state.unresolved if u.axis == "access")
+    assert entry.md_intervals == ((110.0, 120.0),) and set(entry.event_ids) == {"i", "r"}
+    far = next(i for i in state.intervals if (i.from_md, i.to_md) == (150.0, 160.0))
+    assert far.access == "isolated" and far.unresolved_axes == ()
+    assert approx(state.total_length, 100.0)
+
+
+def test_budget_exceeded_for_truly_interacting_group_is_explicit() -> None:
+    records = _opened([ev("p", "perforate", t(1), lo=100, hi=110)])
+    for i in range(14):
+        kind = "open" if i % 2 else "isolate"
+        records.append(ev(f"x{i:02d}", kind, t(2), lo=100, hi=110))
+    state = build(records).state_at(t(2), 1)
+    assert state.status == "conflicting" and state.open_length is None
+    assert any(u.reason == "ambiguous_component_too_large" for u in state.unresolved)
+
+
+def test_state_at_scales_for_5000_events_with_clusters_of_five() -> None:
+    import time
+
+    records = _opened([])
+    for c in range(1000):
+        base = 10 * c
+        when = datetime.fromtimestamp(1_000_000_000 + c, tz=UTC)
+        records += [
+            ev(f"c{c}-a", "perforate", when, lo=base, hi=base + 4),
+            ev(f"c{c}-b", "reperforate", when, lo=base + 2, hi=base + 5),
+            ev(f"c{c}-c", "open", when, lo=base, hi=base + 3),
+            ev(f"c{c}-d", "isolate", when, lo=base + 3, hi=base + 5),
+            ev(f"c{c}-e", "wellbore_status", when, status="producing"),
+        ]
+    history = build(records)
+    end = datetime(2030, 1, 1, tzinfo=UTC)
+    started = time.perf_counter()
+    state = history.state_at(end, 1)
+    elapsed = time.perf_counter() - started
+    assert state.status == "resolved" and approx(state.total_length, 5000.0)
+    assert approx(state.open_length, 3000.0) and state.wellbore_status == "producing"
+    assert elapsed < 1.0, elapsed
+
+
+def test_many_conflicting_clusters_stay_bounded_and_explicit() -> None:
+    import time
+
+    records = _opened([])
+    for c in range(1000):
+        when = datetime.fromtimestamp(1_000_000_000 + c, tz=UTC)
+        k = 10 * c
+        records += [
+            ev(f"{c}a", "perforate", when, lo=k, hi=k + 8),
+            ev(f"{c}b", "open", when, lo=k, hi=k + 4),
+            ev(f"{c}c", "isolate", when, lo=k + 2, hi=k + 6),  # contradicts open on [k+2,k+4)
+        ]
+    history = build(records)
+    started = time.perf_counter()
+    state = history.state_at(datetime(2030, 1, 1, tzinfo=UTC), 1)
+    assert time.perf_counter() - started < 2.0
+    assert state.status == "conflicting" and state.open_length is None
+    assert state.unresolved  # explicit, never an invented order
+    assert state.total_length_lower_bound is not None
+
+
+# ----------------------------------------------------------------------------- D2
+@pytest.mark.parametrize("bad", ["1E+999999999", 1e30, "1E+400", 1e400])
+def test_absurd_depths_are_rejected_without_losing_valid_events(bad: Any) -> None:
+    rec = ev("absurd", "perforate", t(1), lo=1, hi=2)
+    rec["depth"] = depth(1, bad)
+    rec_ft = ev("absurd-ft", "perforate", t(1), lo=1, hi=2)
+    rec_ft["depth"] = depth(1, bad, "ft")
+    history = build(_opened([rec, rec_ft, ev("good", "perforate", t(1), lo=100, hi=110)]))
+    assert {r.event_id for r in history.rejections} == {"absurd", "absurd-ft"}
+    assert {r.code for r in history.rejections} <= {"implausible_depth", "nonfinite_depth"}
+    state = history.state_at(t(2), 1)
+    assert approx(state.total_length_lower_bound, 10.0) and state.total_length_upper_bound == 10.0
+
+
+def test_plausibility_bound_is_100km_after_conversion() -> None:
+    ok = ev("ok", "perforate", t(1), lo=99_000, hi=100_000)
+    over_ft = ev("over", "perforate", t(1), lo=1, hi=328_100, unit="ft")  # 100,005 m
+    history = build(_opened([ok, over_ft]))
+    assert [(r.event_id, r.code) for r in history.rejections] == [("over", "implausible_depth")]
+    assert [e.event_id for e in history.events if e.event_id == "ok"] == ["ok"]
+
+
+def test_out_of_range_dates_are_rejected_not_raised() -> None:
+    far = day_ev("far", "perforate", "9999-12-31", lo=1, hi=2)
+    history = build(_opened([far, ev("good", "perforate", t(1), lo=1, hi=2)]))
+    assert [r.event_id for r in history.rejections] == ["far"]
+
+
+# ----------------------------------------------------------------------------- D4
+def test_second_correction_of_corrected_event_is_rejected_chain_works() -> None:
+    p = ev("p1", "perforate", t(1), lo=100, hi=110, revision=1)
+    c2 = ev("c2", "perforate", t(1), lo=100, hi=120, revision=2, supersedes="p1")
+    c3_bad = ev("c3", "perforate", t(1), lo=100, hi=130, revision=3, supersedes="p1")
+    history = build(_opened([p, c2, c3_bad]))
+    assert [(r.event_id, r.code) for r in history.rejections] == [("c3", "invalid_supersession")]
+    assert approx(history.state_at(t(2), 3).total_length_lower_bound, 20.0)
+    c3_chain = ev("c3", "perforate", t(1), lo=100, hi=130, revision=3, supersedes="c2")
+    chain = build(_opened([p, c2, c3_chain]))
+    assert chain.rejections == ()
+    assert approx(chain.state_at(t(2), 3).total_length_lower_bound, 30.0)
+    assert chain.state_at(t(2), 3).superseded_event_ids == ("c2", "p1")
+    assert approx(chain.state_at(t(2), 2).total_length_lower_bound, 20.0)
+    assert approx(chain.state_at(t(2), 1).total_length_lower_bound, 10.0)

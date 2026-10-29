@@ -26,6 +26,10 @@ from .models import (
     TvdRecord,
 )
 
+# Documented plausibility bound for any MD value after conversion to metres (about 100 km).
+MAX_MD_M = Decimal(100_000)
+MAX_RAW_DEPTH = Decimal(1_000_000)  # raw-unit pre-check (ft/m) so conversion cannot overflow
+
 
 class RecordError(Exception):
     def __init__(self, code: str, message: str) -> None:
@@ -84,9 +88,15 @@ def parse_depth(raw: Any, md_datum: str) -> RecordedDepth:
     end = _decimal(raw.get("to"), "to")
     if start < 0 or end < 0:
         raise RecordError("negative_depth", "MD bounds must be non-negative")
+    if max(start, end) > MAX_RAW_DEPTH:  # checked before unit conversion: no overflow possible
+        raise RecordError(
+            "implausible_depth", f"MD magnitude exceeds the plausibility bound ({MAX_MD_M} m)"
+        )
     if start >= end:
         raise RecordError("reversed_depth", "from_md must be strictly less than to_md")
     factor = FEET_TO_METRES if unit == "ft" else Decimal(1)
+    if max(start, end) * factor > MAX_MD_M:
+        raise RecordError("implausible_depth", f"MD exceeds the plausibility bound ({MAX_MD_M} m)")
     tvd = _parse_tvd(raw["tvd"]) if raw.get("tvd") is not None else None
     return RecordedDepth(
         str(raw["from"]), str(raw["to"]), unit, "MD", datum, start * factor, end * factor, tvd
@@ -147,7 +157,14 @@ def parse_event(
         return _parse_event(raw, wellbore_id, md_datum)
     except RecordError as err:
         return EventRejection(event_id, err.code, err.message)
-    except (TypeError, KeyError, AttributeError, ValueError) as err:  # defensive
+    except (
+        TypeError,
+        KeyError,
+        AttributeError,
+        ValueError,
+        ArithmeticError,
+        OverflowError,
+    ) as err:  # defensive: any other malformed value is an explicit per-event rejection
         return EventRejection(event_id, "malformed_event", f"malformed record: {err!r}")
 
 

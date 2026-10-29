@@ -255,16 +255,36 @@ Synthetic inputs only; independent QA has not accepted it.
 Conventions: `PerforationHistory.build(records, wellbore_id=, md_datum=)` validates each raw
 mapping into an event or an explicit `EventRejection`; `state_at(as_of_aware_datetime,
 dataset_revision, unit)` returns `PerforationState`. Exact `Decimal` metre arithmetic; only MD
-with the wellbore's declared datum is accepted. Event codes: baseline, perforate, reperforate,
-open, reopen, isolate (aliases squeeze/plug/shut_off), wellbore_status, interval_flow, retract;
-any other code is retained as unmapped and blocks dependent state (`partial`). Perforate does
-not open; isolate/open change access only. Instant events have a 1 µs window; day events need an
-explicit timezone and a local-day window. Events whose windows overlap are permuted
-(optional day events are also included/excluded); differing outcomes are reported as
-`UnresolvedCoverage` (axis, MD ranges, time window, event IDs) and lengths become bounds.
-Clusters over 6 events are reported unresolved. Status: unknown / partial (no baseline, unknown
-access, unmapped code) / conflicting / resolved. Open length is exact only when every perforated
-interval has known access. Day-range queries are not implemented (instant as-of only).
+with the wellbore's declared datum is accepted, and any MD above 100,000 m after conversion is
+rejected (`implausible_depth`; arithmetic/date overflow is a per-event rejection too). Event
+codes: baseline, perforate, reperforate, open, reopen, isolate (aliases squeeze/plug/shut_off),
+wellbore_status, interval_flow, retract; any other code is retained as unmapped and blocks
+dependent state (`partial`). Perforate does not open; isolate/open change access only.
+
+Ordering: instant events have a 1 µs window; day events need an explicit timezone and cover the
+local day. Overlapping windows are *not* permuted wholesale. Events commute (need no ordering)
+unless they assign different values to the same state variable (perforated / access / interval
+flow / wellbore status) over overlapping MD ranges, or involve a different baseline. Only the
+connected non-commuting sub-groups (plus partially elapsed day-precision events, which may or may
+not have happened) are explored exactly (subset DP, at most 12 events and 32 candidate states).
+Differing outcomes become `UnresolvedCoverage` (axis, MD ranges, time window, event IDs) and
+lengths become bounds. Over budget: explicit `ambiguous_component_too_large`, a lowest/highest
+coverage bracket for total length, open bounds withheld. 20 same-instant perforates resolve
+exactly; 5,000 events in clusters of 5 answer `state_at` in about 0.1 s.
+
+Assumption pending owner confirmation (D5): the spec does not define same-instant baseline
+semantics; an instant baseline establishes the initial state at the START of its instant and
+precedes same-instant events. Two different baselines at one instant, or a baseline overlapping a
+date-only event window, remain unresolved.
+
+Corrections: a correction (`supersedes`) needs a later dataset revision and must supersede the
+latest correction in the chain (or the original); a second, later-revision correction of an
+already-corrected event is rejected (`invalid_supersession`), chained corrections work, and
+same-revision ties are rejected (`conflicting_supersession`).
+
+Status: unknown / partial (no baseline, unknown access, unmapped code) / conflicting / resolved.
+Open length is exact only when every perforated interval has known access. Day-range queries are
+not implemented (instant as-of only).
 
 ## Open Tensions
 
