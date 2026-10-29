@@ -604,6 +604,54 @@ def test_many_conflicting_clusters_stay_bounded_and_explicit() -> None:
     assert state.total_length_lower_bound is not None
 
 
+def test_forced_group_rows_and_status_are_never_definite() -> None:  # N1
+    day = datetime(2000, 3, 10, 6, tzinfo=UTC)
+    records = [
+        ev("b", "baseline", day, baseline_intervals=[], status="shut_in"),
+        ev("p", "perforate", day, lo=0, hi=10),
+        ev("b2", "baseline", day, baseline_intervals=[], status="producing"),
+    ]
+    for i in range(14):  # 14 same-instant contradictory events: over the 12-event budget
+        kind = "open" if i % 2 == 0 else "isolate"
+        records.append(ev(f"x{i}", kind, day, lo=2, hi=8))
+    state = build(records).state_at(day.replace(hour=7), 1)
+    assert state.status == "conflicting"
+    assert any(u.reason == "ambiguous_component_too_large" for u in state.unresolved)
+    assert state.wellbore_status == "unknown"
+    marked = [iv for iv in state.intervals if iv.to_md > 2 and iv.from_md < 8]
+    assert marked
+    for iv in marked:
+        assert iv.perforated is None and iv.access == "unknown"
+        assert set(iv.unresolved_axes) == {"perforation", "access", "flow"}
+
+
+def test_forced_group_leaves_untouched_rows_definite() -> None:  # N1
+    day = datetime(2000, 3, 10, 6, tzinfo=UTC)
+    records = [
+        ev("b", "baseline", t(0), baseline_intervals=[]),
+        ev("p1", "perforate", t(0), lo=100, hi=110),
+        ev("o1", "open", t(0), lo=100, hi=110),
+    ]
+    records += [ev(f"x{i}", "open" if i % 2 else "isolate", day, lo=0, hi=10) for i in range(14)]
+    records.append(ev("p0", "perforate", day, lo=0, hi=10))
+    state = build(records).state_at(day.replace(hour=7), 1)
+    far = [iv for iv in state.intervals if iv.from_md >= 100]
+    assert far and all(iv.perforated is True and iv.access == "open" for iv in far)
+    assert all(not iv.unresolved_axes for iv in far)
+
+
+def test_strictly_ordered_events_inside_a_component_are_not_falsely_too_big() -> None:  # N2
+    day = datetime(2000, 3, 10, tzinfo=UTC)
+    records = [ev("b", "baseline", t(0), baseline_intervals=[])]
+    records.append(day_ev("d", "isolate", "2000-03-10", lo=0, hi=10))
+    for i in range(10):
+        when = day.replace(hour=1 + i)
+        records.append(ev(f"c{i}", "open" if i % 2 == 0 else "isolate", when, lo=0, hi=10))
+        records.append(ev(f"q{i}", "perforate", when, lo=0, hi=10))
+    state = build(records).state_at(day.replace(hour=23), 1)
+    assert not any(u.reason == "ambiguous_component_too_large" for u in state.unresolved)
+
+
 # ----------------------------------------------------------------------------- D2
 @pytest.mark.parametrize("bad", ["1E+999999999", 1e30, "1E+400", 1e400])
 def test_absurd_depths_are_rejected_without_losing_valid_events(bad: Any) -> None:

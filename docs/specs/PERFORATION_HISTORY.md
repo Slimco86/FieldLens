@@ -240,7 +240,7 @@ replay tolerance is 1e-6 m; source mapping/tolerances remain PH-G1.
 Planned checks: `uv run pytest backend/tests/history`, frontend history/overlay
 interaction tests and type/build checks. These commands/tests are not yet created.
 
-## Implementation Status (FL-008-A engine, candidate; not verified)
+## Implementation Status (FL-008-A engine, implementation complete; pending independent acceptance)
 
 Pure-Python engine: `backend/fieldlens/engineering/perforation/`; tests:
 `backend/tests/engineering/perforation/` (`uv run pytest backend/tests/engineering/perforation`).
@@ -269,7 +269,11 @@ connected non-commuting sub-groups (plus partially elapsed day-precision events,
 not have happened) are explored exactly (subset DP, at most 12 events and 32 candidate states).
 Differing outcomes become `UnresolvedCoverage` (axis, MD ranges, time window, event IDs) and
 lengths become bounds. Over budget: explicit `ambiguous_component_too_large`, a lowest/highest
-coverage bracket for total length, open bounds withheld. 20 same-instant perforates resolve
+coverage bracket for total length, open bounds withheld, every interval row touching a forced
+group (all rows if it contains a baseline) reports no definite value (perforated None, access/flow
+`unknown`, all axes unresolved) and the wellbore status is `unknown` when a forced group holds a
+baseline or status event. Strict time order between non-overlapping windows inside a component is
+respected when exploring (only overlapping windows are mutually unordered). 20 same-instant perforates resolve
 exactly; 5,000 events in clusters of 5 answer `state_at` in about 0.1 s.
 
 Assumption pending owner confirmation (D5): the spec does not define same-instant baseline

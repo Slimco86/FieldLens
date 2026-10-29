@@ -11,6 +11,7 @@ import json
 from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -142,6 +143,8 @@ class PerforationHistory:
         blocked = bool(unmapped) or bool(forced)
         intervals, differing = _merge_intervals(cand_list, baseline_all, stateful, out)
 
+        if forced:
+            intervals = _mark_forced(intervals, forced, out)
         flagged = [iv for iv in intervals if iv.unresolved_axes]
         # unresolved coverage per ambiguity record (only where candidates still differ).
         for reason, events in ambiguities:
@@ -168,7 +171,12 @@ class PerforationHistory:
 
         statuses = {c.wellbore_status for c in cand_list}
         wellbore_status = "unknown"
-        if len(statuses) == 1:
+        status_forced = any(
+            e.kind in (EventKind.WELLBORE_STATUS, EventKind.BASELINE)
+            for group in forced
+            for e in group
+        )
+        if len(statuses) == 1 and not status_forced:
             wellbore_status = next(iter(statuses)) or "unknown"
 
         conflicting = bool(unresolved) and bool(ambiguities or forced)
@@ -241,6 +249,38 @@ class PerforationHistory:
 
 
 # ---------------------------------------------------------------------- helpers
+def _mark_forced(
+    intervals: tuple[IntervalState, ...],
+    forced: list[list[PerforationEvent]],
+    out: Any,
+) -> tuple[IntervalState, ...]:
+    """Over-budget groups: the candidate set is a bracket, not exhaustive, so every row touched
+    by a forced group (all rows if it holds a baseline, which resets everything) carries no
+    definite value; its affected axes are unresolved."""
+    everything = any(e.kind is EventKind.BASELINE for g in forced for e in g)
+    merged: list[list[float]] = []
+    for lo, hi in sorted(
+        (out(a), out(b)) for a, b in _event_ranges([e for g in forced for e in g])
+    ):
+        if merged and lo <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], hi)
+        else:
+            merged.append([lo, hi])
+    ends = [m[1] for m in merged]
+    marked: list[IntervalState] = []
+    for iv in intervals:
+        k = bisect_right(ends, iv.from_md)  # first merged range ending after the row starts
+        if everything or (k < len(merged) and merged[k][0] < iv.to_md):
+            marked.append(
+                replace(
+                    iv, perforated=None, access="unknown", flow="unknown", unresolved_axes=_AXES
+                )
+            )
+        else:
+            marked.append(iv)
+    return tuple(marked)
+
+
 def axis_in(iv: IntervalState, axis: str) -> bool:
     return axis in iv.unresolved_axes
 
@@ -417,6 +457,16 @@ def _explore(
             else CoverageState((), base.baseline, base.wellbore_status)
         )
     n = len(group)
+    # Strict time order between non-overlapping windows is respected (N2): only events whose
+    # windows overlap are mutually unordered. before[k]/after[k] are bitmasks over the group.
+    wins = [_window(e) for e in group]
+    before = [0] * n
+    after = [0] * n
+    for j in range(n):
+        for k in range(n):
+            if j != k and wins[j][1] <= wins[k][0] and not wins[k][1] <= wins[j][0]:
+                before[k] |= 1 << j
+                after[j] |= 1 << k
     reach: list[set[CoverageState]] = [set() for _ in range(1 << n)]
     reach[0].add(local)
     for mask in range(1, 1 << n):
@@ -424,7 +474,10 @@ def _explore(
         for k in range(n):
             bit = 1 << k
             if mask & bit:
-                for state in reach[mask ^ bit]:
+                prev = mask ^ bit
+                if (certain_mask & before[k]) & ~prev or prev & after[k]:
+                    continue
+                for state in reach[prev]:
                     acc.add(apply_event(state, group[k]))
     outcomes: set[CoverageState] = set()
     for mask in range(1 << n):
@@ -436,6 +489,18 @@ def _explore(
     if lo >= hi:
         return [CoverageState(base.segments, o.baseline, o.wellbore_status) for o in outcomes]
     return [splice(base, lo, hi, o) for o in outcomes]
+
+
+def _bracket(cands: list[CoverageState]) -> list[CoverageState]:
+    """Lowest- and highest-coverage candidate per wellbore status (bounded, never exhaustive)."""
+    by_status: dict[str | None, list[CoverageState]] = {}
+    for c in cands:
+        by_status.setdefault(c.wellbore_status, []).append(c)
+    reps: list[CoverageState] = []
+    for group in by_status.values():
+        reps.append(min(group, key=lambda c: measure(c.segments)))
+        reps.append(max(group, key=lambda c: measure(c.segments)))
+    return reps
 
 
 def _apply_all(state: CoverageState, events: list[PerforationEvent]) -> CoverageState:
@@ -498,11 +563,8 @@ def _resolve(
                 certain = [e for k, e in enumerate(group) if mask & (1 << k)]
                 if not degraded:
                     degraded = True
-                    low = min(cands, key=lambda c: measure(c.segments))
-                    high = max(cands, key=lambda c: measure(c.segments))
-                else:
-                    low, high = cands[0], cands[-1]
-                new = [_apply_all(low, certain), _apply_all(high, group)]
+                    cands = _bracket(cands)  # (low, high) pairs per wellbore status
+                new = [_apply_all(c, group if k % 2 else certain) for k, c in enumerate(cands)]
             elif ambiguous:
                 ambiguities.append((_ambiguity_reason(group), group))
             cands = list(new)
