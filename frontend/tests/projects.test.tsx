@@ -53,14 +53,15 @@ describe("project workspace", () => {
     install((url) => {
       if (url.startsWith("/api/v1/projects?")) return page(pa, pb);
       if (url === `/api/v1/projects/${A}`) return json(pa);
+      if (url.startsWith(`/api/v1/projects/${A}/source-revisions`)) return page();
     });
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Open project Alpha" }));
     expect(await screen.findByRole("heading", { name: "Alpha" })).toBeInTheDocument();
     expect(screen.getByText("alpha notes", { selector: "dd" })).toBeInTheDocument();
-    expect(screen.getByText(/no source files/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /upload/i })).not.toBeInTheDocument();
+    expect(await screen.findByText(/no source files/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Upload source files" })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Project sections" });
     const reconstruction = within(nav).getByRole("button", { name: "Reconstruction" });
     reconstruction.focus();
@@ -137,6 +138,7 @@ describe("project workspace", () => {
       }
       if (url === `/api/v1/projects/${A}`) return json(pa);
       if (url === "/api/v1/session") return json({ csrf_token: "n".repeat(43) });
+      if (url.startsWith(`/api/v1/projects/${A}/source-revisions`)) return page();
     });
     const user = userEvent.setup();
     render(<App />);

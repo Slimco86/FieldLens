@@ -38,14 +38,18 @@ test("PW-8: keyboard-only create, open and Sources/Reconstruction/Explore naviga
   await page.keyboard.press("Enter");
   await expect(page.getByText(/no source files/i)).toBeVisible();
 
-  // No fake feature controls anywhere in the project view.
-  await expect(page.getByRole("button")).toHaveText([
+  // No fake feature controls: only the real upload form (its submit stays disabled with no
+  // selection) exists besides navigation and project editing. <button> elements only; the native
+  // file input is a separate control.
+  await expect(page.locator("button")).toHaveText([
     "Back to all projects",
     "Save changes",
     "Sources",
     "Reconstruction",
     "Explore",
+    "Upload files",
   ]);
+  await expect(page.getByRole("button", { name: "Upload files" })).toBeDisabled();
 
   await tabTo(page, page.getByRole("button", { name: "Back to all projects" }));
   await page.keyboard.press("Enter");

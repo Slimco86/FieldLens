@@ -38,10 +38,10 @@ test("PW-1: two empty projects persist across reload and a real API restart", as
     await page.getByRole("button", { name: `Open project ${name}` }).click();
     await expect(page.getByRole("heading", { name })).toBeVisible();
     await expect(page.locator("dd", { hasText: description })).toBeVisible();
-    // Empty project: real pointers are null; no fabricated assets or upload controls.
+    // Empty project: real pointers are null; no fabricated assets. The upload form exists but is idle.
     await expect(page.getByText("None yet")).toHaveCount(2);
     await expect(page.getByText(/no source files/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /upload/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /upload/i })).toBeDisabled();
     await page.getByRole("button", { name: "Back to all projects" }).click();
   }
 });

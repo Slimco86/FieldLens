@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { getProject, updateProject } from "./api";
+import { SourcesPanel } from "../uploads/SourcesPanel";
 import { ProjectForm } from "./ProjectForm";
 import {
   SECTIONS,
@@ -29,9 +30,7 @@ const SECTION_LABEL: Record<Section, string> = {
 function prerequisite(section: Section, project: Project): string {
   switch (section) {
     case "sources":
-      return project.latest_source_revision_id === null
-        ? "This project has no source files. Source upload is not available in this build; it requires the upload feature."
-        : "Source browsing is not available in this build.";
+      return ""; // rendered by SourcesPanel
     case "reconstruction":
       return project.latest_source_revision_id === null
         ? "Reconstruction requires an imported source revision. This project has none."
@@ -54,6 +53,20 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
   );
   const run = useActionScope(`project:${projectId}`);
   const heading = useRef<HTMLHeadingElement | null>(null);
+  const refresh = useRef<AbortController | null>(null);
+  useEffect(() => () => refresh.current?.abort(), []);
+  // Re-read the project (latest-revision pointer) without a loading flash; stale answers are dropped.
+  const refreshProject = useCallback(() => {
+    refresh.current?.abort();
+    const ctl = new AbortController();
+    refresh.current = ctl;
+    getProject(projectId, ctl.signal).then(
+      (project) => {
+        if (!ctl.signal.aborted) replace(project);
+      },
+      () => undefined,
+    );
+  }, [projectId, replace]);
 
   const missing = state.kind === "error" && state.error.status === 404;
   useEffect(() => {
@@ -135,7 +148,15 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
           </nav>
           <section aria-labelledby="section-title">
             <h4 id="section-title">{SECTION_LABEL[section]}</h4>
-            <p>{prerequisite(section, state.data)}</p>
+            {section === "sources" ? (
+              <SourcesPanel
+                projectId={projectId}
+                latestRevisionId={state.data.latest_source_revision_id}
+                onProjectChanged={refreshProject}
+              />
+            ) : (
+              <p>{prerequisite(section, state.data)}</p>
+            )}
           </section>
         </>
       )}

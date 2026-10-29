@@ -68,3 +68,53 @@ dd {
   margin-bottom: 0.5rem;
   overflow-wrap: anywhere;
 }
+.dropzone {
+  border: 2px dashed GrayText;
+  border-radius: 0.25rem;
+  padding: 0.75rem;
+  max-width: 40rem;
+}
+.dropzone.dragging {
+  border-style: solid;
+  border-color: CanvasText;
+}
+ul.selected-files,
+ul.documents {
+  list-style: none;
+  padding: 0;
+}
+ul.selected-files li,
+ul.documents li {
+  border: 1px solid GrayText;
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  overflow-wrap: anywhere;
+}
+table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+th,
+td {
+  border: 1px solid GrayText;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+.warnings {
+  border: 2px solid CanvasText;
+  padding: 0.5rem 0.75rem;
+}
+fieldset label.check {
+  display: inline-block;
+  margin-right: 1rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  progress {
+    transition: none;
+  }
+}

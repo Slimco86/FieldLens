@@ -69,9 +69,28 @@ exist and passed on PostgreSQL for IN-1 (`test_upload_idempotency`), IN-3
 (`test_job_recovery`, `test_restart_persistence` with a real `kill -9`), IN-5
 (`test_revision_publication`) and IN-7 byte/file limits (`test_ingestion_limits`, exact
 boundary and +1). Not covered: IN-2/6/8, the 500-page PDF limit (needs a parser; deferred
-to TASK-009), parse-time XLSX XML DTD scanning, local-read latency/RSS benchmark, and the
-upload/source-list UI checks. Storage verification is not extraction: files are labelled
+to TASK-009), parse-time XLSX XML DTD scanning and the local-read latency/RSS benchmark.
+UI checks are implemented but only implementer-verified (see the UI traceability notes
+below). Storage verification is not extraction: files are labelled
 `pending_extraction` or `unsupported`, never extracted.
+
+**FL-005-A UI traceability (implementer evidence; no independent acceptance claimed).**
+Code: `frontend/src/features/uploads/*`, wired into the project Sources section.
+
+| Criterion | UI evidence |
+|---|---|
+| IN-1 (upload, hashes, replay) | `tests/uploads.test.tsx` (metadata part first, files aligned, expected parent, stable idempotency key on retry, HTTP 200 replay wording); `tests/e2e/uploads.spec.ts` UP-1 (real API: upload, SHA-256 shown, identical re-upload reported as a no-op, API-level 202 then 200 `replayed`). |
+| IN-3 (hostile/unknown input) | E2E: an ELF-signature file gets a visible 415 message and creates no revision; unknown plain text shows `unsupported`. Server hostile-input checks remain backend-only. |
+| IN-4 (cancel/retry) | Vitest: cancel via `POST .../jobs/{id}/cancel`, attempt list and "retried once automatically" note, polling stops when the job finishes or the panel unmounts. No UI test kills a worker. |
+| IN-5 (partial revisions) | Vitest: revision `status`, `quarantined_count`, parent revision and per-document `replaces_document_id` render a "Partial revision ... may have displaced a previously good version" warning. Not exercised against a real partial revision in E2E (no fixture produces quarantine yet). |
+| IN-7 (limits) | Vitest: client-side 128 MiB/file, 512 MiB/batch and 200-file checks block submission with an `alert`; 413/409/415 and network errors are surfaced. Server limits stay authoritative and are tested by `test_ingestion_limits`. |
+
+Behaviour notes: statuses are shown as the API reports them (`stored`, `pending_extraction`,
+`unsupported`, `quarantined`); the UI never says a file was extracted or validated. A
+mid-upload abort says nothing was imported; an abort after all bytes were sent says the
+outcome is unknown and a resubmit reuses the idempotency key. Not verified: real
+multi-hundred-MiB uploads and progress, drag-and-drop in a browser, screen-reader output,
+and a real worker retry/cancel race in the browser.
 
 QA repairs (D1-D3) and behaviour notes:
 

@@ -7,8 +7,17 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string | null;
   readonly requestId: string | null;
-  constructor(status: number, code: string | null, message: string, requestId: string | null) {
+  /** Sanitized server details (e.g. `reason`, `limit`); never trusted as engineering evidence. */
+  readonly details: Record<string, unknown> | null;
+  constructor(
+    status: number,
+    code: string | null,
+    message: string,
+    requestId: string | null,
+    details: Record<string, unknown> | null = null,
+  ) {
     super(message);
+    this.details = details;
     this.name = "ApiError";
     this.status = status;
     this.code = code;
@@ -16,20 +25,24 @@ export class ApiError extends Error {
   }
 }
 
-async function toApiError(res: Response): Promise<ApiError> {
+export async function toApiError(res: Response): Promise<ApiError> {
   let code: string | null = null;
   let message = `Request failed (${res.status})`;
   let requestId: string | null = res.headers.get("x-request-id");
+  let details: Record<string, unknown> | null = null;
   try {
     const body = (await res.json()) as Partial<ErrorEnvelope>;
-    const err = body.error as { code?: string; message?: string; request_id?: string } | undefined;
+    const err = body.error as
+      | { code?: string; message?: string; request_id?: string; details?: Record<string, unknown> | null }
+      | undefined;
     code = err?.code ?? null;
     message = err?.message ?? message;
     requestId = err?.request_id ?? requestId;
+    details = err?.details ?? null;
   } catch {
     /* non-JSON body */
   }
-  return new ApiError(res.status, code, message, requestId);
+  return new ApiError(res.status, code, message, requestId, details);
 }
 
 /** Readiness: 200 => ready; anything else (incl. network failure) rejects. */
@@ -46,6 +59,16 @@ async function bootstrap(): Promise<string> {
   if (!res.ok) throw await toApiError(res);
   token = ((await res.json()) as { csrf_token: string }).csrf_token;
   return token;
+}
+
+/** The in-memory session token for guarded requests that cannot use fetch (XHR upload). */
+export async function sessionToken(): Promise<string> {
+  return token ?? (await bootstrap());
+}
+
+/** Forget the token after the server rejected it; the next guarded call re-bootstraps. */
+export function discardSessionToken(): void {
+  token = null;
 }
 
 /**
