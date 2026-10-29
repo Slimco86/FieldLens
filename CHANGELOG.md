@@ -8,6 +8,22 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.7.0 - 2026-10-29
+
+- **FL-008-A (TASK-008):** Added the deterministic perforation state engine
+  `fieldlens.engineering.perforation`: as-of replay of wellbore-scoped events, unique-MD
+  interval union (exact decimals, ft/m), `unknown` instead of verified zero without a
+  baseline, scope-specific interval state (well-level production/shut-in never erases or
+  assigns interval state), commutativity-based order analysis that never invents an order
+  (over-budget groups report unresolved axes, never definite values), dataset-revision
+  correction chains and per-event validation (implausible/overflow depths rejected without
+  losing valid history). Engine and unit tests only: no API, UI, migration or PostgreSQL
+  persistence (PH-6 persistence, PH-1/4/8 and day-range queries remain open). Independent
+  QA of `aaf0fdd` passed PH-2/3/5/7/9 and engine PH-6 (299 backend tests; brute-force
+  oracle over 14,488 queries with no wrong resolved result). Assumptions awaiting owner
+  confirmation: a baseline precedes same-instant events; correction-chain rule; 100,000 m
+  MD plausibility bound; 12-event/32-state exploration budget.
+
 ## 0.6.0 - 2026-10-29
 
 - **FL-006-A (TASK-007):** Added the deterministic trajectory engine

@@ -125,7 +125,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
 | TASK-007 | FL-006-A | TASK-003 | Geospatial owner implements TR-1/2/3 analytic trajectory/reference/proximity engine and unit tests in engineering; no renderer or pilot acceptance claimed. | Yes; independent QA, 0.6.0 / `532d517` (TR-1/2/3 only) | 2026-10-29 |
-| TASK-008 | FL-008-A | TASK-003 | Geospatial owner implements PH-2/3/5/6/7/9 deterministic state/union engine; exact t0..t6 fixtures, unknown baselines and same-day ambiguity. | | |
+| TASK-008 | FL-008-A | TASK-003 | Geospatial owner implements PH-2/3/5/6/7/9 deterministic state/union engine; exact t0..t6 fixtures, unknown baselines and same-day ambiguity. | Yes; independent QA, 0.7.0 / `aaf0fdd` (engine-level; PH-6 persistence deferred) | 2026-10-29 |
 | TASK-010 | FL-006-B | TASK-007, TASK-026 | 3D owner implements published-model scene/tree, local-origin buffers and evidence selection, TR-4..7 on qualified survey subset; never read active facts directly from upload staging. | | |
 | TASK-012 | FL-007-A | TASK-010, TASK-030 | 3D worker implements source-dimensioned procedural equipment, inspector, catalog/generic/unlocated states and EQ-1..7/DQ-5 from qualified evidence. Demonstrate F-14/F-5 dimensional candidates and F-12's explicit limitation; no guessed depth, generated engineering values or Blender prerequisite. | | |
 | TASK-013 | FL-008-B | TASK-008, TASK-009, TASK-010 | Frontend worker wires canonical historical state to real events, MD placement/time controls/inspector and PH-1/4/8; retain acquisition dates and context guards. | | |
