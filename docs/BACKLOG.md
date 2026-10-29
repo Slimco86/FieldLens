@@ -69,7 +69,7 @@ current table supersede its access/design holds.
 | FL-012 | Verify complete fresh-upload -> scene/history -> charts -> cited-answer demo | specifying | FL-002, FL-009, FL-011 | [Demo acceptance](specs/DEMO_ACCEPTANCE.md): offline combined checks, real/live verification, then authorized release/recording |
 | FL-013 | Curate offline Blender equipment-authoring skill and export handoff | done | None | Integrated by owner in `88b177e`, version 0.3.0; skill/workflow only, installation and asset creation deferred |
 | FL-014 | Finalize project-centric architecture, primary reconstruction agent and UI-verifiable orchestration plan | done | None for planning | Owner integrated the 32-task DAG/specifications/first packets in `9d630e3`, version 0.3.3, and authorized first-packet implementation October 28. Document checks recorded below; no application verification implied |
-| FL-015 | Create/reopen isolated projects with categorized, incremental sources | integration_pending | FL-004 | TASK-025 independently accepted at `2af22aa`, candidate 0.5.0; final combined checks passed, integration pending. [Evidence](specs/PROJECT_WORKSPACE.md#task-025-scoped-implementation-and-acceptance). TASK-006 still completes upload-related PW criteria |
+| FL-015 | Create/reopen isolated projects with categorized, incremental sources | in_progress | FL-004 | TASK-025 done: independently accepted repair `2af22aa` integrated into `master` at `3e748d9`, version 0.5.0. [Evidence](specs/PROJECT_WORKSPACE.md#task-025-scoped-implementation-and-acceptance). TASK-006 is next and still completes upload-related PW criteria; the aggregate feature is not yet done |
 | FL-016 | Reconstruct composite entities/relationships/configurations with evidence and reviewed model publication | specifying | FL-004 | [Reconstruction](specs/ASSET_RECONSTRUCTION.md): review policy confirmed; TASK-026 consumes early chat and TASK-032 issues, not full FL-011. Gold fixtures/live allowance remain separate gates |
 | FL-017 | Inspect source-linked warnings/errors and the exact effect of missing/conflicting data | specifying | FL-004, FL-005 | [Data quality](specs/DATA_QUALITY.md): TASK-032 source-first issue inspector; FL-016/007 wire publication/generic boundaries; TASK-022 verifies all DQ criteria. No manual override/fact editor or new telemetry service |
 
@@ -83,7 +83,7 @@ before that gate; FL-002/FL-003 do not depend on each other.
 
 | Priority / checkpoint | Tasks | Dispatch condition / owner verification |
 |---|---|---|
-| P0: first persisted UI | TASK-001 -> TASK-003 -> TASK-025 -> TASK-006 | Approved packets integrated; restore/verify worker editing tools, then foundation -> projects -> uploads; owner browser checkpoint A before broadening |
+| P0: first persisted UI | TASK-001 -> TASK-003 -> TASK-025 -> TASK-006 | Foundation and project lifecycle integrated. TASK-006 upload/storage/jobs is next, with fresh per-assignment preflight; owner browser checkpoint A before broadening |
 | P0: independent evidence qualification | TASK-002 | Main-agent bounded source work or separately verified ingestion assignment; no fabricated G1 completion |
 | P0: early agent risk | TASK-004 -> TASK-005; TASK-009/011/019/027 | Offline adapter parallel after foundation; live caps and source subsets separately authorized; checkpoint B before full scene |
 | P0: visible quality and reconstruction | TASK-009 -> TASK-032; TASK-019/032 -> TASK-026; TASK-030/028 | Source issues before 3D; reviewed partial model; live reconstruction remains distinct from stubs |
@@ -96,7 +96,7 @@ freeze their source mappings and exact contracts before dispatch; only the first
 three runtime packets have step-by-step handoffs now. Known-command validation
 routes to Terra; substantial implementation to the relevant domain specialist.
 
-### TASK-025 acceptance and integration preparation
+### TASK-025 completed lifecycle integration
 
 October 28 continuation confirms TASK-003 is done at `1293f55` (0.4.0);
 current integration base is `b4a02b2`. Two bounded backend preflights confirmed
@@ -117,13 +117,17 @@ invalid-text defect (NUL produced 503/500). Backend repair `2af22aa` rejects NUL
 and lone surrogates with typed 422 responses before database access. A separate
 QA invocation re-verified the repair and scoped PW-1/2/5/8 plus SC-2/4: 193 backend,
 15 UI and 9 real API/PostgreSQL browser tests passed, with independent raw-JSON
-and migration preservation probes. The candidate is preparing for 0.5.0 integration
-against unchanged `master` base `b4a02b2`. Final combined checks passed through
+and migration preservation probes. The versioned candidate was fast-forwarded
+from unchanged `master` base `b4a02b2` to `3e748d9e939a007fb62c36f211680b41d33d1fd1`,
+version 0.5.0. Final combined checks passed through
 the host-resolved Terra worker with explicit low effort: 193 backend, 15 UI and
 9 E2E tests plus lint/format/type/build/contracts and whitespace checks.
 Installed package metadata is 0.5.0 after an explicit editable-package reinstall.
-The next packet after integration is TASK-006 upload/storage/jobs, not the
-completion of all workspace or data-qualification criteria.
+TASK-025 is done. TASK-006 upload/storage/jobs is next; full workspace and
+data-qualification criteria remain incomplete. Task API/browser/database helpers
+are stopped; ignored task credentials and database volume are preserved.
+The unrelated Copilot-instructions edit and inactive worktree remain untouched.
+No push, tag, publication or paid provider call occurred.
 
 ## Completed integration record
 

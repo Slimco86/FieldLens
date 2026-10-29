@@ -24,8 +24,8 @@ The owner accepted tested commit `95da2b7` for the 0.4.0 merge as a one-time
 direct-verification exception; independent QA remains required for later features.
 see [verification](../docs/specs/FOUNDATION.md#direct-repair-verification-october-28).
 Foundation integration is recorded at `1293f55`. TASK-025 passed its own tool
-preflight and independent QA at `2af22aa`; 0.5.0 integration is pending.
-Do not start TASK-006 until that integration is confirmed.
+preflight and independent QA at `2af22aa`; 0.5.0 is integrated at `3e748d9`.
+TASK-006 is next, subject to its fresh profile/resource preflight.
 Owner amendment at 14:47 EDT: run each feature on its own branch in
 `/home/slimco/code/FieldLens`, with subagents launched from the main session,
 one writer at a time. No additional worktrees; preserve the old allocation inactive.
@@ -141,11 +141,11 @@ Shared client/app composition changes are allocated to this packet serially.
 
 | Task | Description | Completed | Date |
 |---|---|---|---|
-| TASK-PRJ-01 | Implement GET/POST `/api/v1/projects` and GET/PATCH `/api/v1/projects/{id}`. Use server UUIDs, trimmed name 1-120 chars, description <=4,000 chars, UTC timestamps and nullable source/model pointers. No project-level inferred CRS, well identity or current date. | Yes; integration pending | 2026-10-28 |
-| TASK-PRJ-02 | Add project-qualified repository lookups and cursor pagination, default 50/max 200. Malformed input is 422; missing/out-of-context IDs are 404. Mutation failures preserve prior values and expose the standard error envelope. | Yes; integration pending | 2026-10-28 |
-| TASK-PRJ-03 | Build list/create/edit/open forms with labelled controls and empty/error/retry states. Sources/Reconstruction/Explore navigation shows unmet prerequisites rather than dummy functionality. Store no geometry or large data arrays in selection state. | Yes; integration pending | 2026-10-28 |
-| TASK-PRJ-04 | Centralize project/context selection and query keys. On switch, abort pending requests and reject old responses/actions. Reload reopens the selected existing project; a missing saved ID returns to the list with an explanation, not a silently selected different project. | Yes; integration pending | 2026-10-28 |
-| TASK-PRJ-05 | Pass PW-1/2/5/8 for implemented surfaces, SC-2/4, migration tests if changed and a two-project restart/browser walkthrough. Record unavailable upload/reconstruction surfaces explicitly; the first slice does not pass all PW criteria. | Yes; independent QA at `2af22aa`, integration pending | 2026-10-28 |
+| TASK-PRJ-01 | Implement GET/POST `/api/v1/projects` and GET/PATCH `/api/v1/projects/{id}`. Use server UUIDs, trimmed name 1-120 chars, description <=4,000 chars, UTC timestamps and nullable source/model pointers. No project-level inferred CRS, well identity or current date. | Yes; 0.5.0 / `3e748d9` | 2026-10-28 |
+| TASK-PRJ-02 | Add project-qualified repository lookups and cursor pagination, default 50/max 200. Malformed input is 422; missing/out-of-context IDs are 404. Mutation failures preserve prior values and expose the standard error envelope. | Yes; 0.5.0 / `3e748d9` | 2026-10-28 |
+| TASK-PRJ-03 | Build list/create/edit/open forms with labelled controls and empty/error/retry states. Sources/Reconstruction/Explore navigation shows unmet prerequisites rather than dummy functionality. Store no geometry or large data arrays in selection state. | Yes; 0.5.0 / `3e748d9` | 2026-10-28 |
+| TASK-PRJ-04 | Centralize project/context selection and query keys. On switch, abort pending requests and reject old responses/actions. Reload reopens the selected existing project; a missing saved ID returns to the list with an explanation, not a silently selected different project. | Yes; 0.5.0 / `3e748d9` | 2026-10-28 |
+| TASK-PRJ-05 | Pass PW-1/2/5/8 for implemented surfaces, SC-2/4, migration tests if changed and a two-project restart/browser walkthrough. Record unavailable upload/reconstruction surfaces explicitly; the first slice does not pass all PW criteria. | Yes; independent QA at `2af22aa`, 0.5.0 / `3e748d9` | 2026-10-28 |
 
 Exit demonstration: create A/B, edit A, reload/restart API, reopen both, verify
 descriptions and empty states, switch during a delayed A response and see no A

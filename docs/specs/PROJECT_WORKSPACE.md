@@ -4,8 +4,8 @@
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
 > **Date:** 2026-10-28. **Author:** main orchestrator. **Decision owner:** project owner.
 > **Status:** First lifecycle and upload packets approved October 28 at 11:19 EDT.
-> **Delivery state:** TASK-025 independently accepted, integration pending as 0.5.0. Upload-dependent criteria remain pending.
-> **Approved revision / integration:** packet `9d630e3`; foundation integrated as 0.4.0 at `1293f55`.
+> **Delivery state:** TASK-025 done, independently accepted and integrated as 0.5.0. Upload-dependent criteria remain pending.
+> **Approved revision / integration:** packet `9d630e3`; project lifecycle integrated at `3e748d9` after foundation 0.4.0 at `1293f55`.
 > **Zero-Question Score:** 0 unowned questions for the approved lifecycle slice.
 
 ## How to Read This Spec
@@ -157,7 +157,8 @@ The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
 specify the lifecycle and subsequent upload handoffs, including partial PW coverage.
 
 Independent QA accepted `2af22aa7c91f36fc33a5ee015ae64ea2d0e3c8a0` after D1 repair.
-Final combined checks passed; integration is pending as 0.5.0. The minor bump adds
+Final combined checks passed; integration into `master` is confirmed at
+`3e748d9e939a007fb62c36f211680b41d33d1fd1`, version 0.5.0. The minor bump adds
 project API/UI and migration `0002_project_lifecycle` without changing the
 foundation's public description limit or rewriting valid data.
 
