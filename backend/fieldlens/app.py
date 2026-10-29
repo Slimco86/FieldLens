@@ -22,6 +22,9 @@ from fieldlens.config import Settings, get_settings
 from fieldlens.contracts.errors import ContractError, ErrorBody, ErrorCode, ErrorEnvelope
 from fieldlens.contracts.registry import export_component_schemas
 from fieldlens.contracts.system import HealthResponse, ReadinessResponse, SessionResponse
+from fieldlens.evidence.storage import BlobStore
+from fieldlens.ingestion import build_ingestion_router
+from fieldlens.jobs import JobWorker, build_jobs_router
 from fieldlens.persistence.readiness import evaluate_readiness
 from fieldlens.persistence.session import create_db_engine, create_session_factory
 from fieldlens.projects import build_projects_router
@@ -74,7 +77,7 @@ def require_mutation(request: Request) -> None:
 def _register_errors(app: FastAPI) -> None:
     @app.exception_handler(ContractError)
     async def _contract(request: Request, exc: ContractError) -> JSONResponse:
-        return error_response(request, exc.status_code, exc.code, exc.message)
+        return error_response(request, exc.status_code, exc.code, exc.message, exc.details)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -184,7 +187,12 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        worker = app.state.job_worker
+        if worker is not None and settings.job_worker_enabled:
+            worker.start()
         yield
+        if worker is not None:
+            worker.stop()
         if engine is not None:
             engine.dispose()
 
@@ -199,6 +207,12 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine) if engine is not None else None
     app.state.session_token = session_token or security.new_session_token()
+    app.state.blob_store = BlobStore(settings.storage_root)
+    app.state.job_worker = (
+        JobWorker(app.state.session_factory, app.state.blob_store, settings)
+        if app.state.session_factory is not None
+        else None
+    )
 
     @app.middleware("http")
     async def boundary(request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -216,6 +230,8 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     _register_errors(app)
     app.include_router(_build_system_router())
     app.include_router(build_projects_router())
+    app.include_router(build_ingestion_router())
+    app.include_router(build_jobs_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:

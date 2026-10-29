@@ -19,6 +19,10 @@ from fieldlens.localenv import ENV_FILE, REPO_ROOT
 LOOPBACK_NAMES = frozenset({"localhost"})
 DEFAULT_API_PORT = 8101
 DEFAULT_VITE_PORT = 5174
+MAX_FILE_BYTES = 128 * 1024 * 1024
+MAX_BATCH_BYTES = 512 * 1024 * 1024
+MAX_FILES = 200
+MAX_OVERHEAD_BYTES = 1024 * 1024
 
 
 def is_loopback_host(host: str) -> bool:
@@ -59,6 +63,20 @@ class Settings(BaseSettings):
     allowed_hosts: list[str] = Field(default_factory=_default_hosts)
     allowed_origins: list[str] = Field(default_factory=_default_origins)
     db_connect_timeout_s: int = Field(3, ge=1, le=30)
+
+    # Upload bounds: defaults are the owner-approved limits and may only be lowered (tests).
+    upload_max_file_bytes: int = Field(MAX_FILE_BYTES, ge=1, le=MAX_FILE_BYTES)
+    upload_max_batch_bytes: int = Field(MAX_BATCH_BYTES, ge=1, le=MAX_BATCH_BYTES)
+    upload_max_files: int = Field(MAX_FILES, ge=1, le=MAX_FILES)
+    upload_max_overhead_bytes: int = Field(MAX_OVERHEAD_BYTES, ge=1024, le=MAX_OVERHEAD_BYTES)
+
+    # Persistent job worker (one heavy job at a time).
+    job_worker_enabled: bool = True
+    job_lease_seconds: float = Field(600.0, gt=0, le=600.0)
+    job_heartbeat_seconds: float = Field(10.0, gt=0, le=10.0)
+    job_poll_seconds: float = Field(0.5, gt=0, le=10.0)
+    job_stage_delay_s: float = Field(0.0, ge=0, le=60.0)
+    """Test-only pause after each stage step so restart/kill tests can interrupt a job."""
 
     @field_validator("storage_root")
     @classmethod

@@ -62,7 +62,7 @@ def _alembic(engine: Engine, fn: str, rev: str) -> None:
 
 
 def test_single_head_and_known_revision() -> None:
-    assert expected_head() == "0002_project_lifecycle"
+    assert expected_head() == "0003_upload_jobs"
 
 
 def test_migration_roundtrip(empty_database: URL) -> None:
@@ -184,7 +184,7 @@ def persist(conn: Any, f: dict[str, Any]) -> None:
             project_id=s.project_id,
             parent_source_revision_id=None,
             manifest_hash=s.manifest_hash,
-            status=s.status.value,
+            status="staging",  # membership may only be added while staging (0003 trigger)
             created_at=s.created_at,
         )
     )
@@ -205,6 +205,11 @@ def persist(conn: Any, f: dict[str, Any]) -> None:
             source_revision_id=s.source_revision_id,
             document_id=d.document_id,
         )
+    )
+    conn.execute(
+        m.source_revision.update()
+        .where(m.source_revision.c.source_revision_id == s.source_revision_id)
+        .values(status=s.status.value)
     )
     conn.execute(insert(m.well).values(**f["well"].model_dump()))
     conn.execute(insert(m.wellbore).values(**f["bore"].model_dump()))

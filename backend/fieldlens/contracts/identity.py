@@ -88,6 +88,8 @@ class SourceDocument(ContractModel):
     size_bytes: int = Field(ge=0)
     original_filename: str = Field(min_length=1, max_length=512)
     detected_media_type: str | None = None
+    format_family: str = Field(default="unknown", max_length=32)
+    """Detected container/format family from the file signature; never an engineering claim."""
     origin_metadata: dict[str, FiniteJsonValue] = Field(default_factory=dict)
     created_at: UtcDatetime
 

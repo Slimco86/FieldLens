@@ -49,8 +49,15 @@ class ErrorEnvelope(ContractModel):
 class ContractError(Exception):
     """Raised by contract helpers; the API maps it to the standard envelope."""
 
-    def __init__(self, code: ErrorCode, message: str, status_code: int = 422) -> None:
+    def __init__(
+        self,
+        code: ErrorCode,
+        message: str,
+        status_code: int = 422,
+        details: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.status_code = status_code
+        self.details = details
