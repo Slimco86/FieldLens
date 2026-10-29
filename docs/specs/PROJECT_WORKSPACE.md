@@ -177,6 +177,7 @@ newest-first index; no data is rewritten.
 | PW-8 | `project-navigation.spec.ts` keyboard-only flow; delayed-A open and delayed-A save switched to B show no A content/ack; saved-ID reload and missing-ID explanation | |
 | SC-4 | Request keys include project ID; abort on switch; obsolete responses and acknowledgements rejected (unit + browser) | Context-kind/revision/as-of keys beyond project are later features |
 | PW-3/4/6/7 | Not run: require upload/storage/jobs | all |
+| QA D1 repair (not acceptance) | `ProjectCreate`/`ProjectUpdate` reject NUL and unpaired surrogates in name/description at the DTO boundary (typed 422 `VALIDATION_ERROR`, before any DB access). `test_unstorable_text_is_422_without_db_write` runs POST/PATCH × name/description × 6 escaped raw-JSON inputs on real PostgreSQL, asserting the 422 envelope, unchanged row/`updated_at` and no new project; plus token-before-validation and empty/multiline/Unicode acceptance. Pre-repair 18 of 25 failed; after repair backend 193 passed, ruff/mypy/contract drift clean | Independent re-verification pending |
 
 Interaction unit tests (`tests/projects.test.tsx`) use a stubbed `fetch` and are not
 persistence evidence.

@@ -11,14 +11,21 @@ from .context import PageInfo
 from .identity import Project
 
 
+def _storable(value: Any) -> Any:
+    """Reject text PostgreSQL/UTF-8 cannot store (NUL, lone surrogates) before any DB access."""
+    if isinstance(value, str) and any(ch == "\x00" or "\ud800" <= ch <= "\udfff" for ch in value):
+        raise ValueError("text must not contain NUL or unpaired surrogate characters")
+    return value
+
+
 def _trim(value: Any) -> Any:
-    return value.strip() if isinstance(value, str) else value
+    return _storable(value).strip() if isinstance(value, str) else value
 
 
 ProjectName = Annotated[str, BeforeValidator(_trim), Field(min_length=1, max_length=120)]
 """Server-trimmed name: 1..120 characters after trimming."""
 
-ProjectDescription = Annotated[str, Field(max_length=4000)]
+ProjectDescription = Annotated[str, BeforeValidator(_storable), Field(max_length=4000)]
 
 
 class ProjectCreate(ContractModel):

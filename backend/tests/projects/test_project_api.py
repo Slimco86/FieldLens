@@ -143,6 +143,55 @@ def test_patch_validation_keeps_prior_values(
     assert client.get(f"{PATH}/{a['project_id']}").json() == a
 
 
+UNSTORABLE = ["a\\u0000b", "x\\u0000", "\\u0000", "a\\ud800b", "\\udfff", "ok\\ud83d"]
+
+
+@pytest.mark.parametrize("raw", UNSTORABLE)
+@pytest.mark.parametrize("field", ["name", "description"])
+@pytest.mark.parametrize("method", ["POST", "PATCH"])
+def test_unstorable_text_is_422_without_db_write(
+    api: tuple[TestClient, dict[str, str]], engine: Engine, method: str, field: str, raw: str
+) -> None:
+    client, headers = api
+    a = create(api, name="Alpha", description="before")
+    with engine.connect() as c:
+        count = c.execute(text("select count(*) from project")).scalar_one()
+    if method == "POST":
+        fields = {"name": '"n"', "description": '""'}
+        fields[field] = f'"{raw}"'
+        body = "{" + ",".join(f'"{k}": {v}' for k, v in fields.items()) + "}"
+        r = client.post(PATH, content=body, headers={**headers, "content-type": "application/json"})
+    else:
+        body = f'{{"{field}": "{raw}"}}'
+        r = client.patch(
+            f"{PATH}/{a['project_id']}",
+            content=body,
+            headers={**headers, "content-type": "application/json"},
+        )
+    assert (r.status_code, error_code(r)) == (422, "VALIDATION_ERROR")
+    assert "retry" not in r.text.lower() and raw not in r.text
+    assert client.get(f"{PATH}/{a['project_id']}").json() == a
+    with engine.connect() as c:
+        assert c.execute(text("select count(*) from project")).scalar_one() == count
+
+
+def test_unstorable_text_checked_after_token(api: tuple[TestClient, dict[str, str]]) -> None:
+    client, _ = api
+    r = client.post(
+        PATH, content='{"name": "a\\u0000b"}', headers={"content-type": "application/json"}
+    )
+    assert r.status_code in (401, 403) and error_code(r) != "VALIDATION_ERROR"
+
+
+def test_empty_multiline_and_unicode_text_still_accepted(
+    api: tuple[TestClient, dict[str, str]],
+) -> None:
+    a = create(api, name="Ünï ☃ 😀", description="")
+    b = create(api, name="B", description="  line1\n\tline2  \r\n日本語 😀")
+    assert a["name"] == "Ünï ☃ 😀" and a["description"] == ""
+    assert b["description"] == "  line1\n\tline2  \r\n日本語 😀"
+
+
 def test_unknown_and_malformed_ids(api: tuple[TestClient, dict[str, str]]) -> None:
     client, headers = api
     missing = uuid.uuid4()
