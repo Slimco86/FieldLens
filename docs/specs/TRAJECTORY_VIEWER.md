@@ -117,8 +117,24 @@ No source geometry is inferred from the conceptual design images.
 
 Planned checks: `uv run pytest backend/tests/engineering`, scene interaction tests,
 frontend type/build and browser TR-6/7. Record welleng/pyproj versions and transform
-operation/accuracy. Feature commits/results are not yet present. Propose minor;
+operation/accuracy. Propose minor;
 integration and resource cleanup follow the execution plan.
+
+### FL-006-A implementation status (not yet independently accepted)
+
+Package `backend/fieldlens/engineering/trajectory/` (NumPy only; no welleng/pyproj).
+Implemented, awaiting QA: TR-1 (`test_minimum_curvature`), TR-2
+(`test_survey_validation`), TR-3 (`test_closest_approach`). Not covered: TR-4..TR-7,
+pyproj CRS transforms and real-survey checkpoints (TR-7), API/job queue, the
+cross-bore real-data workload. Conventions: coordinates `(E, N, z-up)` in metres in the
+CRS grid; MD/inclination/azimuth in `Survey.md_unit` (m or ft) and degrees, originals kept;
+north reference true/grid/magnetic, with explicit `grid_convergence_deg`
+(grid = true - convergence) and `magnetic_declination_deg` (true = magnetic + declination),
+otherwise blocked. Explicit start position is required; a ~180 degree dogleg is blocked.
+Proximity: arcs are split until chord sagitta <= 0.01 m, exact polyline minimum with
+conservative AABB pruning, reported `error_bound_m` = sum of per-path sagitta bounds
+(<= 0.02 m); budget/deadline exhaustion returns `UNRESOLVED`. A distance is not proof of
+connectivity or safe clearance.
 
 ## Open Tensions
 
