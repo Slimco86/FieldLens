@@ -8,6 +8,25 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.5.0 - 2026-10-28
+
+- **FL-015-A / TASK-025:** Added persistent project list/create/open/edit APIs
+  and keyboard-accessible workspace navigation. Project switching discards stale
+  reads and save acknowledgements; reload restores the selected existing project.
+  Empty projects expose prerequisites without fabricated assets or upload controls.
+- Added typed project requests and cursor pagination, plus migration
+  `0002_project_lifecycle` for the existing 4000-character description contract
+  and newest-first index. Run `uv run alembic -c backend/alembic.ini upgrade head`;
+  valid foundation data is preserved. This is an additive feature, not a breaking
+  public-contract change.
+- Independent QA found invalid NUL input misreported as a storage failure.
+  Repaired NUL/unpaired-surrogate validation now returns typed 422 errors before
+  database access. Independent re-verification passed on `2af22aa`: 193 backend,
+  15 UI and 9 real API/PostgreSQL browser tests, plus invalid-text and migration
+  preservation probes. The browser runner supports real API process restarts.
+- Uploads/jobs and their workspace criteria remain the next packet. No original
+  source qualification, provider call, push, tag or publication is included.
+
 ## 0.4.0 - 2026-10-28
 
 First runnable local foundation. The owner accepted tested repair `95da2b7` and

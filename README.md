@@ -19,12 +19,13 @@ from uploaded evidence, not a pre-authored 3D scene with a chatbot attached.
 
 ## Current state
 
-The first foundation is implemented: a loopback FastAPI service, PostgreSQL
-migrations, typed/generated contracts and an accessible React readiness shell.
-QA's contract, focus, isolation, version and browser-tooling findings have been
-repaired and directly retested. The owner accepted direct verification as a
-one-time exception for foundation 0.4.0; future features still require independent
-QA. This is a runnable foundation, not the complete oilfield application.
+The local foundation and project lifecycle are implemented: a loopback FastAPI
+service, PostgreSQL migrations, typed/generated contracts and an accessible React
+workspace. Create, edit, reopen and switch between persistent projects; reload
+restores the selected existing project, and project switching rejects stale data.
+Sources/Reconstruction/Explore explain their prerequisites without fabricated
+assets. The lifecycle slice passed independent QA after its validation repair;
+uploads/jobs are next. This is not yet the complete oilfield application.
 The owner confirmed hybrid project uploads, explicit reconstruction review/
 publication and upload limits on October 28. F-12 generic/unlocated equipment
 and real discrepancies are intentional, visibly labelled demo cases.
@@ -41,7 +42,7 @@ Owner-confirmed submission: **indie track**, **public repository**, and a
 **three-minute recorded demo**. Containerized local execution is also acceptable.
 
 The **0.3.3** planning package was integrated in `9d630e3`.
-**0.4.0 is the accepted foundation version**; integration evidence is in the backlog.
+**0.5.0 adds the project workspace** to foundation 0.4.0; delivery evidence is in the backlog.
 See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 
 ## Run the foundation locally
@@ -81,9 +82,14 @@ uv run uvicorn fieldlens.app:create_app --factory --host 127.0.0.1 --port 8101
 ```
 
 Open **http://127.0.0.1:8101/**. Expect `Workspace` and `Local services ready.`
+Use the project list to create two projects, edit their descriptions and reopen
+them after reload or API restart. Existing foundation databases use the same
+startup commands: `upgrade head` applies `0002_project_lifecycle` without
+rewriting valid project rows.
 `/health` reports the installed package version derived from VERSION; `/ready`
 checks PostgreSQL, migration head and pgvector. After editing VERSION, run
-`uv sync --frozen` to refresh installed package metadata.
+`uv sync --frozen --reinstall-package fieldlens` to refresh installed package
+metadata; a plain frozen sync can retain the cached editable package version.
 
 For frontend development, keep the API running and run
 `npm --prefix frontend run dev` in another Node 24 terminal; open
@@ -96,9 +102,9 @@ docker compose --env-file .local/fieldlens/fl-004-a-foundation/db.env -f infra/c
 
 Refresh the still-running API page to see `Local services unavailable`. Start
 the DB with the `up -d --wait` command above, then activate Retry by keyboard.
-Focus stays on the main region during retry and after recovery. Project creation,
-upload, reconstruction and charts are subsequent packets, not missing controls
-in this foundation's scope.
+Focus stays on the main region during retry and after recovery. Upload,
+reconstruction and charts are subsequent packets; their prerequisites are visible
+inside each project.
 
 ## Tests
 

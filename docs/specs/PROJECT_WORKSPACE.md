@@ -4,7 +4,7 @@
 > **Load-bearing frameworks:** F1, F2, F3, F4. **Supporting:** F5, F6.
 > **Date:** 2026-10-28. **Author:** main orchestrator. **Decision owner:** project owner.
 > **Status:** First lifecycle and upload packets approved October 28 at 11:19 EDT.
-> **Delivery state:** TASK-025 implemented on `feature/fl-015-a-projects`; awaiting independent QA. Upload-dependent criteria remain pending.
+> **Delivery state:** TASK-025 independently accepted, integration pending as 0.5.0. Upload-dependent criteria remain pending.
 > **Approved revision / integration:** packet `9d630e3`; foundation integrated as 0.4.0 at `1293f55`.
 > **Zero-Question Score:** 0 unowned questions for the approved lifecycle slice.
 
@@ -156,12 +156,12 @@ Use real API/database persistence from the first browser checkpoint.
 The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
 specify the lifecycle and subsequent upload handoffs, including partial PW coverage.
 
-Verification, tested SHA and integration version: TASK-025 implementation checks ran
-on the feature branch (tested SHA recorded in the worker handoff); independent QA and
-integration are pending. Proposed implementation bump: minor (new project API,
-migration `0002_project_lifecycle`, project UI); no global release files were edited.
+Independent QA accepted `2af22aa7c91f36fc33a5ee015ae64ea2d0e3c8a0` after D1 repair.
+Final combined checks passed; integration is pending as 0.5.0. The minor bump adds
+project API/UI and migration `0002_project_lifecycle` without changing the
+foundation's public description limit or rewriting valid data.
 
-#### TASK-025 implementation record (not acceptance)
+#### TASK-025 scoped implementation and acceptance
 
 API: `GET/POST /api/v1/projects`, `GET/PATCH /api/v1/projects/{project_id}`. DTOs
 `ProjectCreate`, `ProjectUpdate`, `ProjectPage` reuse the foundation `Project` and
@@ -177,12 +177,24 @@ newest-first index; no data is rewritten.
 | PW-8 | `project-navigation.spec.ts` keyboard-only flow; delayed-A open and delayed-A save switched to B show no A content/ack; saved-ID reload and missing-ID explanation | |
 | SC-4 | Request keys include project ID; abort on switch; obsolete responses and acknowledgements rejected (unit + browser) | Context-kind/revision/as-of keys beyond project are later features |
 | PW-3/4/6/7 | Not run: require upload/storage/jobs | all |
-| QA D1 repair (not acceptance) | `ProjectCreate`/`ProjectUpdate` reject NUL and unpaired surrogates in name/description at the DTO boundary (typed 422 `VALIDATION_ERROR`, before any DB access). `test_unstorable_text_is_422_without_db_write` runs POST/PATCH × name/description × 6 escaped raw-JSON inputs on real PostgreSQL, asserting the 422 envelope, unchanged row/`updated_at` and no new project; plus token-before-validation and empty/multiline/Unicode acceptance. Pre-repair 18 of 25 failed; after repair backend 193 passed, ruff/mypy/contract drift clean | Independent re-verification pending |
+| QA D1 repair | `ProjectCreate`/`ProjectUpdate` reject NUL and unpaired surrogates at the DTO boundary with typed 422 errors. Parameterized real-DB regressions cover no writes, unchanged timestamps, token ordering and valid Unicode. Independent QA reproduced 20 invalid raw-JSON cases on `2af22aa`, all 422 with no stored-row change | None for this defect |
 
 Interaction unit tests (`tests/projects.test.tsx`) use a stubbed `fetch` and are not
 persistence evidence.
-Proposed implementation bump: minor; this specification-only update is a patch.
-Record exact runtime commands after foundation, not invented test successes.
+Independent re-verification: 69 focused project tests and 193 full backend tests,
+15 Vitest tests, frontend build and 9 Playwright tests passed. API restart and
+persistence use a real FastAPI process and PostgreSQL; unit UI fetches are stubs.
+An additional real-DB upgrade/downgrade/re-upgrade probe preserved an existing
+project row and removed/recreated the keyset index. Initial QA also exercised
+delayed failures/save acknowledgements, 53-project pagination, blocked browser
+storage and forged tokens. No provider/live-engineering acceptance is implied.
+
+Final release-tree checks were delegated to `fieldlens-task` (host-resolved
+`gpt-6.1-terra`, explicit low effort): 193 backend, 15 Vitest and 9 E2E tests,
+Ruff lint/format, scoped mypy, frontend lint/typecheck/contracts/build and
+whitespace checks passed. Installed metadata is 0.5.0 after
+`uv sync --frozen --reinstall-package fieldlens`; plain frozen sync had retained
+the cached 0.4.0 metadata, so README now documents the explicit refresh.
 
 ### TASK-025 execution allocation, October 28
 
