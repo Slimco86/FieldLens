@@ -84,7 +84,7 @@ before that gate; FL-002/FL-003 do not depend on each other.
 
 | Priority / checkpoint | Tasks | Dispatch condition / owner verification |
 |---|---|---|
-| P0: first persisted UI | TASK-001 -> TASK-003 -> TASK-025 -> TASK-006 | Foundation and project lifecycle integrated. TASK-006 upload/storage/jobs is next, with fresh per-assignment preflight; owner browser checkpoint A before broadening |
+| P0: first persisted UI | TASK-001 -> TASK-003 -> TASK-025 -> TASK-006 | Foundation, project lifecycle and TASK-006 upload/storage/jobs/source UI integrated (0.8.0). TASK-009 native profiles/evidence is next, with fresh per-assignment preflight; owner browser checkpoint A before broadening |
 | P0: independent evidence qualification | TASK-002 | Main-agent bounded source work or separately verified ingestion assignment; no fabricated G1 completion |
 | P0: early agent risk | TASK-004 -> TASK-005; TASK-009/011/019/027 | Offline adapter parallel after foundation; live caps and source subsets separately authorized; checkpoint B before full scene |
 | P0: visible quality and reconstruction | TASK-009 -> TASK-032; TASK-019/032 -> TASK-026; TASK-030/028 | Source issues before 3D; reviewed partial model; live reconstruction remains distinct from stubs |
@@ -153,6 +153,14 @@ line `"""Deterministic engineering computations."""` so the merge is conflict-fr
 may change shared contracts, registry, migrations, `app.py` and `generated.ts`. Synthetic
 fixtures only; zero provider calls. Merge order: B, C, then A (rebased on the latest `master`),
 each with a serially allocated version bump.
+
+**Outcome (October 29):** B merged as 0.6.0 (`f8f77d2`), C as 0.7.0 (`ff1ab04`), A as 0.8.0
+(`5a6d2fd`; backend `34e0c6d` + UI `fb275f4`, merged with master). Cleanup done: databases and
+roles `fieldlens_t006/7/8` dropped, lane worktrees and lane branches removed (non-forced),
+`.local/worktrees` and e2e storage removed. Only `fieldlens_app` (plus `postgres`) remains
+on the server, migrated to `0003_upload_jobs`. The old `fl-004-a-foundation` worktree no longer
+appears in `git worktree list`. The `feature/fl-004-a-foundation*`, `fl-015-a-projects` and
+`fl-018-dev-environment` branches pre-date this batch and were left untouched.
 
 ## Completed integration record
 
