@@ -63,6 +63,16 @@ an approved streaming profile/limit revision before accepting that file.
 Full acceptance includes IN-8; success on invented fixtures is not real ingestion
 verification. A supported format with an unknown schema returns `unsupported_profile`.
 
+**FL-005-A implementation status (TASK-006, not yet independently accepted).** Backend tests
+exist and passed on PostgreSQL for IN-1 (`test_upload_idempotency`), IN-3
+(`test_hostile_uploads`; inert ZIP central-directory and byte-wise DTD checks only), IN-4
+(`test_job_recovery`, `test_restart_persistence` with a real `kill -9`), IN-5
+(`test_revision_publication`) and IN-7 byte/file limits (`test_ingestion_limits`, exact
+boundary and +1). Not covered: IN-2/6/8, the 500-page PDF limit (needs a parser; deferred
+to TASK-009), parse-time XLSX XML DTD scanning, local-read latency/RSS benchmark, and the
+upload/source-list UI checks. Storage verification is not extraction: files are labelled
+`pending_extraction` or `unsupported`, never extracted.
+
 ## 4. Context and Decisions
 
 Executor: FL-005-A backend worker for upload/jobs/evidence UI; FL-005-B ingestion
