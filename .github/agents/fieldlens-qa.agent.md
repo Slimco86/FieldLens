@@ -1,7 +1,7 @@
 ---
 name: fieldlens-qa
 description: 'Independently verify FieldLens acceptance, provenance, temporal state and cross-feature behavior; design risk-based checks and perform browser/accessibility exploration. Report reproducible defects, not application fixes; known command-only runs belong to the task worker.'
-model: claude-sonnet-5.5
+model: Claude Sonnet 5.5 (copilot)
 reasoning-effort: medium
 user-invocable: false
 disable-model-invocation: false

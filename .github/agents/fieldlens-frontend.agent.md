@@ -1,7 +1,7 @@
 ---
 name: fieldlens-frontend
 description: 'Implement FieldLens React, strict TypeScript and Vite UI: linked selection, ECharts production/log charts, PDF.js evidence, async state, accessibility and bundle performance. Use for interconnected UI changes, not Three.js frame-loop engineering.'
-model: claude-sonnet-5.5
+model: Claude Sonnet 5.5 (copilot)
 reasoning-effort: medium
 user-invocable: false
 disable-model-invocation: false

@@ -1,7 +1,7 @@
 ---
 name: fieldlens-ingestion
 description: 'Implement FieldLens document ingestion, structured parsers, OCR, PDF/table extraction, page/cell provenance and extraction evaluation. Use for native versus Docling/MarkItDown decisions and incomplete/conflicting records, not retrieval ranking.'
-model: claude-sonnet-5.5
+model: Claude Sonnet 5.5 (copilot)
 reasoning-effort: medium
 user-invocable: false
 disable-model-invocation: false

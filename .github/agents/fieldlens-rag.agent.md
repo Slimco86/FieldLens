@@ -1,7 +1,7 @@
 ---
 name: fieldlens-rag
 description: 'Implement FieldLens hybrid/graph RAG, local embeddings, evidence chunks, Meta Muse Spark tools, citations and evaluations. Use for retrieval and bounded assistant workflows over validated claims, not OCR reconstruction or model-generated engineering.'
-model: claude-sonnet-5.5
+model: Claude Sonnet 5.5 (copilot)
 reasoning-effort: medium
 user-invocable: false
 disable-model-invocation: false

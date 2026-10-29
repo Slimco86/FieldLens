@@ -1,7 +1,7 @@
 ---
 name: fieldlens-plan-repair
 description: 'Resolve a bounded gap in an approved FieldLens plan: missing contract, conflicting requirements, dependency ordering or unresolved performance approach. Return evidence and a minimal spec amendment to the main orchestrator; never implement or take over global planning.'
-model: gpt-6.1-sol
+model: GPT-6.1 Sol (copilot)
 reasoning-effort: high
 tools: [read, search]
 user-invocable: false

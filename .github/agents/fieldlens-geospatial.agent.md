@@ -1,7 +1,7 @@
 ---
 name: fieldlens-geospatial
 description: 'Implement FieldLens deterministic engineering and geospatial computations: CRS/datum transforms, MD/TVD trajectories, closest approach, terrain/bathymetry alignment, formations and temporal perforated-length analytics. Not renderer geometry or reservoir simulation.'
-model: claude-sonnet-5.5
+model: Claude Sonnet 5.5 (copilot)
 reasoning-effort: medium
 user-invocable: false
 disable-model-invocation: false

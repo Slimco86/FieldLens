@@ -1,7 +1,7 @@
 ---
 name: fieldlens-research
 description: 'Research FieldLens public technical documentation, source feasibility, licenses and manufacturer equipment variants. Use for bounded high-quality web research with verified citations and counter-evidence; no implementation or private-data search.'
-model: claude-sonnet-5.5
+model: Claude Sonnet 5.5 (copilot)
 reasoning-effort: medium
 tools: [read, search, web]
 user-invocable: false

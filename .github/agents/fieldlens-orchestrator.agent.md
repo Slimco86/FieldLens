@@ -1,7 +1,7 @@
 ---
 name: fieldlens-orchestrator
 description: 'Main FieldLens planner and orchestrator. Use for global architecture, feature specifications, dependency planning, model-tier routing, serial feature-branch assignments, acceptance and integration; delegate application execution.'
-model: gpt-6-astra
+model: GPT-6 Astra (copilot)
 reasoning-effort: xhigh
 user-invocable: true
 disable-model-invocation: true

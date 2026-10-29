@@ -1,7 +1,7 @@
 ---
 name: fieldlens-task
 description: 'Execute fully specified low-risk FieldLens tasks cheaply: known test/build/lint commands, mechanical edits and exact-pattern boilerplate. Not for plan gaps, schema changes, novel engineering logic or interconnected debugging.'
-model: gpt-6.1-terra
+model: GPT-6.1 Terra (copilot)
 reasoning-effort: low
 user-invocable: false
 disable-model-invocation: false
