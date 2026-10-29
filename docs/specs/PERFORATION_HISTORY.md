@@ -240,6 +240,32 @@ replay tolerance is 1e-6 m; source mapping/tolerances remain PH-G1.
 Planned checks: `uv run pytest backend/tests/history`, frontend history/overlay
 interaction tests and type/build checks. These commands/tests are not yet created.
 
+## Implementation Status (FL-008-A engine, candidate; not verified)
+
+Pure-Python engine: `backend/fieldlens/engineering/perforation/`; tests:
+`backend/tests/engineering/perforation/` (`uv run pytest backend/tests/engineering/perforation`).
+Synthetic inputs only; independent QA has not accepted it.
+
+| Criterion | Status |
+|---|---|
+| PH-2, PH-3, PH-5, PH-7, PH-9 | Engine + unit tests (t0..t6 fixture, 1e-6 m). |
+| PH-6 | Engine part only: stable-ID helper, duplicate-import idempotence, same-ID/different-content rejection, `supersedes`/`dataset_revision` selection citing the correction. PostgreSQL persistence/revision tests **deferred** (no migration/DTO added). |
+| PH-1, PH-4, PH-8 | Not implemented (real sample; MD<->TVD inversion; API/UI). Recorded TVD is carried verbatim, derived TVD is never filled. |
+
+Conventions: `PerforationHistory.build(records, wellbore_id=, md_datum=)` validates each raw
+mapping into an event or an explicit `EventRejection`; `state_at(as_of_aware_datetime,
+dataset_revision, unit)` returns `PerforationState`. Exact `Decimal` metre arithmetic; only MD
+with the wellbore's declared datum is accepted. Event codes: baseline, perforate, reperforate,
+open, reopen, isolate (aliases squeeze/plug/shut_off), wellbore_status, interval_flow, retract;
+any other code is retained as unmapped and blocks dependent state (`partial`). Perforate does
+not open; isolate/open change access only. Instant events have a 1 µs window; day events need an
+explicit timezone and a local-day window. Events whose windows overlap are permuted
+(optional day events are also included/excluded); differing outcomes are reported as
+`UnresolvedCoverage` (axis, MD ranges, time window, event IDs) and lengths become bounds.
+Clusters over 6 events are reported unresolved. Status: unknown / partial (no baseline, unknown
+access, unmapped code) / conflicting / resolved. Open length is exact only when every perforated
+interval has known access. Day-range queries are not implemented (instant as-of only).
+
 ## Open Tensions
 
 The owner requests an as-of state at every date, but the source may not justify
