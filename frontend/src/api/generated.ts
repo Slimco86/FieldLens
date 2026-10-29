@@ -53,6 +53,108 @@ export interface paths {
         patch: operations["update_project_api_v1_projects__project_id__patch"];
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Documents */
+        get: operations["list_documents_api_v1_projects__project_id__documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/documents/{document_id}/classification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Classification */
+        patch: operations["update_classification_api_v1_projects__project_id__documents__document_id__classification_patch"];
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Import */
+        post: operations["create_import_api_v1_projects__project_id__imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_api_v1_projects__project_id__jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Job */
+        post: operations["cancel_job_api_v1_projects__project_id__jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/source-revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Revisions */
+        get: operations["list_revisions_api_v1_projects__project_id__source_revisions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ready": {
         parameters: {
             query?: never;
@@ -131,6 +233,11 @@ export interface components {
          */
         AsOf: components["schemas"]["InstantAsOf"] | components["schemas"]["DayAsOf"];
         /**
+         * AttemptStatus
+         * @enum {string}
+         */
+        AttemptStatus: "running" | "succeeded" | "failed" | "interrupted" | "cancelled";
+        /**
          * BlockedOperation
          * @enum {string}
          */
@@ -145,6 +252,11 @@ export interface components {
             /** Value */
             value: boolean;
         };
+        /**
+         * CategoriesOrigin
+         * @enum {string}
+         */
+        CategoriesOrigin: "none" | "upload_hint" | "user_override";
         /** Claim */
         Claim: {
             /** Attribute Key */
@@ -187,6 +299,18 @@ export interface components {
          * @description Typed claim value variants; arbitrary JSON is never accepted as engineering truth.
          */
         ClaimValue: components["schemas"]["QuantityValue"] | components["schemas"]["TextValue"] | components["schemas"]["BooleanValue"];
+        /**
+         * ClassificationUpdate
+         * @description User override; ``expected_metadata_version`` guards against stale edits (409).
+         */
+        ClassificationUpdate: {
+            /** Categories */
+            categories: components["schemas"]["DocumentCategory"][];
+            /** Expected Metadata Version */
+            expected_metadata_version: number;
+            /** Tags */
+            tags: string[];
+        };
         /** ConvertedTextLocator */
         ConvertedTextLocator: {
             /**
@@ -312,6 +436,63 @@ export interface components {
             tolerance: components["schemas"]["Quantity"] | null;
         };
         /**
+         * DocumentCategory
+         * @description Hybrid-label keys confirmed October 28. Labels are hints, not entity identity.
+         * @enum {string}
+         */
+        DocumentCategory: "trajectory" | "completion_equipment" | "perforation_history" | "production_injection" | "well_logs" | "geology_reservoir" | "terrain_bathymetry" | "general_report";
+        /**
+         * DocumentClassification
+         * @description Suggested labels and user labels keep distinct origins; neither is engineering evidence.
+         */
+        DocumentClassification: {
+            categories_origin: components["schemas"]["CategoriesOrigin"];
+            /** Classification Method */
+            classification_method: string;
+            /** Classification Version */
+            classification_version: string;
+            /** Metadata Version */
+            metadata_version: number;
+            /** Suggested Categories */
+            suggested_categories: components["schemas"]["DocumentCategory"][];
+            /** Tags */
+            tags: string[];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** User Categories */
+            user_categories: components["schemas"]["DocumentCategory"][];
+        };
+        /**
+         * DocumentListParams
+         * @description Document list query: defaults to the project's latest source revision.
+         */
+        DocumentListParams: {
+            /**
+             * Cursor
+             * @default null
+             */
+            cursor: string | null;
+            /**
+             * Limit
+             * @default 50
+             */
+            limit: number;
+            /**
+             * Source Revision Id
+             * @default null
+             */
+            source_revision_id: string | null;
+        };
+        /** DocumentPage */
+        DocumentPage: {
+            /** Items */
+            items: components["schemas"]["SourceDocumentItem"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
          * DraftContext
          * @description Candidate review only.
          */
@@ -426,6 +607,12 @@ export interface components {
              */
             source_revision_id: string | null;
         };
+        /**
+         * ExtractionState
+         * @description No reader exists in this slice: a file is pending extraction or explicitly unsupported.
+         * @enum {string}
+         */
+        ExtractionState: "pending_extraction" | "unsupported";
         /** HealthResponse */
         HealthResponse: {
             /**
@@ -435,6 +622,77 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * ImportAccepted
+         * @description HTTP 202 for a new import; 200 when the request was a replay or all-duplicate no-op.
+         */
+        ImportAccepted: {
+            /** Created Document Ids */
+            created_document_ids: string[];
+            /**
+             * Deduplicated
+             * @description True when every file already belonged to the current source revision (no new records).
+             */
+            deduplicated: boolean;
+            /**
+             * Document Ids
+             * @description Document IDs in request file order (duplicates map to their existing document).
+             */
+            document_ids: string[];
+            /** Job Id */
+            job_id: string | null;
+            /**
+             * Replayed
+             * @description True when the idempotency key matched an earlier identical request.
+             */
+            replayed: boolean;
+            /**
+             * Source Revision Id
+             * Format: uuid
+             */
+            source_revision_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "staging" | "ready" | "ready_with_issues" | "failed";
+        };
+        /**
+         * ImportFileMetadata
+         * @description Per-file hints for the *n*-th ``files`` part. Replacement is explicit, never by name.
+         */
+        ImportFileMetadata: {
+            /** Categories */
+            categories?: components["schemas"]["DocumentCategory"][];
+            /**
+             * Replaces Document Id
+             * @default null
+             */
+            replaces_document_id: string | null;
+            /** Tags */
+            tags?: string[];
+        };
+        /**
+         * ImportMetadata
+         * @description The first multipart part (``metadata``, JSON). ``expected_parent_source_revision_id``
+         *     must be sent (null for a first import); a stale parent returns 409.
+         */
+        ImportMetadata: {
+            /** Expected Parent Source Revision Id */
+            expected_parent_source_revision_id: string | null;
+            /** Files */
+            files: components["schemas"]["ImportFileMetadata"][];
+            /**
+             * Idempotency Key
+             * @default null
+             */
+            idempotency_key: string | null;
         };
         /** InstantAsOf */
         InstantAsOf: {
@@ -461,6 +719,152 @@ export interface components {
          * @enum {string}
          */
         IssueSeverity: "info" | "warning" | "error";
+        /** Job */
+        Job: {
+            /** Attempts */
+            attempts: components["schemas"]["JobAttempt"][];
+            /** Cancel Requested */
+            cancel_requested: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** @default null */
+            error: components["schemas"]["JobError"] | null;
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            kind: components["schemas"]["JobKind"];
+            progress: components["schemas"]["JobProgress"];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** @default null */
+            result: components["schemas"]["JobResult"] | null;
+            /**
+             * Source Revision Id
+             * Format: uuid
+             */
+            source_revision_id: string;
+            /**
+             * Stage
+             * @default null
+             */
+            stage: string | null;
+            status: components["schemas"]["JobStatus"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** JobAttempt */
+        JobAttempt: {
+            /** Attempt No */
+            attempt_no: number;
+            /**
+             * Ended At
+             * @default null
+             */
+            ended_at: string | null;
+            /**
+             * Error Code
+             * @default null
+             */
+            error_code: string | null;
+            /** Fencing Token */
+            fencing_token: number;
+            /**
+             * Heartbeat At
+             * Format: date-time
+             */
+            heartbeat_at: string;
+            /**
+             * Stage
+             * @default null
+             */
+            stage: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            status: components["schemas"]["AttemptStatus"];
+        };
+        /** JobError */
+        JobError: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * JobKind
+         * @enum {string}
+         */
+        JobKind: "storage_verification";
+        /**
+         * JobProgress
+         * @description Processed/total when known; never a fake percentage.
+         */
+        JobProgress: {
+            /**
+             * Processed
+             * @default null
+             */
+            processed: number | null;
+            /**
+             * Total
+             * @default null
+             */
+            total: number | null;
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+        };
+        /**
+         * JobResult
+         * @description Result of storage verification only. ``extraction_performed`` is always false here.
+         */
+        JobResult: {
+            /** Documents */
+            documents: number;
+            /**
+             * Extraction Performed
+             * @constant
+             */
+            extraction_performed: false;
+            /** Pending Extraction */
+            pending_extraction: number;
+            /** Quarantined */
+            quarantined: number;
+            /**
+             * Result Kind
+             * @constant
+             */
+            result_kind: "storage_verification";
+            /** Stored */
+            stored: number;
+            /** Unsupported */
+            unsupported: number;
+        };
+        /**
+         * JobStatus
+         * @enum {string}
+         */
+        JobStatus: "queued" | "running" | "succeeded" | "partial" | "failed" | "cancelled" | "interrupted";
         JsonValue: unknown;
         /**
          * Locator
@@ -870,6 +1274,12 @@ export interface components {
              * Format: uuid
              */
             document_id: string;
+            /**
+             * Format Family
+             * @description Detected container/format family from the file signature; never an engineering claim.
+             * @default unknown
+             */
+            format_family: string;
             /** Origin Metadata */
             origin_metadata?: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -885,6 +1295,67 @@ export interface components {
             sha256: string;
             /** Size Bytes */
             size_bytes: number;
+        };
+        /**
+         * SourceDocumentItem
+         * @description A project document as shown in the source list.
+         */
+        SourceDocumentItem: {
+            classification: components["schemas"]["DocumentClassification"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Detected Media Type
+             * @default null
+             */
+            detected_media_type: string | null;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            extraction_state: components["schemas"]["ExtractionState"];
+            /**
+             * Format Family
+             * @description Detected container/format family from the file signature; never an engineering claim.
+             * @default unknown
+             */
+            format_family: string;
+            /** Origin Metadata */
+            origin_metadata?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Original Filename */
+            original_filename: string;
+            /**
+             * Processing Detail
+             * @default null
+             */
+            processing_detail: string | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Replaces Document Id
+             * @default null
+             */
+            replaces_document_id: string | null;
+            /** Sha256 */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Source Revision Id
+             * Format: uuid
+             * @description The revision whose membership this row was read from.
+             */
+            source_revision_id: string;
+            storage_state: components["schemas"]["StorageState"];
         };
         /**
          * SourceEventTime
@@ -942,11 +1413,72 @@ export interface components {
             source_revision_id: string;
             status: components["schemas"]["SourceRevisionStatus"];
         };
+        /** SourceRevisionPage */
+        SourceRevisionPage: {
+            /** Items */
+            items: components["schemas"]["SourceRevisionSummary"][];
+            page: components["schemas"]["PageInfo"];
+        };
         /**
          * SourceRevisionStatus
          * @enum {string}
          */
         SourceRevisionStatus: "staging" | "ready" | "ready_with_issues" | "failed";
+        /**
+         * SourceRevisionSummary
+         * @description Revision plus honest storage/extraction counts; ``quarantined_count`` is surfaced.
+         */
+        SourceRevisionSummary: {
+            /** @default null */
+            coverage: components["schemas"]["Coverage"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Is Latest */
+            is_latest: boolean;
+            /**
+             * Job Id
+             * @default null
+             */
+            job_id: string | null;
+            /** @default null */
+            job_status: components["schemas"]["JobStatus"] | null;
+            /** Manifest Hash */
+            manifest_hash: string;
+            /** Member Count */
+            member_count: number;
+            /**
+             * Parent Source Revision Id
+             * @default null
+             */
+            parent_source_revision_id: string | null;
+            /** Pending Extraction Count */
+            pending_extraction_count: number;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Quarantined Count */
+            quarantined_count: number;
+            /**
+             * Source Revision Id
+             * Format: uuid
+             */
+            source_revision_id: string;
+            status: components["schemas"]["SourceRevisionStatus"];
+            /** Stored Count */
+            stored_count: number;
+            /** Unsupported Count */
+            unsupported_count: number;
+        };
+        /**
+         * StorageState
+         * @enum {string}
+         */
+        StorageState: "pending_verification" | "stored" | "quarantined";
         /**
          * SubjectType
          * @enum {string}
@@ -1014,6 +1546,19 @@ export interface components {
          * @enum {string}
          */
         TimePrecision: "instant" | "day" | "month" | "year" | "unknown";
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
         /**
          * ValidationState
          * @enum {string}
@@ -1363,6 +1908,485 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_documents_api_v1_projects__project_id__documents_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+                source_revision_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPage"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    update_classification_api_v1_projects__project_id__documents__document_id__classification_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassificationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceDocumentItem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_import_api_v1_projects__project_id__imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description n-th file aligns with metadata.files[n]. */
+                    files: string[];
+                    /** @description JSON; must be the first part. */
+                    metadata: components["schemas"]["ImportMetadata"];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportAccepted"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_job_api_v1_projects__project_id__jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    cancel_job_api_v1_projects__project_id__jobs__job_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_revisions_api_v1_projects__project_id__source_revisions_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceRevisionPage"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };
