@@ -130,6 +130,30 @@ are stopped; ignored task credentials and database volume are preserved.
 The unrelated Copilot-instructions edit and inactive worktree remain untouched.
 No push, tag, publication or paid provider call occurred.
 
+### Parallel lane allocation, October 29
+
+The owner approved (15:31-15:34 EDT) three concurrent lanes in separate worktrees,
+superseding the 14:47 EDT one-checkout rule for this batch only. TASK-004 is excluded.
+Base `73d4de2` (+ this allocation commit), target `master`, no push. Worktrees live under
+`/home/slimco/code/FieldLens/.local/worktrees/<lane>` (gitignored, inside the repo). Each has
+its own `.env` copy whose `POSTGRES_DB` names a lane database on the shared
+`fieldlens-postgres` server; tests still derive and drop `fieldlens_app_test_<8 hex>` siblings.
+**Cleanup duty:** after all lanes merge, drop `fieldlens_t006/t007/t008`, remove the lane
+worktrees/branches (non-forced) and lane storage, leaving only `fieldlens_app` for manual testing.
+Workers never edit VERSION, CHANGELOG, BACKLOG or agent configuration.
+
+| Lane | Task | Branch | Owner / QA | Owned paths | Resources |
+|---|---|---|---|---|---|
+| A | TASK-006 (FL-005-A): IN-1/3/4/5/7, PW-3/4/6/7 | `feature/fl-005-a-upload-jobs` | `fieldlens-backend` (API/jobs/UI), then separate `fieldlens-qa` | `backend/fieldlens/{ingestion,jobs,evidence}/`, upload DTOs/registry/generated client/migrations/app composition, `frontend/src/features/uploads/` (or the project source list), tests | DB `fieldlens_t006`, API 8101, Vite 5174, browser 9323 |
+| B | TASK-007 (FL-006-A): TR-1/2/3 | `feature/fl-006-a-trajectory-engine` | `fieldlens-geospatial`, then separate `fieldlens-qa` | `backend/fieldlens/engineering/trajectory/`, `backend/tests/engineering/trajectory/`, `numpy` in `pyproject.toml`/`uv.lock` | DB `fieldlens_t007`; no ports |
+| C | TASK-008 (FL-008-A): PH-2/3/5/6/7/9 (engine level) | `feature/fl-008-a-perforation-engine` | `fieldlens-geospatial`, then separate `fieldlens-qa` | `backend/fieldlens/engineering/perforation/`, `backend/tests/engineering/perforation/`; no dependency, contract, migration or app changes | DB `fieldlens_t008`; no ports |
+
+Lanes B/C each create `backend/fieldlens/engineering/__init__.py` with the identical single
+line `"""Deterministic engineering computations."""` so the merge is conflict-free. Only lane A
+may change shared contracts, registry, migrations, `app.py` and `generated.ts`. Synthetic
+fixtures only; zero provider calls. Merge order: B, C, then A (rebased on the latest `master`),
+each with a serially allocated version bump.
+
 ## Completed integration record
 
 | Field | FL-000 |
