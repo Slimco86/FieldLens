@@ -240,6 +240,56 @@ replay tolerance is 1e-6 m; source mapping/tolerances remain PH-G1.
 Planned checks: `uv run pytest backend/tests/history`, frontend history/overlay
 interaction tests and type/build checks. These commands/tests are not yet created.
 
+## Implementation Status (FL-008-A engine, implementation complete; pending independent acceptance)
+
+Pure-Python engine: `backend/fieldlens/engineering/perforation/`; tests:
+`backend/tests/engineering/perforation/` (`uv run pytest backend/tests/engineering/perforation`).
+Synthetic inputs only; independent QA has not accepted it.
+
+| Criterion | Status |
+|---|---|
+| PH-2, PH-3, PH-5, PH-7, PH-9 | Engine + unit tests (t0..t6 fixture, 1e-6 m). |
+| PH-6 | Engine part only: stable-ID helper, duplicate-import idempotence, same-ID/different-content rejection, `supersedes`/`dataset_revision` selection citing the correction. PostgreSQL persistence/revision tests **deferred** (no migration/DTO added). |
+| PH-1, PH-4, PH-8 | Not implemented (real sample; MD<->TVD inversion; API/UI). Recorded TVD is carried verbatim, derived TVD is never filled. |
+
+Conventions: `PerforationHistory.build(records, wellbore_id=, md_datum=)` validates each raw
+mapping into an event or an explicit `EventRejection`; `state_at(as_of_aware_datetime,
+dataset_revision, unit)` returns `PerforationState`. Exact `Decimal` metre arithmetic; only MD
+with the wellbore's declared datum is accepted, and any MD above 100,000 m after conversion is
+rejected (`implausible_depth`; arithmetic/date overflow is a per-event rejection too). Event
+codes: baseline, perforate, reperforate, open, reopen, isolate (aliases squeeze/plug/shut_off),
+wellbore_status, interval_flow, retract; any other code is retained as unmapped and blocks
+dependent state (`partial`). Perforate does not open; isolate/open change access only.
+
+Ordering: instant events have a 1 µs window; day events need an explicit timezone and cover the
+local day. Overlapping windows are *not* permuted wholesale. Events commute (need no ordering)
+unless they assign different values to the same state variable (perforated / access / interval
+flow / wellbore status) over overlapping MD ranges, or involve a different baseline. Only the
+connected non-commuting sub-groups (plus partially elapsed day-precision events, which may or may
+not have happened) are explored exactly (subset DP, at most 12 events and 32 candidate states).
+Differing outcomes become `UnresolvedCoverage` (axis, MD ranges, time window, event IDs) and
+lengths become bounds. Over budget: explicit `ambiguous_component_too_large`, a lowest/highest
+coverage bracket for total length, open bounds withheld, every interval row touching a forced
+group (all rows if it contains a baseline) reports no definite value (perforated None, access/flow
+`unknown`, all axes unresolved) and the wellbore status is `unknown` when a forced group holds a
+baseline or status event. Strict time order between non-overlapping windows inside a component is
+respected when exploring (only overlapping windows are mutually unordered). 20 same-instant perforates resolve
+exactly; 5,000 events in clusters of 5 answer `state_at` in about 0.1 s.
+
+Assumption pending owner confirmation (D5): the spec does not define same-instant baseline
+semantics; an instant baseline establishes the initial state at the START of its instant and
+precedes same-instant events. Two different baselines at one instant, or a baseline overlapping a
+date-only event window, remain unresolved.
+
+Corrections: a correction (`supersedes`) needs a later dataset revision and must supersede the
+latest correction in the chain (or the original); a second, later-revision correction of an
+already-corrected event is rejected (`invalid_supersession`), chained corrections work, and
+same-revision ties are rejected (`conflicting_supersession`).
+
+Status: unknown / partial (no baseline, unknown access, unmapped code) / conflicting / resolved.
+Open length is exact only when every perforated interval has known access. Day-range queries are
+not implemented (instant as-of only).
+
 ## Open Tensions
 
 The owner requests an as-of state at every date, but the source may not justify
