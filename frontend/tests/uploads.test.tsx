@@ -254,7 +254,9 @@ describe("upload form", () => {
     act(() => lastXhr().progress(10, 100));
     await user.click(await screen.findByRole("button", { name: "Abort upload" }));
     expect(lastXhr().aborted).toBe(true);
-    expect(await screen.findByRole("alert")).toHaveTextContent(/nothing was imported/i);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/nothing was imported/i);
+    await waitFor(() => expect(alert).toHaveFocus());
     expect(screen.getByRole("button", { name: "Upload 1 file(s)" })).toBeEnabled();
   });
 
@@ -415,6 +417,26 @@ describe("source list", () => {
     expect(screen.getByText("(superseded)", { exact: false })).toBeInTheDocument();
   });
 
+  it("does not call a never-current revision superseded; shows cancelled imports as Cancelled", async () => {
+    install((url) => {
+      if (url.includes("/source-revisions"))
+        return json(
+          page(
+            revision({
+              source_revision_id: R2, is_latest: false, status: "failed", job_status: "cancelled",
+              parent_source_revision_id: null, job_id: null,
+            }),
+          ),
+        );
+      if (url.includes("/documents?")) return json(page());
+    });
+    panel(null);
+    await screen.findByText(/Cancelled \(import stopped/);
+    expect(screen.getByText("(not current)", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("(superseded)", { exact: false })).toBeNull();
+    expect(screen.getByRole("region", { name: "Source revisions table" })).toHaveAttribute("tabindex", "0");
+  });
+
   it("polls an in-progress import, refreshes silently, and stops polling after unmount", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let status: "staging" | "ready" = "staging";
@@ -508,6 +530,8 @@ describe("classification edit", () => {
     panel(R1);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Edit labels for wells.csv" }));
+    await waitFor(() => expect(globalThis.document.activeElement).not.toBe(globalThis.document.body));
+    expect(screen.getByRole("form", { name: "Edit labels for wells.csv" }).contains(globalThis.document.activeElement)).toBe(true);
     await user.click(screen.getByLabelText("Well logs"));
     const tags = screen.getByLabelText("Tags (comma separated)");
     await user.clear(tags);

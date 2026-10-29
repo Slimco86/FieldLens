@@ -154,8 +154,13 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
   const [dragging, setDragging] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const idemKey = useRef<string | null>(null);
+  const failedRegion = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => () => controller.current?.abort(), []);
+  // The Abort button unmounts when the upload ends; keep focus on a persistent element.
+  useEffect(() => {
+    if (phase.kind === "failed") failedRegion.current?.focus();
+  }, [phase.kind]);
 
   const problems = validateSelection(entries.map((e) => e.file));
   const uploading = phase.kind === "uploading";
@@ -351,7 +356,7 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
         </div>
       )}
       {phase.kind === "failed" && (
-        <div role="alert">
+        <div role="alert" tabIndex={-1} ref={failedRegion}>
           <p>{phase.message}</p>
           {phase.detail !== null && <p>{phase.detail}</p>}
           {phase.requestId !== null && <p>Request ID: {phase.requestId}</p>}

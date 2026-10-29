@@ -84,7 +84,9 @@ test("UP-1: upload a CSV and an unknown text file, see honest statuses, dedupe, 
   await page.getByRole("button", { name: "Upload 1 file(s)" }).click();
   await expect(page.getByRole("progressbar", { name: "Upload progress" })).toBeVisible();
   await page.getByRole("button", { name: "Abort upload" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: /nothing was imported/i })).toBeVisible();
+  const abortAlert = page.getByRole("alert").filter({ hasText: /nothing was imported/i });
+  await expect(abortAlert).toBeVisible();
+  await expect(abortAlert).toBeFocused();
   held.release?.();
   await page.unroute(`**/api/v1/projects/${id}/imports`);
   const revisionsAfter = (await (await page.request.get(`/api/v1/projects/${id}/source-revisions`)).json()) as {
@@ -136,6 +138,7 @@ test("UP-2: classification edit is keyboard operable and persists", async ({ pag
   const edit = page.getByRole("button", { name: "Edit labels for perfs.csv" });
   await edit.focus();
   await page.keyboard.press("Enter");
+  await expect(page.getByRole("form", { name: "Edit labels for perfs.csv" }).locator(":focus")).toHaveCount(1);
   await page.getByLabel("Well logs").check();
   await page.getByLabel("Tags (comma separated)").fill("pilot, review");
   await page.getByRole("button", { name: "Save labels" }).click();

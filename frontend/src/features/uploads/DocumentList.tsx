@@ -61,6 +61,10 @@ function ClassificationEditor({ projectId, doc, onSaved, onClose }: EditorProps)
   const [failure, setFailure] = useState<Failure | null>(null);
   const [saving, setSaving] = useState(false);
   const ctl = useRef<AbortController | null>(null);
+  const firstControl = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    firstControl.current?.focus();
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -100,9 +104,10 @@ function ClassificationEditor({ projectId, doc, onSaved, onClose }: EditorProps)
       <p>Labels are your hints; they are never engineering evidence.</p>
       <fieldset>
         <legend>Categories for {doc.original_filename}</legend>
-        {CATEGORIES.map((c) => (
+        {CATEGORIES.map((c, i) => (
           <label key={c} className="check">
             <input
+              ref={i === 0 ? firstControl : undefined}
               type="checkbox"
               checked={selected.has(c)}
               onChange={(e) => {

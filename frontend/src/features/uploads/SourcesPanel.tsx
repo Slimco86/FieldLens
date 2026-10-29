@@ -13,6 +13,17 @@ const REVISION_STATUS_LABEL: Record<SourceRevisionSummary["status"], string> = {
   failed: "Failed",
 };
 
+/** A revision is "superseded" only if another listed revision names it as parent. */
+export function revisionMarker(r: SourceRevisionSummary, all: readonly SourceRevisionSummary[]): string {
+  if (r.is_latest) return "(latest)";
+  return all.some((o) => o.parent_source_revision_id === r.source_revision_id) ? "(superseded)" : "(not current)";
+}
+
+export function revisionStatusLabel(r: SourceRevisionSummary): string {
+  if (r.status === "failed" && r.job_status === "cancelled") return "Cancelled (import stopped; nothing was extracted)";
+  return REVISION_STATUS_LABEL[r.status];
+}
+
 export const isRevisionActive = (r: SourceRevisionSummary): boolean =>
   r.status === "staging" || isJobActive(r.job_status ?? null);
 
@@ -29,7 +40,11 @@ export function revisionWarnings(r: SourceRevisionSummary): string[] {
     out.push(`${r.quarantined_count} file(s) in this revision are quarantined.`);
   }
   if (r.status === "failed") {
-    out.push("This revision failed. Earlier revisions were not changed by it.");
+    out.push(
+      r.job_status === "cancelled"
+        ? "This import was cancelled. Earlier revisions were not changed by it."
+        : "This revision failed. Earlier revisions were not changed by it.",
+    );
   }
   if (r.is_latest && r.status !== "ready" && r.status !== "staging" && r.parent_source_revision_id !== null) {
     out.push(
@@ -111,6 +126,9 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
           <p role="status">An import is in progress; this list refreshes automatically.</p>
         )}
         {items.length > 0 && (
+          // Scrollable region must be keyboard focusable so keyboard users can scroll it.
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          <div role="region" aria-label="Source revisions table" tabIndex={0} style={{ overflowX: "auto", maxWidth: "100%" }}>
           <table>
             <caption>Source revisions, newest first</caption>
             <thead>
@@ -133,9 +151,9 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
               {items.map((r) => (
                 <tr key={r.source_revision_id}>
                   <th scope="row">
-                    <code>{r.source_revision_id}</code> {r.is_latest ? "(latest)" : "(superseded)"}
+                    <code>{r.source_revision_id}</code> {revisionMarker(r, items)}
                   </th>
-                  <td>{REVISION_STATUS_LABEL[r.status]}</td>
+                  <td>{revisionStatusLabel(r)}</td>
                   <td>{formatTime(r.created_at)}</td>
                   <td>{r.member_count}</td>
                   <td>{r.stored_count}</td>
@@ -166,6 +184,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {state.kind === "ready" && state.data.page.next_cursor !== null && state.data.page.next_cursor !== undefined && (
           <p>Only the {items.length} newest revisions are shown.</p>
