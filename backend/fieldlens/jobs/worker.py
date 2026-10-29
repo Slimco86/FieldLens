@@ -43,6 +43,8 @@ class JobWorker:
             return False
         pid = int(pid_text)
         if pid == os.getpid():
+            # Known limitation: another live worker in this same process (different owner id)
+            # is treated as dead; the app runs exactly one worker per process.
             return owner != self.owner
         try:
             os.kill(pid, 0)
@@ -143,8 +145,21 @@ class JobWorker:
         self._thread = threading.Thread(target=self._loop, name="fieldlens-jobs", daemon=True)
         self._thread.start()
 
+    def _sweep_staging(self) -> None:
+        try:
+            removed = self._store.sweep_staging(self._settings.staging_max_age_s)
+        except Exception as exc:
+            logger.error("staging sweep error: %s", type(exc).__name__)
+            return
+        if removed:
+            logger.info("removed %d abandoned staging directories", len(removed))
+
     def _loop(self) -> None:
+        next_sweep = 0.0
         while not self._stop.is_set():
+            if time.monotonic() >= next_sweep:
+                self._sweep_staging()
+                next_sweep = time.monotonic() + self._settings.staging_sweep_interval_s
             try:
                 handled = self.run_once()
             except Exception as exc:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
@@ -9,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
+from starlette.requests import ClientDisconnect
 
 from fieldlens import security
 from fieldlens.contracts.context import PageParams
@@ -26,6 +28,8 @@ from fieldlens.persistence.session import session_scope
 
 from . import repository
 from .upload import UploadLimits, check_content_length, receive_upload
+
+_log = logging.getLogger("fieldlens.ingestion")
 
 _ERRORS: dict[int | str, dict[str, Any]] = {
     403: {"model": ErrorEnvelope},
@@ -99,6 +103,18 @@ def _db(request: Request, fn: Any) -> Any:
         raise _unavailable() from exc
 
 
+def _discard_created(factory: Any, store: BlobStore, project_id: UUID, created: list[str]) -> None:
+    """Remove blobs a failed import created, unless a document row references them."""
+    if not created:
+        return
+    try:
+        with session_scope(factory) as session:
+            for sha in repository.unreferenced_shas(session, project_id, created):
+                store.remove_unpublished(blob_key(project_id, sha))
+    except Exception:  # noqa: BLE001 - best effort; the orphan stays harmless and unreferenced
+        _log.warning("could not discard blobs of a failed import")
+
+
 def build_ingestion_router() -> APIRouter:
     router = APIRouter(
         prefix="/api/v1/projects/{project_id}",
@@ -126,18 +142,38 @@ def build_ingestion_router() -> APIRouter:
             )
 
             def commit() -> ImportAccepted:
-                for staged in received.files:  # immutable originals first; DB decides visibility
-                    store.publish(staged.path, blob_key(project_id, staged.sha256))
                 factory = _factory(request)
+                created: list[str] = []  # blobs this request newly created
+
+                def publish_blobs() -> None:
+                    # runs only after every validation passed, under the project lock
+                    for staged in received.files:
+                        if store.publish(staged.path, blob_key(project_id, staged.sha256)):
+                            created.append(staged.sha256)
+
                 try:
                     with session_scope(factory) as session:
                         return repository.publish_import(
-                            session, project_id, received.metadata, received
+                            session,
+                            project_id,
+                            received.metadata,
+                            received,
+                            publish_blobs=publish_blobs,
                         )
-                except OperationalError as exc:
-                    raise _unavailable() from exc
+                except BaseException as exc:
+                    _discard_created(factory, store, project_id, created)
+                    if isinstance(exc, OperationalError):
+                        raise _unavailable() from exc
+                    raise
 
             accepted: ImportAccepted = await run_in_threadpool(commit)
+        except ClientDisconnect:
+            _log.warning("import upload aborted by client; staged data discarded")
+            return JSONResponse(
+                {"error": {"code": "client_disconnected", "message": "upload aborted"}},
+                status_code=400,
+                headers={"Cache-Control": "no-store"},
+            )
         finally:
             await run_in_threadpool(store.remove_staging, staging)
         new = accepted.job_id is not None and not accepted.replayed

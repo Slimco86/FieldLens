@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -110,6 +111,7 @@ def publish_import(
     project_id: UUID,
     metadata: ImportMetadata,
     received: ReceivedUpload,
+    publish_blobs: Callable[[], None] | None = None,
 ) -> ImportAccepted:
     """One transaction: documents, classification, staging revision, membership, job, batch.
     The project's latest-source pointer is NOT touched here; only a verified job moves it."""
@@ -305,6 +307,8 @@ def publish_import(
             "another import is still being processed for this project",
             reason="import_in_progress",
         ) from exc
+    if publish_blobs is not None:
+        publish_blobs()  # only after every validation passed, while the project lock is held
     return ImportAccepted(
         source_revision_id=revision_id,
         job_id=job_id,
@@ -314,6 +318,23 @@ def publish_import(
         document_ids=document_ids,
         created_document_ids=created,
     )
+
+
+def unreferenced_shas(session: Session, project_id: UUID, shas: list[str]) -> list[str]:
+    """Under the project lock, the subset of ``shas`` that no document of the project references
+    (race-safe basis for removing a blob a rejected import created)."""
+    lock_project(session, project_id)
+    referenced = set(
+        session.execute(
+            select(m.source_document.c.sha256).where(
+                and_(
+                    m.source_document.c.project_id == project_id,
+                    m.source_document.c.sha256.in_(shas),
+                )
+            )
+        ).scalars()
+    )
+    return [s for s in shas if s not in referenced]
 
 
 def _insert_document(session: Session, project_id: UUID, staged: Any, hints: Any) -> UUID:

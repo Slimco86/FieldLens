@@ -188,6 +188,10 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         worker = app.state.job_worker
+        try:
+            app.state.blob_store.sweep_staging(settings.staging_max_age_s)
+        except OSError:
+            pass
         if worker is not None and settings.job_worker_enabled:
             worker.start()
         yield

@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     job_heartbeat_seconds: float = Field(10.0, gt=0, le=10.0)
     job_poll_seconds: float = Field(0.5, gt=0, le=10.0)
     job_stage_delay_s: float = Field(0.0, ge=0, le=60.0)
+    staging_max_age_s: float = Field(3600.0, ge=0.5)
+    staging_sweep_interval_s: float = Field(600.0, ge=0.1)
     """Test-only pause after each stage step so restart/kill tests can interrupt a job."""
 
     @field_validator("storage_root")

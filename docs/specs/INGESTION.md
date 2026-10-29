@@ -73,6 +73,35 @@ to TASK-009), parse-time XLSX XML DTD scanning, local-read latency/RSS benchmark
 upload/source-list UI checks. Storage verification is not extraction: files are labelled
 `pending_extraction` or `unsupported`, never extracted.
 
+QA repairs (D1-D3) and behaviour notes:
+
+- A rejected or failed import (409 `stale_parent`/`import_in_progress`, idempotency
+  conflict, 503/DB failure) leaves no rows, no staging files and no new blob: blobs are
+  published only after every validation passed, under the project lock, and a later
+  failure removes just the blobs this request created and no document references
+  (re-checked under the project lock, so a blob referenced by a concurrent import is kept).
+  `test_upload_cleanup`.
+- Abandoned `storage/staging/<uuid>` directories (e.g. after `kill -9`) are swept at API
+  startup and periodically by the job loop when their newest mtime is older than
+  `staging_max_age_s` (default 3600 s). Staging of in-flight requests in this process is
+  never swept; symlinks are not followed. Follow-up (not implemented): a sweep of orphan
+  blobs (a blob left by a crash between publish and DB commit); it is harmless (unreferenced,
+  never served) but needs a race-safe reconciliation against `source_document`.
+- A client disconnect mid-upload is logged at warning level without filenames or tracebacks
+  and answered `400`; staging is discarded.
+- In-batch duplicate bytes collapse to one document that keeps the first file's filename
+  and hints; `ImportAccepted.document_ids` maps duplicates to the same id.
+- A partial (`ready_with_issues`) revision that quarantines or drops a previously good
+  document version still becomes the project's latest revision. UI note: surface
+  `SourceRevisionSummary.status`, `quarantined_count` and the per-document
+  `replaces_document_id` so users see that an older good version is no longer in the latest
+  revision.
+- `JobWorker._is_dead_owner` treats another worker in the same process (same pid, different
+  owner id) as dead; the app runs one worker per process, so this is a documented limit.
+- TASK-009 acceptance items (explicitly deferred): the 500-page PDF limit (page counting
+  needs the parser); parse-time XLSX XML DTD/XXE rejection and ZIP-entry scanning during
+  extraction, beyond the upload-time central-directory and byte-wise DTD checks.
+
 ## 4. Context and Decisions
 
 Executor: FL-005-A backend worker for upload/jobs/evidence UI; FL-005-B ingestion
