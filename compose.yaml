@@ -1,0 +1,59 @@
+# FieldLens local services (loopback only). One Compose project, one root .env.
+#
+#   uv run python scripts/init_env.py        # once: creates/extends the untracked .env
+#   docker compose up -d --wait              # PostgreSQL 17 + pgvector
+#   docker compose --profile test up -d --wait   # also the Playwright browser (tests only)
+#
+# Compose reads ./.env automatically; no --env-file or -p flag is needed.
+# Never run `docker compose down -v` unless you intend to delete the database volume.
+name: fieldlens
+
+services:
+  postgres:
+    # pgvector 0.8.1 on PostgreSQL 17; digest pinned 2026-10-28.
+    image: pgvector/pgvector:0.8.1-pg17@sha256:3e8b3adfd27b5707128f60956f62a793c3c9326ea8cfaf0eab7adccb5d700b21
+    container_name: fieldlens-postgres
+    restart: "no"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?missing in .env; run `uv run python scripts/init_env.py`}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing in .env; run `uv run python scripts/init_env.py`}
+      POSTGRES_DB: ${POSTGRES_DB:?missing in .env; run `uv run python scripts/init_env.py`}
+    ports:
+      - "127.0.0.1:${FIELDLENS_DB_PORT:-55432}:5432"
+    volumes:
+      - fieldlens_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Test-only Playwright browser server (Ubuntu 20.04 hosts cannot install Chromium for 1.64).
+  browser:
+    profiles: ["test"]
+    image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+    user: pwuser
+    init: true
+    ports:
+      - "127.0.0.1:9323:9323"
+    mem_limit: 1g
+    shm_size: 256m
+    volumes:
+      - ./frontend/node_modules:/opt/fieldlens/node_modules:ro
+    command:
+      - node
+      - /opt/fieldlens/node_modules/playwright/cli.js
+      - run-server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9323"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:9323/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  fieldlens_pgdata:
+    name: fieldlens_pgdata

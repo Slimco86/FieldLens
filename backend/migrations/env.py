@@ -43,9 +43,12 @@ def run_migrations_online() -> None:
     if supplied is not None:
         _run(supplied)
         return
+    # Same Settings path as the API: environment first, then the repository-root .env.
     url = Settings().database_url
     if url is None:
-        raise RuntimeError("FIELDLENS_DATABASE_URL is not set")
+        raise RuntimeError(
+            "FIELDLENS_DATABASE_URL is not configured; run `uv run python scripts/init_env.py`"
+        )
     parsed = make_url(url.get_secret_value())
     engine = create_engine(parsed, poolclass=pool.NullPool)
     with engine.connect() as connection:

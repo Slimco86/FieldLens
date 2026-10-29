@@ -1,4 +1,8 @@
-"""Typed, redacted application configuration (environment prefix ``FIELDLENS_``)."""
+"""Typed, redacted application configuration (environment prefix ``FIELDLENS_``).
+
+Values come from the process environment first, then the repository-root ``.env``.
+Pass ``_env_file=None`` for an explicit, file-independent configuration.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,8 @@ from typing import Any
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from fieldlens.localenv import ENV_FILE, REPO_ROOT
 
 LOOPBACK_NAMES = frozenset({"localhost"})
 DEFAULT_API_PORT = 8101
@@ -38,17 +44,26 @@ class Settings(BaseSettings):
     """Process configuration. Secret fields are never rendered by ``redacted()``."""
 
     model_config = SettingsConfigDict(
-        env_prefix="FIELDLENS_", extra="ignore", env_file=None, frozen=True
+        env_prefix="FIELDLENS_",
+        extra="ignore",  # unrelated .env keys (e.g. provider credentials) are never adopted
+        env_file=ENV_FILE,  # anchored to the repository root; real environment variables win
+        env_file_encoding="utf-8",
+        frozen=True,
     )
 
     host: str = "127.0.0.1"
     port: int = Field(DEFAULT_API_PORT, ge=1, le=65535)
     database_url: SecretStr | None = None
-    storage_root: Path = Path(".local/fieldlens/storage")
+    storage_root: Path = REPO_ROOT / ".local/fieldlens/storage"
     frontend_dist: Path = Path("frontend/dist")
     allowed_hosts: list[str] = Field(default_factory=_default_hosts)
     allowed_origins: list[str] = Field(default_factory=_default_origins)
     db_connect_timeout_s: int = Field(3, ge=1, le=30)
+
+    @field_validator("storage_root")
+    @classmethod
+    def _anchor_storage_root(cls, value: Path) -> Path:
+        return value if value.is_absolute() else REPO_ROOT / value
 
     @field_validator("host")
     @classmethod

@@ -129,7 +129,7 @@ frontend/src/
   features/{projects,upload,reconstruction,scene,equipment,history,context,production,logs,evidence,assistant}/
 frontend/tests/             interaction and browser acceptance
 tests/fixtures/             synthetic and redistribution-approved fixtures only
-infra/compose.yaml          PostgreSQL/pgvector; loopback port only
+infra/compose.yaml -> compose.yaml  PostgreSQL/pgvector + test-profile browser; loopback ports only (FL-018: root file)
 scripts/                    reviewed contract-export and verification commands
 ```
 

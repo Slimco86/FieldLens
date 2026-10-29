@@ -160,7 +160,7 @@ domain worker, not boilerplate routing. Orchestrator reviews UI composition.
 
 Owned planned files: root `pyproject.toml`, `uv.lock`, `.python-version`,
 `backend/fieldlens/{app.py,contracts,persistence}`, `backend/migrations`,
-`frontend/package.json`, lockfile, app/API shell, `infra/compose.yaml`,
+`frontend/package.json`, lockfile, app/API shell, `infra/compose.yaml` (now root `compose.yaml`, FL-018),
 `scripts/export_contracts.py`, test configuration and this spec.
 Later workers request dependency/shared-schema changes; they do not hand-edit locks.
 
@@ -216,9 +216,12 @@ npm --prefix frontend run build
 npm --prefix frontend run check:contracts
 ```
 
-Test configuration requires `FIELDLENS_TEST_DATABASE_URL` with a dedicated test
-database; absent/unsafe URLs fail explicitly. Live Meta tests require a separate
-opt-in marker and are excluded from ordinary runs.
+Test configuration (FL-018) derives a unique `fieldlens_app_test_<8 hex>` database from the
+root `.env`; `FIELDLENS_TEST_DATABASE_URL` is an optional validated override. Missing
+configuration or unsafe URLs fail explicitly (bootstrap: `uv run python scripts/init_env.py`).
+Live Meta tests require a separate
+opt-in marker and are excluded from ordinary runs. The verification record above is
+historical and used the former per-lane `db.env`/`infra/compose*.yaml` setup.
 Assignment resources and commit base are allocated by the execution plan at launch.
 The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
 define TASK-003 steps, exact planned files, tests, ownership and stop conditions.

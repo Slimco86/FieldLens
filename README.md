@@ -51,7 +51,7 @@ Requirements: Python 3.12 via uv, Node **24.22.2** (pinned in
 [.node-version](.node-version)), npm, and responsive Docker/Compose.
 No OS upgrade or global runtime replacement is required. Use your existing
 Node version manager. On the development WSL host, the already-installed runtime
-can be selected with:
+(a tooling path that stays where it is) is selected with:
 
 ```bash
 export PATH="$PWD/.local/fieldlens/fl-004-a-foundation/tools/node-v24.22.2-linux-x64/bin:$PATH"
@@ -59,27 +59,28 @@ uv sync --frozen
 npm --prefix frontend ci
 ```
 
-Run all following commands from the repository root. For a fresh checkout only,
-create the local credential file once (never regenerate it for an existing DB volume):
+That `PATH` line is the only export. Run all following commands from the repository
+root. One Compose project (`fieldlens`) owns every local container and one untracked
+root `.env` holds all local settings; the application, Alembic, tests and the E2E
+runner read it automatically, and Compose reads it next to `compose.yaml`.
+No credential exports, `--env-file` or `-p` flags are needed.
 
 ```bash
-umask 077
-mkdir -p .local/fieldlens/fl-004-a-foundation
-if [ ! -e .local/fieldlens/fl-004-a-foundation/db.env ]; then
-  FIELDLENS_DB_PASSWORD="$(uv run python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-  printf 'FIELDLENS_DB_PASSWORD=%s\n' "$FIELDLENS_DB_PASSWORD" > .local/fieldlens/fl-004-a-foundation/db.env
-fi
-set -a
-. .local/fieldlens/fl-004-a-foundation/db.env
-set +a
-export FIELDLENS_DATABASE_URL="postgresql+psycopg://fieldlens_fl004a:${FIELDLENS_DB_PASSWORD}@127.0.0.1:55432/fieldlens_fl004a_w1"
-export FIELDLENS_STORAGE_ROOT="$PWD/.local/fieldlens/fl-004-a-foundation/storage"
-
-docker compose --env-file .local/fieldlens/fl-004-a-foundation/db.env -f infra/compose.yaml up -d --wait
+uv run python scripts/init_env.py      # creates .env (mode 0600) or appends only missing keys
+docker compose up -d --wait            # PostgreSQL 17 + pgvector (container fieldlens-postgres)
 uv run alembic -c backend/alembic.ini upgrade head
 npm --prefix frontend run build
 uv run uvicorn fieldlens.app:create_app --factory --host 127.0.0.1 --port 8101
 ```
+
+The bootstrap generates the database password once, never overwrites or prints values,
+and keeps every existing line (such as `MODEL_API_KEY`) unchanged; application code,
+tests and scripts only load `FIELDLENS_*`/`POSTGRES_*` keys. [.env.example](.env.example)
+documents each key (role `fieldlens`, database `fieldlens_app`, port 55432, storage under
+`.local/fieldlens/storage`, volume `fieldlens_pgdata`). Real environment variables
+override `.env`. PostgreSQL fixes credentials when the volume is first initialized, so a
+changed password needs a new volume (a deliberate, manual step). The names are new: the
+earlier `fl004a`/`fl015a` containers/volumes are intentionally left untouched and unused.
 
 Open **http://127.0.0.1:8101/**. Expect `Workspace` and `Local services ready.`
 Use the project list to create two projects, edit their descriptions and reopen
@@ -94,10 +95,11 @@ metadata; a plain frozen sync can retain the cached editable package version.
 For frontend development, keep the API running and run
 `npm --prefix frontend run dev` in another Node 24 terminal; open
 http://127.0.0.1:5174/. Stop either foreground server with Ctrl+C. Stop only the
-foundation database, without deleting its volume:
+foundation database, without deleting its volume (use `docker compose down` to also
+remove the containers; never add `-v` unless you intend to delete the data):
 
 ```bash
-docker compose --env-file .local/fieldlens/fl-004-a-foundation/db.env -f infra/compose.yaml stop postgres
+docker compose stop postgres
 ```
 
 Refresh the still-running API page to see `Local services unavailable`. Start
@@ -108,11 +110,11 @@ inside each project.
 
 ## Tests
 
-Load the credential file and select Node 24 as above. Never use the application
-database or a demo database for tests:
+Select Node 24 as above; nothing else needs exporting. The test database is derived
+from `.env` as a unique `fieldlens_app_test_<8 hex>` sibling on the same server (never
+the application database); set `FIELDLENS_TEST_DATABASE_URL` only to override it:
 
 ```bash
-export FIELDLENS_TEST_DATABASE_URL="postgresql+psycopg://fieldlens_fl004a:${FIELDLENS_DB_PASSWORD}@127.0.0.1:55432/fieldlens_fl004a_w1_test_$(uv run python -c 'import secrets; print(secrets.token_hex(4))')"
 uv run pytest backend/tests
 uv run ruff check backend scripts
 uv run ruff format --check backend scripts
@@ -124,8 +126,10 @@ npm --prefix frontend run check:contracts
 npm --prefix frontend run build
 ```
 
-Missing/unsafe test URLs, connection-query overrides and ambient
-`PGHOSTADDR`/`PGSERVICE`/`PGSERVICEFILE` overrides fail explicitly.
+Missing database configuration (run `uv run python scripts/init_env.py`), unsafe test
+URLs, connection-query overrides and ambient
+`PGHOSTADDR`/`PGSERVICE`/`PGSERVICEFILE` overrides fail explicitly. DB-less tests use
+`Settings(_env_file=None)` and never read `.env`.
 Tests create/drop uniquely named sibling databases and deny external Python
 socket connections. Browser tests permit only local page requests.
 No default test makes a Meta/provider call.
@@ -137,12 +141,15 @@ Use the matching, digest-pinned Noble **test-only browser**; the application and
 Node 24 runner still execute on WSL. This also works without Docker host networking:
 
 ```bash
-docker compose -f infra/compose.browser.yaml up -d --wait
-export PW_TEST_CONNECT_WS_ENDPOINT=ws://127.0.0.1:9323/
-export PW_TEST_CONNECT_EXPOSE_NETWORK='<loopback>'
+docker compose --profile test up -d --wait    # adds only the browser to the running postgres
 npm --prefix frontend run test:e2e -- tests/e2e/readiness.spec.ts
-docker compose -f infra/compose.browser.yaml down
+docker compose --profile test down            # stops/removes both containers; the volume stays
 ```
+
+The runner takes the endpoint (`ws://127.0.0.1:9323/`) and network setting (`<loopback>`)
+from `.env` (`FIELDLENS_PW_CONNECT_WS_ENDPOINT`, `FIELDLENS_PW_EXPOSE_NETWORK`) and
+passes them to Playwright as `PW_TEST_CONNECT_*`; no exports are needed. To keep the
+database running, stop only the browser with `docker compose stop browser`.
 
 Port 9323 is published only on host loopback. The container listens on its private
 interface; the Playwright tunnel exposes only the runner's loopback destinations.
@@ -163,8 +170,9 @@ same real API/PostgreSQL. A test requests a **true API process restart** with
 (`FIELDLENS_E2E_CONTROL_DIR`), not an application endpoint. The runner stops and
 restarts its own uvicorn against the same database, so the session token is regenerated.
 Run everything with `npm --prefix frontend run test:e2e`, or one file as shown above.
-`FIELDLENS_STORAGE_ROOT`, when set, relocates the runner's `e2e` scratch directory. Native-browser hosts may omit the container and
-the two `PW_TEST_*` variables after installing the matching browser.
+`FIELDLENS_STORAGE_ROOT` (from `.env`) relocates the runner's `e2e` scratch directory.
+Native-browser hosts may omit the container and delete the two `FIELDLENS_PW_*` keys
+from `.env` after installing the matching browser (the runner then sets no `PW_TEST_*`).
 
 Verified versions and requirement-to-test evidence are recorded in
 [FOUNDATION](docs/specs/FOUNDATION.md). Generated client changes must come from

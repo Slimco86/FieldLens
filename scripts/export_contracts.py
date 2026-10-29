@@ -21,7 +21,9 @@ from fieldlens.config import Settings  # noqa: E402
 
 
 def build_openapi() -> str:
-    settings = Settings(database_url=None, frontend_dist=REPO / ".local" / "no-frontend-dist")
+    settings = Settings(
+        _env_file=None, database_url=None, frontend_dist=REPO / ".local" / "no-frontend-dist"
+    )
     return json.dumps(create_app(settings).openapi(), indent=2, sort_keys=True) + "\n"
 
 

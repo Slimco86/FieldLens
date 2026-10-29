@@ -223,7 +223,10 @@ the cached 0.4.0 metadata, so README now documents the explicit refresh.
   necessary E2E runner support, this spec and related README run instructions.
   Shared contracts/app composition are allocated serially to this worker.
   No worker edits to global VERSION, CHANGELOG, BACKLOG or agent configuration.
-- Resources: task-specific Compose project `fieldlens-fl015a`, container
+- Resources (**historical allocation, superseded by FL-018**: current local resources are
+  Compose project `fieldlens`, container `fieldlens-postgres`, volume `fieldlens_pgdata`,
+  role `fieldlens`, database `fieldlens_app`, tests `fieldlens_app_test_<8 hex>`, settings in the
+  root `.env`; see [DEV_ENVIRONMENT](DEV_ENVIRONMENT.md)): task-specific Compose project `fieldlens-fl015a`, container
   `fieldlens-fl015a-postgres`, volume
   `fieldlens-fl015a_fieldlens_fl004a_pgdata`, role `fieldlens_fl015a`,
   database `fieldlens_fl015a_w1`, loopback port 55432. The foundation container

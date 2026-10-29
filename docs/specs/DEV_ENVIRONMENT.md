@@ -105,7 +105,34 @@ No open questions: names, ports, profile layout and cleanup scope are decided ab
 Prefer small changes: pydantic-settings `env_file` anchored to the repo root with
 a `FIELDLENS_*`/`POSTGRES_*` filter for process environments, one shared loader
 reused by Alembic/test support/E2E, and Compose's native root `.env` handling.
-Verification record, tested SHA and version: pending.
+Implementation record (implementer view; independent QA pending):
+
+- Naming scheme: `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (shared by Compose and
+  the application), `FIELDLENS_DB_PORT`, `FIELDLENS_DATABASE_URL` (composed with `${VAR}`
+  interpolation, verified in Compose and python-dotenv), `FIELDLENS_STORAGE_ROOT`, and
+  `FIELDLENS_PW_CONNECT_WS_ENDPOINT`/`FIELDLENS_PW_EXPOSE_NETWORK` (mapped by the E2E runner to
+  `PW_TEST_CONNECT_*` so only `FIELDLENS_*`/`POSTGRES_*` keys are ever loaded). Required
+  variables use `:?` messages naming `uv run python scripts/init_env.py`.
+- Loader: `backend/fieldlens/localenv.py` (root `.env`, cwd-independent, filtered parse that
+  never reads other keys) plus `Settings.model_config["env_file"]` for the application and
+  Alembic. Test support derives `fieldlens_app_test_<8 hex>` unless
+  `FIELDLENS_TEST_DATABASE_URL` is set. Removed `infra/compose*.yaml`.
+- Tests: 26 new (`test_dotenv_loading`, `test_init_env`, derivation cases in
+  `test_test_isolation`); 219 backend, 15 Vitest, 9 E2E passed from `env -i`-style shells.
+
+| AC | Evidence (implementer) |
+|---|---|
+| AC-1 | `env -i ... docker compose up -d --wait` started only `fieldlens-postgres` (project `fieldlens`, volume `fieldlens_pgdata`); `--profile test` added only the browser |
+| AC-2 | `alembic -c backend/alembic.ini upgrade head` and uvicorn (started from `/tmp`) with no exports; `/ready` 200; project persistence across restart by E2E `project-lifecycle`; `test_dotenv_*` |
+| AC-3 | backend 219, Vitest 15, E2E 9 passed from `env -i` with no `PW_TEST_*`/credential/test-URL exports |
+| AC-4 | `test_real_environment_overrides_the_env_file`, `test_explicit_no_env_file_configuration_ignores_dotenv`, isolation tests (`demo`, app DB, legacy names) |
+| AC-5 | `test_init_env.py` (idempotence, byte-for-byte prefix, 0600, no printed values, password never overwritten) |
+| AC-6 | `test_loader_returns_only_fieldlens_and_postgres_keys_with_interpolation`, `test_provider_key_is_never_adopted_*`; `git check-ignore .env`; `.env.example` has no secret |
+| AC-7 | `test_missing_database_configuration_names_the_bootstrap_script`, updated unsafe-URL cases; Alembic error names the script |
+| AC-8 | `git grep` leaves only labeled historical/tooling references; lint, format, mypy, contracts, build pass |
+
+Tested SHA and release version: see the handoff/commit; version bump proposed (patch) by the
+implementer, applied by the orchestrator.
 
 ## Open Tensions
 

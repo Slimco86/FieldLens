@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -54,31 +55,34 @@ def count(url: URL) -> int:
 @pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.5", "example.com", "::"])
 def test_non_loopback_bind_host_is_rejected(host: str) -> None:
     with pytest.raises(ValidationError):
-        Settings(host=host)
+        Settings(_env_file=None, host=host)
 
 
 @pytest.mark.parametrize("host", ["127.0.0.1", "::1", "localhost"])
 def test_loopback_bind_host_is_accepted(host: str) -> None:
-    assert Settings(host=host).host == host
+    assert Settings(_env_file=None, host=host).host == host
 
 
 def test_non_psycopg_database_url_rejected() -> None:
     with pytest.raises(ValidationError):
-        Settings(database_url="sqlite:///x.db")
+        Settings(_env_file=None, database_url="sqlite:///x.db")
 
 
 def test_secret_configuration_is_redacted() -> None:
-    s = Settings(database_url="postgresql+psycopg://u:topsecret@127.0.0.1:1/db")
+    s = Settings(_env_file=None, database_url="postgresql+psycopg://u:topsecret@127.0.0.1:1/db")
     assert "topsecret" not in repr(s)
     assert "topsecret" not in str(s.redacted())
     assert s.redacted()["database_url"] == "***"
 
 
-def test_compose_binds_database_to_loopback_only() -> None:
-    text_ = (REPO / "infra" / "compose.yaml").read_text()
-    assert '"127.0.0.1:${FIELDLENS_DB_PORT:-55432}:5432"' in text_
-    assert "0.0.0.0" not in text_
-    assert "@sha256:" in text_  # image pinned by digest
+def test_compose_publishes_only_loopback_ports_with_pinned_images() -> None:
+    text_ = (REPO / "compose.yaml").read_text()
+    published = re.findall(r'ports:\n\s+- "([^"]+)"', text_)
+    assert len(published) == 2  # postgres and the test-profile browser
+    assert all(port.startswith("127.0.0.1:") for port in published)
+    assert "@sha256:" in text_  # images pinned by digest
+    assert text_.count("@sha256:") == 2
+    assert not (REPO / "infra").exists()
 
 
 def test_openapi_and_defaults_contain_no_secret_config() -> None:

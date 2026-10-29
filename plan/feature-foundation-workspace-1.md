@@ -78,6 +78,9 @@ exit criteria and section 6. Paths below are planned, not existing code.
    their predecessors are integrated. The orchestrator alone switches branches,
    after workers/checks/helpers stop. Do not create additional worktrees.
 4. Allocate lane 1 API `8101`, Vite `5174`, shared DB service loopback `55432`.
+   **Superseded by FL-018 ([spec](../docs/specs/DEV_ENVIRONMENT.md)):** one Compose project,
+   database `fieldlens_app`, role `fieldlens`, tests `fieldlens_app_test_<8 hex>`, settings in the
+   root `.env`; the per-lane names below are historical.
    Database names respectively `fieldlens_fl004a_w1`, `fieldlens_fl015a_w1`,
    `fieldlens_fl005a_w1`; test DBs append `_test_<run_id>` where run_id is eight
    lowercase hex characters generated at launch. Separate task-scoped roles.
@@ -103,7 +106,7 @@ exit criteria and section 6. Paths below are planned, not existing code.
 **Read:** FOUNDATION, SHARED_CONTRACTS, relevant QualityIssue contract and the
 architecture's local boundary/resource sections. Skills: relevant Python evidence
 and React UI guidance; no R3F, Blender, OCR or provider setup.
-**Own:** root Python manifests/lock, frontend manifests/lock/config, `infra/compose.yaml`,
+**Own:** root Python manifests/lock, frontend manifests/lock/config, `infra/compose.yaml` (now root `compose.yaml`, FL-018),
 `backend/fieldlens/{app.py,config.py,security.py,contracts/,persistence/}`,
 `backend/migrations/`, `frontend/src/{app/,api/}`, foundation tests,
 `scripts/export_contracts.py`, `.gitignore` additions and actual startup/test docs.

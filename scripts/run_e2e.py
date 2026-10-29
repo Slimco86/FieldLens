@@ -17,11 +17,29 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
+from fieldlens.localenv import load_local_env  # noqa: E402
 from tests import support  # noqa: E402
 
 API_PORT = 8101
 RESTART_TIMEOUT_S = 60
 SUITE_TIMEOUT_S = 300
+# .env key -> Playwright variable for the child process (a real exported variable wins).
+BROWSER_KEYS = {
+    "FIELDLENS_PW_CONNECT_WS_ENDPOINT": "PW_TEST_CONNECT_WS_ENDPOINT",
+    "FIELDLENS_PW_EXPOSE_NETWORK": "PW_TEST_CONNECT_EXPOSE_NETWORK",
+}
+
+
+def _browser_env(local: dict[str, str]) -> dict[str, str]:
+    """Playwright connection variables from .env unless already set in the environment."""
+    result: dict[str, str] = {}
+    for key, target in BROWSER_KEYS.items():
+        if os.environ.get(target):
+            continue
+        value = os.environ.get(key) or local.get(key)
+        if value:
+            result[target] = value
+    return result
 
 
 def _start_api(env: dict[str, str]) -> subprocess.Popen[bytes]:
@@ -106,7 +124,9 @@ def main() -> int:
             support.migrate(url)
         return 0
 
-    base = support.validate_test_database_url(os.environ.get(support.ENV_VAR))
+    base = support.resolve_test_database_url()
+    local = load_local_env()
+    browser_env = _browser_env(local)
     node = shutil.which("node")
     if node is None:
         raise RuntimeError("Node 24 is required on PATH")
@@ -117,25 +137,28 @@ def main() -> int:
             socket.SOL_SOCKET, socket.SO_REUSEADDR, 1
         )  # like uvicorn: ignore TIME_WAIT
         probe.bind(("127.0.0.1", API_PORT))
-    storage_base = os.environ.get("FIELDLENS_STORAGE_ROOT")
-    storage = (
-        Path(storage_base) / "e2e"
-        if storage_base
-        else ROOT / ".local/fieldlens/fl-004-a-foundation/tmp/e2e"
-    )
+    storage_base = os.environ.get("FIELDLENS_STORAGE_ROOT") or local.get("FIELDLENS_STORAGE_ROOT")
+    storage = Path(storage_base) if storage_base else ROOT / ".local/fieldlens/storage"
+    if not storage.is_absolute():
+        storage = ROOT / storage
+    storage = storage / "e2e"
     storage.mkdir(parents=True, exist_ok=True)
     with (
         support.temporary_database(base) as url,
         tempfile.TemporaryDirectory(prefix="control-", dir=storage) as control,
     ):
         support.migrate(url)
-        env = os.environ | {
-            "FIELDLENS_DATABASE_URL": url.render_as_string(hide_password=False),
-            "FIELDLENS_E2E_DATABASE_URL": url.render_as_string(hide_password=False),
-            "FIELDLENS_FRONTEND_DIST": str(ROOT / "frontend/dist"),
-            "FIELDLENS_STORAGE_ROOT": str(storage),
-            "FIELDLENS_E2E_CONTROL_DIR": control,
-        }
+        env = (
+            os.environ
+            | browser_env
+            | {
+                "FIELDLENS_DATABASE_URL": url.render_as_string(hide_password=False),
+                "FIELDLENS_E2E_DATABASE_URL": url.render_as_string(hide_password=False),
+                "FIELDLENS_FRONTEND_DIST": str(ROOT / "frontend/dist"),
+                "FIELDLENS_STORAGE_ROOT": str(storage),
+                "FIELDLENS_E2E_CONTROL_DIR": control,
+            }
+        )
         api = _start_api(env)
         try:
             _wait_ready(api)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 
 import pytest
@@ -25,9 +24,9 @@ def _deny_external_network() -> Iterator[None]:
 
 @pytest.fixture(scope="session")
 def test_database_base() -> URL:
-    """Validated URL from FIELDLENS_TEST_DATABASE_URL; fails explicitly if absent or unsafe."""
+    """Explicit override or a unique sibling derived from .env; fails explicitly if unsafe/absent."""
     try:
-        return support.validate_test_database_url(os.environ.get(support.ENV_VAR))
+        return support.resolve_test_database_url()
     except support.UnsafeTestDatabase as exc:
         pytest.fail(str(exc), pytrace=False)
 
@@ -59,7 +58,8 @@ def engine(migrated_url: URL) -> Iterator[Engine]:
 
 
 def settings_for(url: URL | None = None, **overrides: object) -> Settings:
+    """Explicit configuration: never reads the developer's .env (``_env_file=None``)."""
     values: dict[str, object] = dict(overrides)
     if url is not None:
         values["database_url"] = url.render_as_string(hide_password=False)
-    return Settings(**values)  # type: ignore[arg-type]
+    return Settings(_env_file=None, **values)  # type: ignore[arg-type]

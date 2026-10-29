@@ -279,7 +279,7 @@ Pending changes and inactive legacy worktrees are preserved; no automatic remova
   shared assistant harness. Feature specs define narrower single-writer ownership.
 - **FILE-002**: `frontend/src/`, `frontend/tests/` and npm manifests/lock:
   generated types, linked UI, scene, evidence and both chart families.
-- **FILE-003**: `infra/compose.yaml`, `scripts/`, `tests/fixtures/`: isolated local
+- **FILE-003**: `compose.yaml` (was `infra/compose.yaml`; FL-018), `.env.example`, `scripts/`, `tests/fixtures/`: isolated local
   service setup, contract generation and permitted deterministic fixtures.
 - **FILE-004**: Existing `docs/specs/`, `docs/BACKLOG.md`, `README.md`, `VERSION`
   and `CHANGELOG.md`: actual acceptance, operator instructions and serial integration.

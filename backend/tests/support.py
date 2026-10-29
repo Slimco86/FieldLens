@@ -15,41 +15,86 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
 
+from fieldlens.localenv import load_local_env
 from fieldlens.persistence.readiness import alembic_config
 
-# fieldlens_<slice>_w<lane>_test_<8 lowercase hex>
-TEST_DB_NAME = re.compile(r"^fieldlens_[a-z0-9]+_w[0-9]+_test_[0-9a-f]{8}$")
+# fieldlens_app_test_<8 lowercase hex>
+TEST_DB_NAME = re.compile(r"^fieldlens_app_test_[0-9a-f]{8}$")
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 ENV_VAR = "FIELDLENS_TEST_DATABASE_URL"
+APP_URL_VAR = "FIELDLENS_DATABASE_URL"
 
 
 class UnsafeTestDatabase(Exception):
     pass
 
 
+def _config_value(key: str, file_values: dict[str, str]) -> str | None:
+    """Real environment first, then the repository-root .env (FIELDLENS_/POSTGRES_ keys only)."""
+    return os.environ.get(key) or file_values.get(key) or None
+
+
+def resolve_test_database_url(file_values: dict[str, str] | None = None) -> URL:
+    """Explicit FIELDLENS_TEST_DATABASE_URL, else a unique sibling derived from the app DB.
+
+    The derived URL has the application URL's server and credentials but a fresh
+    ``fieldlens_app_test_<8 hex>`` database name; it never equals the application database.
+    """
+    values = load_local_env() if file_values is None else file_values
+    explicit = _config_value(ENV_VAR, values)
+    if explicit:
+        return validate_test_database_url(explicit)
+    app_raw = _config_value(APP_URL_VAR, values)
+    if not app_raw:
+        user, password, db, port = (
+            _config_value(k, values)
+            for k in ("POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "FIELDLENS_DB_PORT")
+        )
+        if not (user and password and db):
+            raise UnsafeTestDatabase(
+                "database configuration is missing; run `uv run python scripts/init_env.py` "
+                f"(or set {ENV_VAR} to a dedicated test database)."
+            )
+        app_raw = URL.create(
+            "postgresql+psycopg", user, password, "127.0.0.1", int(port or 55432), db
+        ).render_as_string(hide_password=False)
+    try:
+        app_url = make_url(app_raw)
+    except (ArgumentError, ValueError) as exc:
+        raise UnsafeTestDatabase(f"{APP_URL_VAR} is not a valid URL") from exc
+    derived = app_url.set(database=f"fieldlens_app_test_{secrets.token_hex(4)}")
+    if derived.database == app_url.database:
+        raise UnsafeTestDatabase("the test database must never be the application database")
+    return validate_test_database_url(derived.render_as_string(hide_password=False))
+
+
 def validate_test_database_url(raw: str | None) -> URL:
     """Fail explicitly for an absent or unsafe test database URL."""
     if not raw:
         raise UnsafeTestDatabase(
-            f"{ENV_VAR} is not set. Use a dedicated loopback PostgreSQL database named "
-            "fieldlens_<slice>_w<lane>_test_<8 lowercase hex>."
+            f"{ENV_VAR} is not set and no database configuration was found; run "
+            "`uv run python scripts/init_env.py`."
         )
     try:
         url = make_url(raw)
     except (ArgumentError, ValueError) as exc:
-        raise UnsafeTestDatabase(f"{ENV_VAR} is not a valid URL") from exc
+        raise UnsafeTestDatabase("the test database URL is not a valid URL") from exc
     if url.drivername != "postgresql+psycopg":
-        raise UnsafeTestDatabase(f"{ENV_VAR} must use postgresql+psycopg:// (never SQLite)")
+        raise UnsafeTestDatabase(
+            "the test database URL must use postgresql+psycopg:// (never SQLite)"
+        )
     if url.host not in LOOPBACK_HOSTS:
-        raise UnsafeTestDatabase(f"{ENV_VAR} must target a loopback host")
+        raise UnsafeTestDatabase("the test database URL must target a loopback host")
     if url.query:
-        raise UnsafeTestDatabase(f"{ENV_VAR} must not contain connection query overrides")
+        raise UnsafeTestDatabase(
+            "the test database URL must not contain connection query overrides"
+        )
     if any(os.environ.get(key) for key in ("PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE")):
         raise UnsafeTestDatabase("unset libpq host-address/service environment overrides for tests")
     name = url.database or ""
     if "demo" in name.lower() or not TEST_DB_NAME.fullmatch(name):
         raise UnsafeTestDatabase(
-            f"{ENV_VAR} database {name!r} is not a uniquely named test database"
+            f"test database {name!r} is not a uniquely named fieldlens_app_test_<8 hex> database"
         )
     return url
 
