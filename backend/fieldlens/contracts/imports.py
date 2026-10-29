@@ -13,7 +13,7 @@ from uuid import UUID
 from pydantic import AfterValidator, BeforeValidator, Field, model_validator
 
 from .base import ContractModel, UtcDatetime
-from .context import PageInfo
+from .context import PageInfo, PageParams
 from .identity import SourceDocument, SourceRevision
 
 MAX_TAGS = 20
@@ -169,6 +169,12 @@ class SourceDocumentItem(SourceDocument):
     replaces_document_id: UUID | None = None
     source_revision_id: UUID
     """The revision whose membership this row was read from."""
+
+
+class DocumentListParams(PageParams):
+    """Document list query: defaults to the project's latest source revision."""
+
+    source_revision_id: UUID | None = None
 
 
 class DocumentPage(ContractModel):

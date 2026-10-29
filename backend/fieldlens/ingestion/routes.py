@@ -15,6 +15,7 @@ from fieldlens.contracts.context import PageParams
 from fieldlens.contracts.errors import ContractError, ErrorCode, ErrorEnvelope
 from fieldlens.contracts.imports import (
     ClassificationUpdate,
+    DocumentListParams,
     DocumentPage,
     ImportAccepted,
     SourceDocumentItem,
@@ -160,13 +161,12 @@ def build_ingestion_router() -> APIRouter:
     def list_documents(
         project_id: UUID,
         request: Request,
-        params: Annotated[PageParams, Query()],
-        source_revision_id: UUID | None = None,
+        params: Annotated[DocumentListParams, Query()],
     ) -> DocumentPage:
         page: DocumentPage = _db(
             request,
             lambda s: repository.list_documents(
-                s, project_id, source_revision_id, params.limit, params.cursor
+                s, project_id, params.source_revision_id, params.limit, params.cursor
             ),
         )
         return page
