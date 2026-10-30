@@ -77,10 +77,16 @@ if `.env` is missing. Open **http://127.0.0.1:8101/** and expect `Workspace` and
 **Linked worktrees are lanes.** In a `git worktree` the directory name becomes the lane:
 database `fieldlens_<lane>` (created through the postgres container), API/Vite ports
 `8101/5174` plus a per-lane offset, storage `.local/fieldlens/storage-<lane>` and state in
-that worktree's `.local/run`. A derived `.env` (mode 0600, only `POSTGRES_*`/`FIELDLENS_*`
-keys) is written into the worktree; the main checkout's database, ports and storage are never
-touched. Drop a finished lane with `./dev down --drop-lane` (typed confirmation). In a lane
-the Vite proxy in `vite.config.ts` still targets port 8101; use the lane API port directly.
+that worktree's `.local/run`. A derived `.env` (mode 0600) is written into the worktree from an
+allowlist only (`POSTGRES_USER`/`PASSWORD`/`HOST`/`PORT`, `FIELDLENS_DB_PORT`) plus the lane's
+database URL, storage, `FIELDLENS_PORT` and `FIELDLENS_ALLOWED_HOSTS`/`_ORIGINS` for the lane's
+ports (the API otherwise answers 403 on offset ports); the main checkout's database, ports and
+storage are never touched. Drop a finished lane with `./dev down --drop-lane` (typed
+confirmation). If a lane `up` fails after creating its database, the database is kept and the
+exact `down --drop-lane` command is printed. Known limitation: `frontend/vite.config.ts` hardcodes
+the `/api` proxy to port 8101 (no env hook), so Vite in a lane proxies to the main API; use the
+lane API port directly. `up`/`down`/`restart`/`reset-data` take an exclusive lock
+(`.local/run/up.lock`); a concurrent one exits 1 with "another ./dev operation is running".
 
 **What `./dev up` does** (the manual equivalent, useful when debugging; run from the repository
 root with Node 24 first on `PATH`, for example

@@ -14,6 +14,8 @@ What ``./dev up`` automates (the manual equivalent):
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -27,7 +29,7 @@ import time
 import urllib.error
 import urllib.request
 import zlib
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -497,8 +499,8 @@ def wait_ready(ctx: Context, url: str, timeout: float, alive: Callable[[], bool]
     svc = ctx.services
     deadline = svc.clock.monotonic() + timeout
     while True:
-        if svc.http.status(url) == 200:
-            return True
+        if svc.http.status(url) == 200 and alive():
+            return True  # a 200 from some other process on the port does not count
         if not alive() or svc.clock.monotonic() >= deadline:
             return False
         svc.clock.sleep(0.5)
@@ -612,6 +614,30 @@ def lane_database_url(values: Mapping[str, str], database: str) -> str:
     )
 
 
+# Only these main-.env keys are copied into a lane .env (never provider/bot/other FIELDLENS_*).
+LANE_ENV_COPY = frozenset(
+    {
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_HOST",
+        "POSTGRES_PORT",
+        "FIELDLENS_DB_PORT",
+    }
+)
+
+
+def lane_server_env(lane: Lane) -> dict[str, str]:
+    """Port, allowed Host values and CORS origins for the lane's offset ports (JSON lists)."""
+    hosts = [
+        f"{h}:{p}" for p in (lane.api_port, lane.vite_port) for h in ("127.0.0.1", "localhost")
+    ]
+    return {
+        "FIELDLENS_PORT": str(lane.api_port),
+        "FIELDLENS_ALLOWED_HOSTS": json.dumps(hosts),
+        "FIELDLENS_ALLOWED_ORIGINS": json.dumps([f"http://{h}" for h in hosts]),
+    }
+
+
 def write_lane_env(ctx: Context, main_values: Mapping[str, str]) -> bool:
     """Create/refresh the derived lane ``.env`` (mode 0600). Returns whether it changed."""
     lane = ctx.lane
@@ -622,8 +648,9 @@ def write_lane_env(ctx: Context, main_values: Mapping[str, str]) -> bool:
             f"{target.name} exists in this worktree and was not derived by ./dev; "
             "move it away (it is never overwritten)"
         )
-    values = {k: v for k, v in main_values.items() if k.startswith(("POSTGRES_", "FIELDLENS_"))}
+    values = {k: v for k, v in main_values.items() if k in LANE_ENV_COPY and v}
     values["POSTGRES_DB"] = lane.database
+    values.update(lane_server_env(lane))
     values["FIELDLENS_DATABASE_URL"] = lane_database_url(main_values, lane.database)
     values["FIELDLENS_STORAGE_ROOT"] = str(lane.storage)
     body = LANE_ENV_MARKER + "".join(f"{k}={_quote_env(v)}\n" for k, v in sorted(values.items()))
@@ -655,7 +682,18 @@ class Frontend:
             base = root / sub
             if base.is_dir():
                 files += [p for p in base.rglob("*") if p.is_file()]
-        for name in ("index.html", "package.json", "package-lock.json", "vite.config.ts"):
+        for sub in ("frontend/scripts",):
+            base = root / sub
+            if base.is_dir():
+                files += [p for p in base.rglob("*") if p.is_file()]
+        for name in (
+            "index.html",
+            "package.json",
+            "package-lock.json",
+            "vite.config.ts",
+            ".npmrc",
+            "eslint.config.js",
+        ):
             files.append(root / "frontend" / name)
         files += list((root / "frontend").glob("tsconfig*.json"))
         files.append(root / "VERSION")
@@ -891,6 +929,7 @@ def cmd_up(
     elif not ctx.env_path.is_file():
         raise DevError(f"{ctx.env_path} is missing; run `{INIT_ENV_FIX}`")
 
+    created_db = False
     try:
         if not ctx.lane:
             run_logged(ctx, "init-env", _uv("python", "scripts/init_env.py"), env)
@@ -899,6 +938,7 @@ def cmd_up(
         if ctx.lane and not compose.database_exists(ctx.lane.database):
             ctx.say(f"creating lane database {ctx.lane.database}")
             compose.create_database(ctx.lane.database)
+            created_db = True
         migrate(ctx, env)
         if install and not frontend.deps_present():
             ctx.say("installing frontend dependencies (npm --prefix frontend ci)")
@@ -917,14 +957,24 @@ def cmd_up(
             _start_vite(ctx, vite, env, frontend, node_bin)
     except KeyboardInterrupt:
         _stop_started(ctx, api, vite)
+        _lane_db_kept(ctx, created_db)
         raise DevError(
             "interrupted; stopped what this run started (postgres left running)", 130
         ) from None
     except DevError:
         _stop_started(ctx, api, vite)
+        _lane_db_kept(ctx, created_db)
         raise
     summary(ctx, env, dev)
     return 0
+
+
+def _lane_db_kept(ctx: Context, created: bool) -> None:
+    if ctx.lane and created:
+        ctx.services.err(
+            f"dev: lane database {ctx.lane.database} was created by this run and is kept; "
+            f"remove it with: uv run python scripts/dev.py down --drop-lane"
+        )
 
 
 def _stop_started(ctx: Context, api: Managed, vite: Managed) -> None:
@@ -933,10 +983,42 @@ def _stop_started(ctx: Context, api: Managed, vite: Managed) -> None:
             proc.stop()
 
 
+def worktree_roots(ctx: Context) -> list[Path]:
+    roots = [ctx.main_root]
+    done = ctx.services.runner.run(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=ctx.main_root,
+        env=_git_env(ctx.services.environ),
+        timeout=20,
+    )
+    if done.returncode == 0:
+        for line in done.stdout.splitlines():
+            if line.startswith("worktree "):
+                roots.append(Path(line[len("worktree ") :].strip()))
+    return list(dict.fromkeys(roots))
+
+
+def other_holder(ctx: Context, port: int) -> str | None:
+    """A live ./dev-managed process (any checkout) recorded on ``port``, if detectable."""
+    for root in worktree_roots(ctx):
+        for name in ("api", "vite"):
+            try:
+                data = json.loads((root / ".local/run" / f"{name}.pid").read_text(encoding="utf-8"))
+                pid, recorded = int(data["pid"]), int(data["port"])
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+            cmd = ctx.services.procs.cmdline(pid)
+            if recorded == port and cmd and not (root == ctx.root and name in ctx.started):
+                return f"the ./dev {name} of {root} (pid {pid})"
+    return None
+
+
 def _preflight_port(ctx: Context, port: int, what: str) -> None:
     if not ctx.services.ports.is_free(port):
+        holder = other_holder(ctx, port)
+        who = holder or "a foreign process ./dev did not start"
         raise DevError(
-            f"port {port} ({what}) is in use by a process ./dev did not start; stop it or free "
+            f"port {port} ({what}) is in use by {who}; stop it or free "
             f"the port (find it with `ss -ltnp 'sport = :{port}'`) and rerun"
         )
 
@@ -951,6 +1033,8 @@ def _start_api(ctx: Context, api: Managed, env: Mapping[str, str]) -> None:
         "--port",
         str(ctx.api_port),
     )
+    if ctx.lane:  # explicit env wins over any inherited FIELDLENS_* value or file
+        env = {**env, **lane_server_env(ctx.lane)}
     pid = api.start(argv, env)
     ctx.say(f"started api (pid {pid}); waiting for {READY_PATH}")
     alive = lambda: api.pid() is not None  # noqa: E731
@@ -966,7 +1050,11 @@ def _start_vite(
     if not frontend.deps_present():
         raise DevError("frontend dependencies are missing; run `npm --prefix frontend ci`")
     if ctx.lane:
-        ctx.say("note: vite.config.ts proxies to port 8101; in a lane use the API port directly")
+        ctx.say(
+            f"note: frontend/vite.config.ts hardcodes the /api proxy to port {BASE_API_PORT} "
+            f"(no env hook), so Vite in a lane proxies to the main checkout's API; use the "
+            f"lane API directly at http://127.0.0.1:{ctx.api_port}/"
+        )
     argv = [
         str(node_bin / "node"),
         "frontend/node_modules/vite/bin/vite.js",
@@ -987,7 +1075,12 @@ def _start_vite(
 
 
 def confirm(ctx: Context, expected: str, what: str) -> None:
-    answer = ctx.services.prompt(f"Type {expected} to {what}: ").strip()
+    try:
+        answer = ctx.services.prompt(f"Type {expected} to {what}: ").strip()
+    except EOFError:
+        raise DevError(
+            "no confirmation could be read (stdin closed); nothing was changed"
+        ) from None
     if answer != expected:
         raise DevError("confirmation did not match; nothing was changed")
 
@@ -1360,6 +1453,21 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+@contextlib.contextmanager
+def operation_lock(ctx: Context) -> Iterator[None]:
+    """Exclusive non-blocking flock for the whole mutating command."""
+    path = ctx.ensure_run_dir() / "up.lock"
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise DevError("another ./dev operation is running") from None
+        yield
+    finally:
+        os.close(fd)  # closing releases the lock
+
+
 def main(
     argv: Sequence[str] | None = None,
     services: Services | None = None,
@@ -1372,29 +1480,36 @@ def main(
         return 0
     try:
         ctx = build_context(root, svc)
-        match args.command:
-            case "up":
-                return cmd_up(ctx, dev=args.dev, no_build=args.no_build, install=args.install)
-            case "down":
-                return cmd_down(ctx, db=args.db, drop_lane=args.drop_lane)
-            case "restart":
-                return cmd_restart(ctx)
-            case "status":
-                return cmd_status(ctx)
-            case "logs":
-                return cmd_logs(ctx, args.which, args.follow)
-            case "test":
-                return cmd_test(ctx, args.target)
-            case "reset-data":
-                return cmd_reset_data(ctx, force=args.force)
-            case "env-check":
-                return cmd_env_check(ctx)
+        with contextlib.ExitStack() as stack:
+            if args.command in ("up", "down", "restart", "reset-data"):
+                stack.enter_context(operation_lock(ctx))
+            return dispatch(ctx, args)
     except DevError as exc:
         svc.err(f"dev: {exc}")
         return exc.code
     except KeyboardInterrupt:
         svc.err("dev: interrupted")
         return 130
+
+
+def dispatch(ctx: Context, args: argparse.Namespace) -> int:
+    match args.command:
+        case "up":
+            return cmd_up(ctx, dev=args.dev, no_build=args.no_build, install=args.install)
+        case "down":
+            return cmd_down(ctx, db=args.db, drop_lane=args.drop_lane)
+        case "restart":
+            return cmd_restart(ctx)
+        case "status":
+            return cmd_status(ctx)
+        case "logs":
+            return cmd_logs(ctx, args.which, args.follow)
+        case "test":
+            return cmd_test(ctx, args.target)
+        case "reset-data":
+            return cmd_reset_data(ctx, force=args.force)
+        case "env-check":
+            return cmd_env_check(ctx)
     return 2
 
 
