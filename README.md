@@ -195,6 +195,18 @@ Tests create/drop uniquely named sibling databases and deny external Python
 socket connections. Browser tests permit only local page requests.
 No default test makes a Meta/provider call.
 
+**Provider adapter (`backend/fieldlens/assistant/`, offline only).** The suite
+`uv run pytest backend/tests/assistant -m "not live_meta"` runs the stub, recorded-replay and
+payload/parse layers against fixture Responses payloads and a throwaway PostgreSQL budget
+ledger; it spends nothing and the `MetaProvider` client is constructed but never called. The key
+is read only from the server environment (`FIELDLENS_META_API_KEY`); without it the provider
+raises `provider_unavailable` before any request. The ledger needs an owner-confirmed starting
+balance and a registered pricing revision before it reserves anything; limits (4 attempts, 6 tool
+calls, 90 s, 4,096 output tokens, USD 0.50 reserved, USD 150 ceiling) may only be lowered by
+`FIELDLENS_PROVIDER_*`/`FIELDLENS_BUDGET_*` settings, except `FIELDLENS_PROVIDER_MAX_TOOL_CALLS`,
+which is configurable (default 6, maximum 64). Live checks (`live_meta`, MI-6/TASK-005) are
+excluded and need explicit owner authorization.
+
 ### Playwright on this Ubuntu 20.04 / Docker Desktop host
 
 Playwright 1.64.1 no longer installs its Chromium build on Ubuntu 20.04.
