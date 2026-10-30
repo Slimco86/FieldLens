@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# One-command local stack. See docs/specs/DEV_TOOLING.md; run `./dev` for usage.
+set -euo pipefail
+
+self="${BASH_SOURCE[0]}"
+if command -v readlink >/dev/null 2>&1; then
+  self="$(readlink -f "$self")"
+fi
+here="$(cd "$(dirname "$self")" && pwd -P)"
+
+uv_bin="$(command -v uv || true)"
+if [ -z "$uv_bin" ]; then
+  for candidate in "$HOME/.local/bin/uv" "$HOME/.cargo/bin/uv" /usr/local/bin/uv; do
+    if [ -x "$candidate" ]; then
+      uv_bin="$candidate"
+      break
+    fi
+  done
+fi
+if [ -z "$uv_bin" ]; then
+  echo "dev: uv not found; install it (https://docs.astral.sh/uv/) and rerun" >&2
+  exit 1
+fi
+
+cd "$here"
+exec "$uv_bin" run --frozen python "$here/scripts/dev.py" "$@"
