@@ -304,6 +304,14 @@ embedding-model revision remain distinct.
 
 ## 8. Cleanup and completion
 
+**Progress reporting and tracker mirror.** The orchestrator sends a Telegram message at each
+transition (start, handoff, QA verdict, repair, merge/release, blocker, owner decision,
+cleanup) via `scripts/notify.py`; action-required messages carry the 🔴 ACTION NEEDED marker.
+`docs/BACKLOG.md` item blocks are validated by `uv run python scripts/track.py check` before
+every backlog commit and mirrored one way into the Taiga sprint `Hackathon` with
+`uv run python scripts/track.py sync --apply`. Tracker edits are overwritten; owner decisions
+go through the repository. Spec: [TRACKING](specs/TRACKING.md).
+
 After successful integration, record the target commit/version and actual test
 evidence in the backlog/spec. Stop owned helpers, confirm the branch's work is
 contained in the target, and inspect the shared checkout for pending work before

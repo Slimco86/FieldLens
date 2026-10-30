@@ -435,19 +435,19 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | in_progress |
+| Status | done |
 | Priority | P1 |
 | Tags | infra, docs |
 | Depends on | FL-018 |
 | Assignee | agent:fieldlens-backend |
-| Due | 2026-11-01 |
+| Due | 2026-10-29 |
 | Sprint | Hackathon |
 | Spec | specs/TRACKING.md |
-| Version | none |
+| Version | 0.12.0 |
 
-**Outcome.** Telegram notifications, a machine-checkable backlog ledger and one-way Taiga sync (sprint `Hackathon`); owner-approved October 29. Slice A (notify.py) is done as version 0.9.0; slice B is this ledger and `track.py check`, slice C is the Taiga sync.
-**Next action.** Finish slice B review, then slice C. Open: the Taiga project is public (decide private versus `TAIGA_ALLOW_PUBLIC`) and a dedicated bot is advised before enabling the inbox.
-**Evidence.** Slice A on `feature/fl-020-a-notify`: independent QA PASS after 2 repairs, 396 backend tests, version 0.9.0.
+**Outcome.** Telegram notifications, a machine-checkable backlog ledger and one-way Taiga sync (sprint `Hackathon`); owner-approved October 29. Slices A (notify.py, 0.9.0), B (ledger and `track.py check`, 0.11.0) and C (Taiga sync, 0.12.0) are integrated.
+**Next action.** Run `track.py sync --apply` after every backlog edit. Open follow-ups: owner accepted the public Taiga project (`TAIGA_ALLOW_PUBLIC=1`); a dedicated bot is advised before enabling the Telegram inbox; live `is_blocked=true` and 429/5xx paths were verified on fakes only.
+**Evidence.** Slice A on `feature/fl-020-a-notify`: independent QA PASS after 2 repairs, 396 backend tests, version 0.9.0. Slice B: independent QA PASS after 1 repair, 517 tests, 0.11.0. Slice C: independent QA PASS after 1 repair incl. live 8-item smoke with zero-write rerun, 536 tests, 0.12.0.
 
 ## Tasks
 

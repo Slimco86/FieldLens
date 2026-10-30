@@ -227,7 +227,7 @@ def test_conversion_inventory() -> None:
     assert sorted(tasks) == [f"TASK-{n:03d}" for n in range(1, 33)]
     by_id = led.by_id()
     assert by_id["FL-019"].status == "done" and by_id["FL-019"].version == "0.10.0"
-    assert by_id["FL-020"].status == "in_progress"
+    assert by_id["FL-020"].status == "done"
     for tid, version in {
         "TASK-003": "0.4.0",
         "TASK-025": "0.5.0",
@@ -267,10 +267,9 @@ def test_backlog_links_resolve() -> None:
 
 
 def test_plan_command_and_list(capsys: pytest.CaptureFixture[str]) -> None:
-    assert track.main(["plan"]) == 0
+    assert track.main(["plan", "--offline"]) == 0
     out = capsys.readouterr().out
     assert "feature: 21" in out and "task: 32" in out
-    assert "sync not available in this slice" in out
     assert track.main(["list", "--status", "done", "--tag", "foundation"]) == 0
     assert "FL-004" in capsys.readouterr().out
 

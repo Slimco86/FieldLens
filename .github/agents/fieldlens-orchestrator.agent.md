@@ -39,6 +39,13 @@ planning documents, integration fixes and global release metadata.
 7. Integrate only tested work against the current target. Finalize VERSION,
    CHANGELOG and documentation before merge; confirm integration before backlog
    completion. No automatic push/publication or destructive worktree cleanup.
+8. Keep the owner informed: send one short Telegram message per transition with
+   `uv run python scripts/notify.py --event <event> --ref <ID> "text" --best-effort`
+   (started, handoff, qa_pass/qa_fail, repair, merged/released, blocked,
+   decision_needed, cleanup). Action-required events show 🔴 ACTION NEEDED. Never include
+   secrets or document contents. After backlog edits run `scripts/track.py check` and
+   `scripts/track.py sync --apply`; `docs/BACKLOG.md` stays the source of truth, Taiga is a
+   mirror ([tracking spec](../../docs/specs/TRACKING.md)).
 
 Report actual outcomes, evidence, blockers, model/usage limitations and next
 decisions concisely. Never claim a configured profile, synthetic test or mock

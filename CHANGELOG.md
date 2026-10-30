@@ -8,6 +8,19 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.12.0 - 2026-10-29
+
+- **FL-020-C:** Added the one-way backlog -> Taiga mirror (`scripts/taiga_client.py`,
+  `track.py plan|sync [--apply] [--keep-drift] [--notify] [--only IDs]`): features become user
+  stories and tasks become tasks under their parent in sprint `Hackathon`, with tags (priority,
+  agent), status per spec 4.2, due dates, owner assignment, blocked flags/notes from unmet
+  dependencies and `#ref` dependency links. Idempotent against live state (detail fetch per
+  matched item), drift reported/overwritten, retries/re-auth, operation lock, atomic 0600 state
+  file, privacy/secret guards (refuses a public project without `TAIGA_ALLOW_PUBLIC=1`),
+  optional Telegram summary. Orchestrator profile and workflow now require Telegram progress
+  notifications. No application, API or schema change. Independent QA: live smoke (8 items,
+  zero-write rerun), 536 backend tests; live `is_blocked=true` and 429/5xx paths verified on fakes only.
+
 ## 0.11.0 - 2026-10-29
 
 - **FL-020-B:** `docs/BACKLOG.md` is now a machine-checkable ledger: one block per feature
