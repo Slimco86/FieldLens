@@ -15,7 +15,7 @@ from .production import ProductionWorkbookProfile
 from .types import Profile
 from .witsml import WitsmlProfile
 
-PROFILES: tuple[Profile, ...] = (
+PROFILES: tuple[Profile, ...] = (  # type: ignore[assignment]
     WitsmlProfile("trajectory"),
     WitsmlProfile("tubular"),
     WitsmlProfile("bha_run"),
@@ -47,6 +47,6 @@ def detect(path: Path, format_family: str, filename: str) -> list[Profile]:
         try:
             if profile.detect(path, format_family, filename):
                 found.append(profile)
-        except Exception:  # detection must never take the worker down
+        except Exception:  # noqa: S112 - detection must never take the worker down
             continue
     return found

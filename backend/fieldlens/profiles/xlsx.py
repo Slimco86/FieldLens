@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 
 from .safexml import split_name, stream_xml
 from .types import MAX_XLSX_MEMBER_BYTES, ProfileError
@@ -181,7 +181,7 @@ class Workbook:
     ) -> Iterator[tuple[int, list[Cell]]]:
         """Yield (row number, non-empty cells). Materialized per row via a buffered list."""
         result: list[tuple[int, list[Cell]]] = []
-        state: dict[str, object] = {"cur": None, "row": 0}
+        state: dict[str, Any] = {"cur": None, "row": 0}
         cells: list[Cell] = []
         in_is = 0
 
@@ -204,20 +204,20 @@ class Workbook:
             if local == "v":
                 state["v"] = text
             elif local == "t" and in_is:
-                state["is"].append(text)  # type: ignore[attr-defined]
+                state["is"].append(text)
             elif local == "is":
                 in_is -= 1
             elif local == "c" and state["cur"] is not None:
-                ref, typ, style = state["cur"]  # type: ignore[misc]
+                ref, typ, style = state["cur"]
                 m = _COL.match(ref)
-                col, row = (m.group(1), int(m.group(2))) if m else ("", int(state["row"]))  # type: ignore[arg-type]
-                cell = self._cell(ref, col, row, typ, style, state.get("v"), state.get("is"))  # type: ignore[arg-type]
+                col, row = (m.group(1), int(m.group(2))) if m else ("", int(state["row"]))
+                cell = self._cell(ref, col, row, typ, style, state.get("v"), state.get("is"))
                 if cell is not None:
                     cells.append(cell)
                 state["cur"] = None
             elif local == "row":
                 if cells:
-                    result.append((int(state["row"]), list(cells)))  # type: ignore[arg-type]
+                    result.append((int(state["row"]), list(cells)))
                     if stop_after is not None and len(result) >= stop_after:
                         raise _StopRows
                     if len(result) > max_rows:

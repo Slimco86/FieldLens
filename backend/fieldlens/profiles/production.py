@@ -183,15 +183,23 @@ class ProductionWorkbookProfile:
                 continue
             n += 1
             wellbore = (code_cell.text or "").strip()
-            well_name = (by_col.get(header.get("NPD_WELL_BORE_NAME", "")) or Cell("", "", 0, None)).text
+            well_name = (
+                by_col.get(header.get("NPD_WELL_BORE_NAME", "")) or Cell("", "", 0, None)
+            ).text
             subject: dict[str, Any] = {
                 "well_name": well_name,
                 "wellbore_name": wellbore,
                 "wellbore_label": wellbore,
                 "well_key": well_key(well_name) or well_key(wellbore),
-                "npd_wellbore_code": (by_col.get(header.get("NPD_WELL_BORE_CODE", "")) or Cell("", "", 0, None)).text,
-                "field_name": (by_col.get(header.get("NPD_FIELD_NAME", "")) or Cell("", "", 0, None)).text,
-                "facility_name": (by_col.get(header.get("NPD_FACILITY_NAME", "")) or Cell("", "", 0, None)).text,
+                "npd_wellbore_code": (
+                    by_col.get(header.get("NPD_WELL_BORE_CODE", "")) or Cell("", "", 0, None)
+                ).text,
+                "field_name": (
+                    by_col.get(header.get("NPD_FIELD_NAME", "")) or Cell("", "", 0, None)
+                ).text,
+                "facility_name": (
+                    by_col.get(header.get("NPD_FACILITY_NAME", "")) or Cell("", "", 0, None)
+                ).text,
             }
             if date_cell.is_date and date_cell.iso:
                 eff = event_time(date_cell.iso, "DATEPRD")
@@ -205,7 +213,9 @@ class ProductionWorkbookProfile:
                 _loc(DAILY, date_cell.ref),
                 original_text=date_cell.raw or date_cell.text,
                 text=date_cell.iso if date_cell.is_date else None,
-                unknown_reason=None if date_cell.is_date else "DATEPRD is not a date-formatted cell",
+                unknown_reason=None
+                if date_cell.is_date
+                else "DATEPRD is not a date-formatted cell",
                 reference="excel_serial_1900" if date_cell.is_date else None,
             )
             attrs.append(date_attr)
@@ -219,10 +229,14 @@ class ProductionWorkbookProfile:
                 col = header.get(col_name)
                 cell = by_col.get(col) if col else None
                 if cell is not None:
-                    attrs.append(text_attr(f"production_day.{key}", _loc(DAILY, cell.ref), cell.text))
+                    attrs.append(
+                        text_attr(f"production_day.{key}", _loc(DAILY, cell.ref), cell.text)
+                    )
             uom = by_col.get(header.get("AVG_CHOKE_UOM", ""))
             if uom is not None:
-                attrs.append(text_attr("production_day.avg_choke_uom", _loc(DAILY, uom.ref), uom.text))
+                attrs.append(
+                    text_attr("production_day.avg_choke_uom", _loc(DAILY, uom.ref), uom.text)
+                )
                 choke = next((a for a in attrs if a.key == "production_day.avg_choke_size_p"), None)
                 if choke is not None and uom.text:
                     choke.unit, choke.unit_status = uom.text.strip(), "stated"
@@ -255,23 +269,54 @@ class ProductionWorkbookProfile:
             if date_cell.iso:
                 month = date_cell.iso[:7]
                 for qk in ("bore_oil_vol", "bore_gas_vol", "bore_wat_vol", "bore_wi_vol"):
-                    a = next((x for x in attrs if x.key == f"production_day.{qk}"), None)
-                    sums[(str(subject["npd_wellbore_code"]), month)][qk].append(None if a is None else a.number)
+                    qa = next((x for x in attrs if x.key == f"production_day.{qk}"), None)
+                    sums[(str(subject["npd_wellbore_code"]), month)][qk].append(
+                        None if qa is None else qa.number
+                    )
         counts["daily_rows"] = n
         _unit_missing(findings, "daily", records)
-        _aggregate(findings, "daily_duplicate", REFERENCE_CONFLICT, "error", dups, records,
-                   "daily row(s) repeat an existing (wellbore, date); both are kept and none is summed away.",
-                   ["production_day.date"], ["calculation"])
-        _aggregate(findings, "daily_negative", SUSPICIOUS_VALUE, "warning", negative, records,
-                   "daily row(s) have a negative volume or hours value.",
-                   ["production_day.bore_oil_vol"], ["calculation"])
-        _aggregate(findings, "daily_hours_gt_24", SUSPICIOUS_VALUE, "warning", hours, records,
-                   "daily row(s) report more than 24 on-stream hours.",
-                   ["production_day.on_stream_hrs"], ["calculation"])
+        _aggregate(
+            findings,
+            "daily_duplicate",
+            REFERENCE_CONFLICT,
+            "error",
+            dups,
+            records,
+            "daily row(s) repeat an existing (wellbore, date); both are kept and none is summed away.",
+            ["production_day.date"],
+            ["calculation"],
+        )
+        _aggregate(
+            findings,
+            "daily_negative",
+            SUSPICIOUS_VALUE,
+            "warning",
+            negative,
+            records,
+            "daily row(s) have a negative volume or hours value.",
+            ["production_day.bore_oil_vol"],
+            ["calculation"],
+        )
+        _aggregate(
+            findings,
+            "daily_hours_gt_24",
+            SUSPICIOUS_VALUE,
+            "warning",
+            hours,
+            records,
+            "daily row(s) report more than 24 on-stream hours.",
+            ["production_day.on_stream_hrs"],
+            ["calculation"],
+        )
         for code, k in sorted(unknown_codes.items()):
             findings.append(
-                Finding(UNKNOWN_CODE, "info", f"{code} occurs in {k} row(s); not in the reviewed code list, kept verbatim.",
-                        f"daily_unknown_code:{code}", ["production_day.flow_kind"])
+                Finding(
+                    UNKNOWN_CODE,
+                    "info",
+                    f"{code} occurs in {k} row(s); not in the reviewed code list, kept verbatim.",
+                    f"daily_unknown_code:{code}",
+                    ["production_day.flow_kind"],
+                )
             )
 
     # -- monthly -------------------------------------------------------------------------
@@ -286,8 +331,13 @@ class ProductionWorkbookProfile:
         member = wb.sheet_member(MONTHLY)
         if member is None:
             findings.append(
-                Finding("EXTRACTION_PARTIAL", "warning", f"sheet '{MONTHLY}' is absent.",
-                        "monthly_sheet_missing", blocked=["calculation"])
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "warning",
+                    f"sheet '{MONTHLY}' is absent.",
+                    "monthly_sheet_missing",
+                    blocked=["calculation"],
+                )
             )
             counts["monthly_rows"] = 0
             return
@@ -302,8 +352,13 @@ class ProductionWorkbookProfile:
                 missing = MONTHLY_REQUIRED - set(header)
                 if missing:
                     findings.append(
-                        Finding("EXTRACTION_PARTIAL", "error", f"monthly sheet lacks columns {sorted(missing)}.",
-                                "monthly_columns_missing", blocked=["calculation"])
+                        Finding(
+                            "EXTRACTION_PARTIAL",
+                            "error",
+                            f"monthly sheet lacks columns {sorted(missing)}.",
+                            "monthly_columns_missing",
+                            blocked=["calculation"],
+                        )
                     )
                     counts["monthly_rows"] = 0
                     return
@@ -321,8 +376,13 @@ class ProductionWorkbookProfile:
             y, m = parse_number(year.text), parse_number(month.text)
             if y is None or m is None or not 1 <= m <= 12:
                 findings.append(
-                    Finding("EXTRACTION_PARTIAL", "warning", f"monthly row {rown} has an invalid year/month.",
-                            f"monthly_bad_period:{rown}", locators=[_loc(MONTHLY, f"A{rown}:J{rown}")])
+                    Finding(
+                        "EXTRACTION_PARTIAL",
+                        "warning",
+                        f"monthly row {rown} has an invalid year/month.",
+                        f"monthly_bad_period:{rown}",
+                        locators=[_loc(MONTHLY, f"A{rown}:J{rown}")],
+                    )
                 )
                 continue
             n += 1
@@ -334,19 +394,36 @@ class ProductionWorkbookProfile:
                 "wellbore_name": label,
                 "wellbore_label": label,
                 "well_key": well_key(label),
-                "npd_wellbore_code": (by_col.get(header.get("NPDCode", "")) or Cell("", "", 0, None)).text,
+                "npd_wellbore_code": (
+                    by_col.get(header.get("NPDCode", "")) or Cell("", "", 0, None)
+                ).text,
             }
             attrs = [
-                Attr("production_month.period", _loc(MONTHLY, f"{year.column}{rown}:{month.column}{rown}"),
-                     original_text=f"{year.text}/{month.text}", text=period)
+                Attr(
+                    "production_month.period",
+                    _loc(MONTHLY, f"{year.column}{rown}:{month.column}{rown}"),
+                    original_text=f"{year.text}/{month.text}",
+                    text=period,
+                )
             ]
             for col_name, key in MONTHLY_QUANTITIES.items():
-                col = header.get(col_name)
-                if col is None:
+                mcol = header.get(col_name)
+                if mcol is None:
                     continue
                 unit, uref = units.get(col_name, (None, None))
-                attrs.append(_q(MONTHLY, f"production_month.{key}", by_col.get(col), f"{col}{rown}", unit, uref))
-            rec = Rec("production_month", subject, _loc(MONTHLY, f"A{rown}:J{rown}"), attrs, eff, None)
+                attrs.append(
+                    _q(
+                        MONTHLY,
+                        f"production_month.{key}",
+                        by_col.get(mcol),
+                        f"{mcol}{rown}",
+                        unit,
+                        uref,
+                    )
+                )
+            rec = Rec(
+                "production_month", subject, _loc(MONTHLY, f"A{rown}:J{rown}"), attrs, eff, None
+            )
             records.append(rec)
             ordinal = len(records) - 1
             daily = sums.get((str(subject["npd_wellbore_code"]), period))
@@ -360,13 +437,27 @@ class ProductionWorkbookProfile:
         counts["monthly_rows"] = n
         if "Oil" in header and not units:
             findings.append(
-                Finding(MISSING_UNIT, "warning", "monthly sheet has no unit row; units are not assumed.",
-                        "monthly_units_missing", ["production_month.oil"], blocked=["calculation"])
+                Finding(
+                    MISSING_UNIT,
+                    "warning",
+                    "monthly sheet has no unit row; units are not assumed.",
+                    "monthly_units_missing",
+                    ["production_month.oil"],
+                    blocked=["calculation"],
+                )
             )
-        _aggregate(findings, "monthly_vs_daily_oil", REFERENCE_CONFLICT, "warning", conflicts, records,
-                   "monthly oil total(s) differ from the sum of the daily rows for the same wellbore and month "
-                   "(>1%); both values are kept, neither is preferred.",
-                   ["production_month.oil", "production_day.bore_oil_vol"], ["calculation"])
+        _aggregate(
+            findings,
+            "monthly_vs_daily_oil",
+            REFERENCE_CONFLICT,
+            "warning",
+            conflicts,
+            records,
+            "monthly oil total(s) differ from the sum of the daily rows for the same wellbore and month "
+            "(>1%); both values are kept, neither is preferred.",
+            ["production_month.oil", "production_day.bore_oil_vol"],
+            ["calculation"],
+        )
 
 
 def _unit_missing(findings: list[Finding], sheet: str, records: list[Rec]) -> None:
@@ -402,6 +493,14 @@ def _aggregate(
     if not ordinals:
         return
     findings.append(
-        Finding(code, severity, f"{len(ordinals)} {message}", key, attribute_keys, ordinals[:50],
-                [records[o].locator for o in ordinals[:5]], blocked)
+        Finding(
+            code,
+            severity,
+            f"{len(ordinals)} {message}",
+            key,
+            attribute_keys,
+            ordinals[:50],
+            [records[o].locator for o in ordinals[:5]],
+            blocked,
+        )
     )

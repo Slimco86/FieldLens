@@ -267,7 +267,9 @@ document_processing = Table(
         name="storage_state_known",
     ),
     CheckConstraint(
-        "extraction_state IN ('pending_extraction','unsupported')", name="extraction_state_known"
+        "extraction_state IN ('pending_extraction','unsupported','extracted',"
+        "'extracted_with_issues','extraction_failed')",
+        name="extraction_state_known",
     ),
 )
 
@@ -433,4 +435,102 @@ import_batch = Table(
         unique=True,
         postgresql_where=text("idempotency_key IS NOT NULL"),
     ),
+)
+
+
+RUN_STATUSES = ("queued", "running", "succeeded", "partial", "failed", "interrupted", "unsupported")
+
+extraction_run = Table(
+    "extraction_run",
+    metadata,
+    _uuid_pk("run_id"),
+    Column("project_id", UUID(as_uuid=True), nullable=False),
+    Column("document_id", UUID(as_uuid=True), nullable=False),
+    Column("source_revision_id", UUID(as_uuid=True), nullable=False),
+    Column("profile_name", String(64), nullable=True),
+    Column("profile_version", String(32), nullable=True),
+    Column("method", String(64), nullable=True),
+    Column("content_sha256", String(64), nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("attempt_no", Integer, nullable=False, server_default=text("0")),
+    Column("lease_owner", String(128), nullable=True),
+    Column("lease_expires_at", DateTime(timezone=True), nullable=True),
+    Column("coverage", JSONB, nullable=True),
+    Column("summary", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("error", JSONB, nullable=True),
+    Column("superseded", Boolean, nullable=False, server_default=text("false")),
+    Column("queued_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    Column("started_at", DateTime(timezone=True), nullable=True),
+    Column("finished_at", DateTime(timezone=True), nullable=True),
+    ForeignKeyConstraint(
+        ["project_id", "document_id"],
+        ["source_document.project_id", "source_document.document_id"],
+        name="fk_extraction_run_document_scope",
+    ),
+    ForeignKeyConstraint(
+        ["project_id", "source_revision_id"],
+        ["source_revision.project_id", "source_revision.source_revision_id"],
+        name="fk_extraction_run_revision_scope",
+    ),
+    CheckConstraint(
+        "status IN (" + ", ".join(f"'{c}'" for c in RUN_STATUSES) + ")", name="status_known"
+    ),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="sha256"),
+    UniqueConstraint("project_id", "run_id", name="uq_extraction_run_project_run"),
+    Index(
+        "uq_extraction_run_one_current_per_document",
+        "document_id",
+        unique=True,
+        postgresql_where=text("NOT superseded"),
+    ),
+)
+
+extracted_record = Table(
+    "extracted_record",
+    metadata,
+    _uuid_pk("record_id"),
+    Column("project_id", UUID(as_uuid=True), nullable=False),
+    Column("run_id", UUID(as_uuid=True), nullable=False),
+    Column("document_id", UUID(as_uuid=True), nullable=False),
+    Column("ordinal", Integer, nullable=False),
+    Column("kind", String(48), nullable=False),
+    Column("subject", JSONB, nullable=False),
+    Column("locator", JSONB, nullable=False),
+    Column("effective_time", JSONB, nullable=True),
+    Column("report_time", JSONB, nullable=True),
+    Column("validation_state", String(16), nullable=False),
+    Column("attributes", JSONB, nullable=False),
+    ForeignKeyConstraint(
+        ["project_id", "run_id"],
+        ["extraction_run.project_id", "extraction_run.run_id"],
+        name="fk_extracted_record_run_scope",
+        ondelete="CASCADE",
+    ),
+    UniqueConstraint("run_id", "ordinal", name="uq_extracted_record_run_ordinal"),
+    Index("ix_extracted_record_run_kind", "run_id", "kind", "ordinal"),
+)
+
+extraction_issue = Table(
+    "extraction_issue",
+    metadata,
+    Column("issue_id", UUID(as_uuid=True), primary_key=True),
+    Column("project_id", UUID(as_uuid=True), nullable=False),
+    Column("run_id", UUID(as_uuid=True), nullable=False),
+    Column("producer_key", String(256), nullable=False),
+    Column("code", String(48), nullable=False),
+    Column("severity", String(16), nullable=False),
+    Column("message", Text, nullable=False),
+    Column("attribute_keys", ARRAY(Text), nullable=False, server_default=text("'{}'")),
+    Column("record_ordinals", ARRAY(Integer), nullable=False, server_default=text("'{}'")),
+    Column("locators", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("blocked_operations", ARRAY(Text), nullable=False, server_default=text("'{}'")),
+    Column("coverage", JSONB, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    ForeignKeyConstraint(
+        ["project_id", "run_id"],
+        ["extraction_run.project_id", "extraction_run.run_id"],
+        name="fk_extraction_issue_run_scope",
+        ondelete="CASCADE",
+    ),
+    UniqueConstraint("run_id", "producer_key", name="uq_extraction_issue_run_key"),
 )

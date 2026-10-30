@@ -174,26 +174,42 @@ class PerforationTableProfile:
                 "wellbore_suffix": wellbore_suffix(well),
             }
             attrs = [
-                text_attr("perforation.formation", _loc(ln, "Top formation"), v.get("Top formation")),
+                text_attr(
+                    "perforation.formation", _loc(ln, "Top formation"), v.get("Top formation")
+                ),
                 text_attr("perforation.obs_no", _loc(ln, "Perf obs#"), v.get("Perf obs#")),
-                text_attr("perforation.completion_obs_no", _loc(ln, "Compl obs#"), v.get("Compl obs#")),
+                text_attr(
+                    "perforation.completion_obs_no", _loc(ln, "Compl obs#"), v.get("Compl obs#")
+                ),
                 _depth_attr("perforation.top_md", ln, "Top MD", v.get("Top MD"), "MD"),
                 _depth_attr("perforation.base_md", ln, "Base MD", v.get("Base MD"), "MD"),
                 _depth_attr("perforation.top_tvd", ln, "Top TVD", v.get("Top TVD"), "TVD"),
                 _depth_attr("perforation.base_tvd", ln, "Base TVD", v.get("Base TVD"), "TVD"),
                 _depth_attr("perforation.top_tvdss", ln, "Top TVDSS", v.get("Top TVDSS"), "TVDSS"),
-                _depth_attr("perforation.base_tvdss", ln, "Base TVDSS", v.get("Base TVDSS"), "TVDSS"),
-                _depth_attr("perforation.top_easting", ln, "Top easting", v.get("Top easting"), None),
-                _depth_attr("perforation.top_northing", ln, "Top northing", v.get("Top northing"), None),
+                _depth_attr(
+                    "perforation.base_tvdss", ln, "Base TVDSS", v.get("Base TVDSS"), "TVDSS"
+                ),
+                _depth_attr(
+                    "perforation.top_easting", ln, "Top easting", v.get("Top easting"), None
+                ),
+                _depth_attr(
+                    "perforation.top_northing", ln, "Top northing", v.get("Top northing"), None
+                ),
                 text_attr("perforation.perf_type", _loc(ln, "Perf type"), v.get("Perf type")),
-                text_attr("perforation.current_status", _loc(ln, "Current status"), v.get("Current status")),
+                text_attr(
+                    "perforation.current_status",
+                    _loc(ln, "Current status"),
+                    v.get("Current status"),
+                ),
                 text_attr("perforation.remark", _loc(ln, "Remark"), v.get("Remark")),
             ]
             perf_date = v.get("Perf date", "")
             status_date = v.get("Current status date", "")
             attrs.append(text_attr("perforation.perf_date", _loc(ln, "Perf date"), perf_date))
             attrs.append(
-                text_attr("perforation.current_status_date", _loc(ln, "Current status date"), status_date)
+                text_attr(
+                    "perforation.current_status_date", _loc(ln, "Current status date"), status_date
+                )
             )
             eff = event_time(perf_date, "Perf date")
             rec = Rec("perforation_interval", subject, _loc(ln), attrs, eff, None)
@@ -219,7 +235,9 @@ class PerforationTableProfile:
             if k in seen:
                 dups.append(rec.ordinal)
             seen[k] = rec.ordinal
-        _missing_depth_findings(findings, records, "perforation", "not stated; no RKB/datum column", True)
+        _missing_depth_findings(
+            findings, records, "perforation", "not stated; no RKB/datum column", True
+        )
         if no_date:
             findings.append(
                 Finding(
@@ -264,11 +282,15 @@ class PerforationTableProfile:
         for well, ords in sorted(by_well.items()):
             spans = sorted(
                 (
-                    (parse_number(records[o].attr("perforation.top_md").original_text)  # type: ignore[union-attr]
-                     if records[o].attr("perforation.top_md") else None,
-                     parse_number(records[o].attr("perforation.base_md").original_text)  # type: ignore[union-attr]
-                     if records[o].attr("perforation.base_md") else None,
-                     o)
+                    (
+                        parse_number(records[o].attr("perforation.top_md").original_text)  # type: ignore[union-attr]
+                        if records[o].attr("perforation.top_md")
+                        else None,
+                        parse_number(records[o].attr("perforation.base_md").original_text)  # type: ignore[union-attr]
+                        if records[o].attr("perforation.base_md")
+                        else None,
+                        o,
+                    )
                     for o in ords
                 ),
                 key=lambda t: (t[0] is None, t[0] or 0.0),
@@ -291,25 +313,34 @@ class PerforationTableProfile:
                         ["temporal_state"],
                     )
                 )
-        for code, k in sorted(bad_codes.items()):
+        for code, nbad in sorted(bad_codes.items()):
             findings.append(
                 Finding(
                     UNKNOWN_CODE if "date" not in code else TEMPORAL_AMBIGUITY,
                     "info",
-                    f"{code} in {k} row(s) is outside the reviewed code/date forms; kept verbatim.",
+                    f"{code} in {nbad} row(s) is outside the reviewed code/date forms; kept verbatim.",
                     f"perf_unknown:{code}",
                 )
             )
         reasons = [f"{len(skipped)} row(s) without a well name skipped"] if skipped else []
         if skipped:
             findings.append(
-                Finding("EXTRACTION_PARTIAL", "warning", reasons[0] + ".", "perf_rows_skipped",
-                        locators=[_loc(n) for n in skipped[:5]], blocked=["temporal_state"])
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "warning",
+                    reasons[0] + ".",
+                    "perf_rows_skipped",
+                    locators=[_loc(n) for n in skipped[:5]],
+                    blocked=["temporal_state"],
+                )
             )
         data_rows = sum(1 for line in lines[1:] if line.strip())
         cov = CoverageOut("line", len(records), data_rows, [str(n) for n in skipped[:20]], reasons)
         return ProfileOutput(
-            records, findings, cov, "succeeded" if cov.complete else "partial",
+            records,
+            findings,
+            cov,
+            "succeeded" if cov.complete else "partial",
             {"columns": titles, "wells": sorted(by_well)},
         )
 
@@ -363,7 +394,9 @@ class PickTableProfile:
                     runs = [(m.start(), m.end()) for m in re.finditer(r"-+", line)]
                     cols = [
                         (
-                            pending_header[a : (runs[i + 1][0] if i + 1 < len(runs) else len(pending_header))].strip(),
+                            pending_header[
+                                a : (runs[i + 1][0] if i + 1 < len(runs) else len(pending_header))
+                            ].strip(),
                             a,
                             runs[i + 1][0] if i + 1 < len(runs) else None,
                         )
@@ -424,7 +457,9 @@ class PickTableProfile:
             if k in seen:
                 dups.append(rec.ordinal)
             seen[k] = rec.ordinal
-        _missing_depth_findings(findings, records, "pick", "not stated; picks carry no RKB/datum column", True)
+        _missing_depth_findings(
+            findings, records, "pick", "not stated; picks carry no RKB/datum column", True
+        )
         findings.append(
             Finding(
                 TEMPORAL_AMBIGUITY,
@@ -449,32 +484,74 @@ class PickTableProfile:
                     "depths are marked unsupported, not treated as formation tops.",
                     "pick_qualifiers",
                     ["pick.qualifier"],
-                    [r.ordinal for r in records if r.attr("pick.qualifier") and (r.attr("pick.qualifier").text or "") in flagged][:50],  # type: ignore[union-attr]
+                    [
+                        r.ordinal
+                        for r in records
+                        if (qa := r.attr("pick.qualifier")) is not None
+                        and (qa.text or "") in flagged
+                    ][:50],
                     [],
                     ["claim_acceptance"],
                 )
             )
         for key, ords, code, sev, msg in (
-            ("pick_duplicate", dups, REFERENCE_CONFLICT, "warning",
-             "pick row(s) repeat (well, surface, obs#); all kept."),
-            ("pick_well_mismatch", id_mismatch, IDENTITY_MISMATCH, "error",
-             "pick row(s) name a well different from their 'Well' block header."),
-            ("pick_tvd_gt_md", tvd_gt, SUSPICIOUS_VALUE, "error",
-             "pick row(s) have TVD greater than MD."),
+            (
+                "pick_duplicate",
+                dups,
+                REFERENCE_CONFLICT,
+                "warning",
+                "pick row(s) repeat (well, surface, obs#); all kept.",
+            ),
+            (
+                "pick_well_mismatch",
+                id_mismatch,
+                IDENTITY_MISMATCH,
+                "error",
+                "pick row(s) name a well different from their 'Well' block header.",
+            ),
+            (
+                "pick_tvd_gt_md",
+                tvd_gt,
+                SUSPICIOUS_VALUE,
+                "error",
+                "pick row(s) have TVD greater than MD.",
+            ),
         ):
             if ords:
                 findings.append(
-                    Finding(code, sev, f"{len(ords)} {msg}", key, ["pick.md", "pick.tvd"], ords[:50],  # type: ignore[arg-type]
-                            [records[o].locator for o in ords[:5]], ["placement"])
+                    Finding(
+                        code,
+                        "error" if sev == "error" else "warning",
+                        f"{len(ords)} {msg}",
+                        key,
+                        ["pick.md", "pick.tvd"],
+                        ords[:50],
+                        [records[o].locator for o in ords[:5]],
+                        ["placement"],
+                    )
                 )
         if skipped:
             findings.append(
-                Finding("EXTRACTION_PARTIAL", "warning", f"{len(skipped)} line(s) could not be read as picks.",
-                        "pick_lines_skipped", locators=[_loc(n) for n in skipped[:5]], blocked=["claim_acceptance"])
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "warning",
+                    f"{len(skipped)} line(s) could not be read as picks.",
+                    "pick_lines_skipped",
+                    locators=[_loc(n) for n in skipped[:5]],
+                    blocked=["claim_acceptance"],
+                )
             )
         cov = CoverageOut(
-            "line", len(records), len(records) + len(skipped), [str(n) for n in skipped[:20]],
+            "line",
+            len(records),
+            len(records) + len(skipped),
+            [str(n) for n in skipped[:20]],
             [f"{len(skipped)} line(s) skipped"] if skipped else [],
         )
-        return ProfileOutput(records, findings, cov, "succeeded" if cov.complete else "partial",
-                             {"well_blocks": sorted(blocks), "qualifiers": dict(qlf_known)})
+        return ProfileOutput(
+            records,
+            findings,
+            cov,
+            "succeeded" if cov.complete else "partial",
+            {"well_blocks": sorted(blocks), "qualifiers": dict(qlf_known)},
+        )

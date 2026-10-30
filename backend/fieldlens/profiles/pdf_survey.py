@@ -9,6 +9,7 @@ are never OCR'd here (TASK-030): a page without a text layer is reported as skip
 
 from __future__ import annotations
 
+import functools
 import re
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,10 @@ SURVEY_COLUMNS = (
 )
 EXPECTED_HEADER_UNITS = "(m)", "(°)", "(°/30m)"
 ELEVATION = re.compile(r"@\s*(\d+(?:\.\d+)?)\s*m")
+
+
+def _casing_loc(page: int, casing: int, c: object) -> dict[str, Any]:
+    return _pdf_loc(page, "casing_points", f"r{casing}c{c}")
 
 
 def _pdf_loc(page: int, table: str | None = None, cell: str | None = None) -> Locator:
@@ -140,15 +145,23 @@ class SurveyReportProfile:
             report_time = event_time(f"{rest[:4]}-{mo}-{d}T{rest[5:]}", "report footer")
             if report_time:
                 report_time.timezone_known = False
-        head = Rec("survey_report_header", subject, _pdf_loc(hdr_page), head_attrs, None, report_time)
+        head = Rec(
+            "survey_report_header", subject, _pdf_loc(hdr_page), head_attrs, None, report_time
+        )
         records.append(head)
         if tvd_ref and md_ref and ELEVATION.search(tvd_ref) and ELEVATION.search(md_ref):
             if ELEVATION.search(tvd_ref).group(1) != ELEVATION.search(md_ref).group(1):  # type: ignore[union-attr]
                 findings.append(
-                    Finding(REFERENCE_CONFLICT, "error",
-                            "TVD and MD references state different elevations.",
-                            "ref_tvd_md_conflict", ["survey_report_header.tvd_reference", "survey_report_header.md_reference"],
-                            [0], [_pdf_loc(hdr_page)], ["placement", "calculation"])
+                    Finding(
+                        REFERENCE_CONFLICT,
+                        "error",
+                        "TVD and MD references state different elevations.",
+                        "ref_tvd_md_conflict",
+                        ["survey_report_header.tvd_reference", "survey_report_header.md_reference"],
+                        [0],
+                        [_pdf_loc(hdr_page)],
+                        ["placement", "calculation"],
+                    )
                 )
         # ---- survey program + stations + casing -----------------------------------------
         azi_ref = header.get("azi_ref")
@@ -171,15 +184,46 @@ class SurveyReportProfile:
                         program += 1
                         cid = f"program/r{program}"
                         recs = Rec(
-                            "survey_program_entry", subject, _pdf_loc(page, "survey_program", f"r{program}"),
+                            "survey_program_entry",
+                            subject,
+                            _pdf_loc(page, "survey_program", f"r{program}"),
                             [
-                                _q("survey_program_entry.from_md", page, "survey_program", f"r{program}c1", m.group(1), "m", md_ref),
-                                _q("survey_program_entry.to_md", page, "survey_program", f"r{program}c2", m.group(2), "m", md_ref),
-                                text_attr("survey_program_entry.survey_name", _pdf_loc(page, "survey_program", f"r{program}c3"), m.group(3)),
-                                text_attr("survey_program_entry.tool_name", _pdf_loc(page, "survey_program", f"r{program}c4"), m.group(4)),
-                                text_attr("survey_program_entry.description", _pdf_loc(page, "survey_program", f"r{program}c5"), m.group(5)),
+                                _q(
+                                    "survey_program_entry.from_md",
+                                    page,
+                                    "survey_program",
+                                    f"r{program}c1",
+                                    m.group(1),
+                                    "m",
+                                    md_ref,
+                                ),
+                                _q(
+                                    "survey_program_entry.to_md",
+                                    page,
+                                    "survey_program",
+                                    f"r{program}c2",
+                                    m.group(2),
+                                    "m",
+                                    md_ref,
+                                ),
+                                text_attr(
+                                    "survey_program_entry.survey_name",
+                                    _pdf_loc(page, "survey_program", f"r{program}c3"),
+                                    m.group(3),
+                                ),
+                                text_attr(
+                                    "survey_program_entry.tool_name",
+                                    _pdf_loc(page, "survey_program", f"r{program}c4"),
+                                    m.group(4),
+                                ),
+                                text_attr(
+                                    "survey_program_entry.description",
+                                    _pdf_loc(page, "survey_program", f"r{program}c5"),
+                                    m.group(5),
+                                ),
                             ],
-                            None, report_time,
+                            None,
+                            report_time,
                         )
                         del cid
                         records.append(recs)
@@ -199,11 +243,23 @@ class SurveyReportProfile:
                     if key in ("incl", "azi"):
                         ref = azi_ref if key == "azi" else None
                     attrs.append(
-                        _q(f"trajectory_station.{key}", page, "survey", f"r{row_no_in_table}c{ci}", tok, unit, ref)
+                        _q(
+                            f"trajectory_station.{key}",
+                            page,
+                            "survey",
+                            f"r{row_no_in_table}c{ci}",
+                            tok,
+                            unit,
+                            ref,
+                        )
                     )
                 rec = Rec(
-                    "trajectory_station", subject,
-                    _pdf_loc(page, "survey", f"r{row_no_in_table}"), attrs, None, report_time,
+                    "trajectory_station",
+                    subject,
+                    _pdf_loc(page, "survey", f"r{row_no_in_table}"),
+                    attrs,
+                    None,
+                    report_time,
                 )
                 rec.ordinal = len(records)
                 records.append(rec)
@@ -232,49 +288,114 @@ class SurveyReportProfile:
                 if not m:
                     continue
                 casing += 1
-                loc = lambda c: _pdf_loc(page, "casing_points", f"r{casing}c{c}")  # noqa: E731
+                loc = functools.partial(_casing_loc, page, casing)
                 records.append(
                     Rec(
-                        "casing_point", subject, _pdf_loc(page, "casing_points", f"r{casing}"),
+                        "casing_point",
+                        subject,
+                        _pdf_loc(page, "casing_points", f"r{casing}"),
                         [
                             text_attr("casing_point.name", loc(1), m.group("name")),
-                            _q("casing_point.md", page, "casing_points", f"r{casing}c2", m.group("md"), "m", md_ref),
-                            _q("casing_point.tvd", page, "casing_points", f"r{casing}c3", m.group("tvd"), "m", tvd_ref),
-                            _q("casing_point.casing_diameter", page, "casing_points", f"r{casing}c4", m.group("csg"), hole_unit, None),
-                            _q("casing_point.hole_diameter", page, "casing_points", f"r{casing}c5", m.group("hole"), hole_unit, None),
+                            _q(
+                                "casing_point.md",
+                                page,
+                                "casing_points",
+                                f"r{casing}c2",
+                                m.group("md"),
+                                "m",
+                                md_ref,
+                            ),
+                            _q(
+                                "casing_point.tvd",
+                                page,
+                                "casing_points",
+                                f"r{casing}c3",
+                                m.group("tvd"),
+                                "m",
+                                tvd_ref,
+                            ),
+                            _q(
+                                "casing_point.casing_diameter",
+                                page,
+                                "casing_points",
+                                f"r{casing}c4",
+                                m.group("csg"),
+                                hole_unit,
+                                None,
+                            ),
+                            _q(
+                                "casing_point.hole_diameter",
+                                page,
+                                "casing_points",
+                                f"r{casing}c5",
+                                m.group("hole"),
+                                hole_unit,
+                                None,
+                            ),
                         ],
-                        None, report_time,
+                        None,
+                        report_time,
                     )
                 )
         for i, r in enumerate(records):
             r.ordinal = i
         if stations == 0:
             findings.append(
-                Finding("EXTRACTION_PARTIAL", "error", "no survey station rows were recognized.",
-                        "survey_no_rows", blocked=["placement", "calculation"])
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "error",
+                    "no survey station rows were recognized.",
+                    "survey_no_rows",
+                    blocked=["placement", "calculation"],
+                )
             )
         if casing == 0:
             findings.append(
-                Finding("EXTRACTION_PARTIAL", "info", "no casing-point rows were recognized.",
-                        "casing_none", blocked=["physical_geometry"])
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "info",
+                    "no casing-point rows were recognized.",
+                    "casing_none",
+                    blocked=["physical_geometry"],
+                )
             )
         if bad_tvd:
             findings.append(
-                Finding(SUSPICIOUS_VALUE, "error", f"{len(bad_tvd)} station(s) have TVD greater than MD; marked invalid.",
-                        "survey_tvd_gt_md", ["trajectory_station.tvd"], bad_tvd[:50],
-                        [records[o].locator for o in bad_tvd[:5]], ["placement", "calculation"])
+                Finding(
+                    SUSPICIOUS_VALUE,
+                    "error",
+                    f"{len(bad_tvd)} station(s) have TVD greater than MD; marked invalid.",
+                    "survey_tvd_gt_md",
+                    ["trajectory_station.tvd"],
+                    bad_tvd[:50],
+                    [records[o].locator for o in bad_tvd[:5]],
+                    ["placement", "calculation"],
+                )
             )
         if non_mono:
             findings.append(
-                Finding(SUSPICIOUS_VALUE, "warning", f"MD is not increasing at {len(non_mono)} station(s); order kept.",
-                        "survey_md_not_increasing", ["trajectory_station.md"], non_mono[:50],
-                        [records[o].locator for o in non_mono[:5]], ["calculation"])
+                Finding(
+                    SUSPICIOUS_VALUE,
+                    "warning",
+                    f"MD is not increasing at {len(non_mono)} station(s); order kept.",
+                    "survey_md_not_increasing",
+                    ["trajectory_station.md"],
+                    non_mono[:50],
+                    [records[o].locator for o in non_mono[:5]],
+                    ["calculation"],
+                )
             )
         findings.append(
-            Finding(TEMPORAL_AMBIGUITY, "info",
-                    "stations carry no acquisition time; only the report print time is known "
-                    "(kept as report time, not effective time).",
-                    "survey_no_effective_time", ["trajectory_station.md"], [0], blocked=["temporal_state"])
+            Finding(
+                TEMPORAL_AMBIGUITY,
+                "info",
+                "stations carry no acquisition time; only the report print time is known "
+                "(kept as report time, not effective time).",
+                "survey_no_effective_time",
+                ["trajectory_station.md"],
+                [0],
+                blocked=["temporal_state"],
+            )
         )
         tie = header.get("tie_on")
         first = next((r for r in records if r.kind == "trajectory_station"), None)
@@ -282,10 +403,16 @@ class SurveyReportProfile:
             md0 = first.attr("trajectory_station.md")
             if md0 is not None and md0.number is not None and abs(md0.number - tie) > 1e-6:
                 findings.append(
-                    Finding(REFERENCE_CONFLICT, "warning",
-                            f"tie-on depth {tie:g} differs from the first station MD {md0.number:g}.",
-                            "survey_tie_on_mismatch", ["trajectory_station.md"], [first.ordinal],
-                            [first.locator], ["calculation"])
+                    Finding(
+                        REFERENCE_CONFLICT,
+                        "warning",
+                        f"tie-on depth {tie:g} differs from the first station MD {md0.number:g}.",
+                        "survey_tie_on_mismatch",
+                        ["trajectory_station.md"],
+                        [first.ordinal],
+                        [first.locator],
+                        ["calculation"],
+                    )
                 )
         # ---- coverage -----------------------------------------------------------------------
         reasons: list[str] = []
@@ -296,16 +423,29 @@ class SurveyReportProfile:
             reasons.append(f"page(s) {notext} have no text layer (scanned; OCR is out of scope)")
         if reasons:
             findings.append(
-                Finding("EXTRACTION_PARTIAL", "warning", "; ".join(reasons) + ".", "pdf_pages_skipped",
-                        locators=[_pdf_loc(p) for p in sorted(set(failed + notext))[:5]],
-                        blocked=["claim_acceptance"])
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "warning",
+                    "; ".join(reasons) + ".",
+                    "pdf_pages_skipped",
+                    locators=[_pdf_loc(p) for p in sorted(set(failed + notext))[:5]],
+                    blocked=["claim_acceptance"],
+                )
             )
         done = n_pages - len(set(failed + notext))
         cov = CoverageOut("page", done, n_pages, missing, reasons)
         return ProfileOutput(
-            records, findings, cov, "succeeded" if cov.complete else "partial",
-            {"pages": n_pages, "stations": stations, "casing_points": casing,
-             "program_rows": program, "pypdf": _pypdf_version()},
+            records,
+            findings,
+            cov,
+            "succeeded" if cov.complete else "partial",
+            {
+                "pages": n_pages,
+                "stations": stations,
+                "casing_points": casing,
+                "program_rows": program,
+                "pypdf": _pypdf_version(),
+            },
         )
 
     # -------------------------------------------------------------------------------------
@@ -337,12 +477,20 @@ class SurveyReportProfile:
         grid = bool(re.search(r"\bGrid\S*North Reference", text))
         tie = _after(r"Tie On Depth:\s{3}(-?\d[\d,.]*)", text)
         vs_dir = None
-        m = re.search(rf"Direction\s+\(°\)\s*\n[^\n]*\(m\)[^\n]*\n\s*({_NUM})\s+({_NUM})\s+({_NUM})\s+({_NUM})", text)
+        m = re.search(
+            rf"Direction\s+\(°\)\s*\n[^\n]*\(m\)[^\n]*\n\s*({_NUM})\s+({_NUM})\s+({_NUM})\s+({_NUM})",
+            text,
+        )
         if m is None:
-            m = re.search(rf"^\s*({_NUM})\s{{3}}({_NUM})\s{{3}}({_NUM})\s{{3}}({_NUM})\s*$", text, re.M)
+            m = re.search(
+                rf"^\s*({_NUM})\s{{3}}({_NUM})\s{{3}}({_NUM})\s{{3}}({_NUM})\s*$", text, re.M
+            )
         if m:
             vs_dir = m.group(4)
-        mag = re.search(rf"GEOMAGNETICREFERENCE\s+(\d{{2}}\.\d{{2}}\.\d{{4}})\s+({_NUM})\s+({_NUM})\s+({_NUM})", text)
+        mag = re.search(
+            rf"GEOMAGNETICREFERENCE\s+(\d{{2}}\.\d{{2}}\.\d{{4}})\s+({_NUM})\s+({_NUM})\s+({_NUM})",
+            text,
+        )
         site_n = re.search(rf"Site Position:\s+Northing:\s+({_NUM})", text)
         site_e = re.search(rf"From:\s+Map\s+Easting:\s+({_NUM})", text)
         well_n = re.search(rf"Well Position\s+\+N/-S\s+({_NUM})\s+m\s+Northing:\s+({_NUM})", text)
@@ -365,7 +513,17 @@ class SurveyReportProfile:
         txt("md_reference", md_ref)
         elev = ELEVATION.search(tvd_ref or "")
         if elev:
-            attrs.append(_q("survey_report_header.reference_elevation", page, "header", "tvd_reference", elev.group(1), "m", tvd_ref))
+            attrs.append(
+                _q(
+                    "survey_report_header.reference_elevation",
+                    page,
+                    "header",
+                    "tvd_reference",
+                    elev.group(1),
+                    "m",
+                    tvd_ref,
+                )
+            )
         txt("map_system", map_system)
         txt("geo_datum", geo_datum)
         txt("map_zone", map_zone)
@@ -373,41 +531,187 @@ class SurveyReportProfile:
         txt("calculation_method", cal)
         txt("north_reference", "Grid" if grid else None)
         if conv:
-            attrs.append(_q("survey_report_header.grid_convergence", page, "header", "grid_convergence", conv, "deg", "grid"))
+            attrs.append(
+                _q(
+                    "survey_report_header.grid_convergence",
+                    page,
+                    "header",
+                    "grid_convergence",
+                    conv,
+                    "deg",
+                    "grid",
+                )
+            )
         if tie:
-            attrs.append(_q("survey_report_header.tie_on_depth", page, "header", "tie_on_depth", tie, "m", md_ref))
+            attrs.append(
+                _q(
+                    "survey_report_header.tie_on_depth",
+                    page,
+                    "header",
+                    "tie_on_depth",
+                    tie,
+                    "m",
+                    md_ref,
+                )
+            )
         if vs_dir:
-            attrs.append(_q("survey_report_header.vertical_section_direction", page, "header", "vs_direction", vs_dir, "deg", "grid" if grid else None))
+            attrs.append(
+                _q(
+                    "survey_report_header.vertical_section_direction",
+                    page,
+                    "header",
+                    "vs_direction",
+                    vs_dir,
+                    "deg",
+                    "grid" if grid else None,
+                )
+            )
         if mag:
-            attrs.append(text_attr("survey_report_header.magnetic_sample_date", _pdf_loc(page, "header", "magnetics"), mag.group(1)))
-            attrs.append(_q("survey_report_header.magnetic_declination", page, "header", "magnetics", mag.group(2), "deg", None))
-            attrs.append(_q("survey_report_header.magnetic_dip", page, "header", "magnetics", mag.group(3), "deg", None))
-            attrs.append(_q("survey_report_header.magnetic_field_strength", page, "header", "magnetics", mag.group(4), "nT", None))
+            attrs.append(
+                text_attr(
+                    "survey_report_header.magnetic_sample_date",
+                    _pdf_loc(page, "header", "magnetics"),
+                    mag.group(1),
+                )
+            )
+            attrs.append(
+                _q(
+                    "survey_report_header.magnetic_declination",
+                    page,
+                    "header",
+                    "magnetics",
+                    mag.group(2),
+                    "deg",
+                    None,
+                )
+            )
+            attrs.append(
+                _q(
+                    "survey_report_header.magnetic_dip",
+                    page,
+                    "header",
+                    "magnetics",
+                    mag.group(3),
+                    "deg",
+                    None,
+                )
+            )
+            attrs.append(
+                _q(
+                    "survey_report_header.magnetic_field_strength",
+                    page,
+                    "header",
+                    "magnetics",
+                    mag.group(4),
+                    "nT",
+                    None,
+                )
+            )
         for k, mm in (("site_northing", site_n), ("site_easting", site_e)):
             if mm:
-                attrs.append(_q(f"survey_report_header.{k}", page, "header", k, mm.group(1), "m", f"{map_system or ''} {geo_datum or ''} {map_zone or ''}".strip() or None))
+                attrs.append(
+                    _q(
+                        f"survey_report_header.{k}",
+                        page,
+                        "header",
+                        k,
+                        mm.group(1),
+                        "m",
+                        f"{map_system or ''} {geo_datum or ''} {map_zone or ''}".strip() or None,
+                    )
+                )
         if well_n:
-            attrs.append(_q("survey_report_header.well_offset_ns", page, "header", "well_position", well_n.group(1), "m", None))
-            attrs.append(_q("survey_report_header.well_northing", page, "header", "well_position", well_n.group(2), "m", f"{map_system or ''} {geo_datum or ''} {map_zone or ''}".strip() or None))
+            attrs.append(
+                _q(
+                    "survey_report_header.well_offset_ns",
+                    page,
+                    "header",
+                    "well_position",
+                    well_n.group(1),
+                    "m",
+                    None,
+                )
+            )
+            attrs.append(
+                _q(
+                    "survey_report_header.well_northing",
+                    page,
+                    "header",
+                    "well_position",
+                    well_n.group(2),
+                    "m",
+                    f"{map_system or ''} {geo_datum or ''} {map_zone or ''}".strip() or None,
+                )
+            )
         if well_e:
-            attrs.append(_q("survey_report_header.well_offset_ew", page, "header", "well_position", well_e.group(1), "m", None))
-            attrs.append(_q("survey_report_header.well_easting", page, "header", "well_position", well_e.group(2), "m", f"{map_system or ''} {geo_datum or ''} {map_zone or ''}".strip() or None))
+            attrs.append(
+                _q(
+                    "survey_report_header.well_offset_ew",
+                    page,
+                    "header",
+                    "well_position",
+                    well_e.group(1),
+                    "m",
+                    None,
+                )
+            )
+            attrs.append(
+                _q(
+                    "survey_report_header.well_easting",
+                    page,
+                    "header",
+                    "well_position",
+                    well_e.group(2),
+                    "m",
+                    f"{map_system or ''} {geo_datum or ''} {map_zone or ''}".strip() or None,
+                )
+            )
         for label, value, keys, blocked in (
-            ("MD/TVD reference", tvd_ref and md_ref, ["survey_report_header.tvd_reference", "survey_report_header.md_reference"], ["placement", "calculation"]),
-            ("map system / geodetic datum", map_system and geo_datum, ["survey_report_header.map_system", "survey_report_header.geo_datum"], ["placement"]),
-            ("grid/true north reference", grid, ["survey_report_header.north_reference"], ["calculation", "placement"]),
+            (
+                "MD/TVD reference",
+                tvd_ref and md_ref,
+                ["survey_report_header.tvd_reference", "survey_report_header.md_reference"],
+                ["placement", "calculation"],
+            ),
+            (
+                "map system / geodetic datum",
+                map_system and geo_datum,
+                ["survey_report_header.map_system", "survey_report_header.geo_datum"],
+                ["placement"],
+            ),
+            (
+                "grid/true north reference",
+                grid,
+                ["survey_report_header.north_reference"],
+                ["calculation", "placement"],
+            ),
         ):
             if not value:
                 findings.append(
-                    Finding(MISSING_REFERENCE, "warning", f"the report header does not state the {label}.",
-                            f"missing:{label}", keys, [0], [_pdf_loc(page)], blocked)
+                    Finding(
+                        MISSING_REFERENCE,
+                        "warning",
+                        f"the report header does not state the {label}.",
+                        f"missing:{label}",
+                        keys,
+                        [0],
+                        [_pdf_loc(page)],
+                        blocked,
+                    )
                 )
-        return {"_subject": subject, "attrs": attrs, "tvd_ref": tvd_ref, "md_ref": md_ref,
-                "azi_ref": "grid north" if grid else None,
-                "tie_on": _num(tie) if tie else None}
+        return {
+            "_subject": subject,
+            "attrs": attrs,
+            "tvd_ref": tvd_ref,
+            "md_ref": md_ref,
+            "azi_ref": "grid north" if grid else None,
+            "tie_on": _num(tie) if tie else None,
+        }
 
 
-def _q(key: str, page: int, table: str, cell: str, text: str, unit: str | None, ref: str | None) -> Attr:
+def _q(
+    key: str, page: int, table: str, cell: str, text: str, unit: str | None, ref: str | None
+) -> Attr:
     from .common import quantity_attr
 
     return quantity_attr(key, _pdf_loc(page, table, cell), text, unit, reference=ref)

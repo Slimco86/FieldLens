@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO
+from typing import IO, Any, Protocol
 from xml.parsers import expat
 
 from .types import MAX_XML_BYTES, MAX_XML_DEPTH, MAX_XML_NODES, ProfileError
@@ -38,14 +38,19 @@ def _new_parser() -> expat.XMLParserType:
     def refuse_doctype(*_: object) -> None:
         raise UnsafeXml("xml_dtd_forbidden", "XML with a DOCTYPE or entity declaration is refused")
 
-    parser.StartDoctypeDeclHandler = refuse_doctype
-    parser.EntityDeclHandler = refuse_doctype
-    parser.ExternalEntityRefHandler = refuse_doctype
+    hooks: Any = parser
+    hooks.StartDoctypeDeclHandler = refuse_doctype
+    hooks.EntityDeclHandler = refuse_doctype
+    hooks.ExternalEntityRefHandler = refuse_doctype
     return parser
 
 
+class _Reader(Protocol):
+    def read(self, n: int = -1, /) -> bytes: ...
+
+
 def stream_xml(
-    handle: IO[bytes],
+    handle: _Reader | IO[bytes],
     *,
     on_start: Callable[[str, dict[str, str], int, int], None],
     on_end: Callable[[str, str, int], None],

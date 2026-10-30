@@ -172,7 +172,9 @@ class _Builder:
                     if grand.children:
                         continue
                     out.append(
-                        self._leaf(grand, f"{kind}.{snake(child.tag)}", f"{cpath}/{grand.tag}", uids)
+                        self._leaf(
+                            grand, f"{kind}.{snake(child.tag)}", f"{cpath}/{grand.tag}", uids
+                        )
                     )
                 continue
             out.append(self._leaf(child, kind, cpath, uids))
@@ -280,7 +282,9 @@ def _parse_trajectory(b: _Builder, root: Node) -> None:
                 "trajectory",
                 subject,
                 b.loc(path, uids),
-                b.simple_attrs(obj, "trajectory", path, uids, sub_records=frozenset({"trajectoryStation"})),
+                b.simple_attrs(
+                    obj, "trajectory", path, uids, sub_records=frozenset({"trajectoryStation"})
+                ),
                 event_time(obj.value("dTimTrajStart"), "dTimTrajStart"),
                 info.get("report_time"),
             )
@@ -475,7 +479,9 @@ def _parse_tubular(b: _Builder, root: Node) -> None:
                 "tubular_assembly",
                 subject,
                 b.loc(path, uids),
-                b.simple_attrs(obj, "tubular_assembly", path, uids, sub_records=frozenset({"tubularComponent"})),
+                b.simple_attrs(
+                    obj, "tubular_assembly", path, uids, sub_records=frozenset({"tubularComponent"})
+                ),
                 None,
                 info.get("report_time"),
             )
@@ -552,7 +558,9 @@ def _tubular_findings(
     wrong = (
         [t for t in types if t in COMPLETION_COMPONENTS]
         if assy == "drilling"
-        else [t for t in types if t in DRILLING_COMPONENTS] if assy == "completion" else []
+        else [t for t in types if t in DRILLING_COMPONENTS]
+        if assy == "completion"
+        else []
     )
     if wrong:
         b.findings.append(
@@ -723,7 +731,9 @@ def _parse_wb_geometry(b: _Builder, root: Node) -> None:
                 "wb_geometry",
                 subject,
                 b.loc(path, uids),
-                b.simple_attrs(obj, "wb_geometry", path, uids, sub_records=frozenset({"wbGeometrySection"})),
+                b.simple_attrs(
+                    obj, "wb_geometry", path, uids, sub_records=frozenset({"wbGeometrySection"})
+                ),
                 None,  # dTimReport is a report time, never an effective/installation time
                 report or info.get("report_time"),
             )
@@ -965,7 +975,9 @@ class WitsmlProfile:
             return out
         _PARSERS[self.kind](b, tree)
         _missing_unit_finding(b)
-        objects = _objects(tree, {"bha_run": "bhaRun", "wb_geometry": "wbGeometry"}.get(self.kind, self.kind))
+        objects = _objects(
+            tree, {"bha_run": "bhaRun", "wb_geometry": "wbGeometry"}.get(self.kind, self.kind)
+        )
         out = b.finish({"witsml_version": version, "objects": len(objects)})
         if not objects:
             out.status = "partial"

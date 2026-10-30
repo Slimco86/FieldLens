@@ -87,6 +87,41 @@ export interface paths {
         patch: operations["update_classification_api_v1_projects__project_id__documents__document_id__classification_patch"];
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/documents/{document_id}/extraction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Report */
+        get: operations["get_report_api_v1_projects__project_id__documents__document_id__extraction_get"];
+        put?: never;
+        /** Requeue */
+        post: operations["requeue_api_v1_projects__project_id__documents__document_id__extraction_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/documents/{document_id}/extraction/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Records */
+        get: operations["get_records_api_v1_projects__project_id__documents__document_id__extraction_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/imports": {
         parameters: {
             query?: never;
@@ -607,12 +642,198 @@ export interface components {
              */
             source_revision_id: string | null;
         };
+        /** ExtractedAttribute */
+        ExtractedAttribute: {
+            evidence: components["schemas"]["EvidenceLink"];
+            /** Key */
+            key: string;
+            /**
+             * Normalized Number
+             * @default null
+             */
+            normalized_number: number | null;
+            /**
+             * Normalized Unit
+             * @default null
+             */
+            normalized_unit: string | null;
+            /**
+             * Number
+             * @default null
+             */
+            number: number | null;
+            /**
+             * Original Text
+             * @default null
+             */
+            original_text: string | null;
+            /**
+             * Reference
+             * @default null
+             */
+            reference: string | null;
+            /**
+             * Text
+             * @default null
+             */
+            text: string | null;
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            unit_status: components["schemas"]["UnitStatus"];
+            /**
+             * Unknown Reason
+             * @default null
+             */
+            unknown_reason: string | null;
+            validation_state: components["schemas"]["ValidationState"];
+        };
+        /** ExtractedRecord */
+        ExtractedRecord: {
+            /** Attributes */
+            attributes: components["schemas"]["ExtractedAttribute"][];
+            /** @default null */
+            effective_time: components["schemas"]["SourceEventTime"] | null;
+            evidence: components["schemas"]["EvidenceLink"];
+            /** Kind */
+            kind: string;
+            /** Ordinal */
+            ordinal: number;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** @default null */
+            report_time: components["schemas"]["SourceEventTime"] | null;
+            /** Subject */
+            subject: {
+                [key: string]: string | null;
+            };
+            validation_state: components["schemas"]["ValidationState"];
+        };
+        /** ExtractedRecordPage */
+        ExtractedRecordPage: {
+            /** Items */
+            items: components["schemas"]["ExtractedRecord"][];
+            page: components["schemas"]["PageInfo"];
+            /** Total */
+            total: number;
+        };
+        /** ExtractionError */
+        ExtractionError: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * ExtractionReport
+         * @description Profile, parse status, coverage and data-quality findings for one document.
+         */
+        ExtractionReport: {
+            /**
+             * Attempt No
+             * @default 0
+             */
+            attempt_no: number;
+            /**
+             * Content Sha256
+             * @default null
+             */
+            content_sha256: string | null;
+            /** @default null */
+            coverage: components["schemas"]["Coverage"] | null;
+            /** Detail */
+            detail?: {
+                [key: string]: string | number | boolean | null;
+            };
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** @default null */
+            error: components["schemas"]["ExtractionError"] | null;
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /** Issues */
+            issues?: components["schemas"]["QualityIssue"][];
+            /**
+             * Method
+             * @default null
+             */
+            method: string | null;
+            /**
+             * Profile Name
+             * @default null
+             */
+            profile_name: string | null;
+            /**
+             * Profile Version
+             * @default null
+             */
+            profile_version: string | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Queued At
+             * @default null
+             */
+            queued_at: string | null;
+            /** Record Counts */
+            record_counts?: {
+                [key: string]: number;
+            };
+            /**
+             * Run Id
+             * @default null
+             */
+            run_id: string | null;
+            /**
+             * Source Revision Id
+             * Format: uuid
+             */
+            source_revision_id: string;
+            /**
+             * Stale
+             * @description True when the profile version changed since this run.
+             * @default false
+             */
+            stale: boolean;
+            /**
+             * @description Null when no extraction run exists yet.
+             * @default null
+             */
+            status: components["schemas"]["ExtractionStatus"] | null;
+            /** Wellbores */
+            wellbores?: string[];
+        };
+        /** ExtractionRequeue */
+        ExtractionRequeue: {
+            outcome: components["schemas"]["RequeueOutcome"];
+            report: components["schemas"]["ExtractionReport"];
+        };
         /**
          * ExtractionState
-         * @description No reader exists in this slice: a file is pending extraction or explicitly unsupported.
+         * @description Latest known extraction outcome of a stored document (never inferred from storage).
          * @enum {string}
          */
-        ExtractionState: "pending_extraction" | "unsupported";
+        ExtractionState: "pending_extraction" | "unsupported" | "extracted" | "extracted_with_issues" | "extraction_failed";
+        /**
+         * ExtractionStatus
+         * @description Run outcome. Only ``succeeded``/``partial`` hold records; ``interrupted`` never counts.
+         * @enum {string}
+         */
+        ExtractionStatus: "queued" | "running" | "succeeded" | "partial" | "failed" | "interrupted" | "unsupported";
         /** HealthResponse */
         HealthResponse: {
             /**
@@ -713,7 +934,7 @@ export interface components {
          * @description Registered codes. New producer codes require a shared-contract change.
          * @enum {string}
          */
-        IssueCode: "MISSING_EQUIPMENT_DIMENSIONS" | "UNKNOWN_PLACEMENT" | "REFERENCE_CONFLICT" | "INTERVAL_CONFLICT" | "IDENTITY_MISMATCH" | "DIMENSION_CONFLICT" | "TEMPORAL_AMBIGUITY" | "HISTORY_INCOMPLETE" | "EXTRACTION_PARTIAL" | "UNSUPPORTED_FORMAT" | "EXTRACTION_FAILED" | "GENERIC_REPRESENTATION";
+        IssueCode: "MISSING_EQUIPMENT_DIMENSIONS" | "UNKNOWN_PLACEMENT" | "REFERENCE_CONFLICT" | "INTERVAL_CONFLICT" | "IDENTITY_MISMATCH" | "DIMENSION_CONFLICT" | "TEMPORAL_AMBIGUITY" | "HISTORY_INCOMPLETE" | "EXTRACTION_PARTIAL" | "UNSUPPORTED_FORMAT" | "EXTRACTION_FAILED" | "GENERIC_REPRESENTATION" | "MISSING_REFERENCE" | "MISSING_UNIT" | "SUSPICIOUS_VALUE" | "UNKNOWN_CODE" | "ASSEMBLY_TYPE_MISMATCH";
         /**
          * IssueSeverity
          * @enum {string}
@@ -1220,6 +1441,11 @@ export interface components {
             status: "ready";
         };
         /**
+         * RequeueOutcome
+         * @enum {string}
+         */
+        RequeueOutcome: "queued" | "unchanged";
+        /**
          * SelectedEntityType
          * @enum {string}
          */
@@ -1546,6 +1772,11 @@ export interface components {
          * @enum {string}
          */
         TimePrecision: "instant" | "day" | "month" | "year" | "unknown";
+        /**
+         * UnitStatus
+         * @enum {string}
+         */
+        UnitStatus: "stated" | "not_applicable" | "missing";
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -2101,6 +2332,160 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_report_api_v1_projects__project_id__documents__document_id__extraction_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractionReport"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    requeue_api_v1_projects__project_id__documents__document_id__extraction_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractionRequeue"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_records_api_v1_projects__project_id__documents__document_id__extraction_records_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                kind?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                document_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractedRecordPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */
