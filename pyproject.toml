@@ -13,6 +13,7 @@ dependencies = [
   "alembic>=1.14",
   "python-multipart>=0.0.32",
   "numpy>=2.5.4",
+  "openai>=3.41.0",
 ]
 
 [dependency-groups]

@@ -9,6 +9,7 @@ from __future__ import annotations
 import ipaddress
 import os
 import re
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -84,10 +85,38 @@ class Settings(BaseSettings):
     staging_sweep_interval_s: float = Field(600.0, ge=0.1)
     """Test-only pause after each stage step so restart/kill tests can interrupt a job."""
 
+    # Meta provider (server-side only). The key comes from FIELDLENS_META_API_KEY; an absent key
+    # fails closed with a typed error before any dispatch. Limits default to MI-5 and may only be
+    # lowered, except the tool-call bound, which is configurable (default 6).
+    meta_api_key: SecretStr | None = None
+    meta_base_url: str = "https://api.meta.ai/v1"
+    meta_model: str = "muse-spark-1.3"
+    budget_ledger_cap_usd: Decimal = Field(Decimal("150"), gt=0, le=Decimal("150"))
+    budget_warn_usd: Decimal = Field(Decimal("100"), gt=0, le=Decimal("150"))
+    budget_unattended_block_usd: Decimal = Field(Decimal("120"), gt=0, le=Decimal("150"))
+    provider_max_attempts: int = Field(4, ge=1, le=4)
+    provider_max_tool_calls: int = Field(6, ge=1, le=64)
+    provider_deadline_s: float = Field(90.0, gt=0, le=90.0)
+    provider_max_output_tokens: int = Field(4096, ge=1, le=4096)
+    provider_max_reserved_usd: Decimal = Field(Decimal("0.50"), gt=0, le=Decimal("0.50"))
+    provider_image_token_bound: int = Field(8192, ge=1, le=1_000_000)
+
     @field_validator("storage_root")
     @classmethod
     def _anchor_storage_root(cls, value: Path) -> Path:
         return value if value.is_absolute() else REPO_ROOT / value
+
+    @field_validator("meta_base_url")
+    @classmethod
+    def _meta_base_url_scheme(cls, value: str) -> str:
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(value)
+        if parts.scheme == "https" and parts.hostname:
+            return value.rstrip("/")
+        if parts.scheme == "http" and parts.hostname and is_loopback_host(parts.hostname):
+            return value.rstrip("/")  # loopback fakes only
+        raise ValueError("FIELDLENS_META_BASE_URL must be https (or loopback http)")
 
     @field_validator("host")
     @classmethod
@@ -128,6 +157,7 @@ class Settings(BaseSettings):
     def redacted(self) -> dict[str, Any]:
         data = self.model_dump(mode="json")
         data["database_url"] = "***" if self.database_url is not None else None
+        data["meta_api_key"] = "***" if self.meta_api_key is not None else None
         return data
 
 
