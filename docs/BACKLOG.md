@@ -602,7 +602,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-003 |
@@ -615,7 +615,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-003-A |
 
 **Outcome.** RAG worker implements the MI-1..5 offline provider adapter, PostgreSQL budget reservations and finite failure/cancellation behavior in `backend/fieldlens/assistant/`; no live calls.
-**Next action.** Dispatch after the FL-003 spec is approved (it may run in parallel once the foundation is integrated), with a fresh per-assignment preflight.
+**Next action.** Dispatched October 30 in parallel with TASK-009 (owner request; the FL-003 spec is treated as approved by that dispatch; worktree `/home/slimco/code/FieldLens-worktrees/task-004-provider-adapter`, branch `feature/task-004-provider-adapter`). The adapter message model must also represent image content parts and tool-call round trips (FL-022 needs page images and read-only tools), and the per-unit tool-call bound must be configurable (default 6). Stub provider only, no live calls.
 **Evidence.** none yet
 
 ### TASK-005 · Live Meta protocol/entitlement smoke under the USD 1 ceiling (MI-6)
@@ -644,7 +644,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, backend, frontend |
 | Depends on | TASK-006 |
@@ -657,7 +657,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-B |
 
 **Outcome.** Ingestion owner implements selected qualified native source profiles and the evidence UI: IN-2/6 for this subset, exact record/page coverage and the wrong-folder fixture. This is a small approved subset, not full IN-8/G1 acceptance.
-**Next action.** First dispatch (owner priority October 30: upload and parsing before UI work), with a fresh per-assignment preflight; owner browser checkpoint A before broadening. The subset's hashes, rights, profile and expected records are recorded as its own reference fixtures (it does not wait for FL-002's final manifest). The evidence UI is built on the existing UI and shared components; TASK-034 restyles it later, so keep it simple and behavior-focused. **Proposed subset (orchestrator, from the local pilot inventory `data/volve/source-audit/local-inventory.json`; needs owner approval before dispatch):** WITSML XML tubular/BHA/bore-geometry for F-12/F-14/F-5 (PV-25..33), LAS well logs (PV-15/19/22), production workbook (PV-01), perforation table (PV-03), formation picks (PV-04), the three native-PDF Standard Survey Reports (PV-10/16/20) and the mirrored F-5 trajectory XML. Deferred: the 211 MB EDM export (PV-24, needs a streaming profile), horizons/seabed grids (PV-07..09), large completion PDFs and plots (PV-11..14, 17/18, 21; TASK-030 handles scans).
+**Next action.** Dispatched October 30 (owner approved the subset; worktree `/home/slimco/code/FieldLens-worktrees/task-009-native-profiles`, branch `feature/task-009-native-profiles`). Owner priority: upload and parsing before UI work; owner browser checkpoint A before broadening. Approved owner requirement: trajectories, production, completion and equipment information for at least two of the three wellbores; a gap for one wellbore is acceptable and must be reported, not filled. The subset's hashes, rights, profile and expected records are recorded as its own reference fixtures (it does not wait for FL-002's final manifest). The evidence UI is built on the existing UI and shared components; TASK-034 restyles it later, so keep it simple and behavior-focused. **Approved subset (owner, October 30):** WITSML XML tubular/BHA/bore-geometry for F-12/F-14/F-5 (PV-25..33), LAS well logs (PV-15/19/22), production workbook (PV-01), perforation table (PV-03), formation picks (PV-04), the three native-PDF Standard Survey Reports (PV-10/16/20) and the mirrored F-5 trajectory XML (inventory `data/volve/source-audit/local-inventory.json`). Deferred: the 211 MB EDM export (PV-24, needs a streaming profile), horizons/seabed grids (PV-07..09), large completion PDFs and plots (PV-11..14, 17/18, 21; TASK-030 handles scans).
 **Evidence.** none yet
 
 ### TASK-032 · Source-first issue inspector API and UI (DQ-1/2/3/4/7, DTO-negative DQ-5/6)

@@ -6,6 +6,17 @@ agents**, not the application's Meta reconstruction/exploration harness. The app
 boundaries and host activation checks. See [FL-001](specs/DEVELOPMENT_AGENTS.md)
 for configuration versus runtime verification.
 
+**Owner amendment, 2026-10-30 at 13:10 EDT (supersedes the 2026-10-28 14:47 serial rule for
+this phase):** each feature/task is implemented in its own linked Git worktree under
+`/home/slimco/code/FieldLens-worktrees/<name>` on its own `feature/*` branch, by a dedicated
+suitable subagent (or group), and up to two such tasks may run in parallel. Each worktree is a
+dev-tooling lane (`./dev`, DEV_TOOLING DV-6): its own database, storage root and ports; never
+the application/demo database. Orchestrator-owned and serialized across lanes: `VERSION`,
+`CHANGELOG`, shared contract registry/generated client edits, and the Alembic head (the second
+branch to merge rebases its migration onto the new head and re-runs checks). Only the orchestrator
+creates, merges and removes worktrees, after the worker and its checks stop; legacy worktrees stay
+untouched. Independent QA, version/changelog finalization and the authorized merge still apply.
+
 **Owner amendment, 2026-10-28 at 14:47 EDT:** develop one feature at a time in
 `/home/slimco/code/FieldLens`, on its own branch, with subagents launched by the
 main orchestrator session. This replaces parallel worktree dispatch. Preserve

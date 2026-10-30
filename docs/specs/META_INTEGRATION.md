@@ -4,6 +4,7 @@
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
 > **Date:** 2026-10-28. **Decision owner:** project owner.
 > **Status:** Design complete; live entitlement/balance and spending approval unverified.
+> **Amendment, October 30:** the adapter message model must represent image content parts and tool-call round trips (FL-022 page images and read-only content tools); the MI-5 tool-call bound (default 6) is configurable; MI-6 gains a harmless image-input check.
 > **Zero-Question Score:** 0 unowned design questions; live calls remain opt-in.
 
 ## How to Read This Spec
