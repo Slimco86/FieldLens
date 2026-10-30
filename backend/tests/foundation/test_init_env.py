@@ -31,6 +31,14 @@ EXAMPLE_KEYS = {
     "FIELDLENS_STORAGE_ROOT",
     "FIELDLENS_PW_CONNECT_WS_ENDPOINT",
     "FIELDLENS_PW_EXPOSE_NETWORK",
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_CHAT_ID",
+    "TELEGRAM_INBOX",
+    "TAIGA_USERNAME",
+    "TAIGA_PASSWORD",
+    "TAIGA_PROJECT_SLUG",
+    "TAIGA_URL",
+    "TAIGA_ALLOW_PUBLIC",
 }
 
 
@@ -125,7 +133,8 @@ def test_generated_env_loads_through_the_shared_loader(tmp_path: Path) -> None:
     root = project(tmp_path)
     init_env.main(root)
     values = load_local_env(root / ".env")
-    assert set(values) == EXAMPLE_KEYS
+    # localenv keeps its narrow allow-list: tooling keys (TELEGRAM_/TAIGA_) are not loaded here.
+    assert set(values) == {k for k in EXAMPLE_KEYS if not k.startswith(("TELEGRAM_", "TAIGA_"))}
     url = values["FIELDLENS_DATABASE_URL"]
     assert values["POSTGRES_PASSWORD"] in url and "${" not in url
     assert url.endswith("@127.0.0.1:55432/fieldlens_app")

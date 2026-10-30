@@ -108,6 +108,17 @@ Focus stays on the main region during retry and after recovery. Upload,
 reconstruction and charts are subsequent packets; their prerequisites are visible
 inside each project.
 
+## Progress notifications (Telegram)
+
+Optional; keys `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` live in the untracked `.env` (put no
+comment after a secret value on the same line). Spec: [tracking](docs/specs/TRACKING.md).
+
+```bash
+uv run python scripts/notify.py --event progress --ref FL-020 "short status"   # 🔵/🟢/⚪ status
+uv run python scripts/notify.py --event decision_needed --ref FL-020 "Pick A or B"  # 🔴 ACTION NEEDED
+uv run python scripts/notify.py --dry-run "text"      # print only; --best-effort never fails the caller
+```
+
 ## Tests
 
 Select Node 24 as above; nothing else needs exporting. The test database is derived
