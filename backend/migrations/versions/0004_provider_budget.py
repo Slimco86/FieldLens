@@ -106,6 +106,7 @@ def upgrade() -> None:
             server_default=sa.text("'not_needed'"),
             nullable=False,
         ),
+        sa.Column("overrun", sa.Boolean, server_default=sa.text("false"), nullable=False),
         _ts("created_at"),
         _ts("updated_at"),
         _ts("closed_at", nullable=True),

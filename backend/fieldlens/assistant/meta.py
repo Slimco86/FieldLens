@@ -229,7 +229,7 @@ class MetaProvider:
     def __init__(self, settings: Settings, *, client: Any | None = None) -> None:
         key = settings.meta_api_key
         if key is None or not key.get_secret_value().strip():
-            raise ProviderUnavailable("API key is not configured (FIELDLENS_META_API_KEY)")
+            raise ProviderUnavailable("API key is not configured (MODEL_API_KEY)")
         self._base_url = settings.meta_base_url
         self._model = settings.meta_model
         self._client = client or openai.OpenAI(

@@ -10,6 +10,7 @@ here replays a paid call; ``recover_interrupted`` only converts in-flight state 
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -25,6 +26,8 @@ from fieldlens.persistence.session import session_scope
 from .errors import BudgetExceeded, ProviderUnavailable, ReservationStateError
 from .provider import Pricing
 from .tables import budget_period, pricing_revision, provider_attempt, spend_reservation
+
+logger = logging.getLogger("fieldlens.assistant.budget")
 
 ZERO = Decimal("0")
 QUANT = Decimal("0.000001")
@@ -58,6 +61,7 @@ class Reservation:
     tool_calls_used: int
     reconciliation_status: str
     warn: bool = False
+    overrun: bool = False
 
 
 def _row_to_reservation(row: Any, warn: bool = False) -> Reservation:
@@ -73,6 +77,7 @@ def _row_to_reservation(row: Any, warn: bool = False) -> Reservation:
         tool_calls_used=row.tool_calls_used,
         reconciliation_status=row.reconciliation_status,
         warn=warn,
+        overrun=row.overrun,
     )
 
 
@@ -389,6 +394,7 @@ class BudgetLedger:
                 committed, unresolved = self._attempt_total(s, reservation_id)
                 state = "liable" if unresolved else "settled"
                 recon = "pending" if unresolved else "not_needed"
+            overrun = committed > row.reserved_usd
             out = s.execute(
                 update(spend_reservation)
                 .where(spend_reservation.c.reservation_id == reservation_id)
@@ -396,12 +402,32 @@ class BudgetLedger:
                     state=state,
                     committed_usd=committed,
                     reconciliation_status=recon,
+                    overrun=overrun,
                     closed_at=func.now(),
                     updated_at=func.now(),
                 )
                 .returning(spend_reservation)
             ).one()
+            if overrun:
+                self._flag_overrun(s, out)
             return _row_to_reservation(out)
+
+    @staticmethod
+    def _flag_overrun(s: Session, row: Any) -> None:
+        """Honest record of spend above the reservation: warn loudly and pause the period."""
+        s.execute(
+            update(budget_period)
+            .where(budget_period.c.period_id == row.period_id)
+            .values(paused=True)
+        )
+        logger.warning(
+            "budget overrun: reservation %s committed USD %s above reserved USD %s; "
+            "period %s paused until the owner reviews",
+            row.reservation_id,
+            row.committed_usd,
+            row.reserved_usd,
+            row.period_id,
+        )
 
     def release(self, reservation_id: UUID) -> Reservation:
         """Free a reservation only if no attempt was ever dispatched."""
@@ -451,10 +477,13 @@ class BudgetLedger:
                     state="settled",
                     committed_usd=total,
                     reconciliation_status="reconciled",
+                    overrun=total > row.reserved_usd,
                     updated_at=func.now(),
                 )
                 .returning(spend_reservation)
             ).one()
+            if out.overrun:
+                self._flag_overrun(s, out)
             return _row_to_reservation(out)
 
     def recover_interrupted(self, period_id: UUID) -> list[Reservation]:

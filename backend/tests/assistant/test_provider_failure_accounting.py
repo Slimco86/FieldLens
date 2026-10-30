@@ -190,3 +190,17 @@ def test_unexpected_exception_keeps_liability(
             unit.step([user("hi")])
     assert unit.closed is not None and unit.closed.state == "liable"
     assert ledger.status(period).committed_usd > 0
+
+
+def test_cancel_raised_after_dispatch_is_chargeable_unknown_not_zero(
+    make_unit: MakeUnit, ledger: BudgetLedger, period: UUID, engine: Engine
+) -> None:
+    stub = StubProvider([errors.RequestCancelled()])
+    with pytest.raises(errors.RequestCancelled):
+        with make_unit(stub) as unit:
+            unit.step([user("hi")])
+    closed = unit.closed
+    assert closed is not None and closed.state == "liable"
+    assert closed.reconciliation_status == "pending" and closed.committed_usd > 0
+    [(_, status, _, billed)] = _attempts(engine, closed.reservation_id)
+    assert (status, billed) == ("unknown", None)

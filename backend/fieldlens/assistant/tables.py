@@ -127,6 +127,7 @@ spend_reservation = Table(
     Column(
         "reconciliation_status", String(16), nullable=False, server_default=text("'not_needed'")
     ),
+    Column("overrun", Boolean, nullable=False, server_default=text("false")),
     _ts("created_at"),
     _ts("updated_at"),
     _ts("closed_at", nullable=True),

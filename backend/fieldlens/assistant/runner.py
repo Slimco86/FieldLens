@@ -132,6 +132,9 @@ class WorkUnit:
             work_unit=self._work_unit,
             unattended=self._unattended,
         )
+        # Re-entering an open reservation resumes its persisted counters.
+        self.attempts = self.reservation.attempts_dispatched
+        self.tool_calls = self.reservation.tool_calls_used
         return self
 
     def __exit__(
@@ -194,11 +197,17 @@ class WorkUnit:
                     request, timeout_s=max(self._remaining_s(), 0.001), cancel=self.cancel
                 )
             except AssistantError as exc:
+                # A cancel after dispatch may already be billed: unknown, never zero.
+                unknown = exc.chargeable or isinstance(exc, RequestCancelled)
+                if isinstance(exc, ProviderTimeout):
+                    status = "timeout"
+                else:
+                    status = "unknown" if isinstance(exc, RequestCancelled) else "failed"
                 self._ledger.finish_attempt(
                     rid,
                     number,
-                    status="timeout" if isinstance(exc, ProviderTimeout) else "failed",
-                    billed_usd=None if exc.chargeable else Decimal("0"),
+                    status=status,
+                    billed_usd=None if unknown else Decimal("0"),
                     error_code=exc.code,
                     elapsed_ms=int((self._clock() - began) * 1000),
                 )
@@ -294,6 +303,9 @@ class WorkUnit:
             for call in calls:
                 self.cancel.raise_if_cancelled()
                 self.tool_calls += 1
+                assert self.reservation is not None
+                # Persist before executing so a crash/cancel mid-round cannot undercount.
+                self._ledger.add_tool_calls(self.reservation.reservation_id, 1)
                 try:
                     results.append(ToolResultPart(call_id=call.call_id, content=executor(call)))
                 except RequestCancelled:
@@ -303,8 +315,6 @@ class WorkUnit:
                     results.append(
                         ToolResultPart(call_id=call.call_id, content="tool failed", is_error=True)
                     )
-            assert self.reservation is not None
-            self._ledger.add_tool_calls(self.reservation.reservation_id, len(calls))
             history.append(Message(role="tool", parts=tuple(results)))
 
 

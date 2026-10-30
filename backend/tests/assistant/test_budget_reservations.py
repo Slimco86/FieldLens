@@ -23,8 +23,8 @@ def _small_period(ledger: BudgetLedger, cap: str = "100", balance: str = "100") 
     pid = ledger.ensure_period(
         f"small-{cap}-{balance}",
         ledger_cap_usd=D(cap),
-        warn_usd=D("60"),
-        unattended_block_usd=D("80"),
+        warn_usd=D(cap) * D("0.6"),
+        unattended_block_usd=D(cap) * D("0.8"),
     )
     ledger.confirm_balance(pid, D(balance), "test")
     return pid
@@ -171,3 +171,39 @@ def test_database_rejects_a_cap_above_150(engine: Engine) -> None:
                 "VALUES ('big', 151, 100, 120)"
             )
         )
+
+
+def test_settle_overrun_is_recorded_flagged_and_pauses_the_period(
+    ledger: BudgetLedger, pricing_id: UUID, caplog: pytest.LogCaptureFixture
+) -> None:
+    pid = _small_period(ledger, cap="1", balance="0.60")
+    res = ledger.reserve(pid, "big", D("0.50"), pricing_id, work_unit="u")
+    number = ledger.begin_attempt(
+        res.reservation_id, provider="stub", model="m", estimated_usd=D("0.10"), retry_of=None
+    )
+    ledger.finish_attempt(res.reservation_id, number, status="completed", billed_usd=D("20.00001"))
+    with caplog.at_level("WARNING", logger="fieldlens.assistant.budget"):
+        closed = ledger.settle(res.reservation_id)
+    assert closed.committed_usd == D("20.00001") and closed.overrun  # recorded honestly
+    assert "budget overrun" in caplog.text
+    assert ledger.status(pid).paused
+    with pytest.raises(ProviderUnavailable, match="paused"):
+        ledger.reserve(pid, "next", D("0.01"), pricing_id, work_unit="u")
+    assert ledger.settle(res.reservation_id) == closed  # idempotent
+    ok = ledger.reserve(
+        _small_period(ledger, cap="2", balance="2"), "fine", D("0.5"), pricing_id, work_unit="u"
+    )
+    assert not ok.overrun
+
+
+def test_spend_within_reservation_does_not_flag_or_pause(
+    ledger: BudgetLedger, pricing_id: UUID
+) -> None:
+    pid = _small_period(ledger, cap="1", balance="0.60")
+    res = ledger.reserve(pid, "ok", D("0.50"), pricing_id, work_unit="u")
+    n = ledger.begin_attempt(
+        res.reservation_id, provider="stub", model="m", estimated_usd=D("0.10"), retry_of=None
+    )
+    ledger.finish_attempt(res.reservation_id, n, status="completed", billed_usd=D("0.40"))
+    closed = ledger.settle(res.reservation_id)
+    assert not closed.overrun and not ledger.status(pid).paused

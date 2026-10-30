@@ -6,6 +6,8 @@ from decimal import Decimal
 from uuid import UUID
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
 from fieldlens.assistant import errors
 from fieldlens.assistant.budget import BudgetLedger
@@ -258,3 +260,46 @@ def test_cancel_in_tool_loop_stops_before_the_next_provider_call(make_unit: Make
 def test_model_must_match_pricing(make_unit: MakeUnit) -> None:
     with pytest.raises(errors.ProviderUnavailable):
         make_unit(model="other-model")
+
+
+def _db_tool_calls(engine: Engine, rid: UUID) -> int:
+    with engine.connect() as conn:
+        return int(
+            conn.execute(
+                text("SELECT tool_calls_used FROM spend_reservation WHERE reservation_id = :r"),
+                {"r": rid},
+            ).scalar_one()
+        )
+
+
+def test_tool_calls_are_persisted_per_call_even_if_the_round_is_cancelled(
+    make_unit: MakeUnit, engine: Engine
+) -> None:
+    token = CancelToken()
+    stub = StubProvider(
+        [tool_call_response(("a", "read_page", {"page": 1}), ("b", "read_page", {"page": 2}))]
+    )
+    seen: list[int] = []
+
+    def executor(call: object) -> str:
+        seen.append(1)
+        token.cancel()  # cancel mid-round: the second call is never executed
+        return "x"
+
+    with pytest.raises(errors.RequestCancelled):
+        with make_unit(stub, tools=[LOOKUP_TOOL], cancel=token) as unit:
+            unit.run_tool_loop([user("go")], executor)  # type: ignore[arg-type]
+    assert unit.reservation is not None and len(seen) == 1
+    assert _db_tool_calls(engine, unit.reservation.reservation_id) == unit.tool_calls == 1
+
+
+def test_reentering_a_reservation_resumes_persisted_counters(
+    make_unit: MakeUnit, engine: Engine
+) -> None:
+    stub = StubProvider([tool_call_response(("a", "read_page", {"page": 1})), text_response("ok")])
+    with make_unit(stub, tools=[LOOKUP_TOOL], request_key="resume") as unit:
+        unit.run_tool_loop([user("go")], lambda _: "x")  # type: ignore[arg-type,return-value]
+    assert unit.attempts == 2 and unit.tool_calls == 1
+    again = make_unit(StubProvider([]), tools=[LOOKUP_TOOL], request_key="resume")
+    with again as unit2:
+        assert unit2.attempts == 2 and unit2.tool_calls == 1

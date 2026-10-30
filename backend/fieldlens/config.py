@@ -53,7 +53,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="FIELDLENS_",
-        extra="ignore",  # unrelated .env keys (e.g. provider credentials) are never adopted
+        extra="ignore",  # unrelated .env keys are never adopted; only MODEL_API_KEY is aliased
+        populate_by_name=True,
         env_file=ENV_FILE,  # anchored to the repository root; real environment variables win
         env_file_encoding="utf-8",
         frozen=True,
@@ -85,10 +86,12 @@ class Settings(BaseSettings):
     staging_sweep_interval_s: float = Field(600.0, ge=0.1)
     """Test-only pause after each stage step so restart/kill tests can interrupt a job."""
 
-    # Meta provider (server-side only). The key comes from FIELDLENS_META_API_KEY; an absent key
-    # fails closed with a typed error before any dispatch. Limits default to MI-5 and may only be
-    # lowered, except the tool-call bound, which is configurable (default 6).
-    meta_api_key: SecretStr | None = None
+    # Meta provider (server-side only). The single provider key is MODEL_API_KEY (process
+    # environment, else the root .env; owner decision 2026-10-30 13:41 EDT). It is the only
+    # non-FIELDLENS_/POSTGRES_ name adopted, is held as a secret and is never logged or echoed.
+    # An absent/blank key fails closed with a typed error before any dispatch. Limits default to
+    # MI-5 and may only be lowered, except the tool-call bound (configurable, default 6).
+    meta_api_key: SecretStr | None = Field(None, validation_alias="MODEL_API_KEY")
     meta_base_url: str = "https://api.meta.ai/v1"
     meta_model: str = "muse-spark-1.3"
     budget_ledger_cap_usd: Decimal = Field(Decimal("150"), gt=0, le=Decimal("150"))
@@ -100,6 +103,11 @@ class Settings(BaseSettings):
     provider_max_output_tokens: int = Field(4096, ge=1, le=4096)
     provider_max_reserved_usd: Decimal = Field(Decimal("0.50"), gt=0, le=Decimal("0.50"))
     provider_image_token_bound: int = Field(8192, ge=1, le=1_000_000)
+
+    @field_validator("meta_api_key")
+    @classmethod
+    def _blank_key_is_absent(cls, value: SecretStr | None) -> SecretStr | None:
+        return value if value is not None and value.get_secret_value().strip() else None
 
     @field_validator("storage_root")
     @classmethod
