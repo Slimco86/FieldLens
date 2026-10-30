@@ -8,6 +8,18 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.11.0 - 2026-10-29
+
+- **FL-020-B:** `docs/BACKLOG.md` is now a machine-checkable ledger: one block per feature
+  (FL-000..FL-020) and task (TASK-001..TASK-032) with status, priority, tags, dependencies,
+  assignee, due date, sprint, spec and version; all earlier narrative is kept verbatim under
+  `## Journal`. Added `scripts/ledger.py` (strict parser/validator: required fields, enums,
+  duplicate IDs, dependency existence/cycles/due order/priority order, done evidence, secret
+  guard, no echo of values) and `scripts/track.py check|list|plan` (no network yet; Taiga sync is
+  slice C). TASK-001 is recorded as in_progress (DA-7 not yet verified for every profile);
+  TASK-003's done status keeps a documented owner-exception dependency on it. No application,
+  API or schema change. Independent QA PASS after one repair round (517 backend tests).
+
 ## 0.10.0 - 2026-10-29
 
 - **FL-019-A:** Added `./dev`, a one-command local stack (`scripts/dev.py`): `up [--dev]`
