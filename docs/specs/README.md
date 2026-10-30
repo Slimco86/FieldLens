@@ -29,6 +29,8 @@ See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
 | FL-016 | [Composite-asset reconstruction](ASSET_RECONSTRUCTION.md) | A: persistent candidates/support/review/publication UI; B: independent live reconstruction gold evaluation |
 | FL-017 | [Data quality](DATA_QUALITY.md) | A: source-first warning/error inspector; consumers add review/generic boundaries; real-source/combined checks complete acceptance |
 | FL-018 | [Dev environment](DEV_ENVIRONMENT.md) | Single Compose project and root `.env` auto-loaded by code; no app behavior change |
+| FL-019 | [Dev tooling](DEV_TOOLING.md) | `./dev` one-command stack: Postgres, migrations, API/Vite, tests, lane-aware |
+| FL-020 | [Tracking](TRACKING.md) | Telegram notify, backlog ledger format, one-way Taiga sync |
 
 ## Project requirement -> acceptance -> verification
 
