@@ -54,7 +54,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="FIELDLENS_",
         extra="ignore",  # unrelated .env keys are never adopted; only MODEL_API_KEY is aliased
-        populate_by_name=True,
         env_file=ENV_FILE,  # anchored to the repository root; real environment variables win
         env_file_encoding="utf-8",
         frozen=True,

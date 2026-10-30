@@ -32,7 +32,18 @@ KEY = "sk-synthetic-NOT-A-REAL-KEY-0123456789"
 
 
 def _settings(**kw: Any) -> Settings:
+    if "meta_api_key" in kw:  # the only accepted name is the MODEL_API_KEY alias
+        kw["MODEL_API_KEY"] = kw.pop("meta_api_key")
     return Settings(_env_file=None, **kw)
+
+
+def test_only_model_api_key_names_the_provider_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MODEL_API_KEY", "")
+    monkeypatch.setenv("FIELDLENS_META_API_KEY", "ALIASVAL123")
+    monkeypatch.setenv("META_API_KEY", "ALIASVAL123")
+    assert Settings(_env_file=None).meta_api_key is None
+    with pytest.raises(errors.ProviderUnavailable):
+        MetaProvider(Settings(_env_file=None))
 
 
 class ExplodingClient:
