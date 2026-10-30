@@ -42,6 +42,7 @@ pythonpath = ["backend"]
 addopts = "-ra --strict-markers"
 markers = [
   "live_meta: opt-in live provider test; excluded from ordinary runs",
+  "local_data: opt-in run against the local Volve subset (needs FIELDLENS_LOCAL_DATA_ROOT)",
 ]
 
 [tool.ruff]

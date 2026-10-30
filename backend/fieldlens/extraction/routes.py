@@ -6,6 +6,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
+from pydantic import Field
 from sqlalchemy.exc import OperationalError
 
 from fieldlens import security
@@ -21,6 +22,10 @@ from fieldlens.persistence.session import session_scope
 
 from . import views
 from .runner import requeue_document
+
+
+class RecordQuery(PageParams):
+    kind: str | None = Field(default=None, max_length=48)
 
 
 def _guard_mutation(request: Request) -> None:
@@ -62,12 +67,13 @@ def build_extraction_router() -> APIRouter:
         project_id: UUID,
         document_id: UUID,
         request: Request,
-        params: Annotated[PageParams, Query()],
-        kind: Annotated[str | None, Query(max_length=48)] = None,
+        params: Annotated[RecordQuery, Query()],
     ) -> ExtractedRecordPage:
         page: ExtractedRecordPage = _db(
             request,
-            lambda s: views.records(s, project_id, document_id, kind, params.limit, params.cursor),
+            lambda s: views.records(
+                s, project_id, document_id, params.kind, params.limit, params.cursor
+            ),
         )
         return page
 
