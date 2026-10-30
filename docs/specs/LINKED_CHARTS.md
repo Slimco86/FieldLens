@@ -38,9 +38,12 @@ of invented values. CSV export is not required for the first increment.
 ### Scope Dependencies
 
 FL-010-A production and FL-010-B logs depend on qualified FL-005-B source records
-and FL-016-A published asset/series associations; they can run independently
-without a finished 3D viewer. FL-010-C overlays additionally needs FL-008-B plus
-both chart slices and verifies the linked scene/inspector state.
+and the FL-021 shell (TASK-034). Owner decision, October 30: they no longer wait for
+FL-016-A. Until a published model associates a series with an asset, views are scoped
+by project and source well/wellbore identifiers and labeled "not reconciled to a model";
+association with published assets is wired by FL-010-C (TASK-018) and the assistant
+(TASK-031). They can run independently without a finished 3D viewer. FL-010-C overlays
+additionally needs FL-008-B plus both chart slices and verifies the linked scene/inspector state.
 
 ### Open Scope Tensions
 

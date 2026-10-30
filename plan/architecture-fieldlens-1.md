@@ -77,7 +77,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
-| TASK-001 | FL-001 | None | Main agent verifies DA-7 actual host model/effort/tools for each profile used, confirms approved design is committed, and records exact integration base before any implementation delegation. | | |
+| TASK-001 | FL-001 | None | Main agent verifies DA-7 actual host model/effort/tools for each profile used, confirms approved design is committed, and records exact integration base before any implementation delegation. | Yes; owner closed it October 30 (per-dispatch preflight instead of an all-profile sweep), 0.12.1 | 2026-10-30 |
 | TASK-002 | FL-002 | None | Complete DF-1..9 for owner-selected F-12/F-14/F-5: produce ignored `data/volve/demo-manifest.json` with hashes/rights/profiles/windows/expected records and independent reference/state fixtures. Use verified F-5 images/F-14 drawing and preserve F-12's approved generic limitation; tally search is not a prerequisite for source-free implementation. No bulk download, automatic F-11 B substitution or false G1 pass. | | |
 | TASK-003 | FL-004-A | TASK-001 | Backend owner implements FN-1..6 and SC-1..6 in contracts/persistence/migrations, root locks and frontend app/API shell. Real PostgreSQL, loopback readiness and test commands; single shared-contract writer. | Yes; 0.4.0 / `1293f55`, owner direct-repair/verification exception | 2026-10-28 |
 | TASK-025 | FL-015-A | TASK-003 | Backend owner implements project lifecycle/membership in backend/fieldlens/projects and frontend/src/features/projects; PW-1/2/5/8 with keyboard navigation and real persistence. | Yes; independent QA, 0.5.0 / `3e748d9` (lifecycle surfaces only) | 2026-10-28 |
@@ -95,9 +95,9 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | TASK-004 | FL-003-A | TASK-003 | RAG worker implements MI-1..5 offline provider adapter, PostgreSQL budget reservations and finite failure/cancellation behavior in `backend/fieldlens/assistant/`; no live calls. | | |
 | TASK-005 | FL-003-B | TASK-004 | RAG worker runs MI-6 only after approved USD 1 ceiling and balance/key readiness; record actual entitlement/tool protocol. No pilot documents needed. | | |
 | TASK-009 | FL-005-B | TASK-006 | Ingestion owner implements selected qualified native source profiles and evidence UI: IN-2/6 for this subset, exact record/page coverage and wrong-folder fixture. Small approved subset, not full IN-8/G1 acceptance. | | |
-| TASK-032 | FL-017-A | TASK-009 | Frontend owner implements scoped issue API/list/detail/evidence navigation in `backend/fieldlens/evidence/issues.py` and `frontend/src/features/evidence/quality/`; DQ-1/2/3/4/7 and DTO-negative DQ-5/6. Serialize shared schema/client edits; source-first, no graph/3D prerequisite. | | |
+| TASK-032 | FL-017-A | TASK-009, TASK-034 | Frontend owner implements scoped issue API/list/detail/evidence navigation in `backend/fieldlens/evidence/issues.py` and `frontend/src/features/evidence/quality/`; DQ-1/2/3/4/7 and DTO-negative DQ-5/6. Serialize shared schema/client edits; source-first, no graph/3D prerequisite. | | |
 | TASK-011 | FL-011-A | TASK-009 | RAG owner implements project/source-scoped exact/text/vector retrieval in retrieval, source coverage and bounded evidence search; unresolved observations are labeled. No accepted asset graph prerequisite; embedding gate/degradation explicit. | | |
-| TASK-019 | FL-011-B | TASK-004, TASK-011 | RAG owner implements source-context chat/evidence UI, RG-8 offline and applicable RG-3/4/5; no geometry tools or reconstruction writes from chat. | | |
+| TASK-019 | FL-011-B | TASK-004, TASK-011, TASK-034 | RAG owner implements source-context chat/evidence UI, RG-8 offline and applicable RG-3/4/5; no geometry tools or reconstruction writes from chat. | | |
 | TASK-027 | FL-011-D | TASK-005, TASK-019 | RAG owner verifies all three early live source-chat cases under separately approved <=USD 1 allowance; records exact citation/gap/refusal results. Not the complete RG-6 evaluation. | | |
 | TASK-030 | FL-005-C | TASK-009 | Ingestion owner qualifies scanned-PDF and legacy-Word embedded-image profiles for selected F-14/F-5 evidence, with original locators, safe evidence viewer and human-checked attribute fixtures. Required for selected equipment, not optional OCR polish. | | |
 
@@ -111,7 +111,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
-| TASK-026 | FL-016-A | TASK-019, TASK-032 | RAG owner implements reconstruction proposals/validator/review UI in reconstruction and shared assistant harness; RC-1..9 offline, DQ-6 publication boundaries, real database transactions and source-backed fixtures. Reuse issue inspector; coordinate migrations with backend; do not generate accepted facts in the model. | | |
+| TASK-026 | FL-016-A | TASK-019, TASK-032, TASK-036, TASK-038 | RAG owner implements reconstruction proposals/validator/review UI in reconstruction and shared assistant harness; RC-1..9 offline, DQ-6 publication boundaries, real database transactions and source-backed fixtures. Reuse issue inspector; coordinate migrations with backend; do not generate accepted facts in the model. | | |
 | TASK-028 | FL-016-B | TASK-005, TASK-026, TASK-030 | RAG owner runs RC-10 on 12 independently authored gold cases and selected qualified source records under separately approved <=USD 3 allowance; record actual tool-dependent reconstruction, support and unresolved states. | | |
 
 ### Implementation Phase 4
@@ -126,13 +126,13 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 |---|---|---|---|---|---|
 | TASK-007 | FL-006-A | TASK-003 | Geospatial owner implements TR-1/2/3 analytic trajectory/reference/proximity engine and unit tests in engineering; no renderer or pilot acceptance claimed. | Yes; independent QA, 0.6.0 / `532d517` (TR-1/2/3 only) | 2026-10-29 |
 | TASK-008 | FL-008-A | TASK-003 | Geospatial owner implements PH-2/3/5/6/7/9 deterministic state/union engine; exact t0..t6 fixtures, unknown baselines and same-day ambiguity. | Yes; independent QA, 0.7.0 / `aaf0fdd` (engine-level; PH-6 persistence deferred) | 2026-10-29 |
-| TASK-010 | FL-006-B | TASK-007, TASK-026 | 3D owner implements published-model scene/tree, local-origin buffers and evidence selection, TR-4..7 on qualified survey subset; never read active facts directly from upload staging. | | |
+| TASK-010 | FL-006-B | TASK-007, TASK-026, TASK-034 | 3D owner implements published-model scene/tree, local-origin buffers and evidence selection, TR-4..7 on qualified survey subset; never read active facts directly from upload staging. | | |
 | TASK-012 | FL-007-A | TASK-010, TASK-030 | 3D worker implements source-dimensioned procedural equipment, inspector, catalog/generic/unlocated states and EQ-1..7/DQ-5 from qualified evidence. Demonstrate F-14/F-5 dimensional candidates and F-12's explicit limitation; no guessed depth, generated engineering values or Blender prerequisite. | | |
 | TASK-013 | FL-008-B | TASK-008, TASK-009, TASK-010 | Frontend worker wires canonical historical state to real events, MD placement/time controls/inspector and PH-1/4/8; retain acquisition dates and context guards. | | |
 | TASK-014 | FL-009-A | TASK-009, TASK-010 | Geospatial worker implements seabed source projection, typed layer API/component and CX-1/3/4/5; owns seabed-specific files. | | |
 | TASK-015 | FL-009-B | TASK-009, TASK-010 | Geospatial worker implements formation depth horizons/picks, interpolation/source masks and CX-2/3/4/5; verify combined CX-6 after both layers integrate. | | |
-| TASK-016 | FL-010-A | TASK-009, TASK-026 | Frontend worker implements production endpoints/chart/units/periods/evidence with CH-1/3/4/6 on published model context; owns production-specific files. | | |
-| TASK-017 | FL-010-B | TASK-009, TASK-026 | Frontend worker implements depth-log endpoints/tracks/nulls/acquisition evidence with CH-2/3/4/6 on published model context; owns log-specific files. | | |
+| TASK-016 | FL-010-A | TASK-009, TASK-034 | Frontend worker implements production endpoints/chart/units/periods/evidence with CH-1/3/4/6 on published model context; owns production-specific files. | | |
+| TASK-017 | FL-010-B | TASK-009, TASK-034 | Frontend worker implements depth-log endpoints/tracks/nulls/acquisition evidence with CH-2/3/4/6 on published model context; owns log-specific files. | | |
 | TASK-018 | FL-010-C | TASK-013, TASK-016, TASK-017 | Frontend worker integrates PH overlays/shared as-of state and CH-5/7 across both chart families; tests rapid context changes. | | |
 | TASK-031 | FL-011-E | TASK-019, TASK-012, TASK-013, TASK-014, TASK-015, TASK-018 | RAG owner extends existing chat with published-graph retrieval, all domain/navigation tools and RG-1..5/7; UI acknowledges applied/rejected/stale actions. Same harness/ledger, no second agent backend. | | |
 
@@ -146,7 +146,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 |---|---|---|---|---|---|
 | TASK-029 | FL-005-D | TASK-002, TASK-009, TASK-030 | Ingestion owner verifies IN-8 and real-source DQ-8 inputs across the final approved manifest, including expected conflicts/generic gaps as explicit outcomes. Required profiles and independent records must match; accepted limitations are not fabricated success or full coverage. | | |
 | TASK-020 | FL-011-C | TASK-005, TASK-029, TASK-031 | RAG worker runs the fixed 32-case live gold evaluation under approved USD 3 allowance; record RG-6 and authorized equipment-research coverage, not just successful text generation. | | |
-| TASK-021 | FL-012-A | TASK-031 | QA verifies combined create-project -> upload -> reconstruction review/publication -> scene/history/charts browser path with stub provider, negative paths/accessibility and AC-9/RSS. Feature owners fix defects. | | |
+| TASK-021 | FL-012-A | TASK-031, TASK-037 | QA verifies combined create-project -> upload -> reconstruction review/publication -> scene/history/charts browser path with stub provider, negative paths/accessibility and AC-9/RSS. Feature owners fix defects. | | |
 | TASK-022 | FL-012-B | TASK-002, TASK-020, TASK-021, TASK-027, TASK-028, TASK-029 | QA verifies the real-source/live-provider path, all 12 project ACs and DQ-1..8 on the candidate SHA; show F-12 generic/unlocated state and real conflicts, with isolated DB/storage and actual usage/evidence. | | |
 | TASK-023 | FL-012-C | TASK-022 | Main agent finalizes operator instructions, rights-safe release inventory, VERSION/CHANGELOG and candidate; owner verifies G4, records <=180 s video and explicitly authorizes publication/submission. | | |
 
@@ -159,6 +159,25 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
 | TASK-024 | FL-007-B | TASK-012 | 3D worker uses approved Blender build/skill to create one source-backed asset and verify scale/IDs/GLB/budgets from the equipment spec. Skip rather than delay required features; no claim of completed asset when skipped. | | |
+
+### Implementation Phase 7 (owner realignment, October 30)
+
+- **GOAL-007**: A demo-grade UI and model-assisted extraction, added after the owner
+  found the prototype UI unsuitable and the plan lacked a task for model judgement
+  in extraction. The owner approved both specs on October 30 (TASK-033/035 done).
+  The ledger in `docs/BACKLOG.md` is authoritative for status and dates. Charts
+  TASK-016/017 now depend on source records (TASK-009) and the shell (TASK-034), not
+  on reconstruction; model linking is wired by TASK-018/031.
+
+| Task | Slice | Depends on | Description | Completed | Date |
+|---|---|---|---|---|---|
+| TASK-033 | FL-021-A | None | Owner approves the UI design direction and open decisions in `docs/specs/UI_DESIGN_SYSTEM.md`. | | |
+| TASK-034 | FL-021-A | TASK-033 | Frontend owner implements the light Mantine theme, the shell (left project sidebar, Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock regions), shared components/states and redesigned Projects/Sources screens; UI-1..7, UI-9..12, existing behavior preserved, large screens only. | | |
+| TASK-035 | FL-022-A | None | Owner approves the agentic extraction contract and open decisions in `docs/specs/AGENTIC_EXTRACTION.md`. | | |
+| TASK-036 | FL-022-A | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038 | Ingestion owner implements question-driven model-proposed candidate claims with read-only content tools and page images, deterministic validators, persisted states and evidence/issue display; AX-1..9, offline stub provider only. | | |
+| TASK-037 | FL-021-B | TASK-034, TASK-012, TASK-018 | Frontend owner runs the demo UI polish and accessibility sweep on the integrated app; UI-8, UI-10, owner sign-off. | | |
+| TASK-038 | FL-022-B | TASK-004, TASK-034 | Ingestion owner implements the persisted agent activity log and the Reconstruction tab view; AX-10. | | |
+| TASK-039 | FL-021-C | TASK-034 | Backend/frontend owner implements source removal (soft exclusion) and replacement as new immutable revisions in the Sources tab; specifying until the owner confirms the semantics. | | |
 
 ### Dispatch, ownership and resource allocation
 
@@ -208,8 +227,10 @@ Heavy worker target 1536 MiB RSS, two numeric threads; stop scheduling below
 ### Critical path, integration and calendar checkpoints
 
 Product learning path:
-TASK-003 -> TASK-025 -> TASK-006 -> TASK-009 -> TASK-011 -> TASK-019 ->
-TASK-026 -> TASK-010/016/017 -> enrichment -> TASK-031 -> acceptance.
+TASK-003 -> TASK-025 -> TASK-006 -> TASK-009 -> TASK-011 -> TASK-036 (with TASK-004, TASK-038) -> TASK-019 ->
+TASK-026 -> TASK-010 -> enrichment -> TASK-031 -> TASK-037 -> acceptance. Charts TASK-016/017
+branch from TASK-009/034 in parallel with reconstruction. The shell TASK-034 is dispatched first and
+precedes every later UI-bearing task.
 The early provider branch TASK-004/005/027 and reconstruction live check TASK-028
 expose agent risk before the full scene. TASK-002/029 converge at final real-data
 acceptance, not at project creation. TASK-030 is a source-specific prerequisite

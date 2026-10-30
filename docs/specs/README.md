@@ -12,7 +12,7 @@ See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
 | Backlog | Specification | Bounded increments / current execution gate |
 |---|---|---|
 | FL-001 | [Development agents](DEVELOPMENT_AGENTS.md) | Configuration integrated; actual host activation still unverified |
-| FL-002 | [Data feasibility](DATA_FEASIBILITY.md) | F-12/F-14/F-5 and F-12 generic limitation approved; final manifest/history/reference/extraction qualification in progress, not passed |
+| FL-002 | [Data feasibility](DATA_FEASIBILITY.md) | Demo dataset qualification (hashes/rights/gold fixtures for F-12/F-14/F-5); no longer gates FL-005; owner-selected cohort and F-12 generic limitation approved; final manifest/reference qualification in progress, not passed |
 | FL-003 | [Meta integration](META_INTEGRATION.md) | A: offline adapter/ledger; B: opt-in live protocol/entitlement |
 | FL-004 | [Foundation](FOUNDATION.md), [shared contracts](SHARED_CONTRACTS.md) | A: locked runtimes, migrations, API/types, shell; no G1/G2 dependency |
 | FL-005 | [Ingestion](INGESTION.md) | A: project upload/jobs; B: early native evidence; C: required selected scan/Word profiles; D: final IN-8 manifest qualification |
@@ -31,6 +31,8 @@ See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
 | FL-018 | [Dev environment](DEV_ENVIRONMENT.md) | Single Compose project and root `.env` auto-loaded by code; no app behavior change |
 | FL-019 | [Dev tooling](DEV_TOOLING.md) | `./dev` one-command stack: Postgres, migrations, API/Vite, tests, lane-aware |
 | FL-020 | [Tracking](TRACKING.md) | Telegram notify, backlog ledger format, one-way Taiga sync |
+| FL-021 | [UI design system](UI_DESIGN_SYSTEM.md) | Approved October 30 (light theme, Mantine, left project sidebar + Sources/Reconstruction/Explore tabs); A: shell and redesigned Projects/Sources; B: demo polish; C: source removal/replacement (TASK-039, semantics pending) |
+| FL-022 | [Agentic extraction](AGENTIC_EXTRACTION.md) | Approved October 30; question-driven model-proposed candidates with read-only tools, deterministic validation and an activity log (TASK-036, TASK-038) |
 
 ## Project requirement -> acceptance -> verification
 

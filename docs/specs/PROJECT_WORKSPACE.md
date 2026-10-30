@@ -42,8 +42,11 @@ Verification: PW-1 through PW-8 in a fresh PostgreSQL/browser run. Outcome score
 ### OUT of Scope
 
 Hosted accounts/sharing, cross-project asset merging, arbitrary host-directory
-imports, file/project deletion and bulk-release import are excluded from this
-increment. Reconstruction/review belongs to FL-016; 3D belongs to FL-006/007.
+imports, project deletion/archiving and bulk-release import are excluded from this
+increment. File removal and replacement were deferred here and are now proposed as
+TASK-039 (soft exclusion creating a new immutable source revision), pending owner
+confirmation; no removal control is shown before it exists.
+Reconstruction/review belongs to FL-016; 3D belongs to FL-006/007.
 Categories are not a physical folder schema or proof of the entities inside a file.
 
 ### Scope Dependencies
@@ -67,7 +70,7 @@ entities from content. Labels never establish engineering facts.
 | PW-3 | Behavioral | Add a second batch to a project; its new source revision retains unchanged first-batch members. Repeating bytes/idempotency key creates no duplicate document or processing job. Explicit replacement retains the previous bytes/revision. | 3 | [Validated] | `test_incremental_sources` |
 | PW-4 | Behavioral | One report can have completion/equipment and perforation/history categories plus a custom tag; suggested labels and user overrides retain distinct origins. A file with no category can be uploaded. | 3 | [Validated: owner October 28] | `upload-categories.spec.ts` |
 | PW-5 | Negative | A tag, folder or filename cannot establish well identity, installed state, effective date, CRS or a numeric claim. A mislabeled F-12/F-11 fixture is flagged by content, not forcibly reassigned to the folder label. | 3 | [Validated] | `test_category_is_not_evidence` |
-| PW-6 | Edge case | During failed/cancelled/new imports, the published model remains pinned and labeled with its source revision; the UI explicitly shows that newer sources are pending or failed. | 3 | [Assumed: verify] | `source-model-revisions.spec.ts` |
+| PW-6 | Edge case | During failed/cancelled/new imports, the published model remains pinned and labeled with its source revision; the UI explicitly shows that newer sources are pending or failed. | 3 | [Assumed: verify]; owner moved verification to TASK-026 (FL-016-A) on 2026-10-30 because it needs a published model; FL-015 was closed without it | `source-model-revisions.spec.ts` |
 | PW-7 | Non-behavioral | Streaming enforces 128 MiB/file, 512 MiB/batch and 200 files/batch, testing exact limit and limit+1 byte; filename/media validation precedes parsing. Oversize failure is visible and publishes no source revision. | 3 | [Validated: owner October 28; performance unmeasured] | `test_project_upload_bounds` |
 | PW-8 | Behavioral | Keyboard-only navigation creates/opens a project and switches Sources/Reconstruction/Explore; unavailable capabilities state their prerequisite. Project switching invalidates pending requests and action acknowledgments. | 3 | [Assumed: verify] | `project-navigation.spec.ts` |
 

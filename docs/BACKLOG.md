@@ -88,7 +88,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 **Next action.** Verify profile, model and tools per assignment; remaining profiles still require activation and no blanket host fix is claimed. The CLI ignores YAML effort, so worker effort is selected explicitly, and the owner accepts main Astra/high for this continuation.
 **Evidence.** TASK-025 backend native editing smoke passes and the host resolves Sonnet 5.5; see the Journal for the activation record.
 
-### FL-002 · Compact demo data/rights manifest with dated perforation/state evidence
+### FL-002 · Demo dataset qualification: hashes, rights and independent gold fixtures for F-12, F-14 and F-5
 
 | Field | Value |
 |---|---|
@@ -103,8 +103,8 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Spec | specs/DATA_FEASIBILITY.md |
 | Version | none |
 
-**Outcome.** Approve a compact demo data/rights manifest, including dated perforation/state evidence. The owner selected F-12/F-14/F-5 and accepted generic/unlocated F-12 limitations.
-**Next action.** Final hashed profiles, windows, reference/state/rights fixtures remain in TASK-002 and TASK-029; G1 is not passed. No automatic F-11 B replacement or further tally-search blocker.
+**Outcome.** Qualify the real demo dataset for the owner-selected F-12/F-14/F-5 cohort: which files, their hashes and rights, and human-checked reference records (including dated perforation/state evidence) that parsers, reconstruction and the final demo are tested against. This is test ground truth, not an upload feature and not a limit on what users can upload. The owner accepted the generic/unlocated F-12 limitation.
+**Next action.** Final hashed profiles, windows and reference/state/rights fixtures remain in TASK-002; the full-manifest ingestion check is TASK-029. G1 is not passed. FL-005 no longer depends on this feature (owner decision October 30); each early parser subset records its own fixtures. No automatic F-11 B replacement or further tally-search blocker.
 **Evidence.** Owner selection and the data-feasibility spec; see the Journal data-audit sections.
 
 ### FL-003 · Meta entitlement/protocol verification and shared budget controls
@@ -153,7 +153,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, backend, frontend |
-| Depends on | FL-004, FL-002 |
+| Depends on | FL-004 |
 | Assignee | agent:fieldlens-ingestion |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
@@ -340,18 +340,18 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, frontend |
 | Depends on | FL-004 |
 | Assignee | agent:fieldlens-backend |
-| Due | 2026-11-01 |
+| Due | 2026-10-29 |
 | Sprint | Hackathon |
 | Spec | specs/PROJECT_WORKSPACE.md |
-| Version | none |
+| Version | 0.8.0 |
 
-**Outcome.** Create/reopen isolated projects with categorized, incremental sources. TASK-025 is done and TASK-006 then delivered the upload-related PW criteria.
-**Next action.** The aggregate feature is not done: data-qualification criteria remain.
+**Outcome.** Create/reopen isolated projects with categorized, incremental sources. TASK-025 delivered lifecycle/isolation/navigation and TASK-006 the upload-related criteria (PW-3/4/7).
+**Next action.** None. PW-6 (published model stays pinned while newer sources are pending/failed) needs a published model and moves, by owner decision October 30, into the TASK-026 acceptance; it is not verified by this closure.
 **Evidence.** Independently accepted repair `2af22aa` integrated at `3e748d9`, version 0.5.0; see [PW evidence](specs/PROJECT_WORKSPACE.md#task-025-scoped-implementation-and-acceptance). TASK-006 (`fb275f4`, 0.8.0).
 
 ### FL-016 · Composite entities/relationships/configurations with evidence and reviewed model publication
@@ -449,6 +449,44 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 **Next action.** Run `track.py sync --apply` after every backlog edit. Open follow-ups: owner accepted the public Taiga project (`TAIGA_ALLOW_PUBLIC=1`); a dedicated bot is advised before enabling the Telegram inbox; live `is_blocked=true` and 429/5xx paths were verified on fakes only.
 **Evidence.** Slice A on `feature/fl-020-a-notify`: independent QA PASS after 2 repairs, 396 backend tests, version 0.9.0. Slice B: independent QA PASS after 1 repair, 517 tests, 0.11.0. Slice C: independent QA PASS after 1 repair incl. live 8-item smoke with zero-write rerun, 536 tests, 0.12.0.
 
+### FL-021 · Demo-grade application shell and visual design system
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | ready |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | FL-004 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/UI_DESIGN_SYSTEM.md |
+| Version | none |
+
+**Outcome.** Replace the unstyled prototype pages with a designed, structured, accessible light-theme product UI for the demo, built on Mantine: a left sidebar for project management; per-project top tabs Sources (file management), Reconstruction (log of agentic parsing, extraction and relationships) and Explore (3D model, charts, assistant, with tree/stage/inspector/dock regions); shared components and states; redesigned Projects and Sources screens. Large screens only. Later features mount into the shell instead of restyling it.
+**Next action.** Owner approved the spec October 30 (TASK-033). Dispatch TASK-034 first with a fresh preflight; TASK-037 polishes the integrated app.
+**Evidence.** Spec approved with owner decisions recorded (specs/UI_DESIGN_SYSTEM.md section 6). Implementation not started; the current UI is 136 lines of default-styled CSS with no layout or design structure.
+
+### FL-022 · Agent-assisted extraction of ambiguous source content with deterministic validation
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | ready |
+| Priority | P0 |
+| Tags | ingestion, rag, backend |
+| Depends on | FL-003, FL-005 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/AGENTIC_EXTRACTION.md |
+| Version | none |
+
+**Outcome.** Where deterministic native parsers cannot answer a specific question (ambiguous tables, free-text reports, scanned or legacy-Word content, unclear units or identities), the harness lets the model, using allowlisted read-only content tools and page images, propose typed, source-located candidate claims that deterministic validators accept, reject or flag. Each work unit leaves an activity log shown in the Reconstruction tab. Deterministic extraction stays first; a model proposal is never an accepted fact and never overrides a parsed value.
+**Next action.** Owner approved the spec October 30 (TASK-035). TASK-038 (activity log and Reconstruction view) then TASK-036 (extraction) after TASK-004, TASK-009 and TASK-011; stub provider only, no live spend.
+**Evidence.** Spec approved with owner decisions recorded (specs/AGENTIC_EXTRACTION.md section 6). Implementation not started; added by the owner's October 30 realignment (no existing task covered model judgement in extraction).
+
 ## Tasks
 
 Rows copied from the plan's task table (the plan stays the design-time DAG); `Parent` strips
@@ -459,7 +497,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | agent, docs |
 | Depends on | none |
@@ -467,15 +505,15 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-10-30 |
 | Sprint | Hackathon |
 | Spec | specs/DEVELOPMENT_AGENTS.md |
-| Version | none |
+| Version | 0.12.1 |
 | Parent | FL-001 |
 | Slice | FL-001 |
 
-**Outcome.** The main agent verifies DA-7 actual host model/effort/tools for each profile used, confirms the approved design is committed and records the exact integration base before implementation delegation. Not complete: only the backend profile preflights are evidenced, so DA-7 stays unverified for every other profile used.
-**Next action.** Verify DA-7 (host model/effort/tools) for every profile used, per the plan, then mark done with a Version. TASK-003 is done under the owner's direct-repair exception while this stays open.
-**Evidence.** Preflights recorded for the backend profile (resolved Sonnet 5.5 in host events; native create/edit/read/delete worked, TASK-025 preflights) and the profiles used so far; foundation integrated at `1293f55` (0.4.0).
+**Outcome.** The main agent verifies DA-7 actual host model/effort/tools for each profile used, confirms the approved design is committed and records the exact integration base before implementation delegation. Closed by the owner on October 30: profile verification is performed and recorded per assignment at dispatch, not as one up-front sweep.
+**Next action.** None. Every dispatch still needs its own fresh preflight (profile, resolved model, effort, tools) recorded in its handoff; a profile with no recorded preflight is not trusted.
+**Evidence.** Owner decision October 30 (waiver of the up-front all-profile sweep). Preflights recorded for the backend profile (resolved Sonnet 5.5 in host events; native create/edit/read/delete worked, TASK-025 preflights); foundation integrated at `1293f55` (0.4.0); current integrated version 0.12.1.
 
-### TASK-002 · Final demo data manifest, hashed profiles and independent reference fixtures (DF-1..9)
+### TASK-002 · Demo dataset manifest and independent reference (gold) fixtures for F-12/F-14/F-5 (DF-1..9)
 
 | Field | Value |
 |---|---|
@@ -492,8 +530,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-002 |
 | Slice | FL-002 |
 
-**Outcome.** Complete DF-1..9 for owner-selected F-12/F-14/F-5: produce the ignored `data/volve/demo-manifest.json` with hashes, rights, profiles, windows, expected records and independent reference/state fixtures. Use the verified F-5 images and F-14 drawing and preserve F-12's approved generic limitation; no bulk download, automatic F-11 B substitution or false G1 pass.
-**Next action.** Continue main-agent bounded source work or a separately verified ingestion assignment; tally search is not a prerequisite for source-free implementation.
+**Outcome.** Produce the ignored `data/volve/demo-manifest.json` for F-12/F-14/F-5: the exact source files with hashes and rights, the parser profile each needs, the date/depth windows, and the expected records with independent, human-checked reference/state fixtures (DF-1..9). It is ground truth for TASK-029 and TASK-022, not an upload step. Use the verified F-5 images and F-14 drawing and preserve F-12's approved generic limitation; no bulk download, automatic F-11 B substitution or false G1 pass.
+**Next action.** Continue main-agent bounded source work or a separately verified ingestion assignment; it blocks only TASK-029/022, not parsers (TASK-009 records its own subset fixtures). Tally search is not a prerequisite.
 **Evidence.** Partial source audits only; see the Journal data sections and the data-feasibility spec. G1 is not passed.
 
 ### TASK-003 · Foundation: contracts, persistence, migrations, root locks and app shell
@@ -597,7 +635,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-003 |
 | Slice | FL-003-B |
 
-**Outcome.** RAG worker runs MI-6 only after the approved USD 1 ceiling and balance/key readiness, recording the actual entitlement and tool protocol. No pilot documents are needed.
+**Outcome.** RAG worker runs MI-6 only after the approved USD 1 ceiling and balance/key readiness, recording the actual entitlement and tool protocol, including a harmless image-input (multimodal) check because FL-022 relies on page images. No pilot documents are needed.
 **Next action.** Wait for TASK-004 and a separate owner authorization of live calls.
 **Evidence.** none yet
 
@@ -619,7 +657,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-B |
 
 **Outcome.** Ingestion owner implements selected qualified native source profiles and the evidence UI: IN-2/6 for this subset, exact record/page coverage and the wrong-folder fixture. This is a small approved subset, not full IN-8/G1 acceptance.
-**Next action.** Next P0 dispatch (the Journal names it after TASK-006) with a fresh per-assignment preflight; owner browser checkpoint A before broadening.
+**Next action.** Next P0 dispatch with a fresh per-assignment preflight; owner browser checkpoint A before broadening. The subset's hashes, rights, profile and expected records are recorded as its own reference fixtures (it does not wait for FL-002's final manifest). Its evidence UI is built on the TASK-034 shell and components; if TASK-034 is not yet integrated at dispatch, the orchestrator sequences them (one writer at a time) and records the order.
 **Evidence.** none yet
 
 ### TASK-032 · Source-first issue inspector API and UI (DQ-1/2/3/4/7, DTO-negative DQ-5/6)
@@ -630,7 +668,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | frontend, backend, data |
-| Depends on | TASK-009 |
+| Depends on | TASK-009, TASK-034 |
 | Assignee | agent:fieldlens-frontend |
 | Due | 2026-11-01 |
 | Sprint | Hackathon |
@@ -639,8 +677,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-017 |
 | Slice | FL-017-A |
 
-**Outcome.** Frontend owner implements the scoped issue API/list/detail/evidence navigation in `backend/fieldlens/evidence/issues.py` and `frontend/src/features/evidence/quality/`: DQ-1/2/3/4/7 and DTO-negative DQ-5/6. Shared schema/client edits are serialized; source-first, with no graph or 3D prerequisite.
-**Next action.** Dispatch after TASK-009 is integrated.
+**Outcome.** Frontend owner implements the scoped issue API/list/detail/evidence navigation in `backend/fieldlens/evidence/issues.py` and `frontend/src/features/evidence/quality/`: DQ-1/2/3/4/7 and DTO-negative DQ-5/6, using the shared shell and status components. Shared schema/client edits are serialized; source-first, with no graph or 3D prerequisite.
+**Next action.** Dispatch after TASK-009 and TASK-034 are integrated.
 **Evidence.** none yet
 
 ### TASK-011 · Project/source-scoped exact, text and vector retrieval
@@ -672,7 +710,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | rag, frontend |
-| Depends on | TASK-004, TASK-011 |
+| Depends on | TASK-004, TASK-011, TASK-034 |
 | Assignee | agent:fieldlens-rag |
 | Due | 2026-11-01 |
 | Sprint | Hackathon |
@@ -681,8 +719,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-011 |
 | Slice | FL-011-B |
 
-**Outcome.** RAG owner implements the source-context chat/evidence UI, RG-8 offline and applicable RG-3/4/5; no geometry tools or reconstruction writes from chat.
-**Next action.** Dispatch after TASK-004 and TASK-011 are integrated.
+**Outcome.** RAG owner implements the source-context chat/evidence UI in the shell's assistant dock and evidence slots, RG-8 offline and applicable RG-3/4/5; no geometry tools or reconstruction writes from chat.
+**Next action.** Dispatch after TASK-004, TASK-011 and TASK-034 are integrated.
 **Evidence.** none yet
 
 ### TASK-027 · Early live source-chat verification (three cases, USD 1 allowance)
@@ -735,7 +773,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | rag, backend, frontend |
-| Depends on | TASK-019, TASK-032 |
+| Depends on | TASK-019, TASK-032, TASK-036, TASK-038 |
 | Assignee | agent:fieldlens-rag |
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
@@ -744,8 +782,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-016 |
 | Slice | FL-016-A |
 
-**Outcome.** RAG owner implements reconstruction proposals, the validator and the review UI in reconstruction and the shared assistant harness: RC-1..9 offline, DQ-6 publication boundaries, real database transactions and source-backed fixtures. The issue inspector is reused, migrations are coordinated with backend and the model does not generate accepted facts.
-**Next action.** Dispatch after TASK-019 and TASK-032 are integrated.
+**Outcome.** RAG owner implements reconstruction proposals, the validator and the review UI in reconstruction and the shared assistant harness: RC-1..9 offline, DQ-6 publication boundaries, real database transactions and source-backed fixtures. The issue inspector is reused, migrations are coordinated with backend and The model does not generate accepted facts. PW-6 (the published model stays pinned and labeled with its source revision while newer sources are pending/failed; moved from FL-015 by the owner October 30) is part of this task's acceptance.
+**Next action.** Dispatch after TASK-019, TASK-032 and TASK-036 are integrated.
 **Evidence.** none yet
 
 ### TASK-028 · Live reconstruction check on 12 gold cases (RC-10, USD 3 allowance)
@@ -819,7 +857,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | 3d, frontend |
-| Depends on | TASK-007, TASK-026 |
+| Depends on | TASK-007, TASK-026, TASK-034 |
 | Assignee | agent:fieldlens-3d-motion |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
@@ -828,8 +866,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-006 |
 | Slice | FL-006-B |
 
-**Outcome.** 3D owner implements the published-model scene/tree, local-origin buffers and evidence selection, TR-4..7 on the qualified survey subset. Active facts are never read directly from upload staging.
-**Next action.** Dispatch after TASK-026 is integrated.
+**Outcome.** 3D owner implements the published-model scene/tree, local-origin buffers and evidence selection, TR-4..7 on the qualified survey subset, mounted in the shell's stage and tree slots. Active facts are never read directly from upload staging.
+**Next action.** Dispatch after TASK-026 and TASK-034 are integrated.
 **Evidence.** none yet
 
 ### TASK-012 · Source-dimensioned procedural equipment, inspector and generic/unlocated states (EQ-1..7, DQ-5)
@@ -924,7 +962,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | charts, frontend |
-| Depends on | TASK-009, TASK-026 |
+| Depends on | TASK-009, TASK-034 |
 | Assignee | agent:fieldlens-frontend |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
@@ -933,8 +971,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-010 |
 | Slice | FL-010-A |
 
-**Outcome.** Frontend worker implements production endpoints/chart/units/periods/evidence with CH-1/3/4/6 on the published model context, owning the production-specific files.
-**Next action.** Dispatch after TASK-009 and TASK-026 are integrated.
+**Outcome.** Frontend worker implements production endpoints/chart/units/periods/evidence with CH-1/3/4/6 on project source records, scoped by source well/wellbore identifiers and labeled unreconciled until a published model exists (owner decoupled this from reconstruction October 30). Model linking is wired in TASK-018/031; owns the production-specific files.
+**Next action.** Dispatch after TASK-009 and TASK-034 are integrated.
 **Evidence.** none yet
 
 ### TASK-017 · Depth-log endpoints, tracks, nulls and acquisition evidence (CH-2/3/4/6)
@@ -945,7 +983,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | charts, frontend |
-| Depends on | TASK-009, TASK-026 |
+| Depends on | TASK-009, TASK-034 |
 | Assignee | agent:fieldlens-frontend |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
@@ -954,8 +992,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-010 |
 | Slice | FL-010-B |
 
-**Outcome.** Frontend worker implements depth-log endpoints/tracks/nulls/acquisition evidence with CH-2/3/4/6 on the published model context, owning the log-specific files.
-**Next action.** Dispatch after TASK-009 and TASK-026 are integrated.
+**Outcome.** Frontend worker implements depth-log endpoints/tracks/nulls/acquisition evidence with CH-2/3/4/6 on project source records, scoped by source well/wellbore identifiers and labeled unreconciled until a published model exists (owner decoupled this from reconstruction October 30). Model linking is wired in TASK-018/031; owns the log-specific files.
+**Next action.** Dispatch after TASK-009 and TASK-034 are integrated.
 **Evidence.** none yet
 
 ### TASK-018 · Perforation overlays and shared as-of state across both chart families (CH-5/7)
@@ -1050,7 +1088,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | qa, release |
-| Depends on | TASK-031 |
+| Depends on | TASK-031, TASK-037 |
 | Assignee | agent:fieldlens-qa |
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
@@ -1060,7 +1098,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-012-A |
 
 **Outcome.** QA verifies the combined create-project, upload, reconstruction review/publication, scene/history/charts browser path with the stub provider, negative paths/accessibility and AC-9/RSS. Feature owners fix defects.
-**Next action.** Dispatch after TASK-031 is integrated.
+**Next action.** Dispatch after TASK-031 and TASK-037 are integrated.
 **Evidence.** none yet
 
 ### TASK-022 · Real-source/live-provider verification of all project ACs and DQ-1..8
@@ -1126,11 +1164,186 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Needs explicit asset/setup approval after TASK-012; never blocks required release.
 **Evidence.** none yet
 
+### TASK-033 · Approve the UI design direction and open design decisions
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | done |
+| Priority | P0 |
+| Tags | frontend, docs |
+| Depends on | none |
+| Assignee | owner |
+| Due | 2026-10-31 |
+| Sprint | Hackathon |
+| Spec | specs/UI_DESIGN_SYSTEM.md |
+| Version | 0.12.1 |
+| Parent | FL-021 |
+| Slice | FL-021-A |
+
+**Outcome.** Owner reviews the draft UI design spec and decides the open questions (theme, palette/accent, typography and icon sources, density, layout regions, new dev dependencies) so implementation does not guess. Output is the approved spec revision.
+**Next action.** None. The orchestrator-chosen component kit (Mantine) and the brand ramp are reviewed at the first browser checkpoint after TASK-034.
+**Evidence.** Owner decisions of October 30 recorded in `specs/UI_DESIGN_SYSTEM.md` section 6: light theme, conservative vivid brand color, Inter, lucide-react, component kit delegated to the orchestrator (Mantine), left project sidebar with Sources/Reconstruction/Explore tabs, large screens only.
+
+### TASK-034 · Design tokens, application shell and redesigned Projects/Sources screens (UI-1..7, UI-9..12)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | ready |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-033 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-10-31 |
+| Sprint | Hackathon |
+| Spec | specs/UI_DESIGN_SYSTEM.md |
+| Version | none |
+| Parent | FL-021 |
+| Slice | FL-021-A |
+
+**Outcome.** Frontend owner implements the approved light theme on Mantine (with Inter and lucide-react), the shell (left project sidebar, per-project Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock slots), shared components/states and restyled Projects and Sources/upload views (including the existing classification edit) with existing behavior, tests and accessibility preserved. Measures the bundle and sets the UI-8 budget. No new product behavior and no fake controls (file removal/replacement waits for TASK-039).
+**Next action.** Dispatch first, with a fresh preflight (profile, resolved model/effort, tools); independent QA and an owner browser checkpoint (brand ramp and look) follow.
+**Evidence.** none yet
+
+### TASK-035 · Approve the agentic extraction contract and open decisions
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | done |
+| Priority | P0 |
+| Tags | ingestion, rag, docs |
+| Depends on | none |
+| Assignee | owner |
+| Due | 2026-10-31 |
+| Sprint | Hackathon |
+| Spec | specs/AGENTIC_EXTRACTION.md |
+| Version | 0.12.1 |
+| Parent | FL-022 |
+| Slice | FL-022-A |
+
+**Outcome.** Owner reviews the draft extraction contract and decides the open questions (which ambiguity classes are in scope, acceptance policy, live-credit allowance) before any implementation.
+**Next action.** None. Low-risk follow-up: the owner confirms the orchestrator's reading of the coordinate rule (no deterministic source means flagged only).
+**Evidence.** Owner decisions of October 30 recorded in `specs/AGENTIC_EXTRACTION.md` section 6: question-driven model use, validators-only acceptance, deterministic coordinates/trajectories, one shared-contract change allowed, no live spend in TASK-036, all documents shareable (read-only content tools and multimodal input allowed).
+
+### TASK-036 · Model-proposed extraction candidates with deterministic validation and review (AX-1..9)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | ingestion, rag, backend |
+| Depends on | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-01 |
+| Sprint | Hackathon |
+| Spec | specs/AGENTIC_EXTRACTION.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-A |
+
+**Outcome.** Ingestion owner implements question-driven candidate-claim proposals from the harness through the offline provider adapter, the allowlisted read-only content tools (span, table, page image, project search), deterministic validators, persisted candidate/accept/reject/flag states with source locators, writing to the TASK-038 activity log, and their display in the evidence/issue UI. One shared-contract change is allowed with a single writer. Offline stub provider only; no live spend is authorized by this task.
+**Next action.** Dispatch after TASK-004, TASK-009, TASK-011 and TASK-038 are integrated, with a fresh preflight; independent QA follows.
+**Evidence.** none yet
+
+### TASK-037 · Demo UI polish and responsive/accessibility sweep on the integrated app (UI-8, UI-10)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend, release |
+| Depends on | TASK-034, TASK-012, TASK-018 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/UI_DESIGN_SYSTEM.md |
+| Version | none |
+| Parent | FL-021 |
+| Slice | FL-021-B |
+
+**Outcome.** Frontend owner runs a visual and interaction polish pass over the integrated app (consistency, empty/error/loading states, viewport behavior, motion, contrast, offline asset loading) at the demo viewports, with screenshot evidence reviewed by someone other than the implementer. No new features.
+**Next action.** Dispatch after TASK-034, TASK-012 and TASK-018 are integrated; owner sign-off on the demo look is the final gate.
+**Evidence.** none yet
+
+### TASK-038 · Agent activity log and Reconstruction tab view (AX-10)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | ingestion, rag, backend, frontend |
+| Depends on | TASK-004, TASK-034 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-01 |
+| Sprint | Hackathon |
+| Spec | specs/AGENTIC_EXTRACTION.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-B |
+
+**Outcome.** Ingestion owner implements the persisted, project-scoped agent activity log (question, ordered steps, tool-call summaries, candidates, validator outcomes, usage, stop reason; no hidden reasoning) and the Reconstruction tab that lists it with source-location links and honest interrupted/failed states, using TASK-034 components and offline fixtures. One shared-contract change with a single writer (coordinated with TASK-036).
+**Next action.** Dispatch after TASK-004 and TASK-034 are integrated, with a fresh preflight; independent QA follows.
+**Evidence.** none yet
+
+### TASK-039 · Source file removal and replacement as new revisions (Sources tab)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | specifying |
+| Priority | P0 |
+| Tags | backend, frontend, ingestion |
+| Depends on | TASK-034 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-01 |
+| Sprint | Hackathon |
+| Spec | specs/PROJECT_WORKSPACE.md |
+| Version | none |
+| Parent | FL-021 |
+| Slice | FL-021-C |
+
+**Outcome.** The Sources tab lets a user remove a file and replace/edit it. Proposed semantics (awaiting owner confirmation): removal is a soft exclusion that creates a new immutable source revision with bytes and history retained and dependent claims re-evaluated; replacement uploads a new revision; classification edit already exists. Project deletion/archiving stays out of scope. Needs the PROJECT_WORKSPACE and INGESTION specs updated before implementation.
+**Next action.** Owner confirms the removal/replacement semantics; the orchestrator then updates both specs and sets this ready. TASK-034 shows only upload, list and classification edit until then.
+**Evidence.** none yet
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
 work-items table and finalized priorities), kept as history. Where it conflicts with the
 item blocks above, the item blocks are authoritative for current status.
+
+## Owner realignment, October 30
+
+Owner review of the Taiga board produced these decisions (ledger edits and specs in the same change set;
+documentation only, no application change, not yet integrated or versioned):
+
+- TASK-001 closed (0.12.1): DA-7 preflight is recorded per dispatch rather than as one all-profile sweep.
+  FL-001 stays open for the remaining profile activations.
+- FL-002/TASK-002 renamed and reframed as demo dataset qualification and gold fixtures (test ground
+  truth, not upload); FL-005 no longer depends on FL-002; TASK-029 keeps the real tie.
+- FL-015 closed at 0.8.0 with no open tasks; PW-6 moved to the TASK-026 acceptance.
+- New FL-021 (demo-grade shell and design system, TASK-033/034/037; the prototype UI is unstyled) and FL-022
+  (model-proposed extraction with deterministic validation, TASK-035/036). Both specs were drafts when added.
+  Later UI tasks (TASK-010/016/017/019/032) now depend on TASK-034; TASK-026 depends on TASK-036; TASK-021 on TASK-037.
+- Charts TASK-016/017 decoupled from TASK-026 (source-record scope, labeled unreconciled until a model exists).
+
+### Owner decisions on both specs, October 30 (second pass)
+
+- UI_DESIGN_SYSTEM approved: light theme, conservative vivid (cobalt) brand, Inter, lucide-react, component kit
+  delegated to the orchestrator and decided as Mantine, large screens only. Navigation: left sidebar manages
+  projects; a project opens to top tabs Sources (files), Reconstruction (log of agentic parsing) and Explore (3D
+  model, charts, chat). TASK-033 done; FL-021 and TASK-034 ready (dispatch first).
+- AGENTIC_EXTRACTION approved: question-driven model use, validators-only acceptance, deterministic coordinates and
+  trajectories, one shared-contract change, no live spend in TASK-036, all documents shareable so the model may get
+  content, read-only tools and page images. TASK-035 done; FL-022 ready.
+- New TASK-038 (activity log and Reconstruction view; TASK-036 and TASK-026 depend on it), TASK-039 (source
+  removal/replacement as new revisions; awaiting owner confirmation of the semantics), TASK-011 added as a
+  prerequisite of TASK-036, and a multimodal image-input check added to the TASK-005 live smoke.
 
 ## Status and ownership
 

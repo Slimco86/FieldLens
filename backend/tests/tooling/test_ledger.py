@@ -223,8 +223,8 @@ def test_conversion_inventory() -> None:
     assert [str(v) for v in led.violations] == []
     features = [i.id for i in led.items if i.is_feature]
     tasks = [i.id for i in led.items if not i.is_feature]
-    assert features == [f"FL-{n:03d}" for n in range(21)]
-    assert sorted(tasks) == [f"TASK-{n:03d}" for n in range(1, 33)]
+    assert features[:21] == [f"FL-{n:03d}" for n in range(21)]
+    assert sorted(tasks)[:32] == [f"TASK-{n:03d}" for n in range(1, 33)]
     by_id = led.by_id()
     assert by_id["FL-019"].status == "done" and by_id["FL-019"].version == "0.10.0"
     assert by_id["FL-020"].status == "done"
@@ -269,7 +269,7 @@ def test_backlog_links_resolve() -> None:
 def test_plan_command_and_list(capsys: pytest.CaptureFixture[str]) -> None:
     assert track.main(["plan", "--offline"]) == 0
     out = capsys.readouterr().out
-    assert "feature: 21" in out and "task: 32" in out
+    assert "feature: 23" in out and "task: 39" in out
     assert track.main(["list", "--status", "done", "--tag", "foundation"]) == 0
     assert "FL-004" in capsys.readouterr().out
 
@@ -342,8 +342,9 @@ def test_done_with_open_dependency_only_for_listed_pairs() -> None:
 
 def test_backlog_task_001_is_honest() -> None:
     item = ledger.load_ledger(BACKLOG).by_id()["TASK-001"]
-    assert item.status == "in_progress" and item.version.lower() == "none"
-    assert "Verify DA-7" in item.next_action
+    assert item.status == "done" and item.version == "0.12.1"
+    assert "Owner decision October 30" in item.evidence
+    assert "preflight" in item.next_action
 
 
 def test_priority_inversion_rejected_and_backlog_consistent() -> None:
