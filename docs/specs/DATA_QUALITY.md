@@ -137,6 +137,13 @@ Final history windows/transforms remain G1 tasks, not UI implementation guesses.
 
 ## 7. Implementation Guidance
 
+**TASK-009 issue codes (added to `IssueCode`).** `MISSING_REFERENCE` (depth datum, CRS or
+azimuth reference absent), `MISSING_UNIT` (a quantity carries no stated unit; none is
+assumed), `SUSPICIOUS_VALUE` (placeholder zeros, negative volumes, hours above 24, MD equal
+to TVD, TVD above MD), `UNKNOWN_CODE` (enumeration value outside the seeded WITSML list) and
+`ASSEMBLY_TYPE_MISMATCH` (drilling BHA vs completion equipment). Each blocks only the
+outputs that depend on the affected value; the original value stays unchanged and visible.
+
 TASK-003 defines/round-trips the DTO; TASK-009 emits native-source issues;
 TASK-032 delivers list/detail/evidence navigation; TASK-026/012 reuse the component
 for review and generic equipment. Add no new runtime service.

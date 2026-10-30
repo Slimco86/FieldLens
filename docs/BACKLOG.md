@@ -644,7 +644,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | ingestion, backend, frontend |
 | Depends on | TASK-006 |
@@ -652,13 +652,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/INGESTION.md |
-| Version | none |
+| Version | 0.14.0 |
 | Parent | FL-005 |
 | Slice | FL-005-B |
 
 **Outcome.** Ingestion owner implements selected qualified native source profiles and the evidence UI: IN-2/6 for this subset, exact record/page coverage and the wrong-folder fixture. This is a small approved subset, not full IN-8/G1 acceptance.
-**Next action.** Dispatched October 30 (owner approved the subset; worktree `/home/slimco/code/FieldLens-worktrees/task-009-native-profiles`, branch `feature/task-009-native-profiles`). Owner priority: upload and parsing before UI work; owner browser checkpoint A before broadening. Approved owner requirement: trajectories, production, completion and equipment information for at least two of the three wellbores; a gap for one wellbore is acceptable and must be reported, not filled. The subset's hashes, rights, profile and expected records are recorded as its own reference fixtures (it does not wait for FL-002's final manifest). The evidence UI is built on the existing UI and shared components; TASK-034 restyles it later, so keep it simple and behavior-focused. **Approved subset (owner, October 30):** WITSML XML tubular/BHA/bore-geometry for F-12/F-14/F-5 (PV-25..33), LAS well logs (PV-15/19/22), production workbook (PV-01), perforation table (PV-03), formation picks (PV-04), the three native-PDF Standard Survey Reports (PV-10/16/20) and the mirrored F-5 trajectory XML (inventory `data/volve/source-audit/local-inventory.json`). Deferred: the 211 MB EDM export (PV-24, needs a streaming profile), horizons/seabed grids (PV-07..09), large completion PDFs and plots (PV-11..14, 17/18, 21; TASK-030 handles scans).
-**Evidence.** none yet
+**Next action.** None. Follow-ups: owner decision on a completion-PDF profile task (completion string, packers and tubing are not extracted for any wellbore; the F-14 RKB-MSL 53.870 vs 54.90 DQ-3 conflict can only appear from the completion schematic); owner confirmation of units/datum for the perforation and pick tables (the Wells README states none, so depths stay `unsupported`); a vitest for the evidence panel's null-status polling. Approved subset (October 30): WITSML tubular/BHA/bore geometry (PV-25..33), LAS (PV-15/19/22), production workbook (PV-01), perforation table (PV-03), picks (PV-04), three survey PDFs (PV-10/16/20), mirrored F-5 trajectory XML. Deferred: EDM export (PV-24), grids (PV-07..09), large completion PDFs/plots, OCR (TASK-030).
+**Evidence.** Integrated October 30 as version 0.14.0 (merge of `feature/task-009-native-profiles`, head `1df81f7`, migration `0005_native_profiles`). Independent QA (`fieldlens-qa`) returned the first candidate for a report-endpoint 500 on real perforation/production files plus nine further findings; all repaired and re-verified on the real subset (all 18 real files build a report; 677 backend tests, ruff, mypy, frontend gates, and the Playwright evidence spec on a lane port). Real coverage (trajectory stations / production days / perforation intervals / drilling-assembly and casing-point records): F-12 211/3056/5/14, F-14 93/3056/6/9, F-5 97/3306/5/6. The owner's two-of-three requirement is met for trajectories, production and perforation history; equipment is drilling-side only. Offline parsing, no model calls.
 
 ### TASK-032 · Source-first issue inspector API and UI (DQ-1/2/3/4/7, DTO-negative DQ-5/6)
 
@@ -1329,7 +1329,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-C |
 
 **Outcome.** Backend owner implements the owner-approved removal: an API that, after confirmation semantics, physically deletes a document's stored bytes and derived content (keeping shared blobs), cancels its running job, and records a tombstone source revision; derived claims become inactive and non-citable; a published model stays pinned and labeled; re-upload creates a fresh document. Replacement uses the existing new-revision path (IN-5). IN-9 offline tests on real PostgreSQL and storage; the UI controls arrive with TASK-034.
-**Next action.** Dispatch after TASK-009 is integrated (so real derived records exist to invalidate), with a fresh preflight; independent QA follows.
+**Next action.** Ready: TASK-009 is integrated (0.14.0), so real derived records exist to invalidate. Dispatch with a fresh preflight in its own worktree; independent QA follows.
 **Evidence.** none yet
 
 ## Journal

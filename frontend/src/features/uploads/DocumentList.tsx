@@ -10,6 +10,7 @@ import {
   type SourceDocumentItem,
 } from "./api";
 import { categoryLabel, formatBytes } from "./format";
+import { EvidencePanel } from "./EvidencePanel";
 import { usePolled } from "./usePolled";
 import { toFailure, type Failure } from "../projects/scope";
 
@@ -21,6 +22,9 @@ const STORAGE_LABEL: Record<SourceDocumentItem["storage_state"], string> = {
 const EXTRACTION_LABEL: Record<SourceDocumentItem["extraction_state"], string> = {
   pending_extraction: "Pending extraction (not yet extracted)",
   unsupported: "Unsupported (no reader; not extracted)",
+  extracted: "Extracted",
+  extracted_with_issues: "Extracted with data-quality findings",
+  extraction_failed: "Extraction failed (nothing was extracted)",
 };
 const ORIGIN_LABEL: Record<SourceDocumentItem["classification"]["categories_origin"], string> = {
   none: "no labels set",
@@ -214,6 +218,7 @@ function DocumentRow({
           </>
         )}
       </dl>
+      <EvidencePanel projectId={projectId} doc={doc} />
       {editing ? (
         <ClassificationEditor
           projectId={projectId}

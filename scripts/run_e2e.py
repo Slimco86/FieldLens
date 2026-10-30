@@ -20,7 +20,20 @@ sys.path.insert(0, str(ROOT / "backend"))
 from fieldlens.localenv import load_local_env  # noqa: E402
 from tests import support  # noqa: E402
 
-API_PORT = 8101
+DEFAULT_API_PORT = 8101
+
+
+def api_port() -> int:
+    """E2E API port: ``FIELDLENS_E2E_API_PORT`` (lane runs) or the default 8101."""
+    raw = os.environ.get("FIELDLENS_E2E_API_PORT", "").strip()
+    if not raw:
+        return DEFAULT_API_PORT
+    if not raw.isdigit() or not 1024 <= int(raw) <= 65535:
+        raise RuntimeError("FIELDLENS_E2E_API_PORT must be an integer from 1024 to 65535")
+    return int(raw)
+
+
+API_PORT = api_port()
 RESTART_TIMEOUT_S = 60
 SUITE_TIMEOUT_S = 300
 # .env key -> Playwright variable for the child process (a real exported variable wins).

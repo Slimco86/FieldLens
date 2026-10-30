@@ -10,6 +10,11 @@ export type SourceDocumentItem = components["schemas"]["SourceDocumentItem"];
 export type DocumentCategory = components["schemas"]["DocumentCategory"];
 export type ClassificationUpdate = components["schemas"]["ClassificationUpdate"];
 export type Job = components["schemas"]["Job"];
+export type ExtractionReport = components["schemas"]["ExtractionReport"];
+export type ExtractedRecord = components["schemas"]["ExtractedRecord"];
+export type ExtractedRecordPage = components["schemas"]["ExtractedRecordPage"];
+export type ExtractionRequeue = components["schemas"]["ExtractionRequeue"];
+export type EvidenceLink = components["schemas"]["EvidenceLink"];
 
 export const MAX_FILE_BYTES = 128 * 1024 * 1024;
 export const MAX_BATCH_BYTES = 512 * 1024 * 1024;
@@ -45,6 +50,35 @@ export function listDocuments(
   const q = new URLSearchParams({ limit: String(DOCUMENT_PAGE_LIMIT), source_revision_id: revisionId });
   if (cursor !== undefined) q.set("cursor", cursor);
   return getJson<DocumentPage>(`${base(projectId)}/documents?${q.toString()}`, signal);
+}
+
+export const RECORD_PAGE_LIMIT = 25;
+
+const extractionUrl = (projectId: string, documentId: string) =>
+  `${base(projectId)}/documents/${documentId}/extraction`;
+
+export function getExtraction(projectId: string, documentId: string, signal: AbortSignal): Promise<ExtractionReport> {
+  return getJson<ExtractionReport>(extractionUrl(projectId, documentId), signal);
+}
+
+export function listExtractedRecords(
+  projectId: string,
+  documentId: string,
+  signal: AbortSignal,
+  cursor?: string,
+): Promise<ExtractedRecordPage> {
+  const q = new URLSearchParams({ limit: String(RECORD_PAGE_LIMIT) });
+  if (cursor !== undefined) q.set("cursor", cursor);
+  return getJson<ExtractedRecordPage>(`${extractionUrl(projectId, documentId)}/records?${q.toString()}`, signal);
+}
+
+export async function requeueExtraction(
+  projectId: string,
+  documentId: string,
+  signal: AbortSignal,
+): Promise<ExtractionRequeue> {
+  const res = await mutate(`${extractionUrl(projectId, documentId)}?retry=true`, { method: "POST", signal });
+  return (await res.json()) as ExtractionRequeue;
 }
 
 export function getJob(projectId: string, jobId: string, signal: AbortSignal): Promise<Job> {

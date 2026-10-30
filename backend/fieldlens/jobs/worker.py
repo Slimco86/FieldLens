@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.config import Settings
 from fieldlens.evidence.storage import BlobStore, VerifyOutcome
+from fieldlens.extraction.runner import ExtractionRunner
 from fieldlens.persistence.session import session_scope
 
 from . import repository as repo
@@ -34,6 +35,9 @@ class JobWorker:
         self.owner = repo.new_owner()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self.extraction = ExtractionRunner(
+            factory, store, settings, self.owner, self._is_dead_owner
+        )
 
     # -- recovery ---------------------------------------------------------------------------
     def _is_dead_owner(self, owner: str) -> bool:
@@ -161,7 +165,7 @@ class JobWorker:
                 self._sweep_staging()
                 next_sweep = time.monotonic() + self._settings.staging_sweep_interval_s
             try:
-                handled = self.run_once()
+                handled = self.run_once() or self.extraction.run_once()
             except Exception as exc:
                 logger.error("job loop error: %s", type(exc).__name__)
                 handled = False

@@ -8,6 +8,23 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.14.0 - 2026-10-30
+
+- **TASK-009 (FL-005-B):** Added versioned native source profiles with attribute-level
+  evidence (WITSML tubular/BHA run/bore geometry/trajectory, Volve production workbook, LAS 2.0,
+  perforation and well-pick tables, Compass survey-report PDF), content-based detection, a
+  persistent bounded extraction runner (leases, fenced finalize, idempotent re-runs, supersede on
+  profile version change), `/extraction` endpoints and DTOs, five new data-quality codes
+  (`MISSING_REFERENCE`, `MISSING_UNIT`, `SUSPICIOUS_VALUE`, `UNKNOWN_CODE`,
+  `ASSEMBLY_TYPE_MISMATCH`) plus identity-mismatch reporting, a 500-page PDF limit and an evidence
+  panel in source inspection. Migration `0005_native_profiles`; dependency `pypdf`; opt-in
+  `FIELDLENS_LOCAL_DATA_ROOT` local-data test and a lane-safe `FIELDLENS_E2E_API_PORT` e2e override.
+  On the real subset all 18 files produce reports; trajectory, production and perforation
+  records exist for F-12, F-14 and F-5, equipment is drilling-side only, and perforation/pick
+  depths stay `unsupported` (no documented unit/datum). Independent QA found a report-endpoint
+  500 and nine further defects, all repaired and re-verified. EDM export, grids, completion PDFs
+  and OCR remain deferred.
+
 ## 0.13.0 - 2026-10-30
 
 - **TASK-004 (FL-003-A):** Added the offline provider adapter in `backend/fieldlens/assistant/`:
