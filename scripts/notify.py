@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import http.client
 import json
 import os
 import re
@@ -74,6 +73,8 @@ SECRET_PATTERNS = (
 _ID = re.compile(r"^(?:FL|TASK)-\d{3}$")
 _REF = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
 _TOKEN_SHAPE = re.compile(r"\d{5,}:[A-Za-z0-9_-]{30,}")
+_TOKEN_VALID = re.compile(r"\d{3,}:[A-Za-z0-9_-]{20,}")
+_CHAT_VALID = re.compile(r"-?\d+|@[A-Za-z0-9_]{4,}")
 
 Sleep = Callable[[float], None]
 Clock = Callable[[], float]
@@ -103,8 +104,18 @@ def sanitize(text: str, limit: int = MAX_TEXT) -> str:
 
 
 def redact(text: str, secrets: Sequence[str]) -> str:
+    forms: set[str] = set()
     for secret in secrets:
-        text = text.replace(secret, "[redacted]")
+        if not secret:
+            continue
+        forms.add(secret)
+        forms.add(repr(secret)[1:-1])
+        forms.add(json.dumps(secret)[1:-1])
+        forms.add(secret.encode("unicode_escape").decode("ascii"))
+        forms.add(urllib.parse.quote(secret, safe=""))
+    for form in sorted(forms, key=len, reverse=True):
+        if form:
+            text = text.replace(form, "[redacted]")
     return _TOKEN_SHAPE.sub("[redacted]", text)
 
 
@@ -199,11 +210,19 @@ def _call(
                     delay = _retry_after(json.loads(exc.read().decode("utf-8")))
                 except (OSError, ValueError):
                     delay = None
-        except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as exc:
-            last = f"{type(exc).__name__}: {exc}"
         except Exception as exc:  # noqa: BLE001 - never leak a traceback with the token
             last = type(exc).__name__
     raise NotifyError(redact(last, [*secrets, token]))
+
+
+def malformed_keys(values: Mapping[str, str]) -> list[str]:
+    """Names (never values) of configured Telegram keys that have an invalid shape."""
+    bad: list[str] = []
+    if not _TOKEN_VALID.fullmatch(values.get("TELEGRAM_BOT_TOKEN", "")):
+        bad.append("TELEGRAM_BOT_TOKEN")
+    if not _CHAT_VALID.fullmatch(values.get("TELEGRAM_CHAT_ID", "")):
+        bad.append("TELEGRAM_CHAT_ID")
+    return bad
 
 
 def _missing(values: Mapping[str, str], keys: Sequence[str]) -> list[str]:
@@ -251,6 +270,10 @@ def notify(
     if missing:
         label = "warning" if best_effort else "error"
         return report(f"{label}: missing configuration keys: {', '.join(missing)}", fail)
+    bad = malformed_keys(values)
+    if bad:
+        label = "warning" if best_effort else "error"
+        return report(f"{label}: {', '.join(bad)} malformed", fail)
     state = root / ".local" / "run" / "notify.json"
     digest = hashlib.sha256(f"{event}\0{ref or ''}\0{message}".encode()).hexdigest()
     now = clock()
@@ -315,6 +338,9 @@ def inbox_once(
     missing = _missing(values, ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"))
     if missing:
         return err(f"error: missing configuration keys: {', '.join(missing)}", 2)
+    bad = malformed_keys(values)
+    if bad:
+        return err(f"error: {', '.join(bad)} malformed", 2)
     token, chat = values["TELEGRAM_BOT_TOKEN"], values["TELEGRAM_CHAT_ID"]
     run = root / ".local" / "run"
     offset_file = run / "notify-offset.json"

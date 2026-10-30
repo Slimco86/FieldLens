@@ -117,6 +117,36 @@ def test_no_secret_leak(tmp_path: Path, fake: Fake, capsys: pytest.CaptureFixtur
         assert TOKEN not in content and CHAT not in content and "hello" not in content
 
 
+@pytest.mark.parametrize("sep", ["\n", "\x00", "\t"])
+@pytest.mark.parametrize("chat", ["5", "987"])
+def test_whitespace_token_never_leaks(
+    tmp_path: Path, fake: Fake, capsys: pytest.CaptureFixture[str], sep: str, chat: str
+) -> None:
+    token = TOKEN[:20] + sep + TOKEN[20:]
+    env = {"TELEGRAM_BOT_TOKEN": token, "TELEGRAM_CHAT_ID": chat}
+    assert send(tmp_path, fake, "info", "hello", environ=env) == 2
+    out = capsys.readouterr()
+    assert out.out == ""
+    assert out.err.strip() == "error: TELEGRAM_BOT_TOKEN malformed"
+    assert len(out.err.strip().splitlines()) == 1
+    for frag in (TOKEN[:20], TOKEN[20:], TOKEN[10:30], "AbCdEf", "123456"):
+        assert frag not in out.out + out.err
+    assert fake.requests == []
+    assert send(tmp_path, fake, "info", "hello", environ=env, best_effort=True) == 0
+    assert capsys.readouterr().err.startswith("warning: TELEGRAM_BOT_TOKEN malformed")
+    assert send(tmp_path, fake, "info", "x", environ=env, dry_run=True) == 0
+    bad_chat = {"TELEGRAM_BOT_TOKEN": TOKEN, "TELEGRAM_CHAT_ID": chat + sep + "1"}
+    assert send(tmp_path, fake, "info", "hello", environ=bad_chat) == 2
+    assert capsys.readouterr().err.strip().endswith("TELEGRAM_CHAT_ID malformed")
+
+
+def test_redact_longest_first_and_escaped_forms() -> None:
+    token = TOKEN[:20] + "\n" + TOKEN[20:]
+    text = f"bad url {token!r} and {token}"
+    out = notify.redact(text, ["5", token])
+    assert "AbCdEf" not in out and "123456" not in out
+
+
 def test_dry_run_and_missing_config(
     tmp_path: Path, fake: Fake, capsys: pytest.CaptureFixture[str]
 ) -> None:
