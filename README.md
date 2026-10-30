@@ -152,6 +152,19 @@ uv run python scripts/notify.py --event decision_needed --ref FL-020 "Pick A or 
 uv run python scripts/notify.py --dry-run "text"      # print only; --best-effort never fails the caller
 ```
 
+### Backlog ledger and Taiga mirror
+
+`docs/BACKLOG.md` is the source of truth (one block per feature/task). Keys `TAIGA_USERNAME`,
+`TAIGA_PASSWORD`, optional `TAIGA_PROJECT_SLUG`/`TAIGA_URL`, and `TAIGA_ALLOW_PUBLIC=1` (required
+while the Taiga project is public) go in `.env`.
+
+```bash
+uv run python scripts/track.py check                 # validate the ledger
+uv run python scripts/track.py list --status in_progress
+uv run python scripts/track.py plan                  # read-only diff against Taiga
+uv run python scripts/track.py sync --apply --notify # push; second run must report writes=0
+```
+
 ## Tests
 
 `./dev test [backend|frontend|e2e|all]` runs exactly the documented gates below and exits

@@ -227,7 +227,7 @@ def test_conversion_inventory() -> None:
     assert sorted(tasks) == [f"TASK-{n:03d}" for n in range(1, 33)]
     by_id = led.by_id()
     assert by_id["FL-019"].status == "done" and by_id["FL-019"].version == "0.10.0"
-    assert by_id["FL-020"].status == "in_progress"
+    assert by_id["FL-020"].status == "done"
     for tid, version in {
         "TASK-003": "0.4.0",
         "TASK-025": "0.5.0",
