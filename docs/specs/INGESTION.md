@@ -53,14 +53,25 @@ an approved streaming profile/limit revision before accepting that file.
 | ID | Type | Pass condition | Score | Annotation | Test |
 |---|---|---|---|---|---|
 | IN-1 | Behavioral | Fresh project-scoped multipart upload yields source hashes, source revision/job IDs and immutable originals; repeating identical content/idempotency key creates no duplicate records. Source publication cannot move the active model pointer. | 3 | [Validated] | `test_upload_idempotency` |
-| IN-2 | Behavioral | Each CSV/XLSX/LAS/XML/native-PDF fixture retains original values/units and exact locators, extractor/profile version and counted coverage; original document header outranks filename classification. | 3 | [Validated] | `test_source_profiles` |
+| IN-2 | Behavioral | Each CSV/XLSX/LAS/XML/native-PDF fixture retains original values/units and exact locators, extractor/profile version and counted coverage; original document header outranks filename classification. | 3 | [Validated] | `test_profiles_witsml`, `test_profiles_sources`, `test_extraction_flow` (opt-in `test_local_data_profiles`) |
 | IN-3 | Negative | Traversal/absolute paths, nested ZIP/symlink/encrypted entries, XXE/DTD, unsupported signatures and expanded-size violations fail explicitly without writing outside staging or making network calls. Source code/macros are never executed; an approved legacy-Word profile may read inert streams despite macro presence and records that boundary. | 3 | [Validated] | `test_hostile_uploads` |
 | IN-4 | Edge case | Killing/restarting the worker mid-stage leaves an interrupted attempt; a fenced retry cannot duplicate records or let the old attempt publish. Cancellation publishes no active revision. | 3 | [Validated] | `test_job_recovery` |
 | IN-5 | Behavioral | Corrected sources create a new immutable revision; failed replacements preserve old results under old labels; partial revisions expose quarantined records/counts. | 3 | [Validated] | `test_revision_publication` |
-| IN-6 | Negative | Missing reference, unknown event code, drilling/completion mismatch and suspicious equal MD/TVD are flagged; no invented CRS, ordering, installed state or zero values enter valid claims. | 3 | [Validated] | `test_source_conflicts` |
+| IN-6 | Negative | Missing reference, unknown event code, drilling/completion mismatch and suspicious equal MD/TVD are flagged; no invented CRS, ordering, installed state or zero values enter valid claims. | 3 | [Validated] | `test_profiles_witsml`, `test_profiles_sources` (conflicts, placeholders, missing references/units) |
 | IN-7 | Non-behavioral | Streaming enforces 128 MiB/file, 512 MiB/batch, 200 files and 500 PDF pages; test exact byte limits and +1 byte. Only one heavy stage runs and local reads meet project AC-9 during import. | 3 | [Validated byte/file limits; parser/performance limits to verify] | `test_ingestion_limits`, concurrent read benchmark |
 | IN-8 | Dependency | Every accepted pilot family has an approved profile and all manifest expected records/pages matched or explicitly quarantined; a missing mandatory family cannot pass G1. | 3 | [Validated] | `test_pilot_ingestion` |
 | IN-9 | Behavioral | Owner decision October 30. Removing a project document (after an explicit confirmation) physically deletes its stored bytes and derived content copies (text chunks, embeddings, page renders, extraction artifacts) and frees the disk space (a blob still referenced by another document or project is kept), cancels any running job for it first, and records a new immutable source revision that keeps only a tombstone (document ID, content hash, size, filename, classification, removal time, previous revision). Claims and evidence that came only from the removed content become inactive and non-citable (excluded from retrieval, tools, new calculations and new reconstruction runs) and say "source removed"; a published model stays pinned and is labeled as depending on a removed source (PW-6). Removal is irreversible; re-uploading the same bytes creates a fresh document and revision (the idempotency replay does not resurrect the tombstone). Other projects and documents are untouched (PW-2). | 3 | [Validated: owner, October 30; consequences Assumed: verify] | `test_source_removal_frees_bytes`, `test_removal_tombstone_revision`, `test_removed_source_excluded`, `test_reupload_after_removal`, `test_removal_cancels_job`, `test_removal_project_isolation` |
+
+**TASK-009 implementation status (IN-2/IN-6, implementer evidence only).** Native profiles
+(versioned, content-detected): WITSML tubular/bhaRun/wbGeometry/trajectory, Volve production
+workbook, LAS 2.0, perforation and well-pick fixed-width `.dat`, Compass Standard Survey
+Report PDF (pypdf text layer). Runs persist in `extraction_run`/`extracted_record`/
+`extraction_issue` (migration `0004_native_profiles`), are executed by the job worker thread
+under a lease, and an interrupted run is never shown as succeeded. A profile version change
+makes the run stale and a re-queue supersedes it; unchanged re-runs are no-ops. The 500-page
+PDF limit is enforced at upload. Deferred: EDM export, grids, large completion PDFs/plots,
+OCR (TASK-030). Opt-in real-data run: `FIELDLENS_LOCAL_DATA_ROOT=<root> uv run pytest
+backend/tests/test_local_data_profiles.py -s`.
 
 Full acceptance includes IN-8; success on invented fixtures is not real ingestion
 verification. A supported format with an unknown schema returns `unsupported_profile`.
@@ -70,8 +81,7 @@ exist and passed on PostgreSQL for IN-1 (`test_upload_idempotency`), IN-3
 (`test_hostile_uploads`; inert ZIP central-directory and byte-wise DTD checks only), IN-4
 (`test_job_recovery`, `test_restart_persistence` with a real `kill -9`), IN-5
 (`test_revision_publication`) and IN-7 byte/file limits (`test_ingestion_limits`, exact
-boundary and +1). Not covered: IN-2/6/8, the 500-page PDF limit (needs a parser; deferred
-to TASK-009), parse-time XLSX XML DTD scanning and the local-read latency/RSS benchmark.
+boundary and +1). Not covered: IN-8 (the 500-page PDF limit landed with TASK-009), parse-time XLSX XML DTD scanning and the local-read latency/RSS benchmark.
 UI checks are implemented but only implementer-verified (see the UI traceability notes
 below). Storage verification is not extraction: files are labelled
 `pending_extraction` or `unsupported`, never extracted.

@@ -210,6 +210,16 @@ calls, 90 s, 4,096 output tokens, USD 0.50 reserved, USD 150 ceiling) may only b
 which is configurable (default 6, maximum 64). Live checks (`live_meta`, MI-6/TASK-005) are
 excluded and need explicit owner authorization.
 
+Opt-in local-data check (skipped when unset; read-only, nothing is copied into the repo):
+
+```bash
+FIELDLENS_LOCAL_DATA_ROOT=/mnt/c/Users/<you>/Downloads/Hackathon_Data \
+  uv run pytest backend/tests/test_local_data_profiles.py -m local_data -s
+```
+
+It runs every native profile on the approved Volve subset and prints the per-wellbore
+coverage matrix (trajectory/production/completion/equipment for F-12, F-14, F-5).
+
 ### Playwright on this Ubuntu 20.04 / Docker Desktop host
 
 Playwright 1.64.1 no longer installs its Chromium build on Ubuntu 20.04.

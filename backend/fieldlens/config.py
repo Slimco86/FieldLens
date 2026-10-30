@@ -113,6 +113,11 @@ class Settings(BaseSettings):
     local_data_root: Path | None = None
     """Opt-in read-only root of the local Volve subset (tests only); unset => local_data skips."""
 
+    @field_validator("local_data_root", mode="before")
+    @classmethod
+    def _blank_data_root_is_unset(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
     @field_validator("storage_root")
     @classmethod
     def _anchor_storage_root(cls, value: Path) -> Path:
