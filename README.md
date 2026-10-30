@@ -107,8 +107,9 @@ database. Never run `docker compose down -v` unless you intend to delete the dat
 `./dev` never does.
 
 The bootstrap generates the database password once, never overwrites or prints values,
-and keeps every existing line (such as `MODEL_API_KEY`) unchanged; application code,
-tests and scripts only load `FIELDLENS_*`/`POSTGRES_*` keys. [.env.example](.env.example)
+and keeps every existing line (such as `MODEL_API_KEY`) unchanged; scripts and tests only
+load `FIELDLENS_*`/`POSTGRES_*` keys, and the application settings additionally adopt
+exactly `MODEL_API_KEY` as the provider secret. [.env.example](.env.example)
 documents each key (role `fieldlens`, database `fieldlens_app`, port 55432, storage under
 `.local/fieldlens/storage`, volume `fieldlens_pgdata`). Real environment variables
 override `.env`. PostgreSQL fixes credentials when the volume is first initialized, so a
@@ -194,6 +195,20 @@ URLs, connection-query overrides and ambient
 Tests create/drop uniquely named sibling databases and deny external Python
 socket connections. Browser tests permit only local page requests.
 No default test makes a Meta/provider call.
+
+**Provider adapter (`backend/fieldlens/assistant/`, offline only).** The suite
+`uv run pytest backend/tests/assistant -m "not live_meta"` runs the stub, recorded-replay and
+payload/parse layers against fixture Responses payloads and a throwaway PostgreSQL budget
+ledger; it spends nothing and the `MetaProvider` client is constructed but never called. The key
+is the single variable `MODEL_API_KEY` (server environment or the root `.env`; no
+`FIELDLENS_` alias; default tests force it blank and derived lane `.env` files never carry it, so
+live runs use the root `.env`); without it the provider
+raises `provider_unavailable` before any request. The ledger needs an owner-confirmed starting
+balance and a registered pricing revision before it reserves anything; limits (4 attempts, 6 tool
+calls, 90 s, 4,096 output tokens, USD 0.50 reserved, USD 150 ceiling) may only be lowered by
+`FIELDLENS_PROVIDER_*`/`FIELDLENS_BUDGET_*` settings, except `FIELDLENS_PROVIDER_MAX_TOOL_CALLS`,
+which is configurable (default 6, maximum 64). Live checks (`live_meta`, MI-6/TASK-005) are
+excluded and need explicit owner authorization.
 
 ### Playwright on this Ubuntu 20.04 / Docker Desktop host
 

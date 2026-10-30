@@ -8,6 +8,19 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.13.0 - 2026-10-30
+
+- **TASK-004 (FL-003-A):** Added the offline provider adapter in `backend/fieldlens/assistant/`:
+  message model with image parts and tool-call round trips, stub/replay/recorder providers, the
+  Meta Responses wrapper (never called by default tests; no live calls), a PostgreSQL budget
+  ledger (USD 150 ceiling; reserve/settle/release/reconcile; overruns are flagged and pause the
+  period) and bounded work units (4 attempts, configurable tool-call bound default 6, 90 s,
+  USD 0.50) with typed refusal/truncation/malformed/timeout/cancellation handling. Migration
+  `0004_provider_budget`; dependency `openai`. Owner decision: the single provider key variable is
+  `MODEL_API_KEY`, adopted only by the application settings as a secret (DEV_ENVIRONMENT AC-6
+  amended); default tests force it blank. Independent QA found six defects, all repaired and
+  re-verified. Meta behaviour, billing and token bounds remain unverified until TASK-005.
+
 ## 0.12.1 - 2026-10-30
 
 - **Fix (FL-019):** `./dev up` failed in `alembic upgrade head` when the shell had `.env`

@@ -123,7 +123,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Version | none |
 
 **Outcome.** Verify Meta entitlement/protocols and agree shared budget controls. The offline adapter and ledger come first, then a separate opt-in live smoke.
-**Next action.** Dispatch TASK-004 (offline adapter) then TASK-005 (live smoke, only after the approved USD 1 ceiling). No G1 dependency.
+**Next action.** TASK-004 (offline adapter) is integrated in 0.13.0; next TASK-005 (live smoke, only after the approved USD 1 ceiling). No G1 dependency.
 **Evidence.** none yet
 
 ### FL-004 · Runnable stack, database/migrations and common identity/evidence/time contracts
@@ -602,7 +602,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-003 |
@@ -610,13 +610,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/META_INTEGRATION.md |
-| Version | none |
+| Version | 0.13.0 |
 | Parent | FL-003 |
 | Slice | FL-003-A |
 
 **Outcome.** RAG worker implements the MI-1..5 offline provider adapter, PostgreSQL budget reservations and finite failure/cancellation behavior in `backend/fieldlens/assistant/`; no live calls.
-**Next action.** Dispatched October 30 in parallel with TASK-009 (owner request; the FL-003 spec is treated as approved by that dispatch; worktree `/home/slimco/code/FieldLens-worktrees/task-004-provider-adapter`, branch `feature/task-004-provider-adapter`). The adapter message model must also represent image content parts and tool-call round trips (FL-022 needs page images and read-only tools), and the per-unit tool-call bound must be configurable (default 6). Stub provider only, no live calls.
-**Evidence.** none yet
+**Next action.** None. TASK-005 (live smoke, MI-6) is the next FL-003 slice; the single provider key variable is `MODEL_API_KEY` (owner decision October 30). Its image-input check and the token-bound comparison belong there.
+**Evidence.** Integrated October 30 as version 0.13.0 (merge of `feature/task-004-provider-adapter`, head `d52c895`). Independent QA (`fieldlens-qa`) found D1-D6, all repaired and re-verified; final gates: 621 backend tests passed (1 unrelated skip), ruff, mypy; frontend gates verified at `b61106a`. Offline only: the Meta client was never called, so MI-6 and real billing/token bounds are unverified.
 
 ### TASK-005 · Live Meta protocol/entitlement smoke under the USD 1 ceiling (MI-6)
 

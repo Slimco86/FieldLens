@@ -106,12 +106,30 @@ def test_absolute_storage_root_is_kept(tmp_path: Path) -> None:
     assert Settings(_env_file=None, storage_root=tmp_path).storage_root == tmp_path
 
 
-def test_provider_key_is_never_adopted_from_process_environment(
-    monkeypatch: pytest.MonkeyPatch,
+def test_only_model_api_key_is_adopted_by_settings_and_only_as_a_secret(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    # Owner decision 2026-10-30 13:41 EDT: the one provider key is MODEL_API_KEY.
     monkeypatch.setenv("MODEL_API_KEY", SENTINEL)
-    assert SENTINEL not in repr(Settings(_env_file=None))
-    assert "model_api_key" not in config.Settings.model_fields
+    settings = Settings(_env_file=None)
+    assert settings.meta_api_key is not None
+    assert settings.meta_api_key.get_secret_value() == SENTINEL
+    assert SENTINEL not in repr(settings) and SENTINEL not in str(settings.redacted())
+    assert SENTINEL not in repr(config.Settings.model_fields)
+    monkeypatch.delenv("MODEL_API_KEY")
+    env_file = tmp_path / "k.env"
+    env_file.write_text(f"MODEL_API_KEY={SENTINEL}\nOTHER_SECRET=nope\n", encoding="utf-8")
+    from_file = Settings(_env_file=env_file)
+    assert from_file.meta_api_key is not None
+    assert "nope" not in repr(from_file) and SENTINEL not in repr(from_file)
+    assert "other_secret" not in config.Settings.model_fields
+    # the scripts/tests loader still never returns it
+    assert "MODEL_API_KEY" not in load_local_env(env_file)
+
+
+def test_default_tests_never_see_a_real_provider_key() -> None:
+    assert Settings().meta_api_key is None  # blank process variable beats the root .env
+    assert Settings(_env_file=None).meta_api_key is None
 
 
 def test_unexpanded_references_from_an_injected_environment_are_resolved(

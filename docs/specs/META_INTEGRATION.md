@@ -135,6 +135,25 @@ the main agent assigns final version and records live/stub evidence.
 Live verification must happen before final acceptance, but ordinary coding/tests
 must remain zero-cost. Separate commands, fixtures and ledger gates enforce this.
 
+## Offline Implementation Traceability (TASK-004, October 30)
+
+Code: `backend/fieldlens/assistant/` (`messages`, `provider`, `stub`, `meta`, `budget`,
+`tables`, `runner`, `errors`); migration `0004_provider_budget`. Tests live in
+`backend/tests/assistant/`. No live call was made; MI-6 stays open.
+
+| ID | Offline evidence | Residual (live/unverified) |
+|---|---|---|
+| MI-1 | `test_meta_protocol.py`: payload build/parse of fixture Responses payloads (text, tool call/result IDs, refusal, truncation, opaque reasoning replay, image parts, web-search counting) | Real protocol shape and reasoning-replay entitlement (MI-6) |
+| MI-2 | `test_paid_calls_disabled.py`: socket guard, missing key/balance/pricing fail before dispatch, client never used, SDK retries disabled, secrets absent from logs/errors/DB rows/recordings | Nothing live |
+| MI-3 | `test_budget_reservations.py`: 12-thread race, idempotent keys, ceiling = min(cap, balance), restart survival, DB cap constraint | Owner-confirmed real balance |
+| MI-4 | `test_provider_failure_accounting.py`: timeout keeps liability until reconcile, one 429/5xx retry, no retry for 401/403/refusal/bad schema, usage-less answers stay estimated | Real billing of a timed-out call |
+| MI-5 | `test_agent_limits.py`: attempts incl. retry, tool-call bound (default 6, configurable), deadline, output-token bound, reserved-cost bound, cancellation | Limits remain `[Assumed: verify]` |
+
+Amendment items: image content parts and tool-call/result round trips are in the message model
+and handled by the stub, replay and Responses payload builder; MI-5 tool-call bound is
+`FIELDLENS_PROVIDER_MAX_TOOL_CALLS`. Token bounds are conservative estimates (1 token per UTF-8
+byte; `provider_image_token_bound` per image) until MI-6 compares them with provider usage.
+
 ## Assumption Registry
 
 Responses tool replay is entitled (M; MI-6 validates). Published rates bound the

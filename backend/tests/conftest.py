@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -10,6 +11,10 @@ from sqlalchemy.engine import URL, Engine
 
 from fieldlens.config import Settings
 from tests import support
+
+# Default tests never see a real provider key: an explicitly blank process variable wins over
+# both the real environment and the root .env, so Settings() resolves the key as absent.
+os.environ["MODEL_API_KEY"] = ""
 
 
 @pytest.fixture(scope="session", autouse=True)
