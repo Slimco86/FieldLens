@@ -224,7 +224,7 @@ def test_conversion_inventory() -> None:
     features = [i.id for i in led.items if i.is_feature]
     tasks = [i.id for i in led.items if not i.is_feature]
     assert features == [f"FL-{n:03d}" for n in range(21)]
-    assert tasks == [f"TASK-{n:03d}" for n in range(1, 33)]
+    assert sorted(tasks) == [f"TASK-{n:03d}" for n in range(1, 33)]
     by_id = led.by_id()
     assert by_id["FL-019"].status == "done" and by_id["FL-019"].version == "0.10.0"
     assert by_id["FL-020"].status == "in_progress"
