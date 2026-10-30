@@ -31,7 +31,10 @@ class UnsafeTestDatabase(Exception):
 
 def _config_value(key: str, file_values: dict[str, str]) -> str | None:
     """Real environment first, then the repository-root .env (FIELDLENS_/POSTGRES_ keys only)."""
-    return os.environ.get(key) or file_values.get(key) or None
+    env_value = os.environ.get(key)
+    if env_value and "${" in env_value:
+        env_value = None  # exported verbatim by an editor; the .env value is expanded
+    return env_value or file_values.get(key) or None
 
 
 def resolve_test_database_url(file_values: dict[str, str] | None = None) -> URL:

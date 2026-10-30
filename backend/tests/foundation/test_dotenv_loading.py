@@ -112,3 +112,29 @@ def test_provider_key_is_never_adopted_from_process_environment(
     monkeypatch.setenv("MODEL_API_KEY", SENTINEL)
     assert SENTINEL not in repr(Settings(_env_file=None))
     assert "model_api_key" not in config.Settings.model_fields
+
+
+def test_unexpanded_references_from_an_injected_environment_are_resolved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Editors/terminals can export .env lines verbatim, leaving ${VAR} in the value.
+    monkeypatch.setenv(
+        "FIELDLENS_DATABASE_URL",
+        "postgresql+psycopg://${POSTGRES_USER}:pw@127.0.0.1:${FIELDLENS_DB_PORT}/${POSTGRES_DB}",
+    )
+    monkeypatch.setenv("POSTGRES_USER", "svc")
+    monkeypatch.setenv("FIELDLENS_DB_PORT", "55432")
+    monkeypatch.setattr(config, "load_local_env", lambda: {"POSTGRES_DB": "fieldlens_app"})
+    url = Settings(_env_file=None).database_url
+    assert url is not None
+    assert url.get_secret_value() == "postgresql+psycopg://svc:pw@127.0.0.1:55432/fieldlens_app"
+
+
+def test_undefined_reference_is_rejected_without_echoing_the_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FIELDLENS_DATABASE_URL", "postgresql+psycopg://u:secretpw@h/${NOPE_DB}")
+    monkeypatch.setattr(config, "load_local_env", lambda: {})
+    with pytest.raises(ValueError, match="NOPE_DB") as raised:
+        Settings(_env_file=None)
+    assert "secretpw" not in str(raised.value)

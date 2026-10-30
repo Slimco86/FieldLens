@@ -7,6 +7,8 @@ Pass ``_env_file=None`` for an explicit, file-independent configuration.
 from __future__ import annotations
 
 import ipaddress
+import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -14,7 +16,7 @@ from typing import Any
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from fieldlens.localenv import ENV_FILE, REPO_ROOT
+from fieldlens.localenv import ENV_FILE, REPO_ROOT, load_local_env
 
 LOOPBACK_NAMES = frozenset({"localhost"})
 DEFAULT_API_PORT = 8101
@@ -23,6 +25,7 @@ MAX_FILE_BYTES = 128 * 1024 * 1024
 MAX_BATCH_BYTES = 512 * 1024 * 1024
 MAX_FILES = 200
 MAX_OVERHEAD_BYTES = 1024 * 1024
+_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def is_loopback_host(host: str) -> bool:
@@ -53,6 +56,7 @@ class Settings(BaseSettings):
         env_file=ENV_FILE,  # anchored to the repository root; real environment variables win
         env_file_encoding="utf-8",
         frozen=True,
+        hide_input_in_errors=True,
     )
 
     host: str = "127.0.0.1"
@@ -93,6 +97,26 @@ class Settings(BaseSettings):
                 "FIELDLENS_HOST must be a loopback address (127.0.0.1, ::1, localhost)"
             )
         return value
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _expand_references(cls, value: object) -> object:
+        """Resolve ``${VAR}`` left verbatim by tools that inject ``.env`` without expansion."""
+        raw = value.get_secret_value() if isinstance(value, SecretStr) else value
+        if not isinstance(raw, str) or "${" not in raw:
+            return value
+        file_values = load_local_env()
+
+        def lookup(match: re.Match[str]) -> str:
+            name = match.group(1)
+            found = os.environ.get(name)
+            if found is None or "${" in found:
+                found = file_values.get(name)
+            if found is None:
+                raise ValueError(f"FIELDLENS_DATABASE_URL references undefined ${{{name}}}")
+            return found
+
+        return _REFERENCE.sub(lookup, raw)
 
     @field_validator("database_url")
     @classmethod

@@ -8,6 +8,13 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.12.1 - 2026-10-30
+
+- **Fix (FL-019):** `./dev up` failed in `alembic upgrade head` when the shell had `.env`
+  exported verbatim by an editor terminal (`${FIELDLENS_DB_PORT}` left unexpanded in
+  `FIELDLENS_DATABASE_URL`). Settings now resolve `${VAR}` references (undefined ones are
+  rejected without echoing the URL), and the test harness ignores such unexpanded values.
+
 ## 0.12.0 - 2026-10-29
 
 - **FL-020-C:** Added the one-way backlog -> Taiga mirror (`scripts/taiga_client.py`,
