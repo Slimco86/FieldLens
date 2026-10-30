@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import stat
+import subprocess
+import sys
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -36,6 +39,9 @@ STORY_FIELDS = {
     "version",
 }
 TASK_FIELDS = STORY_FIELDS | {"user_story"}
+# real Taiga list endpoints omit these (detail endpoints return them)
+LIST_OMITS = {"description", "description_html", "blocked_note_html", "neighbors"}
+TASK_LIST_OMITS = {"comment", "generated_user_stories"}
 
 
 class Fake:
@@ -69,6 +75,8 @@ class Fake:
             "due_date": None,
             "milestone": None,
             "description": "",
+            "description_html": "",
+            "blocked_note_html": "",
             "status": None,
             **body,
         }
@@ -152,7 +160,10 @@ def fake() -> Iterator[Fake]:
             allowed = STORY_FIELDS if kind == "userstories" else TASK_FIELDS
             if method == "GET" and len(parts) == 1:
                 assert self.headers.get("x-disable-pagination") == "True"
-                self._send(200, list(store.values()))
+                omit = LIST_OMITS if kind == "userstories" else LIST_OMITS | TASK_LIST_OMITS
+                self._send(
+                    200, [{k: v for k, v in o.items() if k not in omit} for o in store.values()]
+                )
             elif method == "GET":
                 self._send(200, store[int(parts[1])])
             elif method == "POST":
@@ -330,9 +341,15 @@ def test_idempotent_apply(env: Env, fake: Fake, capsys: pytest.CaptureFixture[st
     assert "untouched 1 unprefixed user story" in out and "FL-009" in out
     assert fake.writes == 4  # stories and tasks created with links already resolved
     writes = fake.writes
+    gets = len(fake.requests)
     assert env.run(apply=True) == 0
     assert fake.writes == writes
     assert "writes=0" in capsys.readouterr().out
+    second = fake.requests[gets:]
+    assert [r for r in second if r[0] != "GET" and r[1] != "/auth"] == []
+    details = [r for r in second if r[1].startswith(("/userstories/", "/tasks/"))]
+    assert len(details) == 4  # one detail GET per matched item, O(n)
+    assert len(second) <= 4 + 12
     state_path = env.tmp / ".local" / "run" / "taiga-state.json"
     assert stat.S_IMODE(state_path.stat().st_mode) == 0o600
     state_text = state_path.read_text(encoding="utf-8")
@@ -482,3 +499,87 @@ def test_sync_notify(
 
 def test_feature_fixture_sanity() -> None:
     assert FEATURE["Sprint"] == "Hackathon"
+
+
+def test_only_empty_is_usage_error(
+    env: Env, fake: Fake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for bad in ("", " ", ",", " , ,"):
+        assert env.run(apply=True, only=bad) == 2
+        assert env.run(only=bad) == 2
+    assert fake.requests == [] and fake.writes == 0
+    assert "--only" in capsys.readouterr().err
+
+
+def test_only_scope_skips_other_details(env: Env, fake: Fake) -> None:
+    assert env.run(apply=True) == 0
+    fake.requests.clear()
+    assert env.run(apply=True, only="FL-001") == 0
+    details = [r for r in fake.requests if r[1].startswith(("/userstories/", "/tasks/"))]
+    assert len(details) == 1
+
+
+def test_stale_list_version_uses_detail_version(env: Env, fake: Fake) -> None:
+    assert env.run(apply=True) == 0
+    s1 = fake.by_subject("userstories", "[FL-001]")
+    s1["status"] = 10
+    s1["version"] += 5
+    assert env.run(apply=True) == 0 and s1["status"] == 12
+
+
+def test_concurrent_apply_is_refused(
+    env: Env, fake: Fake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fd = track._acquire_lock(env.tmp)
+    assert fd is not None
+    try:
+        assert (
+            track._acquire_lock(env.tmp) is None
+        )  # second fd, same process: flock is per-open-file
+        assert env.run(apply=True) == 2
+        assert "another sync is running" in capsys.readouterr().err
+        assert fake.requests == [] and fake.writes == 0
+        assert env.run() == 0  # read-only plan does not need the lock
+    finally:
+        os.close(fd)
+    assert env.run(apply=True) == 0  # lock released
+
+
+def test_lock_across_processes(env: Env, tmp_path: Path) -> None:
+    code = (
+        "import fcntl,os,sys,time\n"
+        "fd=os.open(sys.argv[1],os.O_RDWR|os.O_CREAT,0o600)\n"
+        "fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)\n"
+        "print('held',flush=True);time.sleep(30)\n"
+    )
+    lock = env.tmp / ".local" / "run" / "taiga-sync.lock"
+    lock.parent.mkdir(parents=True)
+    proc = subprocess.Popen(  # noqa: S603
+        [sys.executable, "-c", code, str(lock)], stdout=subprocess.PIPE, text=True
+    )
+    try:
+        assert proc.stdout is not None and proc.stdout.readline().strip() == "held"
+        assert env.run(apply=True) == 2
+    finally:
+        proc.kill()
+        proc.wait()
+    assert env.run(apply=True) == 0
+
+
+def test_state_atomic_and_corrupt(env: Env, fake: Fake, capsys: pytest.CaptureFixture[str]) -> None:
+    assert env.run(apply=True) == 0
+    run_dir = env.tmp / ".local" / "run"
+    assert sorted(p.name for p in run_dir.iterdir()) == ["taiga-state.json", "taiga-sync.lock"]
+    state_path = run_dir / "taiga-state.json"
+    capsys.readouterr()
+    for junk in ('{"project": 1, "items": ', "[]", "\x00\xff", '{"project": 1}'):
+        state_path.write_bytes(junk.encode("latin-1"))
+        writes = fake.writes
+        assert env.run(apply=True) == 0 and fake.writes == writes
+        assert "state file" in capsys.readouterr().err
+    state_path.write_text(
+        json.dumps({"project": 1, "items": {"FL-001": {"hashes": "bad"}}}), encoding="utf-8"
+    )
+    assert env.run(apply=True) == 0
+    assert stat.S_IMODE(state_path.stat().st_mode) == 0o600
+    json.loads(state_path.read_text(encoding="utf-8"))

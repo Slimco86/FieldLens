@@ -15,6 +15,7 @@ privacy guard (non-private project, secret-like text).
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -37,6 +38,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_FILE = ROOT / "docs" / "BACKLOG.md"
 DEFAULT_SLUG = "slimco86-test"
 STATE_NAME = Path(".local") / "run" / "taiga-state.json"
+LOCK_NAME = Path(".local") / "run" / "taiga-sync.lock"
 SUBJECT_RE = re.compile(r"^\[((?:FL|TASK)-\d{3})\] ")
 MIN_REFUSE_LEN = 6
 EXIT_OK, EXIT_LEDGER, EXIT_ERROR, EXIT_REFUSED = 0, 1, 2, 3
@@ -245,25 +247,54 @@ def _preflight(
 
 
 def _load_state(root: Path, project_id: int) -> dict[str, dict[str, Any]]:
+    path = root / STATE_NAME
     try:
-        data = json.loads((root / STATE_NAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
         return {}
-    if not isinstance(data, dict) or data.get("project") != project_id:
+    except (OSError, UnicodeDecodeError):
+        print("track: state file unreadable; continuing without drift info", file=sys.stderr)
         return {}
-    items = data.get("items")
-    return (
-        {k: v for k, v in items.items() if isinstance(v, dict)} if isinstance(items, dict) else {}
-    )
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = None
+    items = data.get("items") if isinstance(data, dict) else None
+    if not isinstance(items, dict):
+        print("track: state file corrupt; continuing without drift info", file=sys.stderr)
+        return {}
+    if data.get("project") != project_id:
+        return {}
+    return {k: v for k, v in items.items() if isinstance(v, dict)}
 
 
 def _save_state(root: Path, project_id: int, items: Mapping[str, Any]) -> None:
     path = root / STATE_NAME
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        handle.write(json.dumps({"project": project_id, "items": items}, sort_keys=True))
-    path.chmod(0o600)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps({"project": project_id, "items": items}, sort_keys=True))
+            handle.flush()
+            os.fsync(handle.fileno())
+        tmp.chmod(0o600)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def _acquire_lock(root: Path) -> int | None:
+    """Exclusive non-blocking flock; returns the open fd, or None when another sync holds it."""
+    path = root / LOCK_NAME
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        return None
+    return fd
 
 
 def _wire(fields: Mapping[str, Any], tag_pairs: bool) -> dict[str, Any]:
@@ -374,6 +405,12 @@ def _sync_body(
         + (f"; prefixed but not managed here: {', '.join(foreign)}" if foreign else "")
     )
     live: dict[str, dict[str, Any]] = {**stories, **tasks}
+    # List endpoints omit description & co on real Taiga; diff against the detail object.
+    for item in scope:
+        listed = live.get(item.id)
+        if listed is not None:
+            detail = client.get_object(KINDS[item.is_feature], int(listed["id"]))
+            live[item.id] = {**listed, **detail}
     state = _load_state(root, pid)
     refs: dict[str, int] = {i: int(o["ref"]) for i, o in live.items() if o.get("ref") is not None}
     story_ids: dict[str, int] = {i: int(o["id"]) for i, o in stories.items()}
@@ -427,11 +464,17 @@ def _sync_body(
             diff = [
                 n
                 for n in names
-                if not (n == "user_story" and want[n] is None)
+                if n in cur
+                and not (n == "user_story" and want[n] is None)
                 and _norm(n, want[n]) != _norm(n, cur.get(n))
             ]
-            stored = state.get(item.id, {}).get("hashes", {}) if item.id not in created else {}
-            drifted = [n for n in diff if n in stored and _hash(_norm(n, cur.get(n))) != stored[n]]
+            raw_hashes = state.get(item.id, {}).get("hashes") if item.id not in created else None
+            stored: dict[str, Any] = raw_hashes if isinstance(raw_hashes, dict) else {}
+            drifted = [
+                n
+                for n in diff
+                if n in stored and n in cur and _hash(_norm(n, cur.get(n))) != stored[n]
+            ]
             skip = set(drifted) if keep_drift else set()
             patch = {n: want[n] for n in diff if n not in skip}
             for n in drifted:
@@ -507,8 +550,11 @@ def cmd_sync(
         return EXIT_LEDGER
     by_id = led.by_id()
     scope: list[ledger.Item] = list(led.items)
-    if only:
+    if only is not None:
         wanted = [x.strip() for x in only.split(",") if x.strip()]
+        if not wanted:
+            print("track: --only needs at least one item ID", file=sys.stderr)
+            return EXIT_ERROR
         unknown = [x for x in wanted if x not in by_id]
         if unknown:
             print(f"track: unknown ID(s) in --only: {', '.join(unknown)}", file=sys.stderr)
@@ -525,6 +571,50 @@ def cmd_sync(
     if missing:
         print(f"track: missing configuration keys: {', '.join(missing)}", file=sys.stderr)
         return EXIT_ERROR
+    lock_fd: int | None = None
+    if apply:
+        try:
+            lock_fd = _acquire_lock(root)
+        except OSError:
+            print("track: error: cannot create the sync lock file", file=sys.stderr)
+            return EXIT_ERROR
+        if lock_fd is None:
+            print("track: another sync is running", file=sys.stderr)
+            return EXIT_ERROR
+    try:
+        return _run_sync(
+            led,
+            scope,
+            values,
+            root,
+            apply,
+            keep_drift,
+            notify,
+            timeout,
+            environ,
+            transport,
+            sleep,
+            secrets,
+        )
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)  # closing releases the flock
+
+
+def _run_sync(
+    led: ledger.Ledger,
+    scope: list[ledger.Item],
+    values: Mapping[str, str],
+    root: Path,
+    apply: bool,
+    keep_drift: bool,
+    notify: bool,
+    timeout: float,
+    environ: Mapping[str, str] | None,
+    transport: taiga_client.Transport,
+    sleep: Callable[[float], None],
+    secrets: Sequence[str],
+) -> int:
     result = SyncResult()
     code = EXIT_OK
     client: taiga_client.TaigaClient | None = None
