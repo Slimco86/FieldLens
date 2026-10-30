@@ -125,8 +125,8 @@ def well_key(label: str | None) -> str | None:
     merges a pilot/sidetrack into its parent identity (``wellbore_label`` keeps the suffix)."""
     if not label:
         return None
-    m = re.search(r"(\d{1,2}/\d{1,2}-[A-Z]-\d{1,3})", label.upper())
-    return m.group(1) if m else None
+    m = re.search(r"(\d{1,2}/\d{1,2})-([A-Z])-?(\d{1,3})(?!\d)", label.upper())
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}" if m else None
 
 
 def wellbore_suffix(label: str | None) -> str | None:
