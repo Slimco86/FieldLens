@@ -8,6 +8,17 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.9.0 - 2026-10-29
+
+- **FL-020-A:** Added `scripts/notify.py`, a send-only Telegram progress notifier for the
+  orchestrator: event vocabulary with 🔴 ACTION NEEDED versus 🟢/🔵/⚪ status markers, dry-run,
+  `--best-effort`, 60 s duplicate suppression, secret redaction/refusal, config-shape
+  validation, and an optional allowlisted inbox (`TELEGRAM_INBOX=1`, off by default; stores
+  commands only, executes nothing). `scripts/toolenv.py` loads only `TELEGRAM_*`/`TAIGA_*` keys
+  with dotenv comment semantics (worktrees fall back to the main checkout's `.env`);
+  `fieldlens.localenv` is unchanged. `.env.example` documents the empty keys. No application,
+  API or schema change. Independent QA PASS after two repair rounds (396 backend tests).
+
 ## 0.8.0 - 2026-10-29
 
 - **FL-005-A (TASK-006):** Added project-scoped upload, storage and persistent jobs plus the
