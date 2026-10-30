@@ -27,7 +27,7 @@ dependencies, assignee, due date and sprint; (c) one command mirrors that ledger
 owner's Taiga project (sprint `Hackathon`) as user stories (features) and tasks, idempotently.
 `docs/BACKLOG.md` remains the single source of truth; Taiga is a read-mostly view.
 Verification: `track.py check` passes on the converted backlog; a Taiga dry-run lists
-51 features/tasks; `--apply` twice produces zero changes the second time; `notify.py
+53 items (21 features, 32 tasks); `--apply` twice produces zero changes the second time; `notify.py
 --dry-run` prints the message that would be sent. Outcome score: 3.
 
 ## 2. Scope
@@ -37,7 +37,7 @@ Verification: `track.py check` passes on the converted backlog; a Taiga dry-run 
 - **A. `scripts/notify.py`**: send-only Telegram notifications (stdlib `urllib`), an event
   vocabulary, redaction, de-duplication, dry-run. Optional **inbox** (owner commands) is
   included but disabled unless `TELEGRAM_INBOX=1`.
-- **B. Backlog ledger format** (section 4), conversion of the existing 19 feature rows and 32
+- **B. Backlog ledger format** (section 4), conversion of the existing 21 feature rows (FL-000..FL-020) and 32
   plan tasks into it (history text preserved under a Journal heading), and
   `scripts/track.py check|plan`: parse, validate, dependency/cycle/date checks, diff.
 - **C. Taiga sync** (`scripts/track.py sync [--apply]`) over the Taiga REST API, with drift
@@ -83,7 +83,7 @@ Product Owner) `[probed October 29]`. Telegram bot and chat id in the untracked 
 | NT-4 | Edge case | Identical event+ref+text within 60 s is suppressed once (state in `.local/run/notify.json`); text is single-purpose, max 1000 chars (truncated with an ellipsis), control characters stripped, only the event vocabulary in 4.5 accepted. | 3 | [Validated] | `test_dedupe_limits_vocabulary` |
 | NT-5 | Behavioral | `notify.py inbox --once` (requires `TELEGRAM_INBOX=1`) reads new updates only from `TELEGRAM_CHAT_ID`, persists the update offset, appends accepted commands to `.local/run/inbox.jsonl`, replies once per command, and never replies to or stores other chats' messages (Telegram's offset acknowledges them collectively, which is why a dedicated bot is recommended). `/cmd@botname` forms and notes containing secret-like patterns are handled per NT-2 (notes with secrets rejected). Free text is stored as `note` data, never executed. | 3 | [Assumed: verify] | `test_inbox_filters_chat_and_commands` |
 | BK-1 | Behavioral | `track.py check` parses `docs/BACKLOG.md`: every feature/task has all required fields; statuses, priorities, dates and IDs are valid; dependencies reference existing items; no dependency cycle; tasks reference a feature; `done` items have `Version` and evidence; due dates lie within the sprint/deadline; exits non-zero listing every violation with line numbers. | 3 | [Validated] | `test_check_rules` |
-| BK-2 | Behavioral | Conversion preserved every pre-existing item: 19 features (FL-000..FL-018) and 32 tasks (TASK-001..032) with their prior status/evidence, the narrative history is kept verbatim under `## Journal`, and relative links still resolve. | 3 | [Validated] | `test_conversion_inventory` (counts and ID set) + link check |
+| BK-2 | Behavioral | Conversion preserved every pre-existing item: 21 features (FL-000..FL-020) and 32 tasks (TASK-001..032) with their prior status/evidence, the narrative history is kept verbatim under `## Journal`, and relative links still resolve. | 3 | [Validated] | `test_conversion_inventory` (counts and ID set) + link check |
 | BK-3 | Negative | The parser accepts only the documented field names/values; unknown fields, duplicate IDs, and malformed tables fail `check` rather than being ignored. | 3 | [Validated] | `test_parser_strict` |
 | TG-1 | Behavioral | `track.py plan` (no network write) prints per-item create/update/no-op for features -> user stories and tasks -> tasks with the exact changed fields; `sync` without `--apply` is identical. | 3 | [Validated] | `test_plan_diff` (fake Taiga API) |
 | TG-2 | Behavioral | `sync --apply` creates/updates user stories and tasks in the project named by `TAIGA_PROJECT_SLUG` with: subject `[ID] title`, description (outcome, next action, evidence, dependency list, spec path), tags, status mapped per 4.2, due date, assigned user, `is_blocked`/`blocked_note` from unmet dependencies, milestone `Hackathon`; tasks belong to their feature's story. | 3 | [Validated] | `test_apply_mapping` |
