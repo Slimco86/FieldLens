@@ -107,6 +107,28 @@ async function open() {
 }
 
 describe("evidence panel", () => {
+  it("lists wellbore labels separately from the well and shows coverage gaps", async () => {
+    install((u) =>
+      u.endsWith("/extraction")
+        ? json(
+            report({
+              wellbore_identities: [
+                { wellbore_label: "NO 15/9-F-12 H", well_key: "15/9-F-12", record_kinds: ["production_day"] },
+                { wellbore_label: "F-12 A", well_key: "15/9-F-12", record_kinds: ["trajectory_station"] },
+              ],
+              coverage_notes: ["F-12: completion string, packers and tubing are not extracted (deferred completion PDFs)."],
+            }),
+          )
+        : json(records([])),
+    );
+    await open();
+    const ids = await screen.findByRole("list", { name: "Wellbores in this source" });
+    expect(within(ids).getByText(/Wellbore NO 15\/9-F-12 H \(well 15\/9-F-12\)/)).toBeInTheDocument();
+    expect(within(ids).getByText(/Wellbore F-12 A \(well 15\/9-F-12\)/)).toBeInTheDocument();
+    const notes = screen.getByRole("list", { name: "Coverage notes" });
+    expect(within(notes).getByText(/not extracted \(deferred completion PDFs\)/)).toBeInTheDocument();
+  });
+
   it("shows profile, honest partial status, coverage, findings, records and locators", async () => {
     install((u) =>
       u.endsWith("/extraction") ? json(report()) : u.includes("/extraction/records") ? json(records([record])) : undefined,

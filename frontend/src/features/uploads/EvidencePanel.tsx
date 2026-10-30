@@ -210,6 +210,28 @@ function Inspection({ projectId, doc }: { projectId: string; doc: SourceDocument
             .join(", ") || "none"}
         </dd>
       </dl>
+      {(r.wellbore_identities ?? []).length > 0 && (
+        <>
+          <h6>Wellbores in this source</h6>
+          <ul aria-label="Wellbores in this source">
+            {(r.wellbore_identities ?? []).map((w) => (
+              <li key={`${w.wellbore_label}|${w.well_key ?? ""}`}>
+                Wellbore {w.wellbore_label}
+                {w.well_key !== null && w.well_key !== undefined ? ` (well ${w.well_key})` : " (well not identified)"}
+                {" — "}
+                {(w.record_kinds ?? []).join(", ")}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {(r.coverage_notes ?? []).length > 0 && (
+        <ul aria-label="Coverage notes">
+          {(r.coverage_notes ?? []).map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      )}
       {r.error !== null && (
         <p role="alert">
           Extraction error ({r.error.code}): {r.error.message}

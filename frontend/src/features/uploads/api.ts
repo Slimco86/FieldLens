@@ -77,7 +77,7 @@ export async function requeueExtraction(
   documentId: string,
   signal: AbortSignal,
 ): Promise<ExtractionRequeue> {
-  const res = await mutate(extractionUrl(projectId, documentId), { method: "POST", signal });
+  const res = await mutate(`${extractionUrl(projectId, documentId)}?retry=true`, { method: "POST", signal });
   return (await res.json()) as ExtractionRequeue;
 }
 

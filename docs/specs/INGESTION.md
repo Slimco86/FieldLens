@@ -66,11 +66,29 @@ an approved streaming profile/limit revision before accepting that file.
 (versioned, content-detected): WITSML tubular/bhaRun/wbGeometry/trajectory, Volve production
 workbook, LAS 2.0, perforation and well-pick fixed-width `.dat`, Compass Standard Survey
 Report PDF (pypdf text layer). Runs persist in `extraction_run`/`extracted_record`/
-`extraction_issue` (migration `0004_native_profiles`), are executed by the job worker thread
+`extraction_issue` (migration `0005_native_profiles`), are executed by the job worker thread
 under a lease, and an interrupted run is never shown as succeeded. A profile version change
-makes the run stale and a re-queue supersedes it; unchanged re-runs are no-ops. The 500-page
+makes the run stale and a re-queue supersedes it; unchanged re-runs are no-ops, and a failed or unsupported run is re-queued only when the profile set or content changed or on an explicit `?retry=true`. The 500-page
 PDF limit is enforced at upload. Deferred: EDM export, grids, large completion PDFs/plots,
-OCR (TASK-030). The Volve `Geophysical_Interpretations/Wells/README.txt` (lines 1-11) only says the picks file holds the main picks (repeated `Obs#` when a well crosses a formation several times) and the perforation file holds perforation intervals; it states no unit, depth reference or column definitions, so those depths stay `unsupported` with MISSING_UNIT/MISSING_REFERENCE findings. Opt-in real-data run: `FIELDLENS_LOCAL_DATA_ROOT=<root> uv run pytest
+OCR (TASK-030). The Volve `Geophysical_Interpretations/Wells/README.txt` (lines 1-11) only says the picks file holds the main picks (repeated `Obs#` when a well crosses a formation several times) and the perforation file holds perforation intervals; it states no unit, depth reference or column definitions, so those depths stay `unsupported` with MISSING_UNIT/MISSING_REFERENCE findings. 
+
+**Coverage wording (do not overstate).** "Equipment" in the coverage matrix means
+drilling-assembly (tubular/BHA), bore-geometry and casing-point records; "completion" means
+perforation intervals whose depths are `unsupported` (no unit/datum documented). A completion
+string, packers and tubing are NOT extracted (deferred completion PDFs); every extraction
+report carries that gap per wellbore in `coverage_notes`. The report keeps wellbore
+labels as written (`wellbore_identities`, with the parent `well_key` separate) and raises an
+`IDENTITY_MISMATCH` finding when sources spell the same well differently; labels are never
+merged silently. Event times keep a `Z`/offset marker (`UTC` or `UTC+HH:MM`; not an IANA zone);
+naive times stay naive and flagged. A comma in a number is accepted only as an unambiguous
+thousands separator (`1,234.5`); `1,5` stays unknown.
+
+**Known limitations (memory).** `parse_tree` can reach about 1 GB peak at the 2M-node
+limit; the xlsx reader loads each sheet whole (about 290 MB for the production workbook) and
+workbooks above about 40k rows are refused. Parsing runs in the worker thread with bounded
+concurrency, so one large parse at a time is the supported envelope.
+
+Opt-in real-data run: `FIELDLENS_LOCAL_DATA_ROOT=<root> uv run pytest
 backend/tests/test_local_data_profiles.py -s`.
 
 Full acceptance includes IN-8; success on invented fixtures is not real ingestion

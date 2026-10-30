@@ -746,6 +746,11 @@ export interface components {
             content_sha256: string | null;
             /** @default null */
             coverage: components["schemas"]["Coverage"] | null;
+            /**
+             * Coverage Notes
+             * @description What the extraction does not provide (explicit gaps), per wellbore.
+             */
+            coverage_notes?: string[];
             /** Detail */
             detail?: {
                 [key: string]: string | number | boolean | null;
@@ -814,7 +819,12 @@ export interface components {
              * @default null
              */
             status: components["schemas"]["ExtractionStatus"] | null;
-            /** Wellbores */
+            /** Wellbore Identities */
+            wellbore_identities?: components["schemas"]["WellboreIdentity"][];
+            /**
+             * Wellbores
+             * @description Wellbore labels as written; never collapsed.
+             */
             wellbores?: string[];
         };
         /** ExtractionRequeue */
@@ -1838,6 +1848,23 @@ export interface components {
              */
             wellbore_id: string;
         };
+        /**
+         * WellboreIdentity
+         * @description A wellbore label exactly as a source wrote it, with the parent well key kept separate.
+         *
+         *     ``well_key`` is only a grouping hint derived from the label; it never merges wellbores.
+         */
+        WellboreIdentity: {
+            /** Record Kinds */
+            record_kinds?: string[];
+            /**
+             * Well Key
+             * @default null
+             */
+            well_key: string | null;
+            /** Wellbore Label */
+            wellbore_label: string;
+        };
         /** XlsxLocator */
         XlsxLocator: {
             /**
@@ -2397,7 +2424,10 @@ export interface operations {
     };
     requeue_api_v1_projects__project_id__documents__document_id__extraction_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Explicit retry of a failed/unsupported run */
+                retry?: boolean;
+            };
             header?: never;
             path: {
                 document_id: string;

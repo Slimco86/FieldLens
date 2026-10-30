@@ -218,7 +218,10 @@ FIELDLENS_LOCAL_DATA_ROOT=/mnt/c/Users/<you>/Downloads/Hackathon_Data \
 ```
 
 It runs every native profile on the approved Volve subset and prints the per-wellbore
-coverage matrix (trajectory/production/completion/equipment for F-12, F-14, F-5).
+coverage matrix (trajectory stations / production days / perforation intervals with
+unsupported depths / drilling-assembly and casing-point records for F-12, F-14, F-5). It also
+runs the report builder on every real file. Completion strings, packers and tubing are not
+extracted (deferred completion PDFs) and are reported as a gap per wellbore.
 
 ### Playwright on this Ubuntu 20.04 / Docker Desktop host
 
