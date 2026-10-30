@@ -39,6 +39,9 @@ NAMING = {
 
 metadata = MetaData(naming_convention=NAMING)
 
+# Provider budget tables (TASK-004) register themselves on this metadata.
+from fieldlens.assistant import tables as _assistant_tables  # noqa: E402,F401
+
 
 def _uuid_pk(name: str) -> Column[Any]:
     return Column(
