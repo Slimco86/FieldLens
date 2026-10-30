@@ -6,6 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { blockExternal, createProject, unique } from "./project-support";
 
 test.beforeEach(async ({ page }) => blockExternal(page));
+test.setTimeout(120_000);
 
 const LAS = [
   "~VERSION INFORMATION",

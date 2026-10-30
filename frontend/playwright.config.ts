@@ -5,6 +5,6 @@ export default defineConfig({
   testDir: "./tests/e2e",
   workers: 1,
   fullyParallel: false,
-  use: { baseURL: "http://127.0.0.1:8101" },
+  use: { baseURL: `http://127.0.0.1:${process.env.FIELDLENS_E2E_API_PORT || "8101"}` },
   reporter: "list",
 });

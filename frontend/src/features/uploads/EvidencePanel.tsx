@@ -151,7 +151,7 @@ function Inspection({ projectId, doc }: { projectId: string; doc: SourceDocument
   const { state, reload } = usePolled<ExtractionReport>(
     `extraction/${projectId}/${doc.document_id}`,
     (signal) => getExtraction(projectId, doc.document_id, signal),
-    (r) => r.status !== null && ACTIVE.has(r.status),
+    (r) => r.status === null || ACTIVE.has(r.status),
   );
   const [requeueError, setRequeueError] = useState<Failure | null>(null);
 
