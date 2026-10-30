@@ -8,6 +8,18 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.10.0 - 2026-10-29
+
+- **FL-019-A:** Added `./dev`, a one-command local stack (`scripts/dev.py`): `up [--dev]`
+  starts PostgreSQL (service-named Compose), applies migrations, rebuilds the frontend only when
+  its inputs changed (atomic swap), starts the API with pid/log files and waits for a real
+  `/api/v1/ready`; `down [--db]`, `restart`, `status`, `logs`, `test [backend|frontend|e2e|all]`,
+  `reset-data` (typed confirmation, never the test DBs), `env-check`. Idempotent, operation
+  lock, SIGINT/SIGTERM cleanup, child environment allowlist (no credentials), and
+  worktree lanes with their own database/ports/storage (`down --drop-lane`). Known limits: lane
+  Vite still proxies to port 8101 and `./dev test e2e` is fixed to 8101. No application, API or
+  schema change. Independent QA PASS after three rounds (450 backend tests, real up/down runs).
+
 ## 0.9.0 - 2026-10-29
 
 - **FL-020-A:** Added `scripts/notify.py`, a send-only Telegram progress notifier for the
