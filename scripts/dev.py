@@ -25,6 +25,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -59,9 +60,16 @@ NODE_FIX = (
 )
 # Environment names that children may inherit (no tokens, no provider keys).
 ENV_ALLOW = re.compile(
-    r"^(PATH|HOME|USER|LOGNAME|LANG|LC_.*|TERM|TMPDIR|SHELL|XDG_.*|UV_.*|DOCKER_.*|COMPOSE_.*|"
+    r"^(PATH|HOME|USER|LOGNAME|LANG|LC_.*|TERM|TMPDIR|SHELL|XDG_.*|"
+    r"UV_(CACHE_DIR|PROJECT_ENVIRONMENT|PYTHON|LINK_MODE|NO_SYNC|FROZEN)|DOCKER_.*|COMPOSE_.*|"
     r"SSL_CERT_.*|NO_PROXY|no_proxy|CI|FIELDLENS_.*|POSTGRES_.*|PG(HOST|PORT|USER|DATABASE)?)$"
 )
+# Applied across every allowed pattern: credential-looking names never reach children.
+ENV_DENY = re.compile(r"(?i)(PASSWORD|TOKEN|SECRET|KEY|CREDENTIAL|AUTH)")
+
+
+class Terminated(KeyboardInterrupt):
+    """SIGTERM, routed through the same cleanup path as Ctrl-C."""
 
 
 class DevError(Exception):
@@ -235,6 +243,14 @@ class Services:
     load_env: Callable[[Path], dict[str, str]]
 
 
+def _prompt(text: str) -> str:
+    try:
+        return input(text)
+    except EOFError:
+        print(file=sys.stderr, flush=True)  # finish the unterminated prompt line
+        raise
+
+
 def real_services() -> Services:
     return Services(
         runner=RealRunner(),
@@ -244,7 +260,7 @@ def real_services() -> Services:
         http=RealHttp(),
         out=lambda text: print(text, flush=True),
         err=lambda text: print(text, file=sys.stderr, flush=True),
-        prompt=input,
+        prompt=_prompt,
         environ=os.environ,
         which=shutil.which,
         load_env=lambda path: load_local_env(path),
@@ -370,7 +386,7 @@ def build_context(root: Path, services: Services) -> Context:
 
 
 def child_env(environ: Mapping[str, str], node_bin: Path | None) -> dict[str, str]:
-    env = {k: v for k, v in environ.items() if ENV_ALLOW.match(k)}
+    env = {k: v for k, v in environ.items() if ENV_ALLOW.match(k) and not ENV_DENY.search(k)}
     if node_bin is not None:
         env["PATH"] = f"{node_bin}{os.pathsep}{env.get('PATH', '')}".rstrip(os.pathsep)
     return env
@@ -955,11 +971,12 @@ def cmd_up(
         _start_api(ctx, api, env)
         if dev and vite_pid is None:
             _start_vite(ctx, vite, env, frontend, node_bin)
-    except KeyboardInterrupt:
+    except KeyboardInterrupt as exc:
         _stop_started(ctx, api, vite)
         _lane_db_kept(ctx, created_db)
         raise DevError(
-            "interrupted; stopped what this run started (postgres left running)", 130
+            "interrupted; stopped what this run started (postgres left running)",
+            143 if isinstance(exc, Terminated) else 130,
         ) from None
     except DevError:
         _stop_started(ctx, api, vite)
@@ -1468,6 +1485,10 @@ def operation_lock(ctx: Context) -> Iterator[None]:
         os.close(fd)  # closing releases the lock
 
 
+def _raise_terminated(signum: int, frame: object) -> None:
+    raise Terminated
+
+
 def main(
     argv: Sequence[str] | None = None,
     services: Services | None = None,
@@ -1478,18 +1499,29 @@ def main(
     if args.help or args.command is None:
         svc.out(USAGE.rstrip())
         return 0
+    previous = None
     try:
         ctx = build_context(root, svc)
         with contextlib.ExitStack() as stack:
             if args.command in ("up", "down", "restart", "reset-data"):
                 stack.enter_context(operation_lock(ctx))
+            if args.command in ("up", "restart") and (
+                threading.current_thread() is threading.main_thread()
+            ):
+                previous = signal.signal(signal.SIGTERM, _raise_terminated)
             return dispatch(ctx, args)
     except DevError as exc:
         svc.err(f"dev: {exc}")
         return exc.code
+    except Terminated:
+        svc.err("dev: terminated")
+        return 143
     except KeyboardInterrupt:
         svc.err("dev: interrupted")
         return 130
+    finally:
+        if previous is not None:
+            signal.signal(signal.SIGTERM, previous)
 
 
 def dispatch(ctx: Context, args: argparse.Namespace) -> int:

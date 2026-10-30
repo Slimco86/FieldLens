@@ -171,3 +171,63 @@ def test_port_collision_names_the_holder(tmp_path: Path) -> None:
     else:  # pragma: no cover
         raise AssertionError("expected a collision")
     assert REPO.exists()
+
+
+def test_child_env_filters_credentials_and_keeps_needed_names() -> None:
+    environ = {
+        "PATH": "/usr/bin",
+        "UV_INDEX_PRIV_PASSWORD": "x",
+        "UV_PUBLISH_TOKEN": "x",
+        "UV_INDEX_URL": "https://u:p@example.invalid/simple",
+        "UV_CACHE_DIR": "/c",
+        "UV_PYTHON": "3.12",
+        "UV_LINK_MODE": "copy",
+        "UV_NO_SYNC": "1",
+        "UV_FROZEN": "1",
+        "DOCKER_HOST": "unix:///x",
+        "DOCKER_AUTH_CONFIG": "x",
+        "COMPOSE_PROJECT_NAME": "p",
+        "COMPOSE_SECRET_THING": "x",
+        "POSTGRES_PASSWORD": "x",
+        "FIELDLENS_API_KEY": "x",
+        "FIELDLENS_STORAGE_ROOT": "/s",
+        "SSL_CERT_FILE": "/f",
+    }
+    env = dev.child_env(environ, None)
+    assert set(env) == {
+        "PATH",
+        "UV_CACHE_DIR",
+        "UV_PYTHON",
+        "UV_LINK_MODE",
+        "UV_NO_SYNC",
+        "UV_FROZEN",
+        "DOCKER_HOST",
+        "COMPOSE_PROJECT_NAME",
+        "FIELDLENS_STORAGE_ROOT",
+        "SSL_CERT_FILE",
+    }
+
+
+def test_sigterm_during_up_cleans_up_like_ctrl_c(tmp_path: Path) -> None:
+    import signal
+
+    world, root = make_world(tmp_path)
+    original = signal.getsignal(signal.SIGTERM)
+    seen: list[object] = []
+
+    def terminate(*_: object, **__: object) -> None:
+        seen.append(signal.getsignal(signal.SIGTERM))
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    real = dev._start_vite
+    dev._start_vite = terminate
+    try:
+        assert run_dev(world, root, "up", "--dev") == 143
+    finally:
+        dev._start_vite = real
+    assert seen and seen[0] is not original  # handler installed for the run
+    assert signal.getsignal(signal.SIGTERM) is original  # and restored
+    assert world.err[-1].startswith("dev: interrupted")
+    assert not list((root / ".local/run").glob("*.pid"))
+    assert not world.procs  # the api this run started was stopped
+    assert world.pg_state != "exited"  # postgres left running
