@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -63,6 +64,7 @@ MAX_NOTE = 500
 DEDUPE_SECONDS = 60
 TIMEOUT = 10
 ATTEMPTS = 2
+MAX_RETRY_AFTER = 5.0
 MIN_REFUSE_LEN = 6  # shorter credential values (e.g. a small chat id) are redacted, not refused
 SECRET_PATTERNS = (
     re.compile(r"\d{5,}:[A-Za-z0-9_-]{30,}"),
@@ -81,12 +83,20 @@ class NotifyError(Exception):
     """Transport failure; message is already redacted."""
 
 
+def _retry_after(data: Any) -> float | None:
+    params = data.get("parameters") if isinstance(data, dict) else None
+    value = params.get("retry_after") if isinstance(params, dict) else None
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        return min(float(value), MAX_RETRY_AFTER)
+    return None
+
+
 def sanitize(text: str, limit: int = MAX_TEXT) -> str:
     """Strip control characters (newlines/tabs become spaces), collapse space, truncate."""
     cleaned = "".join(
         " " if ch in "\r\n\t" else ch
         for ch in text
-        if ch in "\r\n\t" or unicodedata.category(ch) not in {"Cc", "Cs", "Co", "Cn"}
+        if ch in "\r\n\t" or unicodedata.category(ch) not in {"Cc", "Cf", "Cs", "Co", "Cn"}
     )
     cleaned = re.sub(r" {2,}", " ", cleaned).strip()
     return cleaned if len(cleaned) <= limit else cleaned[: limit - 1].rstrip() + "…"
@@ -169,9 +179,11 @@ def _call(
     url = f"{api_base.rstrip('/')}/bot{token}/{method}"
     body = urllib.parse.urlencode(params).encode("utf-8")
     last = "unknown error"
+    delay: float | None = None
     for attempt in range(attempts):
         if attempt:
-            sleep(1.0 * attempt)
+            sleep(delay if delay is not None else 1.0 * attempt)
+        delay = None
         try:
             request = urllib.request.Request(url, data=body, method="POST")  # noqa: S310
             with urllib.request.urlopen(request, timeout=TIMEOUT) as response:  # noqa: S310
@@ -179,10 +191,18 @@ def _call(
             if isinstance(payload, dict) and payload.get("ok") is True:
                 return payload
             last = "Telegram API rejected the request"
+            delay = _retry_after(payload)
         except urllib.error.HTTPError as exc:
             last = f"HTTP {exc.code}"
-        except (urllib.error.URLError, OSError, ValueError) as exc:
+            if exc.code == 429:
+                try:
+                    delay = _retry_after(json.loads(exc.read().decode("utf-8")))
+                except (OSError, ValueError):
+                    delay = None
+        except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as exc:
             last = f"{type(exc).__name__}: {exc}"
+        except Exception as exc:  # noqa: BLE001 - never leak a traceback with the token
+            last = type(exc).__name__
     raise NotifyError(redact(last, [*secrets, token]))
 
 
@@ -255,10 +275,12 @@ def notify(
     return report("sent", 0)
 
 
-def _parse_command(text: str) -> dict[str, str] | None:
+def _parse_command(text: str, secrets: Sequence[str] = ()) -> dict[str, str] | None:
     parts = text.strip().split(None, 1)
     if not parts:
         return None
+    if parts[0].startswith("/"):
+        parts[0] = parts[0].split("@", 1)[0]
     cmd, arg = parts[0], (parts[1].strip() if len(parts) > 1 else "")
     if cmd in ("/status", "/pause", "/resume") and not arg:
         return {"command": cmd[1:]}
@@ -266,7 +288,7 @@ def _parse_command(text: str) -> dict[str, str] | None:
         return {"command": cmd[1:], "id": arg}
     if cmd == "/note":
         note = sanitize(arg, MAX_NOTE)
-        if note:
+        if note and refusal_reason(note, secrets) is None:
             return {"command": "note", "note": note}
     return None
 
@@ -322,7 +344,7 @@ def inbox_once(
         if not isinstance(chat_obj, dict) or str(chat_obj.get("id")) != chat:
             continue  # other chats: skipped, not logged, no reply
         text = message.get("text")
-        parsed = _parse_command(text) if isinstance(text, str) else None
+        parsed = _parse_command(text, secrets) if isinstance(text, str) else None
         if parsed is None:
             continue
         record = {"ts": int(clock()), "update_id": uid, **parsed}
@@ -348,13 +370,28 @@ def inbox_once(
     return 0
 
 
+def _fatal(exc: Exception, code: int) -> None:
+    secrets: list[str] = []
+    try:
+        secrets = toolenv.secret_values(toolenv.load(ROOT, os.environ))
+    except Exception:  # noqa: BLE001, S110
+        pass
+    secrets += [v for k, v in os.environ.items() if k == "TELEGRAM_BOT_TOKEN" and v]
+    line = redact(f"{'warning' if code == 0 else 'error'}: {type(exc).__name__}", secrets)
+    print(line, file=sys.stderr)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args_in = list(sys.argv[1:] if argv is None else argv)
     if args_in and args_in[0] == "inbox":
         sub = argparse.ArgumentParser(prog="notify.py inbox")
         sub.add_argument("--once", action="store_true", required=True)
         sub.parse_args(args_in[1:])
-        return inbox_once()
+        try:
+            return inbox_once()
+        except Exception as exc:  # noqa: BLE001 - last resort, one redacted line
+            _fatal(exc, 2)
+            return 2
     parser = argparse.ArgumentParser(
         prog="notify.py", description="Send a Telegram status message."
     )
@@ -365,14 +402,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--best-effort", action="store_true", help="warn instead of failing")
     parser.add_argument("text", nargs="+", metavar="TEXT")
     args = parser.parse_args(args_in)
-    return notify(
-        args.event,
-        " ".join(args.text),
-        ref=args.ref,
-        action=args.action,
-        best_effort=args.best_effort,
-        dry_run=args.dry_run,
-    )
+    try:
+        return notify(
+            args.event,
+            " ".join(args.text),
+            ref=args.ref,
+            action=args.action,
+            best_effort=args.best_effort,
+            dry_run=args.dry_run,
+        )
+    except Exception as exc:  # noqa: BLE001 - last resort, one redacted line
+        _fatal(exc, 0 if args.best_effort else 2)
+        return 0 if args.best_effort else 2
 
 
 if __name__ == "__main__":
