@@ -3,9 +3,9 @@
 > **Spec type:** Product/feature (developer tooling).
 > **Load-bearing frameworks:** outcome, acceptance, scope. **Supporting:** failure conditions.
 > **Date:** 2026-10-29. **Author:** orchestrator. **Decision owner:** project owner.
-> **Status:** Draft -> awaiting owner "go" (owner approved direction and delivery order October 29, 23:17 EDT).
+> **Status:** Approved by owner October 29 (go; due-date policy OK; Taiga project stays public with `TAIGA_ALLOW_PUBLIC=1`; notifications only, no inbox yet).
 > **Backlog ID:** FL-020 (slices A notify, B backlog format/check, C Taiga sync). **Delivery state:** specifying.
-> **Approved spec revision/date:** pending. **Integration version:** pending.
+> **Approved spec revision/date:** October 29. **Integration version:** pending.
 > **Zero-Question Score:** 0 unowned questions; owner-visible defaults in section 6.
 
 ## How to Read This Spec
@@ -63,7 +63,7 @@ Product Owner) `[probed October 29]`. Telegram bot and chat id in the untracked 
 
 ### Open Scope Tensions
 
-1. **The Taiga project is public** (`is_private=false` on October 29). Anyone with the URL can
+1. **The Taiga project is public** (owner accepted October 29; set `TAIGA_ALLOW_PUBLIC=1`) (`is_private=false` on October 29). Anyone with the URL can
    read titles and descriptions. Resolution: `track.py` refuses to sync to a non-private
    project unless `TAIGA_ALLOW_PUBLIC=1`; the owner decides whether to make it private (Taiga
    settings) or to accept publication of backlog text. Owner: project owner, before slice C
@@ -79,6 +79,7 @@ Product Owner) `[probed October 29]`. Telegram bot and chat id in the untracked 
 | NT-1 | Behavioral | `notify.py --event qa_pass --ref TASK-006 "text"` sends one message to the configured chat via `sendMessage` (10 s timeout, 2 attempts with backoff), prints `sent` and exits 0; exits 2 on failure unless `--best-effort` (then 0 with a warning). | 3 | [Validated] | `test_send_success_and_failure` (local fake HTTP server) |
 | NT-2 | Negative | Bot token, chat id, Taiga credentials and any `.env` value never appear in stdout, stderr, exception text, logs or the saved state; URLs in errors are redacted; messages containing a configured secret value or a secret-like pattern are refused. | 3 | [Validated] | `test_no_secret_leak` |
 | NT-3 | Behavioral | `--dry-run` (or `NOTIFY_DRY_RUN=1`) performs no network call and prints the exact text; missing configuration yields a one-line actionable error (names keys, not values). | 3 | [Validated] | `test_dry_run_and_missing_config` |
+| NT-6 | Behavioral | Every message starts with a fixed icon + label so status updates and action-required messages are visually distinct: action required `🔴 ACTION NEEDED` (events `decision_needed`, `blocked`, `qa_fail`, and `--action`), status `🟢`/`🔵`/`⚪` (`started`/`qa_pass`/`merged`/`released` green; `progress`/`handoff`/`repair`/`info` blue/white). Action messages state the requested decision in the first line. | 3 | [Validated: owner October 29] | `test_icons_and_action_marker` |
 | NT-4 | Edge case | Identical event+ref+text within 60 s is suppressed once (state in `.local/run/notify.json`); text is single-purpose, max 1000 chars (truncated with an ellipsis), control characters stripped, only the event vocabulary in 4.5 accepted. | 3 | [Validated] | `test_dedupe_limits_vocabulary` |
 | NT-5 | Behavioral | `notify.py inbox --once` (requires `TELEGRAM_INBOX=1`) reads new updates only from `TELEGRAM_CHAT_ID`, persists the update offset, appends accepted commands to `.local/run/inbox.jsonl`, replies once per command, and ignores/never acknowledges other chats' messages individually. Free text is stored as `note` data, never executed. | 3 | [Assumed: verify] | `test_inbox_filters_chat_and_commands` |
 | BK-1 | Behavioral | `track.py check` parses `docs/BACKLOG.md`: every feature/task has all required fields; statuses, priorities, dates and IDs are valid; dependencies reference existing items; no dependency cycle; tasks reference a feature; `done` items have `Version` and evidence; due dates lie within the sprint/deadline; exits non-zero listing every violation with line numbers. | 3 | [Validated] | `test_check_rules` |
@@ -181,7 +182,7 @@ command executes anything by itself.
 `decision_needed`, `merged`, `released`, `cleanup`, `info`. The orchestrator sends at: feature/
 slice start, handoff to QA, each QA verdict, repair start, merge/release with version,
 a blocker or required owner decision, and cleanup/session wrap-up — one message per
-transition (not per tool call), IDs and short titles only, never document contents or secrets.
+transition (action-required events carry the 🔴 ACTION NEEDED marker per NT-6) (not per tool call), IDs and short titles only, never document contents or secrets.
 
 ### 4.6 Delegation
 

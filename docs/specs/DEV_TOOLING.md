@@ -3,7 +3,7 @@
 > **Spec type:** Product/feature (developer tooling).
 > **Load-bearing frameworks:** outcome, acceptance, scope. **Supporting:** failure conditions.
 > **Date:** 2026-10-29. **Author:** orchestrator. **Decision owner:** project owner.
-> **Status:** Draft -> awaiting owner "go" (owner approved the one-script direction October 29, 22:03 EDT).
+> **Status:** Approved by owner October 29 (one-script direction, go).
 > **Backlog ID:** FL-019. **Delivery state:** specifying.
 > **Approved spec revision/date:** pending. **Integration version:** pending.
 > **Zero-Question Score:** 0 unowned questions; open choices are listed in section 6 with defaults.
