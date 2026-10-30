@@ -13,6 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import pytest
+from sqlalchemy.engine import URL
 
 from fieldlens.ingestion.inspect import inspect_file
 from fieldlens.profiles import registry
@@ -78,6 +79,10 @@ def test_profiles_cover_at_least_two_wellbores_and_report_gaps() -> None:
             if owner in matrix:
                 matrix[owner][cat] += 1
     print("\n".join(results))
+    print(
+        "columns: trajectory stations | production days | perforation intervals "
+        "(depths unsupported) | drilling-assembly/casing-point records"
+    )
     print("wellbore  trajectory production completion equipment")
     for w in WELLS:
         row = matrix[w]
@@ -85,5 +90,29 @@ def test_profiles_cover_at_least_two_wellbores_and_report_gaps() -> None:
             f"{w:8} {row['trajectory']:10} {row['production']:10} "
             f"{row['completion']:10} {row['equipment']:9}"
         )
+    for w in WELLS:
+        print(
+            f"{w}: completion string/packers/tubing not extracted (deferred completion PDFs); "
+            "equipment = drilling-assembly/casing-point records only"
+        )
     complete = [w for w in WELLS if all(matrix[w][c] > 0 for c in set(CATEGORY.values()))]
     assert len(complete) >= 2, f"fewer than two wellbores covered: {dict(matrix)}"
+
+
+def test_report_builder_answers_200_for_every_real_file(migrated_url: URL, tmp_path: Path) -> None:
+    """Catches report-construction bugs (e.g. duplicate blocked operations) on real data."""
+    from tests.jobs.test_extraction_flow import _drain, _ingest, _report
+    from tests.upload_support import make_api
+
+    api = make_api(migrated_url, tmp_path)
+    files = [(Path(rel).name, (ROOT / rel).read_bytes()) for _, rel in _files()]
+    names: dict[str, int] = {}
+    pid, docs = _ingest(api, [(f"{i}_{n}", b) for i, (n, b) in enumerate(files)])
+    assert len(docs) == len(files)
+    _drain(api)
+    for doc in docs:
+        rep = _report(api, pid, str(doc["document_id"]))
+        assert rep["status"] in ("succeeded", "partial"), (doc["original_filename"], rep["status"])
+        assert rep["coverage_notes"] is not None
+        names[doc["original_filename"]] = len(rep["issues"])
+    print(f"report builder OK for {len(names)} real files; findings per file: {names}")
