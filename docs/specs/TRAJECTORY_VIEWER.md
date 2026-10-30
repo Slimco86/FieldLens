@@ -69,7 +69,10 @@ survey/reference/proximity modules and tests. FL-006-B owner:
 endpoint/artifacts and scene tests. Shared contract changes remain serialized.
 
 Inputs: project/published model context, typed survey station claims, reference
-metadata, approved transform and survey revision. Outputs: physical trajectory/provenance, render manifest with
+metadata, approved transform and survey revision. Survey claims from a deterministic parser always
+win; when no deterministic source exists, an agent-extracted fallback claim (AGENTIC_EXTRACTION AX-11,
+explicit CRS/datum/reference required) may be used and every output derived from it carries an
+"agent-extracted fallback" label. Outputs: physical trajectory/provenance, render manifest with
 local origin/axes, closest result with both MDs/points/error bounds.
 Use [shared contracts](SHARED_CONTRACTS.md) and
 [architecture physical frame](../ARCHITECTURE.md).

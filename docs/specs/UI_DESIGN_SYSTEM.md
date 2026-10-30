@@ -6,7 +6,7 @@
 > **Status:** Approved by the owner on 2026-10-30 (section 6 records the decisions); implementing is not yet started.
 > **Backlog ID:** FL-021 (TASK-033 approval, TASK-034 shell, TASK-037 polish). **Delivery state:** ready.
 > **Approved spec revision/date:** r1, 2026-10-30 (owner answers to all section 6 questions). **Integration version:** pending.
-> **Zero-Question Score:** 0 unowned questions blocking TASK-034. Non-blocking: file remove/replace semantics belong to TASK-039; the exact brand color ramp is proposed by the implementer and signed off at the browser checkpoint.
+> **Zero-Question Score:** 0 unowned questions blocking TASK-034. Sequencing (owner, October 30): upload and parsing come first, so TASK-034 follows TASK-039 and TASK-009; the exact brand color ramp is proposed by the implementer and signed off at the browser checkpoint.
 
 ## How to Read This Spec
 
@@ -24,7 +24,7 @@ AC score 3 = binary and outsider-testable; 2 = checklist-reviewed by someone oth
 
 After this increment the app opens into one coherent, readable light-theme product. A left sidebar manages
 projects (list, create, edit, switch). Opening a project shows top tabs: **Sources** (manage the project's files:
-upload, list, edit classification; remove/replace arrive with TASK-039), **Reconstruction** (the results of file
+upload, list, edit classification, remove with confirmation, replace; the backend arrives first in TASK-039), **Reconstruction** (the results of file
 processing, information extraction and relationship building, shown as a logical log of agentic parsing) and
 **Explore** (the human interface to the reconstructed 3D model with charts and the chat assistant). Everything is
 built from one theme and a free open-source component kit, with documented regions inside Explore where the evidence
@@ -58,7 +58,7 @@ Outcome score: 3 for UI-1..9, 11 and 12; UI-10 combines a reviewer checklist wit
 ### OUT of Scope
 
 - New product behavior, new API/DTOs or fake data/controls. File removal/replacement UI is not shown until its backend
-  exists (TASK-039); placeholders state the prerequisite (consistent with PW-1: no fake controls).
+  exists (TASK-039 precedes TASK-034, so remove/replace controls are expected in the Sources tab); placeholders state the prerequisite (consistent with PW-1: no fake controls).
 - The 3D scene, charts, PDF viewer, chat, reconstruction log and review UI themselves (FL-006/010/011/016/022); they
   consume the shell.
 - Dark theme, user theming, i18n, mobile/touch and small-screen layouts (large-screen demo focus).
@@ -127,9 +127,9 @@ follows the [workflow](../DEVELOPMENT_WORKFLOW.md) (independent acceptance, vers
   (named imports); no CDN, no icon fonts.
 - Layout contract (owner navigation model): left sidebar with the brand, project list and project management
   (create, edit, switch); a project opens to top tabs Sources / Reconstruction / Explore. **Sources** = file management
-  table with upload dropzone, job/revision status and classification edit (remove/replace follow TASK-039).
+  table with upload dropzone, job/revision status, classification edit, and remove (with an irreversible-deletion confirmation) and replace (INGESTION IN-9/IN-5).
   **Reconstruction** = results of processing, extraction and relationship building as a logical log of agentic
-  parsing plus candidates and review (FL-022 TASK-038, FL-016 TASK-026). **Explore** = 3D stage with `tree | stage |
+  parsing plus candidates and review (FL-022 TASK-038/040, FL-016 TASK-026). **Explore** = 3D stage with `tree | stage |
   inspector` regions and a collapsible `dock` for the assistant, plus the production and log charts; collapsed
   regions release their space to the stage.
 - Implementation shape: `frontend/src/design/` (theme, global styles, status/evidence components),
@@ -174,8 +174,7 @@ shell-structure outcome, so those criteria are kept binary.
 | 6 | Navigation model | Left sidebar manages projects; an opened project shows top tabs Sources / Reconstruction / Explore with the contents in section 4. |
 | 7 | Supported viewports | Large screens only for now (1920x1080 primary, 2560x1440). |
 
-Remaining, non-blocking: removal and replacement semantics for source files (TASK-039) and project
-deletion/archiving, which stays out of scope until the owner asks for it.
+Source removal/replacement semantics were decided October 30 (INGESTION IN-9). Project deletion/archiving stays out of scope until the owner asks for it.
 
 ## 7. Implementation Guidance
 

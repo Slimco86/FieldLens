@@ -111,7 +111,7 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
-| TASK-026 | FL-016-A | TASK-019, TASK-032, TASK-036, TASK-038 | RAG owner implements reconstruction proposals/validator/review UI in reconstruction and shared assistant harness; RC-1..9 offline, DQ-6 publication boundaries, real database transactions and source-backed fixtures. Reuse issue inspector; coordinate migrations with backend; do not generate accepted facts in the model. | | |
+| TASK-026 | FL-016-A | TASK-019, TASK-032, TASK-036, TASK-038, TASK-040 | RAG owner implements reconstruction proposals/validator/review UI in reconstruction and shared assistant harness; RC-1..9 offline, DQ-6 publication boundaries, real database transactions and source-backed fixtures. Reuse issue inspector; coordinate migrations with backend; do not generate accepted facts in the model. | | |
 | TASK-028 | FL-016-B | TASK-005, TASK-026, TASK-030 | RAG owner runs RC-10 on 12 independently authored gold cases and selected qualified source records under separately approved <=USD 3 allowance; record actual tool-dependent reconstruction, support and unresolved states. | | |
 
 ### Implementation Phase 4
@@ -172,12 +172,13 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
 | TASK-033 | FL-021-A | None | Owner approves the UI design direction and open decisions in `docs/specs/UI_DESIGN_SYSTEM.md`. | | |
-| TASK-034 | FL-021-A | TASK-033 | Frontend owner implements the light Mantine theme, the shell (left project sidebar, Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock regions), shared components/states and redesigned Projects/Sources screens; UI-1..7, UI-9..12, existing behavior preserved, large screens only. | | |
+| TASK-034 | FL-021-A | TASK-033, TASK-039 | Frontend owner implements the light Mantine theme, the shell (left project sidebar, Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock regions), shared components/states and redesigned Projects/Sources screens; UI-1..7, UI-9..12, existing behavior preserved, large screens only. | | |
 | TASK-035 | FL-022-A | None | Owner approves the agentic extraction contract and open decisions in `docs/specs/AGENTIC_EXTRACTION.md`. | | |
 | TASK-036 | FL-022-A | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038 | Ingestion owner implements question-driven model-proposed candidate claims with read-only content tools and page images, deterministic validators, persisted states and evidence/issue display; AX-1..9, offline stub provider only. | | |
 | TASK-037 | FL-021-B | TASK-034, TASK-012, TASK-018 | Frontend owner runs the demo UI polish and accessibility sweep on the integrated app; UI-8, UI-10, owner sign-off. | | |
-| TASK-038 | FL-022-B | TASK-004, TASK-034 | Ingestion owner implements the persisted agent activity log and the Reconstruction tab view; AX-10. | | |
-| TASK-039 | FL-021-C | TASK-034 | Backend/frontend owner implements source removal (soft exclusion) and replacement as new immutable revisions in the Sources tab; specifying until the owner confirms the semantics. | | |
+| TASK-038 | FL-022-B | TASK-004 | Ingestion owner implements the persisted agent activity log, migration and read API; AX-10 backend. | | |
+| TASK-039 | FL-005-C | TASK-009 | Backend owner implements source removal (bytes deleted, tombstone revision, derived claims inactive) and replacement as a new revision; IN-9, IN-5. | | |
+| TASK-040 | FL-022-C | TASK-038, TASK-034 | Frontend owner implements the Reconstruction tab's agent activity log view; AX-10 UI. | | |
 
 ### Dispatch, ownership and resource allocation
 
@@ -227,10 +228,10 @@ Heavy worker target 1536 MiB RSS, two numeric threads; stop scheduling below
 ### Critical path, integration and calendar checkpoints
 
 Product learning path:
-TASK-003 -> TASK-025 -> TASK-006 -> TASK-009 -> TASK-011 -> TASK-036 (with TASK-004, TASK-038) -> TASK-019 ->
+TASK-003 -> TASK-025 -> TASK-006 -> TASK-009 -> TASK-039 / TASK-011 -> TASK-036 (with TASK-004, TASK-038) -> TASK-034 -> TASK-019 ->
 TASK-026 -> TASK-010 -> enrichment -> TASK-031 -> TASK-037 -> acceptance. Charts TASK-016/017
-branch from TASK-009/034 in parallel with reconstruction. The shell TASK-034 is dispatched first and
-precedes every later UI-bearing task.
+branch from TASK-009/034 in parallel with reconstruction. Owner priority (October 30): upload and parsing
+(TASK-009, TASK-039, TASK-036) precede the shell TASK-034, which precedes every later UI-bearing task.
 The early provider branch TASK-004/005/027 and reconstruction live check TASK-028
 expose agent risk before the full scene. TASK-002/029 converge at final real-data
 acceptance, not at project creation. TASK-030 is a source-specific prerequisite

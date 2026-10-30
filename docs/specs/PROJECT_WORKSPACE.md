@@ -43,9 +43,9 @@ Verification: PW-1 through PW-8 in a fresh PostgreSQL/browser run. Outcome score
 
 Hosted accounts/sharing, cross-project asset merging, arbitrary host-directory
 imports, project deletion/archiving and bulk-release import are excluded from this
-increment. File removal and replacement were deferred here and are now proposed as
-TASK-039 (soft exclusion creating a new immutable source revision), pending owner
-confirmation; no removal control is shown before it exists.
+increment. File removal was approved by the owner on October 30 (bytes are physically
+deleted and a tombstone revision is kept; see INGESTION IN-9 and TASK-039); replacement is a new
+revision (IN-5). No removal control is shown before TASK-039 lands.
 Reconstruction/review belongs to FL-016; 3D belongs to FL-006/007.
 Categories are not a physical folder schema or proof of the entities inside a file.
 

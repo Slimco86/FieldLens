@@ -21,14 +21,15 @@ H/M/L are confidence; all AC scores are 3. Synthetic fixtures are not pilot evid
 The user uploads supported files within a project and obtains a persistent,
 evidence-linked source revision or explicit record/job failures; ingestion does
 not publish an asset model.
-Verification: IN-1 through IN-8. Outcome score 3.
+Verification: IN-1 through IN-9. Outcome score 3.
 
 ## 2. Scope
 
 ### IN Scope
 
 Upload UI/API, source storage, persistent jobs, native readers, record validation,
-source evidence navigation and source-revision finalization. `[Validated: project]`
+source evidence navigation, source-revision finalization and, from October 30, removal of a
+source's stored bytes with a tombstone revision (IN-9, TASK-039). `[Validated: project]`
 
 ### OUT of Scope
 
@@ -59,6 +60,7 @@ an approved streaming profile/limit revision before accepting that file.
 | IN-6 | Negative | Missing reference, unknown event code, drilling/completion mismatch and suspicious equal MD/TVD are flagged; no invented CRS, ordering, installed state or zero values enter valid claims. | 3 | [Validated] | `test_source_conflicts` |
 | IN-7 | Non-behavioral | Streaming enforces 128 MiB/file, 512 MiB/batch, 200 files and 500 PDF pages; test exact byte limits and +1 byte. Only one heavy stage runs and local reads meet project AC-9 during import. | 3 | [Validated byte/file limits; parser/performance limits to verify] | `test_ingestion_limits`, concurrent read benchmark |
 | IN-8 | Dependency | Every accepted pilot family has an approved profile and all manifest expected records/pages matched or explicitly quarantined; a missing mandatory family cannot pass G1. | 3 | [Validated] | `test_pilot_ingestion` |
+| IN-9 | Behavioral | Owner decision October 30. Removing a project document (after an explicit confirmation) physically deletes its stored bytes and derived content copies (text chunks, embeddings, page renders, extraction artifacts) and frees the disk space (a blob still referenced by another document or project is kept), cancels any running job for it first, and records a new immutable source revision that keeps only a tombstone (document ID, content hash, size, filename, classification, removal time, previous revision). Claims and evidence that came only from the removed content become inactive and non-citable (excluded from retrieval, tools, new calculations and new reconstruction runs) and say "source removed"; a published model stays pinned and is labeled as depending on a removed source (PW-6). Removal is irreversible; re-uploading the same bytes creates a fresh document and revision (the idempotency replay does not resurrect the tombstone). Other projects and documents are untouched (PW-2). | 3 | [Validated: owner, October 30; consequences Assumed: verify] | `test_source_removal_frees_bytes`, `test_removal_tombstone_revision`, `test_removed_source_excluded`, `test_reupload_after_removal`, `test_removal_cancels_job`, `test_removal_project_isolation` |
 
 Full acceptance includes IN-8; success on invented fixtures is not real ingestion
 verification. A supported format with an unknown schema returns `unsupported_profile`.

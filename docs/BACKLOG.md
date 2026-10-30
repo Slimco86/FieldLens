@@ -161,7 +161,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Version | none |
 
 **Outcome.** Upload project sources into traceable, persistent, restart-safe source revisions. TASK-006 upload/storage/jobs/source UI is done and independently accepted (IN-1/3/4/5/7, except the 500-page PDF and parse-time XML/ZIP checks deferred to TASK-009).
-**Next action.** Native profiles/evidence (TASK-009), scanned/Word profiles (TASK-030) and final manifest acceptance (TASK-029) remain.
+**Next action.** Native profiles/evidence (TASK-009), source removal/replacement (TASK-039), scanned/Word profiles (TASK-030) and final manifest acceptance (TASK-029) remain. Upload and parsing are the first priority (owner, October 30), ahead of the UI redesign.
 **Evidence.** TASK-006 integrated as `fb275f4`, version 0.8.0.
 
 ### FL-006 · Published-model trajectories with evidence and deterministic closest approach
@@ -465,7 +465,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Version | none |
 
 **Outcome.** Replace the unstyled prototype pages with a designed, structured, accessible light-theme product UI for the demo, built on Mantine: a left sidebar for project management; per-project top tabs Sources (file management), Reconstruction (log of agentic parsing, extraction and relationships) and Explore (3D model, charts, assistant, with tree/stage/inspector/dock regions); shared components and states; redesigned Projects and Sources screens. Large screens only. Later features mount into the shell instead of restyling it.
-**Next action.** Owner approved the spec October 30 (TASK-033). Dispatch TASK-034 first with a fresh preflight; TASK-037 polishes the integrated app.
+**Next action.** Owner approved the spec October 30 (TASK-033). Sequenced after upload and parsing (TASK-009, TASK-039); then TASK-034 builds the shell and TASK-037 polishes the integrated app.
 **Evidence.** Spec approved with owner decisions recorded (specs/UI_DESIGN_SYSTEM.md section 6). Implementation not started; the current UI is 136 lines of default-styled CSS with no layout or design structure.
 
 ### FL-022 · Agent-assisted extraction of ambiguous source content with deterministic validation
@@ -484,7 +484,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Version | none |
 
 **Outcome.** Where deterministic native parsers cannot answer a specific question (ambiguous tables, free-text reports, scanned or legacy-Word content, unclear units or identities), the harness lets the model, using allowlisted read-only content tools and page images, propose typed, source-located candidate claims that deterministic validators accept, reject or flag. Each work unit leaves an activity log shown in the Reconstruction tab. Deterministic extraction stays first; a model proposal is never an accepted fact and never overrides a parsed value.
-**Next action.** Owner approved the spec October 30 (TASK-035). TASK-038 (activity log and Reconstruction view) then TASK-036 (extraction) after TASK-004, TASK-009 and TASK-011; stub provider only, no live spend.
+**Next action.** Owner approved the spec October 30 (TASK-035). Order: TASK-038 (activity log backend), then TASK-036 (extraction) after TASK-004, TASK-009 and TASK-011; TASK-040 (Reconstruction view) after the shell. Stub provider only, no live spend.
 **Evidence.** Spec approved with owner decisions recorded (specs/AGENTIC_EXTRACTION.md section 6). Implementation not started; added by the owner's October 30 realignment (no existing task covered model judgement in extraction).
 
 ## Tasks
@@ -657,7 +657,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-B |
 
 **Outcome.** Ingestion owner implements selected qualified native source profiles and the evidence UI: IN-2/6 for this subset, exact record/page coverage and the wrong-folder fixture. This is a small approved subset, not full IN-8/G1 acceptance.
-**Next action.** Next P0 dispatch with a fresh per-assignment preflight; owner browser checkpoint A before broadening. The subset's hashes, rights, profile and expected records are recorded as its own reference fixtures (it does not wait for FL-002's final manifest). Its evidence UI is built on the TASK-034 shell and components; if TASK-034 is not yet integrated at dispatch, the orchestrator sequences them (one writer at a time) and records the order.
+**Next action.** First dispatch (owner priority October 30: upload and parsing before UI work), with a fresh per-assignment preflight; owner browser checkpoint A before broadening. The subset's hashes, rights, profile and expected records are recorded as its own reference fixtures (it does not wait for FL-002's final manifest). The evidence UI is built on the existing UI and shared components; TASK-034 restyles it later, so keep it simple and behavior-focused. **Proposed subset (orchestrator, from the local pilot inventory `data/volve/source-audit/local-inventory.json`; needs owner approval before dispatch):** WITSML XML tubular/BHA/bore-geometry for F-12/F-14/F-5 (PV-25..33), LAS well logs (PV-15/19/22), production workbook (PV-01), perforation table (PV-03), formation picks (PV-04), the three native-PDF Standard Survey Reports (PV-10/16/20) and the mirrored F-5 trajectory XML. Deferred: the 211 MB EDM export (PV-24, needs a streaming profile), horizons/seabed grids (PV-07..09), large completion PDFs and plots (PV-11..14, 17/18, 21; TASK-030 handles scans).
 **Evidence.** none yet
 
 ### TASK-032 · Source-first issue inspector API and UI (DQ-1/2/3/4/7, DTO-negative DQ-5/6)
@@ -773,7 +773,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | rag, backend, frontend |
-| Depends on | TASK-019, TASK-032, TASK-036, TASK-038 |
+| Depends on | TASK-019, TASK-032, TASK-036, TASK-038, TASK-040 |
 | Assignee | agent:fieldlens-rag |
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
@@ -1193,17 +1193,17 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | ready |
 | Priority | P0 |
 | Tags | frontend |
-| Depends on | TASK-033 |
+| Depends on | TASK-033, TASK-039 |
 | Assignee | agent:fieldlens-frontend |
-| Due | 2026-10-31 |
+| Due | 2026-11-01 |
 | Sprint | Hackathon |
 | Spec | specs/UI_DESIGN_SYSTEM.md |
 | Version | none |
 | Parent | FL-021 |
 | Slice | FL-021-A |
 
-**Outcome.** Frontend owner implements the approved light theme on Mantine (with Inter and lucide-react), the shell (left project sidebar, per-project Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock slots), shared components/states and restyled Projects and Sources/upload views (including the existing classification edit) with existing behavior, tests and accessibility preserved. Measures the bundle and sets the UI-8 budget. No new product behavior and no fake controls (file removal/replacement waits for TASK-039).
-**Next action.** Dispatch first, with a fresh preflight (profile, resolved model/effort, tools); independent QA and an owner browser checkpoint (brand ramp and look) follow.
+**Outcome.** Frontend owner implements the approved light theme on Mantine (with Inter and lucide-react), the shell (left project sidebar, per-project Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock slots), shared components/states and restyled Projects and Sources/upload views (including classification edit and the TASK-039 remove/replace controls) and the evidence views built by TASK-009, with existing behavior, tests and accessibility preserved. Measures the bundle and sets the UI-8 budget. No new product behavior and no fake controls.
+**Next action.** Sequenced after upload and parsing (owner priority October 30): dispatch once TASK-009 and TASK-039 are integrated, with a fresh preflight (profile, resolved model/effort, tools); independent QA and an owner browser checkpoint (brand ramp and look) follow.
 **Evidence.** none yet
 
 ### TASK-035 · Approve the agentic extraction contract and open decisions
@@ -1224,7 +1224,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-A |
 
 **Outcome.** Owner reviews the draft extraction contract and decides the open questions (which ambiguity classes are in scope, acceptance policy, live-credit allowance) before any implementation.
-**Next action.** None. Low-risk follow-up: the owner confirms the orchestrator's reading of the coordinate rule (no deterministic source means flagged only).
+**Next action.** None. Superseded October 30 (second answer): a model-extracted coordinate/trajectory value may serve as a labeled backup when no deterministic source exists (AX-11).
 **Evidence.** Owner decisions of October 30 recorded in `specs/AGENTIC_EXTRACTION.md` section 6: question-driven model use, validators-only acceptance, deterministic coordinates/trajectories, one shared-contract change allowed, no live spend in TASK-036, all documents shareable (read-only content tools and multimodal input allowed).
 
 ### TASK-036 · Model-proposed extraction candidates with deterministic validation and review (AX-1..9)
@@ -1244,7 +1244,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-022 |
 | Slice | FL-022-A |
 
-**Outcome.** Ingestion owner implements question-driven candidate-claim proposals from the harness through the offline provider adapter, the allowlisted read-only content tools (span, table, page image, project search), deterministic validators, persisted candidate/accept/reject/flag states with source locators, writing to the TASK-038 activity log, and their display in the evidence/issue UI. One shared-contract change is allowed with a single writer. Offline stub provider only; no live spend is authorized by this task.
+**Outcome.** Ingestion owner implements question-driven candidate-claim proposals from the harness through the offline provider adapter, the allowlisted read-only content tools (span, table, page image, project search), deterministic validators, persisted candidate/accept/reject/flag states with source locators (including the AX-11 labeled coordinate fallback), writing to the TASK-038 activity log, and their display in the existing evidence/issue views (restyled later by TASK-034). One shared-contract change is allowed with a single writer. Offline stub provider only; no live spend is authorized by this task.
 **Next action.** Dispatch after TASK-004, TASK-009, TASK-011 and TASK-038 are integrated, with a fresh preflight; independent QA follows.
 **Evidence.** none yet
 
@@ -1269,15 +1269,15 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Dispatch after TASK-034, TASK-012 and TASK-018 are integrated; owner sign-off on the demo look is the final gate.
 **Evidence.** none yet
 
-### TASK-038 · Agent activity log and Reconstruction tab view (AX-10)
+### TASK-038 · Agent activity log persistence and API (AX-10 backend)
 
 | Field | Value |
 |---|---|
 | Type | task |
 | Status | proposed |
 | Priority | P0 |
-| Tags | ingestion, rag, backend, frontend |
-| Depends on | TASK-004, TASK-034 |
+| Tags | ingestion, rag, backend |
+| Depends on | TASK-004 |
 | Assignee | agent:fieldlens-ingestion |
 | Due | 2026-11-01 |
 | Sprint | Hackathon |
@@ -1286,29 +1286,50 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-022 |
 | Slice | FL-022-B |
 
-**Outcome.** Ingestion owner implements the persisted, project-scoped agent activity log (question, ordered steps, tool-call summaries, candidates, validator outcomes, usage, stop reason; no hidden reasoning) and the Reconstruction tab that lists it with source-location links and honest interrupted/failed states, using TASK-034 components and offline fixtures. One shared-contract change with a single writer (coordinated with TASK-036).
-**Next action.** Dispatch after TASK-004 and TASK-034 are integrated, with a fresh preflight; independent QA follows.
+**Outcome.** Ingestion owner implements the persisted, project-scoped agent activity log (question, ordered steps, tool-call summaries, candidates, validator outcomes, usage, stop reason; no hidden reasoning) with a read API, migration and offline fixtures. One shared-contract change with a single writer (coordinated with TASK-036). The Reconstruction tab view is TASK-040.
+**Next action.** Dispatch after TASK-004 is integrated, with a fresh preflight; independent QA follows.
 **Evidence.** none yet
 
-### TASK-039 · Source file removal and replacement as new revisions (Sources tab)
+### TASK-040 · Reconstruction tab: agent activity log view (AX-10 UI)
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | specifying |
+| Status | proposed |
 | Priority | P0 |
-| Tags | backend, frontend, ingestion |
-| Depends on | TASK-034 |
-| Assignee | agent:fieldlens-backend |
-| Due | 2026-11-01 |
+| Tags | frontend |
+| Depends on | TASK-038, TASK-034 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-02 |
 | Sprint | Hackathon |
-| Spec | specs/PROJECT_WORKSPACE.md |
+| Spec | specs/AGENTIC_EXTRACTION.md |
 | Version | none |
-| Parent | FL-021 |
-| Slice | FL-021-C |
+| Parent | FL-022 |
+| Slice | FL-022-C |
 
-**Outcome.** The Sources tab lets a user remove a file and replace/edit it. Proposed semantics (awaiting owner confirmation): removal is a soft exclusion that creates a new immutable source revision with bytes and history retained and dependent claims re-evaluated; replacement uploads a new revision; classification edit already exists. Project deletion/archiving stays out of scope. Needs the PROJECT_WORKSPACE and INGESTION specs updated before implementation.
-**Next action.** Owner confirms the removal/replacement semantics; the orchestrator then updates both specs and sets this ready. TASK-034 shows only upload, list and classification edit until then.
+**Outcome.** Frontend owner implements the Reconstruction tab's logical log of agentic parsing from the TASK-038 API: units listed with state, tool-call and candidate summaries, validator outcomes, usage, and links to source locations; interrupted/failed units visibly not successful; no hidden reasoning. Uses TASK-034 components.
+**Next action.** Dispatch after TASK-038 and TASK-034 are integrated; independent QA follows.
+**Evidence.** none yet
+
+### TASK-039 · Source file removal with tombstone revision, and replacement (IN-9, IN-5)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | ready |
+| Priority | P0 |
+| Tags | backend, ingestion |
+| Depends on | TASK-009 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-10-31 |
+| Sprint | Hackathon |
+| Spec | specs/INGESTION.md |
+| Version | none |
+| Parent | FL-005 |
+| Slice | FL-005-C |
+
+**Outcome.** Backend owner implements the owner-approved removal: an API that, after confirmation semantics, physically deletes a document's stored bytes and derived content (keeping shared blobs), cancels its running job, and records a tombstone source revision; derived claims become inactive and non-citable; a published model stays pinned and labeled; re-upload creates a fresh document. Replacement uses the existing new-revision path (IN-5). IN-9 offline tests on real PostgreSQL and storage; the UI controls arrive with TASK-034.
+**Next action.** Dispatch after TASK-009 is integrated (so real derived records exist to invalidate), with a fresh preflight; independent QA follows.
 **Evidence.** none yet
 
 ## Journal
@@ -1344,6 +1365,19 @@ documentation only, no application change, not yet integrated or versioned):
 - New TASK-038 (activity log and Reconstruction view; TASK-036 and TASK-026 depend on it), TASK-039 (source
   removal/replacement as new revisions; awaiting owner confirmation of the semantics), TASK-011 added as a
   prerequisite of TASK-036, and a multimodal image-input check added to the TASK-005 live smoke.
+
+### Owner decisions and re-sequencing, October 30 (third pass)
+
+- Source removal (IN-9, TASK-039): the stored bytes are physically deleted to free disk; a tombstone revision
+  keeps the history; derived claims become inactive; re-upload creates a fresh document. Replacement is a new revision.
+- Coordinates (AX-11): a model-extracted coordinate/trajectory value may be used as a labeled backup when no
+  reliable deterministic source exists; explicit CRS/datum/references are still required and never assumed, and a
+  deterministic source always supersedes the fallback.
+- Priority: upload and parsing first, UI after. Order: TASK-009 (native profiles) -> TASK-039 (removal) ->
+  TASK-011/TASK-004/TASK-030 -> TASK-034 shell (restyles the evidence and Sources screens) -> later UI tasks.
+  TASK-038 is now backend only; the Reconstruction view is TASK-040 (after TASK-034), so TASK-036 no longer waits
+  for the UI. TASK-034 moved to due 2026-11-01. Other due dates are not yet re-baselined; do that after TASK-009
+  has a measured duration.
 
 ## Status and ownership
 
