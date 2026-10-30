@@ -48,30 +48,57 @@ See [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md).
 ## Run the foundation locally
 
 Requirements: Python 3.12 via uv, Node **24.22.2** (pinned in
-[.node-version](.node-version)), npm, and responsive Docker/Compose.
-No OS upgrade or global runtime replacement is required. Use your existing
-Node version manager. On the development WSL host, the already-installed runtime
-(a tooling path that stays where it is) is selected with:
+[.node-version](.node-version)), npm and responsive Docker/Compose. No OS upgrade or
+global runtime replacement is required. `./dev` finds Node itself: `FIELDLENS_NODE_BIN`
+(a bin directory), then `node` on `PATH` if it is exactly the pinned version, then
+`.local/fieldlens/*/tools/node-v24.22.2-linux-x64/bin` in this or the main checkout.
+No `PATH` export is needed. Install the frontend dependencies once with
+`npm --prefix frontend ci` (or pass `--install` to `up`). Run from any directory inside the
+checkout; the spec is [DEV_TOOLING](docs/specs/DEV_TOOLING.md).
 
 ```bash
-export PATH="$PWD/.local/fieldlens/fl-004-a-foundation/tools/node-v24.22.2-linux-x64/bin:$PATH"
-uv sync --frozen
-npm --prefix frontend ci
+./dev env-check        # verify prerequisites; changes nothing
+./dev up               # postgres, migrations, frontend build if stale, API; prints URL/DB/version
+./dev up --dev         # additionally Vite on http://127.0.0.1:5174/ (proxies /api to 8101)
+./dev status           # what runs (key names/presence only, never secret values)
+./dev logs api -f      # or `logs vite`; logs live in .local/run/ (truncated at 5 MiB)
+./dev restart          # down + up
+./dev down             # stops only the API/Vite it recorded; postgres keeps running
+./dev down --db        # also stops the postgres service (volume kept)
+./dev reset-data       # erase the configured DB (typed confirmation; refuses while the API runs)
 ```
 
-That `PATH` line is the only export. Run all following commands from the repository
-root. One Compose project (`fieldlens`) owns every local container and one untracked
-root `.env` holds all local settings; the application, Alembic, tests and the E2E
-runner read it automatically, and Compose reads it next to `compose.yaml`.
-No credential exports, `--env-file` or `-p` flags are needed.
+`./dev` with no arguments prints the usage. A second `./dev up` changes nothing. One Compose
+project (`fieldlens`) owns every local container and one untracked root `.env` holds all
+local settings; `./dev up` runs `scripts/init_env.py` for you but fails with that command
+if `.env` is missing. Open **http://127.0.0.1:8101/** and expect `Workspace` and
+`Local services ready.`
+
+**Linked worktrees are lanes.** In a `git worktree` the directory name becomes the lane:
+database `fieldlens_<lane>` (created through the postgres container), API/Vite ports
+`8101/5174` plus a per-lane offset, storage `.local/fieldlens/storage-<lane>` and state in
+that worktree's `.local/run`. A derived `.env` (mode 0600, only `POSTGRES_*`/`FIELDLENS_*`
+keys) is written into the worktree; the main checkout's database, ports and storage are never
+touched. Drop a finished lane with `./dev down --drop-lane` (typed confirmation). In a lane
+the Vite proxy in `vite.config.ts` still targets port 8101; use the lane API port directly.
+
+**What `./dev up` does** (the manual equivalent, useful when debugging; run from the repository
+root with Node 24 first on `PATH`, for example
+`export PATH="$PWD/.local/fieldlens/fl-004-a-foundation/tools/node-v24.22.2-linux-x64/bin:$PATH"`):
 
 ```bash
+uv sync --frozen                       # only when uv.lock/pyproject/VERSION changed
 uv run python scripts/init_env.py      # creates .env (mode 0600) or appends only missing keys
-docker compose up -d --wait            # PostgreSQL 17 + pgvector (container fieldlens-postgres)
+docker compose up -d --wait postgres   # PostgreSQL 17 + pgvector (container fieldlens-postgres)
 uv run alembic -c backend/alembic.ini upgrade head
-npm --prefix frontend run build
+npm --prefix frontend run build        # only when sources/lockfile/config/VERSION changed;
+                                       # ./dev builds into a temp dir and swaps it atomically
 uv run uvicorn fieldlens.app:create_app --factory --host 127.0.0.1 --port 8101
 ```
+
+Stopping manually: Ctrl+C for a foreground server, `docker compose stop postgres` for the
+database. Never run `docker compose down -v` unless you intend to delete the database volume;
+`./dev` never does.
 
 The bootstrap generates the database password once, never overwrites or prints values,
 and keeps every existing line (such as `MODEL_API_KEY`) unchanged; application code,
@@ -121,9 +148,13 @@ uv run python scripts/notify.py --dry-run "text"      # print only; --best-effor
 
 ## Tests
 
-Select Node 24 as above; nothing else needs exporting. The test database is derived
-from `.env` as a unique `fieldlens_app_test_<8 hex>` sibling on the same server (never
-the application database); set `FIELDLENS_TEST_DATABASE_URL` only to override it:
+`./dev test [backend|frontend|e2e|all]` runs exactly the documented gates below and exits
+non-zero if any fails, with a pass/fail count (no Node `PATH` export needed). `e2e` starts only
+the `browser` Compose service, runs `scripts/run_e2e.py` and removes only that container by
+service name afterwards; stop a running API first (`./dev down`), the runner needs port 8101.
+The test database is derived from `.env` as a unique `fieldlens_app_test_<8 hex>` sibling on
+the same server (never the application database); set `FIELDLENS_TEST_DATABASE_URL` only to
+override it. The manual gates, with Node 24 first on `PATH`:
 
 ```bash
 uv run pytest backend/tests
