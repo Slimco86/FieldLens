@@ -84,6 +84,7 @@ class EventTime:
     precision: Literal["instant", "day", "month", "year", "unknown"]
     timezone_known: bool = False
     field: str | None = None  # source field name, e.g. dTimStart / DATEPRD
+    timezone: str | None = None  # "UTC" for a Z designator, "UTC+02:00" for an offset; else unknown
 
 
 @dataclass

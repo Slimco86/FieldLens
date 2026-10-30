@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from fieldlens.contracts.extraction import (
     ExtractionError,
     ExtractionReport,
     ExtractionStatus,
+    WellboreIdentity,
 )
 from fieldlens.contracts.quality import BlockedOperation, IssueCode, IssueSeverity, QualityIssue
 from fieldlens.persistence import models as m
@@ -40,10 +42,21 @@ def _link(
 def _time(raw: dict[str, Any] | None) -> SourceEventTime | None:
     if not raw:
         return None
+    zone = raw.get("timezone")
+    instant = None
+    if zone and raw["precision"] == "instant":
+        try:
+            parsed = datetime.fromisoformat(raw["literal"].replace(" ", "T"))
+            if parsed.tzinfo is not None:
+                instant = parsed.astimezone(UTC)
+        except ValueError:
+            instant = None
     return SourceEventTime(
         literal=raw["literal"],
         precision=raw["precision"],
-        timezone=raw.get("timezone"),
+        timezone=zone,
+        earliest_effective=instant,
+        latest_effective=instant,
     )
 
 
@@ -104,6 +117,40 @@ def _record(row: Any, revision_id: UUID) -> ExtractedRecord:
     )
 
 
+def _blocked(raw: Any) -> list[BlockedOperation]:
+    """Unique, known operations in stored order; unknown values are dropped, never a 500."""
+    out: list[BlockedOperation] = []
+    for value in raw or []:
+        try:
+            op = BlockedOperation(value)
+        except ValueError:
+            continue
+        if op not in out:
+            out.append(op)
+    return out
+
+
+def _fallback_issue(row: Any, run: Any) -> QualityIssue:
+    """A stored finding that no longer validates is surfaced, not hidden and not fatal."""
+    return QualityIssue(
+        issue_id=row.issue_id,
+        context={
+            "kind": "source",
+            "project_id": run.project_id,
+            "source_revision_id": run.source_revision_id,
+        },
+        code=IssueCode.EXTRACTION_PARTIAL,
+        severity=IssueSeverity.WARNING,
+        message=f"A stored finding ({row.code}) could not be displayed in full: {row.message}"[
+            :2000
+        ],
+        producer_name=run.profile_name or _PRODUCER,
+        producer_version=run.profile_version or "0",
+        producer_key=row.producer_key,
+        created_at=row.created_at,
+    )
+
+
 def _issue(row: Any, run: Any, ids: dict[int, UUID]) -> QualityIssue:
     links = []
     for loc in row.locators:
@@ -124,7 +171,7 @@ def _issue(row: Any, run: Any, ids: dict[int, UUID]) -> QualityIssue:
         record_ids=[ids[o] for o in row.record_ordinals if o in ids],
         attribute_keys=list(row.attribute_keys),
         evidence_links=links,
-        blocked_operations=[BlockedOperation(b) for b in row.blocked_operations],
+        blocked_operations=_blocked(row.blocked_operations),
         producer_name=run.profile_name or _PRODUCER,
         producer_version=run.profile_version or "0",
         producer_key=row.producer_key,
@@ -170,27 +217,35 @@ def report(session: Session, project_id: UUID, document_id: UUID) -> ExtractionR
         return ExtractionReport(
             project_id=project_id, document_id=document_id, source_revision_id=revision
         )
-    ids = {
-        r.ordinal: r.record_id
-        for r in session.execute(
-            select(m.extracted_record.c.ordinal, m.extracted_record.c.record_id)
-            .where(m.extracted_record.c.run_id == run.run_id)
-            .order_by(m.extracted_record.c.ordinal)
-            .limit(500)
+    issue_rows = session.execute(
+        select(m.extraction_issue)
+        .where(m.extraction_issue.c.run_id == run.run_id)
+        .order_by(
+            m.extraction_issue.c.severity,
+            m.extraction_issue.c.code,
+            m.extraction_issue.c.producer_key,
         )
-    }
-    issues = [
-        _issue(r, run, ids)
-        for r in session.execute(
-            select(m.extraction_issue)
-            .where(m.extraction_issue.c.run_id == run.run_id)
-            .order_by(
-                m.extraction_issue.c.severity,
-                m.extraction_issue.c.code,
-                m.extraction_issue.c.producer_key,
-            )
+    ).all()
+    wanted = sorted({o for r in issue_rows for o in (r.record_ordinals or [])})
+    ids: dict[int, UUID] = {}
+    for start in range(0, len(wanted), 1000):
+        ids.update(
+            {
+                r.ordinal: r.record_id
+                for r in session.execute(
+                    select(m.extracted_record.c.ordinal, m.extracted_record.c.record_id).where(
+                        m.extracted_record.c.run_id == run.run_id,
+                        m.extracted_record.c.ordinal.in_(wanted[start : start + 1000]),
+                    )
+                )
+            }
         )
-    ]
+    issues = []
+    for r in issue_rows:
+        try:
+            issues.append(_issue(r, run, ids))
+        except (ValueError, KeyError, TypeError):
+            issues.append(_fallback_issue(r, run))
     current = registry.current_version(run.profile_name) if run.profile_name else None
     summary = run.summary or {}
     return ExtractionReport(
@@ -208,6 +263,8 @@ def report(session: Session, project_id: UUID, document_id: UUID) -> ExtractionR
         coverage=_coverage(run.coverage),
         record_counts=dict(summary.get("record_counts", {})),
         wellbores=list(summary.get("wellbores", [])),
+        wellbore_identities=[WellboreIdentity(**i) for i in summary.get("wellbore_identities", [])],
+        coverage_notes=list(summary.get("coverage_notes", [])),
         issues=issues,
         error=ExtractionError(**run.error) if run.error else None,
         queued_at=run.queued_at,

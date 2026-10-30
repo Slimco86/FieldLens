@@ -242,6 +242,9 @@ class ProductionWorkbookProfile:
                     choke.unit, choke.unit_status = uom.text.strip(), "stated"
                     choke.reference = f"unit cell {DAILY}!{uom.ref}"
                     choke.unit_status = "stated"
+                    if choke.number is not None:
+                        # A header-stated unit is evidence of the unit, like other stated columns.
+                        choke.validation_state = "unreviewed"
             rec = Rec(
                 "production_day",
                 subject,

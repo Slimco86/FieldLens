@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID, uuid5
 
-from sqlalchemy import delete, func, insert, select, text, update
+from sqlalchemy import delete, func, insert, select, text, tuple_, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.config import Settings
@@ -64,31 +64,96 @@ def sha256_file(path: Any) -> str:
     return digest.hexdigest()
 
 
+_EQUIPMENT_KINDS = {
+    "tubular_assembly": "drilling tubular assembly",
+    "tubular_component": "drilling tubular component",
+    "bha_run": "BHA run",
+    "wb_geometry": "bore geometry",
+    "wb_geometry_section": "bore geometry",
+    "casing_point": "casing point",
+}
+COMPLETION_GAP = (
+    "completion string, packers and tubing are not extracted (deferred completion PDFs)"
+)
+
+
+def describe_wellbores(records: list[Any]) -> tuple[list[dict[str, Any]], list[str]]:
+    """Wellbore identities as written (never collapsed) and explicit gap notes."""
+    found: dict[str, dict[str, Any]] = {}
+    for rec in records:
+        s = rec.subject
+        label = s.get("wellbore_label") or s.get("wellbore_name") or s.get("well_name")
+        if not isinstance(label, str) or not label.strip():
+            continue
+        entry = found.setdefault(
+            label,
+            {
+                "wellbore_label": label,
+                "well_key": s.get("well_key") if isinstance(s.get("well_key"), str) else None,
+                "record_kinds": set(),
+            },
+        )
+        entry["record_kinds"].add(rec.kind)
+    identities = [
+        {**e, "record_kinds": sorted(e["record_kinds"])} for _, e in sorted(found.items())
+    ]
+    notes: list[str] = []
+    equipment = sorted(
+        {
+            _EQUIPMENT_KINDS[k]
+            for i in identities
+            for k in i["record_kinds"]
+            if k in _EQUIPMENT_KINDS
+        }
+    )
+    if equipment:
+        notes.append(
+            "Equipment records here are drilling-assembly / casing-point / bore-geometry records "
+            f"({', '.join(equipment)}), not completion equipment."
+        )
+    if any("perforation_interval" in i["record_kinds"] for i in identities):
+        notes.append(
+            "Completion data here is perforation intervals only; their depths are unsupported "
+            "(the table states no unit or depth reference)."
+        )
+    for i in identities:
+        kinds = set(i["record_kinds"])
+        if kinds & set(_EQUIPMENT_KINDS) or "perforation_interval" in kinds:
+            notes.append(f"{i['wellbore_label']}: {COMPLETION_GAP}.")
+    return identities, notes
+
+
 # --- sweeps ---------------------------------------------------------------------------------
 
 
 def enqueue_missing(session: Session) -> int:
     """Queue a run for every stored document without a current run; supersede stale versions."""
     created = 0
+    current_pairs = [(p.name, p.version) for p in registry.PROFILES]
+    er = m.extraction_run
+    # Only runs whose (profile, version) is no longer current (index-backed, not a full rescan).
     stale = session.execute(
-        select(
-            m.extraction_run.c.run_id,
-            m.extraction_run.c.profile_name,
-            m.extraction_run.c.profile_version,
-        ).where(
-            m.extraction_run.c.superseded.is_(False),
-            m.extraction_run.c.status.in_(_TERMINAL),
-            m.extraction_run.c.profile_name.is_not(None),
+        select(er.c.run_id).where(
+            er.c.superseded.is_(False),
+            er.c.status.in_(_TERMINAL),
+            er.c.profile_name.is_not(None),
+            tuple_(er.c.profile_name, er.c.profile_version).not_in(current_pairs),
+            er.c.profile_name.in_([p.name for p in registry.PROFILES]),
         )
     ).all()
     for row in stale:
-        current = registry.current_version(row.profile_name)
-        if current is not None and current != row.profile_version:
-            session.execute(
-                update(m.extraction_run)
-                .where(m.extraction_run.c.run_id == row.run_id)
-                .values(superseded=True)
-            )
+        session.execute(update(er).where(er.c.run_id == row.run_id).values(superseded=True))
+    # An unsupported run is re-evaluated only when the registered profile set changed.
+    session.execute(
+        update(er)
+        .where(
+            er.c.superseded.is_(False),
+            er.c.status == "unsupported",
+            func.coalesce(er.c.summary["registry_fingerprint"].astext, "")
+            != registry.fingerprint(),
+        )
+        .values(superseded=True)
+    )
     srd = m.source_revision_document
     docs = session.execute(
         select(
@@ -119,7 +184,7 @@ def enqueue_missing(session: Session) -> int:
                 m.source_revision.c.source_revision_id == srd.c.source_revision_id,
             )
             .where(srd.c.document_id == doc.document_id)
-            .order_by(m.source_revision.c.created_at.desc())
+            .order_by(m.source_revision.c.created_at.desc(), srd.c.source_revision_id.desc())
             .limit(1)
         ).scalar_one_or_none()
         if revision is None:
@@ -137,9 +202,12 @@ def enqueue_missing(session: Session) -> int:
     return created
 
 
-def requeue_document(session: Session, project_id: UUID, document_id: UUID) -> bool:
-    """Re-queue a stale/failed/interrupted/unsupported run (idempotent: a healthy current run is
-    left alone). Returns True when a new run was queued."""
+def requeue_document(
+    session: Session, project_id: UUID, document_id: UUID, *, retry: bool = False
+) -> bool:
+    """Queue a new run only when it can change the outcome. A healthy, queued, running or
+    interrupted run is left alone; a failed/unsupported run is re-queued only when the profile
+    set or content changed, or on an explicit ``retry``. Returns True when a run was queued."""
     run = session.execute(
         select(m.extraction_run)
         .where(
@@ -149,41 +217,56 @@ def requeue_document(session: Session, project_id: UUID, document_id: UUID) -> b
         )
         .with_for_update()
     ).first()
+    doc = session.execute(
+        select(m.source_document.c.sha256).where(
+            m.source_document.c.project_id == project_id,
+            m.source_document.c.document_id == document_id,
+        )
+    ).first()
+    if doc is None:
+        return False
+    revision = session.execute(
+        select(m.source_revision_document.c.source_revision_id)
+        .join(
+            m.source_revision,
+            m.source_revision.c.source_revision_id
+            == m.source_revision_document.c.source_revision_id,
+        )
+        .where(m.source_revision_document.c.document_id == document_id)
+        .order_by(
+            m.source_revision.c.created_at.desc(),
+            m.source_revision_document.c.source_revision_id.desc(),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+    if revision is None:
+        return False
     if run is not None:
         current = registry.current_version(run.profile_name) if run.profile_name else None
         stale = current is not None and current != run.profile_version
-        if run.status in ("queued", "running") or (
-            run.status in ("succeeded", "partial") and not stale
-        ):
+        content_changed = run.content_sha256 != doc.sha256
+        if run.status in ("queued", "running", "interrupted"):
+            return False
+        if run.status in ("succeeded", "partial"):
+            if not (stale or content_changed):
+                return False
+        elif run.status == "unsupported":
+            changed = (run.summary or {}).get("registry_fingerprint") != registry.fingerprint()
+            if not (changed or content_changed or retry):
+                return False
+        elif not (stale or content_changed or retry):  # failed
             return False
         session.execute(
             update(m.extraction_run)
             .where(m.extraction_run.c.run_id == run.run_id)
             .values(superseded=True)
         )
-        revision = run.source_revision_id
-        sha = run.content_sha256
-    else:
-        row = session.execute(
-            select(m.source_document.c.sha256).where(
-                m.source_document.c.project_id == project_id,
-                m.source_document.c.document_id == document_id,
-            )
-        ).first()
-        rev = session.execute(
-            select(m.source_revision_document.c.source_revision_id)
-            .where(m.source_revision_document.c.document_id == document_id)
-            .limit(1)
-        ).scalar_one_or_none()
-        if row is None or rev is None:
-            return False
-        revision, sha = rev, row.sha256
     session.execute(
         insert(m.extraction_run).values(
             project_id=project_id,
             document_id=document_id,
             source_revision_id=revision,
-            content_sha256=sha,
+            content_sha256=doc.sha256,
             status="queued",
         )
     )
@@ -442,7 +525,12 @@ class ExtractionRunner:
 
     def _finalize_unsupported(self, claim: RunClaim, family: str) -> None:
         with session_scope(self._factory) as session:
-            self._fenced(session, claim, status="unsupported", summary={"format_family": family})
+            self._fenced(
+                session,
+                claim,
+                status="unsupported",
+                summary={"format_family": family, "registry_fingerprint": registry.fingerprint()},
+            )
             key = f"{UNSUPPORTED_FORMAT}:{family}"
             session.execute(
                 delete(m.extraction_issue).where(m.extraction_issue.c.run_id == claim.run_id)
@@ -461,16 +549,59 @@ class ExtractionRunner:
             )
             self._set_state(session, claim, "unsupported", "no_matching_profile")
 
+    def _identity_findings(
+        self, session: Session, claim: RunClaim, identities: list[dict[str, Any]]
+    ) -> list[Any]:
+        """Same parent well written with different wellbore names in another source of this
+        project: reported, never merged (no established relationship between the spellings)."""
+        from fieldlens.profiles.types import Finding
+
+        mine: dict[str, set[str]] = {}
+        for i in identities:
+            if i["well_key"]:
+                mine.setdefault(i["well_key"], set()).add(i["wellbore_label"])
+        if not mine:
+            return []
+        others: dict[str, set[str]] = {}
+        rows = session.execute(
+            select(m.extraction_run.c.summary).where(
+                m.extraction_run.c.project_id == claim.project_id,
+                m.extraction_run.c.document_id != claim.document_id,
+                m.extraction_run.c.superseded.is_(False),
+                m.extraction_run.c.status.in_(("succeeded", "partial")),
+            )
+        ).all()
+        for (summary,) in rows:
+            for i in (summary or {}).get("wellbore_identities", []):
+                if i.get("well_key"):
+                    others.setdefault(i["well_key"], set()).add(i["wellbore_label"])
+        out = []
+        for key in sorted(mine):
+            extra = others.get(key, set()) - mine[key]
+            if extra:
+                out.append(
+                    Finding(
+                        code="IDENTITY_MISMATCH",
+                        severity="info",
+                        message=(
+                            f"Wellbore for well {key} is named {sorted(mine[key])} here but "
+                            f"{sorted(extra)} in other sources; no relationship is established, "
+                            "so the names are not merged."
+                        ),
+                        key=f"identity:{key}",
+                        blocked=["claim_acceptance"],
+                    )
+                )
+        return out
+
     def _finalize_ok(
         self, claim: RunClaim, name: str, version: str, method: str, out: ProfileOutput
     ) -> None:
         counts: dict[str, int] = {}
-        wellbores: set[str] = set()
         for rec in out.records:
             counts[rec.kind] = counts.get(rec.kind, 0) + 1
-            label = rec.subject.get("well_key") or rec.subject.get("wellbore_name")
-            if isinstance(label, str):
-                wellbores.add(label)
+        identities, notes = describe_wellbores(out.records)
+        wellbores = [i["wellbore_label"] for i in identities]
         coverage = out.coverage
         partial = out.status == "partial" or not coverage.complete
         status = "failed" if out.status == "failed" else ("partial" if partial else "succeeded")
@@ -491,7 +622,9 @@ class ExtractionRunner:
                 },
                 summary={
                     "record_counts": counts,
-                    "wellbores": sorted(wellbores),
+                    "wellbores": wellbores,
+                    "wellbore_identities": identities,
+                    "coverage_notes": notes,
                     "detail": {
                         k: v
                         for k, v in out.detail.items()
@@ -539,6 +672,7 @@ class ExtractionRunner:
                         blocked=["claim_acceptance"],
                     )
                 )
+            findings.extend(self._identity_findings(session, claim, identities))
             for f in findings:
                 key = f"{name}:{f.code}:{f.key}"
                 if key in seen:
@@ -556,7 +690,7 @@ class ExtractionRunner:
                         "attribute_keys": f.attribute_keys,
                         "record_ordinals": f.record_ordinals[:200],
                         "locators": f.locators[:50],
-                        "blocked_operations": f.blocked,
+                        "blocked_operations": list(dict.fromkeys(f.blocked)),
                     }
                 )
             for start in range(0, len(issues), CHUNK):
@@ -576,7 +710,7 @@ def _time(t: Any) -> dict[str, Any] | None:
     return {
         "literal": t.literal,
         "precision": t.precision,
-        "timezone": None,
+        "timezone": t.timezone if t.timezone_known else None,
         "earliest_effective": None,
         "latest_effective": None,
         "field": t.field,

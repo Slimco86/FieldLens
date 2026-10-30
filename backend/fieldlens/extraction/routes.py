@@ -82,10 +82,17 @@ def build_extraction_router() -> APIRouter:
         response_model=ExtractionRequeue,
         dependencies=[Depends(_guard_mutation)],
     )
-    def requeue(project_id: UUID, document_id: UUID, request: Request) -> ExtractionRequeue:
+    def requeue(
+        project_id: UUID,
+        document_id: UUID,
+        request: Request,
+        retry: Annotated[
+            bool, Query(description="Explicit retry of a failed/unsupported run")
+        ] = False,
+    ) -> ExtractionRequeue:
         def work(session: Any) -> ExtractionRequeue:
             views.require_document(session, project_id, document_id)
-            queued = requeue_document(session, project_id, document_id)
+            queued = requeue_document(session, project_id, document_id, retry=retry)
             session.flush()
             return ExtractionRequeue(
                 outcome=RequeueOutcome.QUEUED if queued else RequeueOutcome.UNCHANGED,

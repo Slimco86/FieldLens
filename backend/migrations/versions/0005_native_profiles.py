@@ -96,6 +96,13 @@ def upgrade() -> None:
         postgresql_where=sa.text("NOT superseded"),
     )
 
+    op.create_index(
+        F("ix_extraction_run_current_status_profile"),
+        "extraction_run",
+        ["status", "profile_name", "profile_version"],
+        postgresql_where=sa.text("NOT superseded"),
+    )
+
     op.create_table(
         "extracted_record",
         sa.Column("record_id", UUID, server_default=GEN_UUID, nullable=False),

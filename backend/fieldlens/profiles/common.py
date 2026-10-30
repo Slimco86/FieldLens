@@ -10,6 +10,7 @@ from .types import Attr, EventTime, Locator
 
 _SNAKE_1 = re.compile(r"(.)([A-Z][a-z]+)")
 _SNAKE_2 = re.compile(r"([a-z0-9])([A-Z])")
+_THOUSANDS = re.compile(r"^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?$")
 _NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
 
 # Exact, lossless conversions only. Anything else is left un-normalized (original kept).
@@ -29,10 +30,16 @@ def snake(name: str) -> str:
 
 
 def parse_number(text: str | None) -> float | None:
-    """Strict plain number (thousands separators removed). Never NaN/inf, never empty -> 0."""
+    """Strict plain number. A comma is accepted only as an unambiguous thousands separator
+    (``1,234`` / ``1,234,567.5``); ``1,5`` is a possible decimal comma and stays unknown.
+    Never NaN/inf, never empty -> 0."""
     if text is None:
         return None
-    cleaned = text.strip().replace(",", "")
+    cleaned = text.strip()
+    if "," in cleaned:
+        if not _THOUSANDS.match(cleaned):
+            return None
+        cleaned = cleaned.replace(",", "")
     if not _NUMBER.match(cleaned):
         return None
     value = float(cleaned)
@@ -61,7 +68,13 @@ def quantity_attr(
     original = text
     number = parse_number(text)
     if number is None:
-        reason = "empty in source" if not (text or "").strip() else "not a plain number"
+        stripped = (text or "").strip()
+        if not stripped:
+            reason = "empty in source"
+        elif "," in stripped and re.fullmatch(r"[+-]?[\d,.]+", stripped):
+            reason = "ambiguous comma (decimal or thousands separator)"
+        else:
+            reason = "not a plain number"
         return Attr(
             key,
             locator,
@@ -107,8 +120,13 @@ def event_time(literal: str | None, field_name: str | None = None) -> EventTime 
         return None
     text = literal.strip()
     if _ISO_FULL.match(text):
-        tz = text.endswith("Z") or bool(re.search(r"[+-]\d{2}:?\d{2}$", text))
-        return EventTime(text, "instant", tz, field_name)
+        if text.endswith("Z"):
+            return EventTime(text, "instant", True, field_name, "UTC")
+        off = re.search(r"([+-])(\d{2}):?(\d{2})$", text)
+        if off:
+            zone = f"UTC{off.group(1)}{off.group(2)}:{off.group(3)}"
+            return EventTime(text, "instant", True, field_name, zone)
+        return EventTime(text, "instant", False, field_name)
     if _ISO_DAY.match(text):
         return EventTime(text, "day", False, field_name)
     if _ISO_MONTH.match(text):

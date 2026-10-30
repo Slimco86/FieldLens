@@ -38,6 +38,14 @@ def current_version(name: str) -> str | None:
     return None if profile is None else profile.version
 
 
+def fingerprint() -> str:
+    """Digest of every registered profile name+version: changes when any profile changes."""
+    import hashlib
+
+    text = ";".join(f"{p.name}={p.version}" for p in PROFILES)
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
 def detect(path: Path, format_family: str, filename: str) -> list[Profile]:
     """Every profile whose content check passes (normally exactly one)."""
     found: list[Profile] = []

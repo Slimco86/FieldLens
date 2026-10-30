@@ -73,6 +73,16 @@ class ExtractionError(ContractModel):
     message: str
 
 
+class WellboreIdentity(ContractModel):
+    """A wellbore label exactly as a source wrote it, with the parent well key kept separate.
+
+    ``well_key`` is only a grouping hint derived from the label; it never merges wellbores."""
+
+    wellbore_label: str
+    well_key: str | None = None
+    record_kinds: list[str] = Field(default_factory=list)
+
+
 class ExtractionReport(ContractModel):
     """Profile, parse status, coverage and data-quality findings for one document."""
 
@@ -93,7 +103,14 @@ class ExtractionReport(ContractModel):
     attempt_no: int = Field(default=0, ge=0)
     coverage: Coverage | None = None
     record_counts: dict[str, int] = Field(default_factory=dict)
-    wellbores: list[str] = Field(default_factory=list)
+    wellbores: list[str] = Field(
+        default_factory=list, description="Wellbore labels as written; never collapsed."
+    )
+    wellbore_identities: list[WellboreIdentity] = Field(default_factory=list)
+    coverage_notes: list[str] = Field(
+        default_factory=list,
+        description="What the extraction does not provide (explicit gaps), per wellbore.",
+    )
     issues: list[QualityIssue] = Field(default_factory=list)
     error: ExtractionError | None = None
     queued_at: UtcDatetime | None = None

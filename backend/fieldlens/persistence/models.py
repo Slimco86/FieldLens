@@ -483,6 +483,13 @@ extraction_run = Table(
         unique=True,
         postgresql_where=text("NOT superseded"),
     ),
+    Index(
+        "ix_extraction_run_current_status_profile",
+        "status",
+        "profile_name",
+        "profile_version",
+        postgresql_where=text("NOT superseded"),
+    ),
 )
 
 extracted_record = Table(
