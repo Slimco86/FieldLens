@@ -70,7 +70,7 @@ Report PDF (pypdf text layer). Runs persist in `extraction_run`/`extracted_recor
 under a lease, and an interrupted run is never shown as succeeded. A profile version change
 makes the run stale and a re-queue supersedes it; unchanged re-runs are no-ops. The 500-page
 PDF limit is enforced at upload. Deferred: EDM export, grids, large completion PDFs/plots,
-OCR (TASK-030). Opt-in real-data run: `FIELDLENS_LOCAL_DATA_ROOT=<root> uv run pytest
+OCR (TASK-030). The Volve `Geophysical_Interpretations/Wells/README.txt` (lines 1-11) only says the picks file holds the main picks (repeated `Obs#` when a well crosses a formation several times) and the perforation file holds perforation intervals; it states no unit, depth reference or column definitions, so those depths stay `unsupported` with MISSING_UNIT/MISSING_REFERENCE findings. Opt-in real-data run: `FIELDLENS_LOCAL_DATA_ROOT=<root> uv run pytest
 backend/tests/test_local_data_profiles.py -s`.
 
 Full acceptance includes IN-8; success on invented fixtures is not real ingestion
