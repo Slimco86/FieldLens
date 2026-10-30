@@ -16,11 +16,14 @@ import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
+from pypdf import PdfReader
+
 from fieldlens.contracts.errors import ContractError, ErrorCode
 
 HEAD_BYTES = 64 * 1024
 SCAN_CHUNK = 1024 * 1024
 MAX_ZIP_ENTRIES = 2000
+MAX_PDF_PAGES = 500
 MAX_COMPRESSION_RATIO = 1000
 CLASSIFICATION_METHOD = "local_signature"
 CLASSIFICATION_VERSION = "1"
@@ -94,6 +97,7 @@ def inspect_file(
     if head.startswith(_ZIP_MAGICS):
         return _inspect_zip(path, max_file_bytes, remaining_batch_bytes)
     if head.startswith(b"%PDF-"):
+        _check_pdf_pages(path)
         return Detected("pdf", "application/pdf", "pending_extraction")
     if head.startswith(_OLE):
         return Detected("ole", "application/x-ole-storage", "pending_extraction")
@@ -142,6 +146,23 @@ def _fixed_width_table(head: bytes) -> tuple[str, ...] | None:
     if re.search(r"^Well\s+\S", text, re.M) and "Surface name" in text and "Qlf" in text:
         return ("geology_reservoir",)
     return None
+
+
+def _check_pdf_pages(path: Path) -> None:
+    """IN-7: a PDF over 500 pages is rejected. An unreadable page tree is not decided here (the
+    extraction run reports it); only a successfully counted, oversized document is refused."""
+    try:
+        pages = len(PdfReader(str(path), strict=False).pages)
+    except Exception:  # noqa: S110 - unreadable PDFs are reported by extraction, not intake
+        return
+    if pages > MAX_PDF_PAGES:
+        raise reject(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            "too_many_pages",
+            "PDF has more pages than the 500-page limit",
+            limit_pages=MAX_PDF_PAGES,
+        )
 
 
 def _text_kind(head: bytes) -> str | None:

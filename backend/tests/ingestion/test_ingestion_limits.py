@@ -170,5 +170,25 @@ def test_settings_cannot_raise_limits_above_approved_values() -> None:
             settings_for(**{field: value})
 
 
-def test_pdf_page_limit_is_deferred_to_task_009() -> None:
-    pytest.skip("500-page PDF limit needs a parser (TASK-009); not claimed by TASK-006")
+def _blank_pdf(pages: int) -> bytes:
+    import io
+
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    for _ in range(pages):
+        writer.add_blank_page(width=72, height=72)
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+def test_pdf_page_limit_500_accepted_501_rejected(migrated_url: URL, tmp_path: Path) -> None:
+    """IN-7: exactly 500 pages is accepted; 501 is a 422 ``too_many_pages``."""
+    api = make_api(migrated_url, tmp_path)
+    pid = api.project()
+    ok = api.upload(pid, [("ok.pdf", _blank_pdf(500))])
+    assert ok.status_code == 202, ok.text
+    over = api.upload(pid, [("over.pdf", _blank_pdf(501))])
+    assert over.status_code == 422
+    assert over.json()["error"]["details"]["reason"] == "too_many_pages"

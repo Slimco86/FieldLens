@@ -129,6 +129,9 @@ class LasProfile:
                                 locators=[_loc(section, n_lines)],
                             )
                         )
+        if not data_header and items.get("curve"):
+            # LAS 2.0 allows a bare ``~A``: the ~C section then names the data columns.
+            data_header = [c[0] for c in items["curve"]]
         if not data_header or "version" not in items:
             raise ProfileError("profile_mismatch", "LAS lacks ~V or ~A section")
         records: list[Rec] = []
