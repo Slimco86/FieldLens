@@ -314,10 +314,118 @@ def test_description_renderer_is_deterministic_and_guards_secrets() -> None:
     assert first.startswith("**Outcome.** Does a thing.\n")
     assert "- FL-001 (in_progress)" in first and "**Spec.** none" in first
     assert "**Version.** none" in first
-    leaky = ledger.parse_text(
-        ledger_text(block("FL-001").replace("Do more.", "token=abcdef123456 here"))
-    ).items
+    leaky = [ledger.Item(**{**by_id["FL-001"].__dict__, "next_action": "token=abcdef123456 here"})]
     with pytest.raises(ledger.SecretInDescription):
         ledger.render_description(leaky[0], {leaky[0].id: leaky[0]})
     assert ledger.find_secret("123456789:" + "A" * 35) == "telegram-bot-token"
     assert ledger.find_secret("commit 2f56a43 passes") is None
+
+
+# ------------------------------------------------------------ FL-020-B repair round
+
+
+def _done(item_id: str, **over: Any) -> str:
+    return block(item_id, Status="done", Version="0.1.0", **over).replace(
+        "none yet", "Done in `abc`."
+    )
+
+
+def test_done_with_open_dependency_only_for_listed_pairs() -> None:
+    assert dict(ledger.DONE_WITH_OPEN_DEPS) == {"TASK-003": frozenset({"TASK-001"})}
+    feats = block("FL-001")
+    ok = block("TASK-001", Due="2026-10-30") + _done("TASK-003", Depends_on="TASK-001")
+    assert messages(ledger_text(feats, ok)) == []
+    bad = block("TASK-001", Due="2026-10-30") + _done("TASK-004", Depends_on="TASK-001")
+    assert any("done item depends on TASK-001" in m for m in messages(ledger_text(feats, bad)))
+    other = block("TASK-002") + _done("TASK-003", Depends_on="TASK-002")
+    assert any("done item depends on TASK-002" in m for m in messages(ledger_text(feats, other)))
+
+
+def test_backlog_task_001_is_honest() -> None:
+    item = ledger.load_ledger(BACKLOG).by_id()["TASK-001"]
+    assert item.status == "in_progress" and item.version.lower() == "none"
+    assert "Verify DA-7" in item.next_action
+
+
+def test_priority_inversion_rejected_and_backlog_consistent() -> None:
+    inv = block("FL-001", Depends_on="FL-002", Due="2026-11-02") + block(
+        "FL-002", Priority="P1", Due="2026-11-01"
+    )
+    assert any("higher than dependency FL-002" in m for m in messages(ledger_text(inv)))
+    same = block("FL-001", Priority="P1", Depends_on="FL-002", Due="2026-11-02") + block(
+        "FL-002", Priority="P0", Due="2026-11-01"
+    )
+    assert messages(ledger_text(same)) == []
+    done_dep = _done("FL-002", Priority="P2") + block("FL-001", Depends_on="FL-002")
+    assert messages(ledger_text(done_dep)) == []
+    items = ledger.load_ledger(BACKLOG).items
+    by_id = {i.id: i for i in items}
+    for i in items:
+        if i.is_done or i.status == "cancelled":
+            continue
+        for dep in i.depends_on:
+            if not by_id[dep].is_done:
+                assert by_id[dep].priority <= i.priority, (i.id, dep)
+                assert by_id[dep].due <= i.due, (i.id, dep)
+
+
+@pytest.mark.parametrize(
+    ("kind", "secret"),
+    [
+        ("aws-access-key", "AKIA" + "ABCDEFGHIJKLMNOP"),
+        ("slack-token", "xoxa-" + "1234567890abc"),
+        ("openai-style-key", "sk" + "-" + "A" * 24),
+        ("pem-block", "-----BEGIN " + "CERTIFICATE-----"),
+    ],
+)
+def test_secret_patterns(kind: str, secret: str) -> None:
+    assert ledger.find_secret(f"x {secret} y") == kind
+
+
+@pytest.mark.parametrize("where", ["title", "Spec", "Tags", "Assignee", "Version", "label"])
+def test_secret_guard_covers_all_fields_without_echo(where: str) -> None:
+    secret = "AKIA" + "ABCDEFGHIJKLMNOP"
+    if where == "title":
+        text = block("FL-001", title=f"Leak {secret}")
+    elif where == "label":
+        text = block("FL-001").replace("Do more.", f"see {secret}")
+    else:
+        text = block("FL-001", **{where: secret})
+    found = messages(ledger_text(text))
+    assert any("secret-like text (aws-access-key)" in m for m in found), found
+    assert not any(secret in m or "ABCDEFGHIJKLMNOP" in m for m in found), found
+
+
+def test_secret_in_field_name_not_echoed() -> None:
+    secret = "AKIA" + "ABCDEFGHIJKLMNOP"
+    text = block("FL-001").replace("| Type |", f"| {secret} |")
+    found = messages(ledger_text(text))
+    assert found and not any("ABCDEFGHIJKLMNOP" in m for m in found)
+
+
+def test_render_subject_guarded() -> None:
+    items = ledger.parse_text(ledger_text(GOOD_FEATURES)).items
+    assert ledger.render_subject(items[0]) == "[FL-001] Title"
+    leaky = ledger.Item(**{**items[0].__dict__, "title": "k " + "sk-" + "B" * 22})
+    with pytest.raises(ledger.SecretInDescription) as exc:
+        ledger.render_subject(leaky)
+    assert "B" * 22 not in str(exc.value)
+
+
+def test_empty_ledger_fails_check(tmp_path: Path) -> None:
+    assert any("no items found" in m for m in messages(ledger_text()))
+    path = tmp_path / "EMPTY.md"
+    path.write_text(ledger_text(), encoding="utf-8")
+    assert track.main(["--file", str(path), "check"]) == 1
+
+
+def test_blocked_note_variants() -> None:
+    feats = (
+        block("FL-001", Status="blocked")
+        + block("FL-002", Status="blocked", Depends_on="FL-001", Due="2026-11-02")
+        + block("FL-003", Depends_on="FL-001", Due="2026-11-02")
+    )
+    by_id = {i.id: i for i in ledger.parse_text(ledger_text(feats)).items}
+    assert ledger.blocked_note(by_id["FL-001"], by_id) == "Blocked (see Next action)"
+    assert ledger.blocked_note(by_id["FL-002"], by_id) == "Waiting for FL-001 (blocked)"
+    assert ledger.blocked_note(by_id["FL-003"], by_id) == "Waiting for FL-001 (blocked)"

@@ -16,7 +16,8 @@ priority, dates and assignment from now on. All earlier narrative lives unchange
 
 - **Status:** `proposed`, `specifying`, `ready`, `in_progress`, `testing`,
   `integration_pending`, `done`, `blocked`, `cancelled`. `done` requires `Version` and real
-  `Evidence`; a `done` item may only depend on `done` items.
+  `Evidence`; a `done` item may only depend on `done` items (the sole exception is the
+  owner-approved pair TASK-003 -> TASK-001, listed in `DONE_WITH_OPEN_DEPS` in `ledger.py`).
 - **Priority:** `P0` (first persisted UI, early agent risk, reconstruction, acceptance/release),
   `P1` (required enrichment and tooling), `P2` (optional).
 - **Tags** (fixed vocabulary, lowercase kebab-case): `foundation`, `ingestion`, `backend`,
@@ -28,7 +29,9 @@ priority, dates and assignment from now on. All earlier narrative lives unchange
   integration date (earlier dates are allowed for done items only). Due dates and priorities are
   the orchestrator's proposal from the dependency order: first UI Oct 31, early agent risk
   Nov 1, reconstruction Nov 2, enrichment Nov 3, acceptance/release Nov 4.
-  A dependency's due date must not be later than the item's own.
+  A dependency's due date must not be later than the item's own, and a non-done item must not
+  depend on a non-done item of lower priority (P0 > P1 > P2; BK-1 addition, raise the
+  dependency instead).
 - **Parent / Slice** (tasks only): Parent is the feature ID; Slice is the original plan slice
   (for example `FL-004-A`).
 
@@ -167,7 +170,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 |---|---|
 | Type | feature |
 | Status | in_progress |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | geospatial, 3d, backend |
 | Depends on | FL-005, FL-016 |
 | Assignee | agent:fieldlens-geospatial |
@@ -186,7 +189,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 |---|---|
 | Type | feature |
 | Status | specifying |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | 3d, geospatial |
 | Depends on | FL-006 |
 | Assignee | agent:fieldlens-3d-motion |
@@ -205,7 +208,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 |---|---|
 | Type | feature |
 | Status | in_progress |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | geospatial, frontend |
 | Depends on | FL-005, FL-006 |
 | Assignee | agent:fieldlens-geospatial |
@@ -224,7 +227,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 |---|---|
 | Type | feature |
 | Status | specifying |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | geospatial, 3d |
 | Depends on | FL-006 |
 | Assignee | agent:fieldlens-geospatial |
@@ -243,7 +246,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 |---|---|
 | Type | feature |
 | Status | specifying |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | charts, frontend |
 | Depends on | FL-005, FL-016, FL-008 |
 | Assignee | agent:fieldlens-frontend |
@@ -456,21 +459,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | done |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | agent, docs |
 | Depends on | none |
 | Assignee | agent:fieldlens-orchestrator |
-| Due | 2026-10-28 |
+| Due | 2026-10-30 |
 | Sprint | Hackathon |
 | Spec | specs/DEVELOPMENT_AGENTS.md |
-| Version | 0.4.0 |
+| Version | none |
 | Parent | FL-001 |
 | Slice | FL-001 |
 
-**Outcome.** The main agent verifies DA-7 actual host model/effort/tools for each profile used, confirms the approved design is committed and records the exact integration base before implementation delegation. Marked done for the profiles used so far (backend), as the plan makes TASK-003 depend on it; this status is a ledger-conversion judgment, not a blanket verification of every profile.
-**Next action.** Repeat the per-assignment profile/model/tool preflight before each new delegation; other profiles are not verified by this item.
-**Evidence.** Backend profile resolved Sonnet 5.5 in host events and native create/edit/read/delete worked (TASK-025 preflights); foundation then integrated at `1293f55`, version 0.4.0.
+**Outcome.** The main agent verifies DA-7 actual host model/effort/tools for each profile used, confirms the approved design is committed and records the exact integration base before implementation delegation. Not complete: only the backend profile preflights are evidenced, so DA-7 stays unverified for every other profile used.
+**Next action.** Verify DA-7 (host model/effort/tools) for every profile used, per the plan, then mark done with a Version. TASK-003 is done under the owner's direct-repair exception while this stays open.
+**Evidence.** Preflights recorded for the backend profile (resolved Sonnet 5.5 in host events; native create/edit/read/delete worked, TASK-025 preflights) and the profiles used so far; foundation integrated at `1293f55` (0.4.0).
 
 ### TASK-002 · Final demo data manifest, hashed profiles and independent reference fixtures (DF-1..9)
 
@@ -814,7 +817,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | 3d, frontend |
 | Depends on | TASK-007, TASK-026 |
 | Assignee | agent:fieldlens-3d-motion |
@@ -835,7 +838,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | 3d, frontend |
 | Depends on | TASK-010, TASK-030 |
 | Assignee | agent:fieldlens-3d-motion |
@@ -856,7 +859,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | frontend, geospatial |
 | Depends on | TASK-008, TASK-009, TASK-010 |
 | Assignee | agent:fieldlens-frontend |
@@ -877,7 +880,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | geospatial, 3d |
 | Depends on | TASK-009, TASK-010 |
 | Assignee | agent:fieldlens-geospatial |
@@ -898,7 +901,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | geospatial, 3d |
 | Depends on | TASK-009, TASK-010 |
 | Assignee | agent:fieldlens-geospatial |
@@ -919,7 +922,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | charts, frontend |
 | Depends on | TASK-009, TASK-026 |
 | Assignee | agent:fieldlens-frontend |
@@ -940,7 +943,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | charts, frontend |
 | Depends on | TASK-009, TASK-026 |
 | Assignee | agent:fieldlens-frontend |
@@ -961,7 +964,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | charts, frontend |
 | Depends on | TASK-013, TASK-016, TASK-017 |
 | Assignee | agent:fieldlens-frontend |
@@ -982,7 +985,7 @@ the slice letter and `Slice` keeps the plan's original string.
 |---|---|
 | Type | task |
 | Status | proposed |
-| Priority | P1 |
+| Priority | P0 |
 | Tags | rag, frontend |
 | Depends on | TASK-019, TASK-012, TASK-013, TASK-014, TASK-015, TASK-018 |
 | Assignee | agent:fieldlens-rag |

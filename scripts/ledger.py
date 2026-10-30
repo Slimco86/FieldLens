@@ -65,6 +65,12 @@ TAGS = (
     "agent",
     "release",
 )
+PRIORITY_RANK = {"P0": 0, "P1": 1, "P2": 2}
+# Owner-approved exceptions to "a done item may only depend on done items" (BK-1). TASK-003
+# is done under the owner's direct-repair exception while its dependency TASK-001 (DA-7 for
+# every profile used) is still open. Any other done -> non-done dependency is rejected.
+DONE_WITH_OPEN_DEPS: Mapping[str, frozenset[str]] = {"TASK-003": frozenset({"TASK-001"})}
+REDACTED = "[redacted]"
 SPRINT = "Hackathon"
 WINDOW_START = date(2026, 10, 29)
 WINDOW_END = date(2026, 11, 4)
@@ -87,8 +93,11 @@ LABELS = ("Outcome", "Next action", "Evidence")
 
 SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("telegram-bot-token", re.compile(r"\b\d{6,}:[A-Za-z0-9_-]{30,}")),
-    ("api-key", re.compile(r"\b(?:sk|pk|ghp|gho|ghs|xox[bp])[-_][A-Za-z0-9_-]{16,}")),
-    ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("api-key", re.compile(r"\b(?:pk|ghp|gho|ghs)[-_][A-Za-z0-9_-]{16,}")),
+    ("aws-access-key", re.compile(r"\bAKIA[0-9A-Z]{16}")),
+    ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{6,}")),
+    ("openai-style-key", re.compile(r"\bsk-[A-Za-z0-9]{20,}")),
+    ("pem-block", re.compile(r"-----BEGIN")),
     ("bearer", re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{16,}")),
     (
         "credential-assignment",
@@ -217,10 +226,7 @@ def parse_text(text: str) -> ParseResult:
             name = raw[3:].strip()
             current, table_state, label_open = None, "none", None
             if name == "Journal":
-                if has_journal:
-                    bad(n, "duplicate '## Journal' heading")
                 has_journal = True
-                section = "journal"
                 # The journal is history: nothing after this heading is parsed.
                 break
             section = {"Features": "features", "Tasks": "tasks"}.get(name, "other")
@@ -325,7 +331,21 @@ def _build_item(blk: _Block, out: list[Violation]) -> Item | None:
         bad(blk.line, "missing '| Field | Value |' table")
     fields: dict[str, str] = {}
     flines: dict[str, int] = {}
-    for n, name, value in blk.rows:
+    # Secret guard first; offending values are never echoed (field name, class and line only).
+    guarded: list[tuple[int, str, str]] = [(blk.line, "title", blk.title)]
+    for n, nm, val in blk.rows:
+        guarded.append((n, "a field name", nm))
+        guarded.append((n, f"field '{nm}'" if nm in ALL_FIELDS else "a field value", val))
+    guarded += [(n, f"label **{lb}.**", val) for lb, (n, val) in blk.labels.items()]
+    for n, where, val in guarded:
+        kind = find_secret(val)
+        if kind:
+            bad(n, f"secret-like text ({kind}) in {where}")
+    rows = [
+        (n, REDACTED if find_secret(nm) else nm, REDACTED if find_secret(val) else val)
+        for n, nm, val in blk.rows
+    ]
+    for n, name, value in rows:
         if name not in ALL_FIELDS:
             bad(n, f"unknown field '{name}'")
             continue
@@ -427,7 +447,7 @@ def _build_item(blk: _Block, out: list[Violation]) -> Item | None:
         evidence=blk.labels["Evidence"][1],
         parent=get("Parent") or None,
         slice=get("Slice") or None,
-        field_lines=flines,
+        field_lines={**flines, **{lb: ln for lb, (ln, _) in blk.labels.items()}},
     )
 
 
@@ -480,6 +500,8 @@ def validate(items: Sequence[Item], base_dir: Path | None = None) -> list[Violat
     """Semantic BK-1 rules over parsed items. ``base_dir`` resolves ``Spec`` paths."""
     out: list[Violation] = []
     by_id = {i.id: i for i in items}
+    if not items:
+        out.append(Violation(1, "no items found"))
 
     def bad(item: Item, msg: str, name: str | None = None) -> None:
         out.append(Violation(item.field_lines.get(name or "", item.line), msg, item.id))
@@ -507,28 +529,36 @@ def validate(items: Sequence[Item], base_dir: Path | None = None) -> list[Violat
                 bad(item, "done items need real Evidence, not 'none yet'")
             if item.due > WINDOW_END:
                 bad(item, f"Due {item.due} is after the deadline {WINDOW_END}", "Due")
+            allowed = DONE_WITH_OPEN_DEPS.get(item.id, frozenset())
             for dep in item.depends_on:
                 target = by_id.get(dep)
-                if target is not None and not target.is_done:
+                if target is not None and not target.is_done and dep not in allowed:
                     bad(item, f"done item depends on {dep} which is {target.status}", "Depends on")
         elif item.status != "cancelled":
             if not WINDOW_START <= item.due <= WINDOW_END:
                 bad(item, f"Due {item.due} outside {WINDOW_START}..{WINDOW_END}", "Due")
             for dep in item.depends_on:
                 target = by_id.get(dep)
-                if target is not None and target.due > item.due:
+                if target is None:
+                    continue
+                if target.due > item.due:
                     bad(
                         item,
                         f"Due {item.due} is before dependency {dep} due {target.due}",
                         "Due",
                     )
+                open_dep = not target.is_done and target.status != "cancelled"
+                if open_dep and PRIORITY_RANK[target.priority] > PRIORITY_RANK[item.priority]:
+                    bad(
+                        item,
+                        f"priority {item.priority} is higher than dependency {dep} "
+                        f"({target.priority}); raise the dependency",
+                        "Priority",
+                    )
         if not _norm_none(item.spec) and base_dir is not None:
             path = item.spec.split("#", 1)[0]
             if "://" not in path and not (base_dir / path).exists():
                 bad(item, f"Spec path '{path}' does not exist", "Spec")
-        secret = find_secret(" ".join((item.title, item.outcome, item.next_action, item.evidence)))
-        if secret:
-            bad(item, f"secret-like text ({secret}) in item")
     cycle = find_cycle(items)
     if cycle:
         first = by_id[cycle[0]]
@@ -573,12 +603,25 @@ def blocked_note(item: Item, by_id: Mapping[str, Item]) -> str | None:
         return None
     unmet = unmet_dependencies(item, by_id)
     if not unmet:
-        return None
+        return "Blocked (see Next action)" if item.status == "blocked" else None
     return "Waiting for " + ", ".join(f"{d.id} ({d.status})" for d in unmet)
 
 
 class SecretInDescription(ValueError):
     """Raised when text destined for an external tracker looks like a credential."""
+
+
+def _guard(item: Item, text: str) -> None:
+    secret = find_secret(text)
+    if secret:
+        raise SecretInDescription(f"{item.id}: secret-like text ({secret}); refusing to render")
+
+
+def render_subject(item: Item) -> str:
+    """Tracker subject ``[ID] title``; refuses secret-like titles without echoing them."""
+    subject = f"[{item.id}] {item.title}"
+    _guard(item, subject)
+    return subject
 
 
 def render_description(item: Item, by_id: Mapping[str, Item]) -> str:
@@ -600,7 +643,5 @@ def render_description(item: Item, by_id: Mapping[str, Item]) -> str:
         lines.append("- none")
     lines += ["", f"**Spec.** {item.spec}", f"**Version.** {item.version}"]
     text = "\n".join(lines) + "\n"
-    secret = find_secret(text)
-    if secret:
-        raise SecretInDescription(f"{item.id}: secret-like text ({secret}); refusing to render")
+    _guard(item, "\n".join((text, item.title, ",".join(item.tags), item.assignee)))
     return text
