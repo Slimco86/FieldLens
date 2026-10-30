@@ -232,7 +232,7 @@ class PerforationTableProfile:
                     ["perforation.perf_date"],
                     no_date[:50],
                     [records[o].locator for o in no_date[:5]],
-                    ["temporal_state", "perforation_history"],
+                    ["temporal_state", "temporal_state"],
                 )
             )
         if inverted:
@@ -245,7 +245,7 @@ class PerforationTableProfile:
                     ["perforation.top_md", "perforation.base_md"],
                     inverted,
                     [records[o].locator for o in inverted[:5]],
-                    ["perforation_history", "placement"],
+                    ["temporal_state", "placement"],
                 )
             )
         if dups:
@@ -258,7 +258,7 @@ class PerforationTableProfile:
                     ["perforation.obs_no"],
                     dups[:50],
                     [records[o].locator for o in dups[:5]],
-                    ["perforation_history"],
+                    ["temporal_state"],
                 )
             )
         for well, ords in sorted(by_well.items()):
@@ -288,7 +288,7 @@ class PerforationTableProfile:
                         ["perforation.top_md", "perforation.base_md"],
                         [a for a, _ in clash][:50],
                         [records[a].locator for a, _ in clash[:5]],
-                        ["perforation_history"],
+                        ["temporal_state"],
                     )
                 )
         for code, k in sorted(bad_codes.items()):
@@ -304,7 +304,7 @@ class PerforationTableProfile:
         if skipped:
             findings.append(
                 Finding("EXTRACTION_PARTIAL", "warning", reasons[0] + ".", "perf_rows_skipped",
-                        locators=[_loc(n) for n in skipped[:5]], blocked=["perforation_history"])
+                        locators=[_loc(n) for n in skipped[:5]], blocked=["temporal_state"])
             )
         data_rows = sum(1 for line in lines[1:] if line.strip())
         cov = CoverageOut("line", len(records), data_rows, [str(n) for n in skipped[:20]], reasons)

@@ -261,13 +261,13 @@ class ProductionWorkbookProfile:
         _unit_missing(findings, "daily", records)
         _aggregate(findings, "daily_duplicate", REFERENCE_CONFLICT, "error", dups, records,
                    "daily row(s) repeat an existing (wellbore, date); both are kept and none is summed away.",
-                   ["production_day.date"], ["production_series"])
+                   ["production_day.date"], ["calculation"])
         _aggregate(findings, "daily_negative", SUSPICIOUS_VALUE, "warning", negative, records,
                    "daily row(s) have a negative volume or hours value.",
-                   ["production_day.bore_oil_vol"], ["production_series"])
+                   ["production_day.bore_oil_vol"], ["calculation"])
         _aggregate(findings, "daily_hours_gt_24", SUSPICIOUS_VALUE, "warning", hours, records,
                    "daily row(s) report more than 24 on-stream hours.",
-                   ["production_day.on_stream_hrs"], ["production_series"])
+                   ["production_day.on_stream_hrs"], ["calculation"])
         for code, k in sorted(unknown_codes.items()):
             findings.append(
                 Finding(UNKNOWN_CODE, "info", f"{code} occurs in {k} row(s); not in the reviewed code list, kept verbatim.",
@@ -287,7 +287,7 @@ class ProductionWorkbookProfile:
         if member is None:
             findings.append(
                 Finding("EXTRACTION_PARTIAL", "warning", f"sheet '{MONTHLY}' is absent.",
-                        "monthly_sheet_missing", blocked=["production_series"])
+                        "monthly_sheet_missing", blocked=["calculation"])
             )
             counts["monthly_rows"] = 0
             return
@@ -303,7 +303,7 @@ class ProductionWorkbookProfile:
                 if missing:
                     findings.append(
                         Finding("EXTRACTION_PARTIAL", "error", f"monthly sheet lacks columns {sorted(missing)}.",
-                                "monthly_columns_missing", blocked=["production_series"])
+                                "monthly_columns_missing", blocked=["calculation"])
                     )
                     counts["monthly_rows"] = 0
                     return
@@ -366,7 +366,7 @@ class ProductionWorkbookProfile:
         _aggregate(findings, "monthly_vs_daily_oil", REFERENCE_CONFLICT, "warning", conflicts, records,
                    "monthly oil total(s) differ from the sum of the daily rows for the same wellbore and month "
                    "(>1%); both values are kept, neither is preferred.",
-                   ["production_month.oil", "production_day.bore_oil_vol"], ["production_series"])
+                   ["production_month.oil", "production_day.bore_oil_vol"], ["calculation"])
 
 
 def _unit_missing(findings: list[Finding], sheet: str, records: list[Rec]) -> None:
@@ -383,7 +383,7 @@ def _unit_missing(findings: list[Finding], sheet: str, records: list[Rec]) -> No
                 [f"production_day.{k}" for k in ("bore_oil_vol", "bore_gas_vol", "avg_whp_p")],
                 idx[:50],
                 [records[i].locator for i in idx[:3]],
-                ["calculation", "production_series"],
+                ["calculation", "calculation"],
             )
         )
 

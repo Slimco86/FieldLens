@@ -42,10 +42,13 @@ class StorageState(StrEnum):
 
 
 class ExtractionState(StrEnum):
-    """No reader exists in this slice: a file is pending extraction or explicitly unsupported."""
+    """Latest known extraction outcome of a stored document (never inferred from storage)."""
 
     PENDING_EXTRACTION = "pending_extraction"
     UNSUPPORTED = "unsupported"
+    EXTRACTED = "extracted"
+    EXTRACTED_WITH_ISSUES = "extracted_with_issues"
+    EXTRACTION_FAILED = "extraction_failed"
 
 
 class CategoriesOrigin(StrEnum):

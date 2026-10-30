@@ -125,9 +125,23 @@ def inspect_file(
         return Detected("xml", "application/xml", "pending_extraction")
     if _LAS_HEADER.search(stripped[:HEAD_BYTES]):
         return Detected("las", "text/x-las", "pending_extraction", ("well_logs",))
+    sniffed = _fixed_width_table(stripped)
+    if sniffed is not None:
+        return Detected("csv", "text/plain", "pending_extraction", sniffed)
     if filename.lower().endswith((".csv", ".dat")):
         return Detected("csv", "text/csv", "pending_extraction")
     return Detected("text", "text/plain", "unsupported")
+
+
+def _fixed_width_table(head: bytes) -> tuple[str, ...] | None:
+    """Content (not file name) recognizes the perforation / well-pick fixed-width tables."""
+    text = head.decode("latin-1", "replace")
+    first = text.splitlines()[0] if text else ""
+    if all(t in first for t in ("Well name", "Top MD", "Base MD", "Perf obs#")):
+        return ("perforation_history",)
+    if re.search(r"^Well\s+\S", text, re.M) and "Surface name" in text and "Qlf" in text:
+        return ("geology_reservoir",)
+    return None
 
 
 def _text_kind(head: bytes) -> str | None:
