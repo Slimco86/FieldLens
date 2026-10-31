@@ -686,7 +686,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-009 |
@@ -694,13 +694,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/RETRIEVAL_ASSISTANT.md |
-| Version | none |
+| Version | 0.17.0 |
 | Parent | FL-011 |
 | Slice | FL-011-A |
 
 **Outcome.** RAG owner implements project/source-scoped exact/text/vector retrieval in retrieval, source coverage and bounded evidence search; unresolved observations are labeled. No accepted asset graph is a prerequisite, and the embedding gate/degradation is explicit.
-**Next action.** Dispatched October 31 on branch `feature/task-011-source-retrieval`, worktree `/home/slimco/code/FieldLens-worktrees/task-011-source-retrieval` (owns migration 0007 and the single shared-contract change; no Meta embeddings endpoint exists, so local FastEmbed/bge-small is evaluated behind the explicit gate, with exact/text retrieval degraded-but-working without it); independent QA follows.
-**Evidence.** none yet
+**Next action.** None. One-off setup for vector search: `uv run python scripts/fetch_embedding_model.py` (hash-pinned public model into `.local`); without it search runs in an explicit degraded mode (exact + full text). Follow-ups are in TASK-045.
+**Evidence.** Integrated October 31 as 0.17.0 (branch `feature/task-011-source-retrieval`, head `78a88da`, migration `0007_source_retrieval`, dependency `fastembed`). Four independent QA rounds: no cross-project or eligibility leak in any round; defects found and repaired: 32-55 s cold first search (stale planner statistics; ANALYZE policy), HTTP 500 on NUL in the query, wrong `hybrid` label on invalid query vectors, no relevance signal (now `weak_evidence`), missing stemming, well-log chunks unreachable, nonexistent sidetrack suffix resolving to the parent, lone frequent words making hits strong, parent query returning sidetrack rows, a flaky ranking test. Real local embedder (int8 bge-small, MIT): about 146-195 ms per chunk, peak RSS about 780 MiB; numeric production/trajectory tables are excluded from vectors by owner policy (311 chunks embedded, 16,351 excluded on the approved subset; 18,006 chunks fully indexed in about 70-140 s). Relevance floor 0.68, margin 0.04, 20% frequency rule and 50-chunk threshold are uncalibrated. Synthetic gold only proves mechanics; no real-data recall claim (needs the G1 gold cases).
 
 ### TASK-019 · Source-context chat and evidence UI (RG-8 offline, applicable RG-3/4/5)
 
@@ -1232,7 +1232,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | ready |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
 | Depends on | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038 |
@@ -1245,7 +1245,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-A |
 
 **Outcome.** Ingestion owner implements question-driven candidate-claim proposals from the harness through the offline provider adapter, the allowlisted read-only content tools (span, table, page image, project search), deterministic validators, persisted candidate/accept/reject/flag states with source locators (including the AX-11 labeled coordinate fallback), writing to the TASK-038 activity log, and their display in the existing evidence/issue views (restyled later by TASK-034). One shared-contract change is allowed with a single writer. Offline stub provider only; no live spend is authorized by this task.
-**Next action.** Dispatch after TASK-004, TASK-009, TASK-011 and TASK-038 are integrated, with a fresh preflight; independent QA follows.
+**Next action.** Ready: TASK-004, TASK-009, TASK-011 and TASK-038 are integrated (0.17.0). Carry the TASK-038 deferrals (startup `recover_interrupted` wiring, budget reservation link, `step_key` scheme, cancel/retry only if needed), use TASK-043 effort control (`low`/`minimal`), the TASK-042 findings (upright pages about 1600 px, orientation fix, zoomed second pass, text layer for native pages) and, for scans, the OCR-agreement rule once TASK-030 phase B exists; fresh preflight in its own worktree (every command prefixed `env -u MODEL_API_KEY -u FIELDLENS_DATABASE_URL`); independent QA follows.
 **Evidence.** none yet
 
 ### TASK-037 · Demo UI polish and responsive/accessibility sweep on the integrated app (UI-8, UI-10)
@@ -1415,6 +1415,27 @@ the slice letter and `Slice` keeps the plan's original string.
 **Outcome.** A bounded, read-only, offline investigation (no model calls, no spend) of the deferred 211 MB EDM export (PV-24) and any other already-present structured source for deterministic completion/production equipment (tubing, casing/liners in service, packers, pumps, bearings, depths) and perforation history for F-12, F-14 and F-5, with exact locators; recommends a streaming profile if worthwhile. Owner decision October 31: if nothing is found it is fine, and generic 3D assets cover missing equipment as long as the rest of that wellbore's data exists.
 **Next action.** None. Completion/production equipment for F-14 and F-5 comes from the scanned completion documents (TASK-030 OCR layer, then TASK-041); F-12 uses generic assets per the owner policy. Optional low-value EDM uses (identity cross-checks, labelled casing/liner design context) only after units are confirmed.
 **Evidence.** Offline deterministic check October 31 of the 211 MB EDM export (PV-24; streamed in about 5 s, about 38 MB peak RSS, no model calls, no spend): a drilling/well-planning database (142 element types, 21 wells, 54 wellbores) with no installed/as-built/dated completion or perforation history for F-12, F-14 or F-5, no units and no assembly-level datum (scenario and case datum links disagree: 177.165 versus 180.118); only design-variant tubing/liner/packer for F-14 A (packer depth 8350.07 versus StressCheck PackerDepth 8678.15, a source conflict). A streaming EDM profile is not worthwhile for completion or perforation history. Integrated as 0.16.2 (branch `feature/task-044-edm-completion-check`, head `2c681d4`; scripts and evidence only). Independent QA returned the first candidate (minor factual errors) and re-verified the repair; the final wording-only commit was reviewed by the orchestrator, not re-QA'd.
+
+### TASK-045 · Retrieval follow-ups from the TASK-011 QA rounds
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P1 |
+| Tags | rag, backend |
+| Depends on | TASK-011 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/RETRIEVAL_ASSISTANT.md |
+| Version | none |
+| Parent | FL-011 |
+| Slice | FL-011-F |
+
+**Outcome.** Small retrieval improvements deferred by QA: an id-only query (for example `F-11`) returns only the vector-ranked chunk while 1,400+ numeric-table chunks carry the identifier, with no note saying so; numeric-only well names (such as 15/9-19) are not detected as sidetracks by `_SIDETRACK`; a query with an unmatched parent id (`15/9-19`) returns sidetrack rows as ok/strong; a literal `wellbore_suffix` of "None"/"null" becomes a suffix; lowercase `f-12 a` reads as the English article; production-workbook flooding for `tubing size F-12`/`F-14 tubing` (ties above 20 candidates defeat the diversity guard); production vocabulary map and slot reservation; search notes during a partially rebuilt index; failed index jobs after exhausted attempts need a visible requeue.
+**Next action.** Dispatch only after the owner confirms the priority; the assistant/exploration tasks (TASK-019/031) must not use `evidence_strength` as a citation gate until this is done or the calibration gold set exists.
+**Evidence.** none yet
 
 ## Journal
 

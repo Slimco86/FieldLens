@@ -30,6 +30,9 @@ from fieldlens.jobs import JobWorker, build_jobs_router
 from fieldlens.persistence.readiness import evaluate_readiness
 from fieldlens.persistence.session import create_db_engine, create_session_factory
 from fieldlens.projects import build_projects_router
+from fieldlens.retrieval.embedder import EmbedderProvider
+from fieldlens.retrieval.routes import build_retrieval_router
+from fieldlens.retrieval.search import RetrievalService
 
 _STATUS_CODES: dict[int, ErrorCode] = {
     403: ErrorCode.FORBIDDEN,
@@ -214,8 +217,24 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.state.session_factory = create_session_factory(engine) if engine is not None else None
     app.state.session_token = session_token or security.new_session_token()
     app.state.blob_store = BlobStore(settings.storage_root)
+    app.state.embedders = EmbedderProvider(settings)
     app.state.job_worker = (
-        JobWorker(app.state.session_factory, app.state.blob_store, settings)
+        JobWorker(
+            app.state.session_factory,
+            app.state.blob_store,
+            settings,
+            embedders=app.state.embedders,
+        )
+        if app.state.session_factory is not None
+        else None
+    )
+    app.state.retrieval = (
+        RetrievalService(
+            app.state.session_factory,
+            settings,
+            app.state.embedders,
+            app.state.job_worker.health if app.state.job_worker is not None else None,
+        )
         if app.state.session_factory is not None
         else None
     )
@@ -240,6 +259,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_jobs_router())
     app.include_router(build_extraction_router())
     app.include_router(build_activity_router())
+    app.include_router(build_retrieval_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:

@@ -216,6 +216,26 @@ backend/tests/activity` covers the persisted work-unit log, its read API
 migration 0006 on throwaway PostgreSQL databases; offline, no provider calls. The harness writes
 through `fieldlens.activity.ActivityLog`; the log is display/audit only, not an engineering source.
 
+**Source retrieval (`backend/fieldlens/retrieval/`, TASK-011, FL-011-A).** `uv run pytest
+backend/tests/retrieval` covers chunking, exact-ID/full-text/vector fusion, scope and eligibility,
+degraded embedding states, index jobs and migration 0007 on throwaway PostgreSQL databases with an
+offline fake embedder (no network, no provider call; `FIELDLENS_EMBEDDING_PROVIDER=none` is forced
+for every default run so an installed real model is never loaded). Read API:
+`GET /api/v1/projects/{id}/retrieval/search?q=...` and `.../retrieval/coverage`. The gold set is
+synthetic and proves mechanics only. Meta has no embeddings endpoint, so the real embedder is the
+pinned local `BAAI/bge-small-en-v1.5` (int8 ONNX, FastEmbed, CPU). Its one-off, hash-pinned download
+is an explicit setup step, never part of tests or the app: `uv run python
+scripts/fetch_embedding_model.py` (to `.local/fieldlens/models`, gitignored). Without the model the
+service reports `degraded` (exact + full text) rather than hybrid. Opt-in checks (excluded by
+default): `uv run pytest backend/tests/retrieval/test_local_embedder.py -m local_embedder -s`
+(real model latency/RSS/similarity) and, with `FIELDLENS_LOCAL_DATA_ROOT` set, `uv run pytest
+backend/tests/retrieval/test_local_data_retrieval.py -m local_data -s` (real-subset chunking and
+exact-ID lookup, first-search latency, worst real-tokenizer wordpiece count).
+New dependency note: FastEmbed 0.9.1 (Apache-2.0) brings py-rust-stemmers 0.1.8, which has no
+license metadata field but ships a `LICENSE` file in the wheel (MIT, Copyright 2024 qdrant; verified
+in the installed package, not assumed). A vector-only hit is `strong` only above an uncalibrated floor (0.68) and a margin over the candidate median; otherwise the result is `weak_evidence` (0.68, 0.04, the 20% word-frequency rule and the 50-chunk threshold are all uncalibrated; see the spec status note). Numeric tables (production/trajectory series) are excluded
+from embedding by policy and stay exact/full-text searchable; coverage states it.
+
 Opt-in local-data check (skipped when unset; read-only, nothing is copied into the repo):
 
 ```bash

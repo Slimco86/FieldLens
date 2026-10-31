@@ -165,6 +165,42 @@ live marker only after allowance approval. Record model/index revisions,
 gold-case results and every failed/control case. No implementation result yet.
 Propose minor; orchestrator owns release metadata and final evaluation acceptance.
 
+FL-011-A status (TASK-011, candidate; independent QA pending): implemented in
+`backend/fieldlens/retrieval/` with migration 0007 and `GET .../retrieval/{search,coverage}`.
+Facts that refine this spec: Meta exposes no embeddings endpoint for our key (MI-6 probe 404),
+so embeddings are the pinned local FastEmbed `BAAI/bge-small-en-v1.5` int8 ONNX port
+(`Qdrant/bge-small-en-v1.5-onnx-Q@aa8f8b06`, MIT). Chunks target 400 estimated tokens with a
+hard cap of 480 (the spec's 800 is an upper bound; the model window is 512); the estimator was
+calibrated to WordPiece on the approved Volve subset only (mean ratio 0.99, max 1.09 there),
+so the opt-in embedder test re-checks real chunks. Wide record tables render one
+`key=value unit` per attribute with a repeated `units:` header. Exact identifiers treat
+`NO 15/9-F-12`, `15/9-F-12` and an unqualified `F-12` as one naming only when a single block
+carries that short form (two blocks, or a sidetrack suffix, never merge: explicit ambiguity);
+a document that maps to exactly one well also carries that well as a document-level identity
+so well+topic queries reach its topical chunks (a multi-well or unidentified document gets
+none). Exact identification is a scope (filter), not a ranking list. Lexical search fuses
+`simple` (identifiers/numbers as exact phrases) with `english` stemmed words. Owner decision
+October 31: numeric-dominated chunks (explicit kinds production/trajectory tables, or tables of
+at least 8 records with >=80% plain-number attributes) are excluded from embedding by policy
+and reported as a complete vector index with the exclusion stated, not as degraded; everything
+else is embedded completely, with a 3000-chunk safety cap that is reported as partial if ever
+hit. Relevance (what is actually guaranteed): each hit carries `support {exact, lexical, vector,
+strong}`. `strong` (and result status `ok`) requires an exact-ID-only query, a discriminative
+full-text match (a number/identifier phrase, or a non-schema word found in at most 20% of the
+scoped chunks; with fewer than 50 scoped chunks every word counts; a query whose words are all
+frequent or schema words has no lexical support and stays weak),
+or a vector hit that clears the floor (default 0.68) AND stands 0.04 above the median of the
+vector candidates. Vector-only results below that bar are returned with their similarity but
+flagged, and the result is `weak_evidence` (never cite them). The floor and margin are
+UNCALIBRATED, as are the 20% and 50-chunk thresholds: on the real int8 model off-topic text scores 0.50-0.63 and in-domain paraphrases
+about 0.6-0.8, so the guard separates noise from clear matches only roughly and needs the G1
+gold set. A short suffix after a well name that no source names (`F-12 Z`) is reported unmatched
+and never resolves to the parent well; a sidetrack's records do not carry the parent well key.
+Offline synthetic
+results prove mechanics only; RG-2 real-data recall and RG-6 remain unverified until the G1
+gold cases exist.
+
+
 ## Open Tensions
 
 Unavailable source facts remain unavailable; a score target cannot override that.

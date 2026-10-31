@@ -8,6 +8,24 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.17.0 - 2026-10-31
+
+- **TASK-011 (FL-011-A):** Added project- and source-scoped retrieval over the extracted source observations:
+  migration `0007_source_retrieval` (`retrieval_index`, `evidence_chunk` with stemmed and simple full-text vectors,
+  `chunk_identifier`, `chunk_embedding`); a deterministic chunker (`chunker-3`, target 400, hard cap 480 estimated
+  tokens; headers and units repeated, numbers never orphaned); exact-identifier resolution (well, wellbore and
+  sidetrack distinct, nonexistent suffixes reported as unmatched, ambiguity returned explicitly), PostgreSQL
+  full-text and exact-cosine pgvector search fused by RRF(60) with eligibility applied before ranking, at most 10 chunks
+  and 12,000 tokens; per-hit support flags and a `weak_evidence` status (relevance floor and margin uncalibrated);
+  `GET /api/v1/projects/{id}/retrieval/search` and `/retrieval/coverage`; a leased index runner on the job worker with
+  ANALYZE policy; local embeddings via pinned FastEmbed `bge-small-en-v1.5` (int8 ONNX, MIT) behind the explicit
+  hash-pinned `scripts/fetch_embedding_model.py`, with an explicit degraded mode (exact + full text) when unavailable;
+  numeric production/trajectory tables excluded from vectors by owner policy; `fastembed` dependency. Four independent
+  QA rounds (no cross-project leak at any point) found and fixed a 30-55 s cold first search, a 500 on NUL, mislabelled
+  modes, missing stemming, sidetrack/parent identity leaks and lone-frequent-word false strength. Offline tests only;
+  no real-data recall claim; follow-ups in TASK-045. Integration fix: a type annotation in the TASK-030 spike script
+  `scripts/spikes/ocr_common.py`, needed because the new embedding dependencies make Pillow's types visible to mypy.
+
 ## 0.16.3 - 2026-10-31
 
 - **TASK-030 phase A (FL-005-C):** Added the offline OCR/rendering/orientation evaluation for the scanned completion

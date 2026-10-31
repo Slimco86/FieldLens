@@ -43,7 +43,7 @@ def render(pv: str, page: int, dpi: int) -> Image.Image:
     out.parent.mkdir(parents=True, exist_ok=True)
     pdf = pdfium.PdfDocument(str(doc_path(pv)))
     try:
-        img = pdf[page - 1].render(scale=dpi / 72).to_pil().convert("RGB")
+        img: Image.Image = pdf[page - 1].render(scale=dpi / 72).to_pil().convert("RGB")
     finally:
         pdf.close()
     img.save(out)
