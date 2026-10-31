@@ -32,6 +32,7 @@ from fieldlens.profiles.types import (
     ProfileError,
     ProfileOutput,
 )
+from fieldlens.series.builder import purge_superseded, store_series
 
 logger = logging.getLogger(__name__)
 CHUNK = 500
@@ -656,6 +657,16 @@ class ExtractionRunner:
             ]
             for start in range(0, len(rows), CHUNK):
                 session.execute(insert(m.extracted_record), rows[start : start + CHUNK])
+            # Full-resolution series commit (or vanish) with the run: written only after the fenced
+            # finalization above and in this same transaction.
+            purge_superseded(session, claim.project_id, claim.document_id)
+            store_series(
+                session,
+                claim.project_id,
+                claim.run_id,
+                claim.document_id,
+                out.series if status in ("succeeded", "partial") else [],
+            )
             seen: set[str] = set()
             issues = []
             findings = list(out.findings)

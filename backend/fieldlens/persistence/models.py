@@ -647,3 +647,6 @@ agent_step = Table(
 # Retrieval index tables (TASK-011, migration 0007) register on this metadata after the tables
 # they reference are defined.
 from fieldlens.retrieval import tables as _retrieval_tables  # noqa: E402,F401
+
+# Series storage tables (TASK-047, migration 0008).
+from fieldlens.series import tables as _series_tables  # noqa: E402,F401

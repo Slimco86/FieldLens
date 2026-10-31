@@ -27,8 +27,8 @@ def downgrade(url: URL, revision: str) -> None:
         engine.dispose()
 
 
-def test_single_head_is_0007() -> None:
-    assert expected_head() == "0007_source_retrieval"
+def test_head_includes_0007() -> None:
+    assert expected_head() == "0008_series_storage"  # 0007 stays an ancestor
 
 
 def test_upgrade_from_0006_with_data_round_trips_and_enforces_scope(empty_database: URL) -> None:

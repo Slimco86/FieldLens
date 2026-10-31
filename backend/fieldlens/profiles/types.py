@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Any, Literal, Protocol
 from uuid import UUID
 
+import numpy as np
+from numpy.typing import NDArray
+
 ProfileStatus = Literal["succeeded", "partial", "failed"]
 Locator = dict[str, Any]
 
@@ -23,6 +26,9 @@ MAX_XLSX_MEMBER_BYTES = 256 * 1024 * 1024
 MAX_PDF_PAGES = 500
 MAX_TEXT_LINES = 2_000_000
 MAX_RECORDS = 400_000
+# Full-resolution series storage: a data block larger than this many index+value cells is not
+# stored (the per-curve summary still is) and the run is reported partial, never successful.
+MAX_SERIES_CELLS = 30_000_000
 
 
 class ProfileError(Exception):
@@ -133,12 +139,48 @@ class CoverageOut:
 
 
 @dataclass
+class CurveOut:
+    """One value array of a series axis. ``values`` is float64 with NaN for a missing sample
+    (source NULL sentinels and blank/NULL cells are already converted: never zero)."""
+
+    measure: str
+    column_ordinal: int
+    values: NDArray[np.float64]
+    unit: str | None
+    unit_status: Literal["stated", "missing", "mixed"]
+    description: str | None
+    null_sentinel: float | None
+    record_ordinal: int | None
+    evidence: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class AxisOut:
+    """Full-resolution samples of one data block, handed to the runner beside ``records`` so
+    ``extracted_record`` is not bloated. ``index`` is float64 (production: epoch days) and
+    ``positions`` the source data line (LAS) or sheet row of each sample."""
+
+    kind: Literal["log", "production"]
+    index_type: Literal["depth", "time", "unknown"]
+    index_encoding: Literal["numeric", "epoch_days"]
+    index_name: str
+    index_unit: str | None
+    index: NDArray[np.float64]
+    positions: NDArray[np.int32]
+    position_kind: Literal["line", "row"]
+    subject: dict[str, Any]
+    curves: list[CurveOut] = field(default_factory=list)
+    evidence: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class ProfileOutput:
     records: list[Rec]
     findings: list[Finding]
     coverage: CoverageOut
     status: ProfileStatus = "succeeded"
     detail: dict[str, Any] = field(default_factory=dict)
+    series: list[AxisOut] = field(default_factory=list)
 
 
 class Profile(Protocol):
