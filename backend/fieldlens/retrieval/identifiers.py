@@ -12,7 +12,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from .text import norm_identifier
+from fieldlens.identity.labels import (  # shared with identity resolution
+    COUNTRY as _COUNTRY,
+)
+from fieldlens.identity.labels import (
+    aliases,
+    has_suffix,
+    norm_identifier,
+    unqualified,
+)
 
 _SUBJECT_KINDS = {
     "well_key": "well",
@@ -26,11 +34,6 @@ _ATTR_KEY = re.compile(
     r"(^|[._])(model|model_number|part_number|part_no|serial|serial_number|catalog_number|"
     r"item_number|uid|uwi|name|label|id|well|well_name|wellbore|wellbore_name|well_key)$"
 )
-_SIDETRACK = re.compile(r"^(?:\d{1,2}/\d{1,2}-)?[a-z]{1,2}-?\d{1,3}\s+\S")
-# A short bore suffix typed after a well identifier: "F-12 A", "F-14 T2", "F-5 ST1".
-SUFFIX_TOKEN = re.compile(r"^(?:[A-Z]\d{0,2}|(?i:t|st)\d{1,2})$")
-_COUNTRY = re.compile(r"^(no|nor|norway)\s+")
-_BLOCK = re.compile(r"^(\d{1,2}/\d{1,2})-(.+)$")
 MAX_IDENTIFIER_CHARS = 80
 MAX_IDENTIFIERS_PER_CHUNK = 200
 
@@ -40,31 +43,6 @@ class IdentifierRow:
     identifier: str  # normalized lookup form (label or alias)
     canonical: str  # normalized full label; aliases point at it
     id_kind: str
-
-
-def aliases(label: str) -> list[str]:
-    """Normalized label plus its block-stripped / country-stripped forms (never a parent)."""
-    full = norm_identifier(label)
-    out = [full]
-    stripped = _COUNTRY.sub("", full)
-    if stripped != full:
-        out.append(stripped)
-    block = _BLOCK.match(stripped)
-    if block:
-        out.append(block.group(2))
-    return list(dict.fromkeys(out))
-
-
-def unqualified(canonical: str) -> str | None:
-    """``15/9-f-12`` -> ``f-12`` (None when the label carries no block prefix)."""
-    match = _BLOCK.match(_COUNTRY.sub("", canonical))
-    return match.group(2) if match else None
-
-
-def has_suffix(label: str) -> bool:
-    """True for a bore label with a suffix after the well name (``15/9-F-12 A``, ``F-1 C``):
-    a distinct wellbore, never the parent well."""
-    return bool(_SIDETRACK.match(_COUNTRY.sub("", norm_identifier(label))))
 
 
 def _rows(label: str, kind: str) -> list[IdentifierRow]:

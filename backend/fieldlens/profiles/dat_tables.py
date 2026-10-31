@@ -88,6 +88,35 @@ def sniff_dat_kind(path: Path) -> str | None:
     return None
 
 
+# Depth attributes whose unit is not documented by the Volve tables. Owner decision (October 31):
+# default to meters, a warning rather than a blocker; a unit the source states always wins (these
+# tables state none). TWT is a time, dip/azimuth are angles, easting/northing are coordinates:
+# none of those is defaulted.
+DEFAULTED_DEPTH_KEYS = frozenset(
+    {
+        "perforation.top_md",
+        "perforation.base_md",
+        "perforation.top_tvd",
+        "perforation.base_tvd",
+        "perforation.top_tvdss",
+        "perforation.base_tvdss",
+        "pick.md",
+        "pick.tvd",
+        "pick.tvdss",
+    }
+)
+MAX_DEFAULT_LOCATORS = 5
+
+
+def _is_defaulted(a: Attr) -> bool:
+    return (
+        a.key in DEFAULTED_DEPTH_KEYS
+        and a.unit is None
+        and a.normalized_unit == "m"
+        and a.validation_state == "unreviewed"
+    )
+
+
 def _missing_depth_findings(
     findings: list[Finding], recs: list[Rec], attr_prefix: str, reference_note: str, easting: bool
 ) -> None:
@@ -95,19 +124,57 @@ def _missing_depth_findings(
         return
     idx = list(range(min(len(recs), 50)))
     keys = [f"{attr_prefix}.top_md" if attr_prefix == "perforation" else f"{attr_prefix}.md"]
-    findings.append(
-        Finding(
-            MISSING_UNIT,
-            "warning",
-            "the table states no unit for depth values; they are kept as written and not "
-            "normalized.",
-            f"{attr_prefix}_units_missing",
-            keys,
-            idx,
-            [recs[0].locator],
-            ["calculation", "placement"],
-        )
+    used: list[tuple[int, Attr]] = [
+        (r.ordinal, a) for r in recs for a in r.attrs if _is_defaulted(a)
+    ]
+    skipped = sum(
+        1
+        for r in recs
+        for a in r.attrs
+        if a.key in DEFAULTED_DEPTH_KEYS
+        and a.number is not None
+        and a.unit is None
+        and not _is_defaulted(a)
     )
+    if used:
+        by_key: dict[str, int] = {}
+        for _, a in used:
+            by_key[a.key] = by_key.get(a.key, 0) + 1
+        detail = ", ".join(f"{k}={n}" for k, n in sorted(by_key.items()))
+        findings.append(
+            Finding(
+                MISSING_UNIT,
+                "warning",
+                "the table states no unit for depth values; assumed meters (measured depth; "
+                f"depth reference unspecified) by default for {len(used)} attribute(s) in "
+                f"{len({o for o, _ in used})} record(s) ({detail})"
+                + (
+                    f"; {skipped} further value(s) stay unsupported (flagged by the source)"
+                    if skipped
+                    else ""
+                )
+                + ". A unit stated by a source always overrides this default; original text "
+                "is kept.",
+                f"{attr_prefix}_units_missing",
+                keys,
+                idx,
+                [a.locator for _, a in used[:MAX_DEFAULT_LOCATORS]],
+                [],
+            )
+        )
+    elif skipped:
+        findings.append(
+            Finding(
+                MISSING_UNIT,
+                "warning",
+                f"the table states no unit for depth values; {skipped} value(s) stay unsupported.",
+                f"{attr_prefix}_units_missing",
+                keys,
+                idx,
+                [recs[0].locator],
+                ["calculation", "placement"],
+            )
+        )
     findings.append(
         Finding(
             MISSING_REFERENCE,
@@ -129,12 +196,17 @@ def _depth_attr(key: str, line: int, column: str, text: str | None, reference: s
     a = quantity_attr(key, _loc(line, column), text or None, None, reference=reference)
     if not text:
         a.unknown_reason = "blank in source"
+    if key in DEFAULTED_DEPTH_KEYS and a.number is not None:
+        # Unit not documented: default to meters, keep the original text, flag via reference.
+        a.normalized_number, a.normalized_unit = a.number, "m"
+        a.validation_state = "unreviewed"
+        a.reference = f"assumed {reference} (default)" if reference else "assumed (default)"
     return a
 
 
 class PerforationTableProfile:
     name = "dat_perforations_volve"
-    version = "1"
+    version = "2"  # 2: undocumented depth unit defaults to meters (MD), warned (TASK-046)
     method = "native_text_fixed_width"
     families = ("csv", "text")
 
@@ -347,7 +419,7 @@ class PerforationTableProfile:
 
 class PickTableProfile:
     name = "dat_well_picks_volve"
-    version = "1"
+    version = "2"  # 2: undocumented depth unit defaults to meters (MD), warned (TASK-046)
     method = "native_text_fixed_width"
     families = ("csv", "text")
 
@@ -448,6 +520,7 @@ class PickTableProfile:
                     for a in attrs:
                         if a.key in ("pick.md", "pick.tvd", "pick.tvdss"):
                             a.validation_state = "unsupported"
+                            a.normalized_number = a.normalized_unit = None  # not a usable top
             if block and well != block:
                 id_mismatch.append(rec.ordinal)
             md, tvd = parse_number(v.get("MD")), parse_number(v.get("TVD"))

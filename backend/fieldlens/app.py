@@ -25,6 +25,7 @@ from fieldlens.contracts.registry import export_component_schemas
 from fieldlens.contracts.system import HealthResponse, ReadinessResponse, SessionResponse
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.extraction import build_extraction_router
+from fieldlens.identity.routes import build_identity_router
 from fieldlens.ingestion import build_ingestion_router
 from fieldlens.jobs import JobWorker, build_jobs_router
 from fieldlens.persistence.readiness import evaluate_readiness
@@ -260,6 +261,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_extraction_router())
     app.include_router(build_activity_router())
     app.include_router(build_retrieval_router())
+    app.include_router(build_identity_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:

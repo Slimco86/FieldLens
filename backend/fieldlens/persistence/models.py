@@ -207,8 +207,11 @@ well = Table(
     _uuid_pk("well_id"),
     Column("project_id", UUID(as_uuid=True), ForeignKey("project.project_id"), nullable=False),
     Column("name", Text, nullable=False),
+    # Deterministic identity (migration 0008): canonical block-qualified key, e.g. "15/9-F-12".
+    Column("well_key", Text, nullable=True),
     UniqueConstraint("project_id", "well_id", name="uq_well_project_scope"),
     CheckConstraint("char_length(name) >= 1", name="name_nonempty"),
+    Index("uq_well_project_key", "project_id", "well_key", unique=True),
 )
 
 wellbore = Table(
@@ -219,6 +222,9 @@ wellbore = Table(
     Column("well_id", UUID(as_uuid=True), nullable=False),
     Column("parent_wellbore_id", UUID(as_uuid=True), nullable=True),
     Column("name", Text, nullable=False),
+    # Deterministic identity (migration 0008): canonical key "15/9-F-12" / "15/9-F-12 B".
+    Column("wellbore_key", Text, nullable=True),
+    Column("suffix", Text, nullable=True),
     UniqueConstraint("project_id", "wellbore_id", name="uq_wellbore_project_scope"),
     ForeignKeyConstraint(
         ["project_id", "well_id"],
@@ -232,6 +238,7 @@ wellbore = Table(
     ),
     CheckConstraint("char_length(name) >= 1", name="name_nonempty"),
     CheckConstraint("parent_wellbore_id IS DISTINCT FROM wellbore_id", name="not_own_parent"),
+    Index("uq_wellbore_project_key", "project_id", "wellbore_key", unique=True),
 )
 
 
@@ -646,4 +653,5 @@ agent_step = Table(
 
 # Retrieval index tables (TASK-011, migration 0007) register on this metadata after the tables
 # they reference are defined.
+from fieldlens.identity import tables as _identity_tables  # noqa: E402,F401
 from fieldlens.retrieval import tables as _retrieval_tables  # noqa: E402,F401

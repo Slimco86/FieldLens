@@ -57,19 +57,18 @@ from fieldlens.contracts.retrieval import (
     SearchStatus,
     SourceCoverage,
 )
+from fieldlens.identity.labels import SUFFIX_TOKEN, unqualified
 from fieldlens.persistence.session import session_scope
 
 from .chunker import CHUNKER_VERSION
 from .embedder import EmbedderProvider, EmbedderUnavailable
 from .health import IndexHealth
 from .identifiers import (
-    SUFFIX_TOKEN,
     Candidate,
     id_shaped_tokens,
     query_candidates,
     query_tokens,
     query_uuids,
-    unqualified,
 )
 from .indexer import vector_literal
 from .text import norm_identifier, search_text

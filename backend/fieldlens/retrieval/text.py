@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from fieldlens.identity.labels import norm_identifier as norm_identifier  # shared rule
+
 _TOKEN = re.compile(r"[^\W\d_]+|\d+|[^\s\w]|_")
 _NON_ALNUM = re.compile(r"[\W_]+", re.UNICODE)
 _SPACES = re.compile(r"\s+")
@@ -38,9 +40,3 @@ def search_text(text: str) -> str:
     return _SPACES.sub(
         " ", _NON_ALNUM.sub(" ", unicodedata.normalize("NFKC", text).lower())
     ).strip()
-
-
-def norm_identifier(value: str) -> str:
-    """Identifier normalization for exact lookup: lowercase, trimmed, single spaces. Punctuation
-    (``/``, ``-``, ``.``) is preserved because it is part of the identifier."""
-    return _SPACES.sub(" ", unicodedata.normalize("NFKC", value)).strip().lower()

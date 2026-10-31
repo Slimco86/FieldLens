@@ -113,8 +113,9 @@ def describe_wellbores(records: list[Any]) -> tuple[list[dict[str, Any]], list[s
         )
     if any("perforation_interval" in i["record_kinds"] for i in identities):
         notes.append(
-            "Completion data here is perforation intervals only; their depths are unsupported "
-            "(the table states no unit or depth reference)."
+            "Completion data here is perforation intervals only; their depths carry no stated "
+            "unit or depth reference and are used as meters (default, flagged by a MISSING_UNIT "
+            "warning)."
         )
     for i in identities:
         kinds = set(i["record_kinds"])
@@ -702,6 +703,18 @@ class ExtractionRunner:
                 else ("extracted_with_issues" if (has_issue or partial) else "extracted")
             )
             self._set_state(session, claim, state, None)
+        self._resolve_identity(claim.project_id)
+
+    def _resolve_identity(self, project_id: UUID) -> None:
+        """Post-extraction identity resolution for the project. Best effort: the run is already
+        final, a failure here is logged and repaired by the explicit resolve endpoint."""
+        from fieldlens.identity.resolver import resolve_project
+
+        try:
+            with session_scope(self._factory) as session:
+                resolve_project(session, project_id)
+        except Exception as exc:
+            logger.error("identity resolution failed for %s: %s", project_id, type(exc).__name__)
 
 
 def _time(t: Any) -> dict[str, Any] | None:

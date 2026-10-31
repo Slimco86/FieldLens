@@ -156,6 +156,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Listing */
+        get: operations["get_listing_api_v1_projects__project_id__identity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/identity/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve */
+        post: operations["resolve_api_v1_projects__project_id__identity_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/identity/wellbores/{wellbore_id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Evidence */
+        get: operations["get_evidence_api_v1_projects__project_id__identity_wellbores__wellbore_id__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/imports": {
         parameters: {
             query?: never;
@@ -1424,6 +1475,57 @@ export interface components {
             /** Identifier */
             identifier: string;
         };
+        /** IdentityKindCount */
+        IdentityKindCount: {
+            /** Kind */
+            kind: string;
+            /** Records */
+            records: number;
+        };
+        /** IdentityListing */
+        IdentityListing: {
+            /** Linked Record Count */
+            linked_record_count: number;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Resolved Current
+             * @description True when the stored rows match what the current extraction output resolves to (false: run POST resolve).
+             */
+            resolved_current: boolean;
+            /** Resolver Version */
+            resolver_version: string;
+            /** Unresolved */
+            unresolved: components["schemas"]["UnresolvedIdentityGroup"][];
+            /** Unresolved Record Count */
+            unresolved_record_count: number;
+            /** Wells */
+            wells: components["schemas"]["ResolvedWell"][];
+        };
+        /** IdentityResolveOutcome */
+        IdentityResolveOutcome: {
+            /**
+             * Identity Findings
+             * @description IDENTITY_MISMATCH findings written.
+             */
+            identity_findings: number;
+            /** Linked Records */
+            linked_records: number;
+            /**
+             * Range Findings
+             * @description SUSPICIOUS_VALUE depth-range findings.
+             */
+            range_findings: number;
+            /** Unresolved Records */
+            unresolved_records: number;
+            /** Wellbores */
+            wellbores: number;
+            /** Wells */
+            wells: number;
+        };
         /**
          * ImportAccepted
          * @description HTTP 202 for a new import; 200 when the request was a replay or all-duplicate no-op.
@@ -2046,6 +2148,66 @@ export interface components {
          * @enum {string}
          */
         RequeueOutcome: "queued" | "unchanged";
+        /** ResolvedWell */
+        ResolvedWell: {
+            /** Document Count */
+            document_count: number;
+            /**
+             * Name
+             * @description Canonical block-qualified name, e.g. '15/9-F-11'.
+             */
+            name: string;
+            /** Record Count */
+            record_count: number;
+            /**
+             * Well Id
+             * Format: uuid
+             */
+            well_id: string;
+            /** Wellbores */
+            wellbores: components["schemas"]["ResolvedWellbore"][];
+        };
+        /** ResolvedWellbore */
+        ResolvedWellbore: {
+            /** Document Count */
+            document_count: number;
+            /**
+             * Name
+             * @description Canonical name, e.g. '15/9-F-11 B'.
+             */
+            name: string;
+            /**
+             * Parent Basis
+             * @description Why the parent link exists: the suffix of the base name.
+             * @default null
+             */
+            parent_basis: "name_suffix" | null;
+            /**
+             * Parent Wellbore Id
+             * @default null
+             */
+            parent_wellbore_id: string | null;
+            /** Record Count */
+            record_count: number;
+            /** Record Counts */
+            record_counts?: components["schemas"]["IdentityKindCount"][];
+            /**
+             * Suffix
+             * @description None for the well's base wellbore.
+             * @default null
+             */
+            suffix: string | null;
+            /**
+             * Well Id
+             * Format: uuid
+             */
+            well_id: string;
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+        };
         /**
          * RetrievalMode
          * @enum {string}
@@ -2411,6 +2573,25 @@ export interface components {
          * @enum {string}
          */
         UnitStatus: "stated" | "not_applicable" | "missing";
+        /** UnresolvedIdentityGroup */
+        UnresolvedIdentityGroup: {
+            /** Detail */
+            detail: string;
+            /** Document Count */
+            document_count: number;
+            /**
+             * Labels
+             * @description Distinct source labels (bounded).
+             */
+            labels: string[];
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "not_a_well" | "unqualified_label" | "ambiguous";
+            /** Record Count */
+            record_count: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -2471,6 +2652,52 @@ export interface components {
              * Format: uuid
              */
             wellbore_id: string;
+        };
+        /** WellboreEvidence */
+        WellboreEvidence: {
+            /** Documents */
+            documents: components["schemas"]["WellboreEvidenceDocument"][];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            wellbore: components["schemas"]["ResolvedWellbore"];
+        };
+        /** WellboreEvidenceDocument */
+        WellboreEvidenceDocument: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** First Record Locator */
+            first_record_locator: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** First Record Ordinal */
+            first_record_ordinal: number;
+            /**
+             * Profile Name
+             * @default null
+             */
+            profile_name: string | null;
+            /**
+             * Profile Version
+             * @default null
+             */
+            profile_version: string | null;
+            /** Record Count */
+            record_count: number;
+            /** Record Counts */
+            record_counts: components["schemas"]["IdentityKindCount"][];
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
         };
         /**
          * WellboreIdentity
@@ -3226,6 +3453,154 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExtractedRecordPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_listing_api_v1_projects__project_id__identity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityListing"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    resolve_api_v1_projects__project_id__identity_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResolveOutcome"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_evidence_api_v1_projects__project_id__identity_wellbores__wellbore_id__evidence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                wellbore_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WellboreEvidence"];
                 };
             };
             /** @description Not Found */
