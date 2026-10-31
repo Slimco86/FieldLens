@@ -21,6 +21,7 @@ from sqlalchemy import (
     Index,
     Integer,
     MetaData,
+    Numeric,
     String,
     Table,
     Text,
@@ -540,4 +541,105 @@ extraction_issue = Table(
         ondelete="CASCADE",
     ),
     UniqueConstraint("run_id", "producer_key", name="uq_extraction_issue_run_key"),
+)
+
+# --- Agent activity log (migration 0006_agent_activity_log; AX-10, display/audit only) ----------
+
+AGENT_UNIT_STATES = ("running", "succeeded", "failed", "interrupted", "cancelled")
+AGENT_STEP_KINDS = ("tool_call", "candidate", "validator", "model_turn", "lifecycle", "note")
+AGENT_STEP_OUTCOMES = ("ok", "refused", "error", "passed", "failed", "flagged")
+
+
+def _in(column: str, values: tuple[str, ...]) -> str:
+    return f"{column} IN ({', '.join(repr(v) for v in values)})"
+
+
+agent_work_unit = Table(
+    "agent_work_unit",
+    metadata,
+    _uuid_pk("unit_id"),
+    Column("project_id", UUID(as_uuid=True), ForeignKey("project.project_id"), nullable=False),
+    Column("source_revision_id", UUID(as_uuid=True), nullable=False),
+    Column("unit_key", String(200), nullable=False),
+    Column("question", Text, nullable=False),
+    Column("state", String(16), nullable=False, server_default=text("'running'")),
+    Column("stop_reason", String(64), nullable=True),
+    Column("stop_detail", String(600), nullable=True),
+    Column("fence_counter", Integer, nullable=False, server_default=text("1")),
+    Column("attempt_count", Integer, nullable=False, server_default=text("1")),
+    Column("step_count", Integer, nullable=False, server_default=text("0")),
+    Column("tool_call_count", Integer, nullable=False, server_default=text("0")),
+    Column("candidate_count", Integer, nullable=False, server_default=text("0")),
+    Column("input_tokens", BigInteger, nullable=False, server_default=text("0")),
+    Column("cached_input_tokens", BigInteger, nullable=False, server_default=text("0")),
+    Column("output_tokens", BigInteger, nullable=False, server_default=text("0")),
+    Column("cost_usd", Numeric(14, 6), nullable=False, server_default=text("0")),
+    _created_at(),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    Column("finished_at", DateTime(timezone=True), nullable=True),
+    ForeignKeyConstraint(
+        ["project_id", "source_revision_id"],
+        ["source_revision.project_id", "source_revision.source_revision_id"],
+        name="fk_agent_work_unit_revision_scope",
+    ),
+    UniqueConstraint("project_id", "unit_id", name="uq_agent_work_unit_project_scope"),
+    UniqueConstraint("project_id", "unit_key", name="uq_agent_work_unit_key"),
+    CheckConstraint(_in("state", AGENT_UNIT_STATES), name="state_known"),
+    CheckConstraint(
+        "(state = 'running' AND stop_reason IS NULL AND finished_at IS NULL) "
+        "OR (state <> 'running' AND stop_reason IS NOT NULL AND finished_at IS NOT NULL)",
+        name="terminal_has_stop_reason",
+    ),
+    CheckConstraint("char_length(question) BETWEEN 1 AND 2200", name="question_bounded"),
+    CheckConstraint(
+        "fence_counter >= 1 AND attempt_count >= 1 AND step_count BETWEEN 0 AND 200 "
+        "AND tool_call_count >= 0 AND candidate_count >= 0 AND input_tokens >= 0 "
+        "AND cached_input_tokens >= 0 AND output_tokens >= 0 AND cost_usd >= 0",
+        name="counters_bounded",
+    ),
+    Index(
+        "ix_agent_work_unit_project_recent",
+        "project_id",
+        text("created_at DESC"),
+        text("unit_id DESC"),
+    ),
+    Index("ix_agent_work_unit_project_revision_state", "project_id", "source_revision_id", "state"),
+)
+
+agent_step = Table(
+    "agent_step",
+    metadata,
+    _uuid_pk("step_id"),
+    Column("project_id", UUID(as_uuid=True), nullable=False),
+    Column("unit_id", UUID(as_uuid=True), nullable=False),
+    Column("step_no", Integer, nullable=False),
+    Column("step_key", String(120), nullable=False),
+    Column("kind", String(16), nullable=False),
+    Column("outcome", String(16), nullable=True),
+    Column("tool_name", String(64), nullable=True),
+    Column("summary", Text, nullable=False),
+    Column("detail", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("evidence", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("truncated", Boolean, nullable=False, server_default=text("false")),
+    _created_at(),
+    ForeignKeyConstraint(
+        ["project_id", "unit_id"],
+        ["agent_work_unit.project_id", "agent_work_unit.unit_id"],
+        name="fk_agent_step_unit_scope",
+        ondelete="CASCADE",
+    ),
+    UniqueConstraint("unit_id", "step_no", name="uq_agent_step_unit_no"),
+    UniqueConstraint("unit_id", "step_key", name="uq_agent_step_unit_key"),
+    CheckConstraint(_in("kind", AGENT_STEP_KINDS), name="kind_known"),
+    CheckConstraint(
+        f"outcome IS NULL OR {_in('outcome', AGENT_STEP_OUTCOMES)}", name="outcome_known"
+    ),
+    CheckConstraint("step_no >= 1", name="no_positive"),
+    CheckConstraint("char_length(summary) BETWEEN 1 AND 1200", name="summary_bounded"),
+    CheckConstraint(
+        "octet_length(detail::text) <= 12288 AND octet_length(evidence::text) <= 12288 "
+        "AND jsonb_typeof(detail) = 'object' AND jsonb_typeof(evidence) = 'array'",
+        name="payload_bounded",
+    ),
+    CheckConstraint("kind <> 'tool_call' OR tool_name IS NOT NULL", name="tool_named"),
 )

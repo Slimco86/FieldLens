@@ -18,12 +18,34 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 
-from . import context, errors, evidence, extraction, identity, imports, projects, quality, system
+from . import (
+    activity,
+    context,
+    errors,
+    evidence,
+    extraction,
+    identity,
+    imports,
+    projects,
+    quality,
+    system,
+)
 from .base import ContractModel
 
 REF_TEMPLATE = "#/components/schemas/{model}"
 
-_MODULES = (identity, evidence, context, quality, errors, system, projects, imports, extraction)
+_MODULES = (
+    identity,
+    evidence,
+    context,
+    quality,
+    errors,
+    system,
+    projects,
+    imports,
+    extraction,
+    activity,
+)
 
 
 def public_models() -> list[type[BaseModel]]:

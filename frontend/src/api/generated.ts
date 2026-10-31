@@ -53,6 +53,40 @@ export interface paths {
         patch: operations["update_project_api_v1_projects__project_id__patch"];
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/agent-units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Units */
+        get: operations["list_units_api_v1_projects__project_id__agent_units_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/agent-units/{unit_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Unit */
+        get: operations["get_unit_api_v1_projects__project_id__agent_units__unit_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/documents": {
         parameters: {
             query?: never;
@@ -262,6 +296,177 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AgentStep */
+        AgentStep: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Detail
+             * @description Bounded, redacted structured summary.
+             */
+            detail?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Evidence
+             * @description Source locations the step cites.
+             */
+            evidence?: components["schemas"]["EvidenceLink"][];
+            kind: components["schemas"]["AgentStepKind"];
+            /** @default null */
+            outcome: components["schemas"]["AgentStepOutcome"] | null;
+            /**
+             * Step Id
+             * Format: uuid
+             */
+            step_id: string;
+            /**
+             * Step No
+             * @description Gapless order within the unit, starting at 1.
+             */
+            step_no: number;
+            /**
+             * Summary
+             * @description Bounded, redacted summary; never hidden reasoning.
+             */
+            summary: string;
+            /**
+             * Tool Name
+             * @default null
+             */
+            tool_name: string | null;
+            /**
+             * Truncated
+             * @description True when any text or payload was shortened or dropped.
+             */
+            truncated: boolean;
+        };
+        /**
+         * AgentStepKind
+         * @enum {string}
+         */
+        AgentStepKind: "tool_call" | "candidate" | "validator" | "model_turn" | "lifecycle" | "note";
+        /**
+         * AgentStepOutcome
+         * @enum {string}
+         */
+        AgentStepOutcome: "ok" | "refused" | "error" | "passed" | "failed" | "flagged";
+        /** AgentUnitDetail */
+        AgentUnitDetail: {
+            /** Steps */
+            steps: components["schemas"]["AgentStep"][];
+            unit: components["schemas"]["AgentUnitSummary"];
+        };
+        /** AgentUnitPage */
+        AgentUnitPage: {
+            /** Items */
+            items: components["schemas"]["AgentUnitSummary"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * AgentUnitQuery
+         * @description Listing filters; the project comes from the path.
+         */
+        AgentUnitQuery: {
+            /**
+             * Cursor
+             * @default null
+             */
+            cursor: string | null;
+            /**
+             * Limit
+             * @default 50
+             */
+            limit: number;
+            /**
+             * Source Revision Id
+             * @default null
+             */
+            source_revision_id: string | null;
+            /** @default null */
+            state: components["schemas"]["AgentUnitState"] | null;
+        };
+        /**
+         * AgentUnitState
+         * @description Only ``succeeded`` is a success; everything else is visibly not successful.
+         * @enum {string}
+         */
+        AgentUnitState: "running" | "succeeded" | "failed" | "interrupted" | "cancelled";
+        /** AgentUnitSummary */
+        AgentUnitSummary: {
+            /** Attempt Count */
+            attempt_count: number;
+            /** Candidate Count */
+            candidate_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Question */
+            question: string;
+            /**
+             * Source Revision Id
+             * Format: uuid
+             */
+            source_revision_id: string;
+            state: components["schemas"]["AgentUnitState"];
+            /** Step Count */
+            step_count: number;
+            /**
+             * Stop Detail
+             * @default null
+             */
+            stop_detail: string | null;
+            /**
+             * Stop Reason
+             * @description Set for every state except running.
+             * @default null
+             */
+            stop_reason: string | null;
+            /** Tool Call Count */
+            tool_call_count: number;
+            /**
+             * Unit Id
+             * Format: uuid
+             */
+            unit_id: string;
+            /** Unit Key */
+            unit_key: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            usage: components["schemas"]["AgentUsage"];
+        };
+        /**
+         * AgentUsage
+         * @description Accumulated provider usage for the unit; cost is an estimate in USD.
+         */
+        AgentUsage: {
+            /** Cached Input Tokens */
+            cached_input_tokens: number;
+            /** Cost Usd */
+            cost_usd: string;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+        };
         /**
          * AsOf
          * @description Discriminated historical query time.
@@ -2180,6 +2385,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_units_api_v1_projects__project_id__agent_units_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+                source_revision_id?: string | null;
+                state?: components["schemas"]["AgentUnitState"] | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentUnitPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_unit_api_v1_projects__project_id__agent_units__unit_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentUnitDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */
