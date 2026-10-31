@@ -1400,21 +1400,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | ingestion, data |
 | Depends on | TASK-009 |
 | Assignee | agent:fieldlens-ingestion |
-| Due | 2026-11-01 |
+| Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/INGESTION.md |
-| Version | none |
+| Version | 0.16.2 |
 | Parent | FL-005 |
 | Slice | FL-005-D |
 
 **Outcome.** A bounded, read-only, offline investigation (no model calls, no spend) of the deferred 211 MB EDM export (PV-24) and any other already-present structured source for deterministic completion/production equipment (tubing, casing/liners in service, packers, pumps, bearings, depths) and perforation history for F-12, F-14 and F-5, with exact locators; recommends a streaming profile if worthwhile. Owner decision October 31: if nothing is found it is fine, and generic 3D assets cover missing equipment as long as the rest of that wellbore's data exists.
-**Next action.** Dispatched October 31 on branch `feature/task-044-edm-completion-check`, worktree `/home/slimco/code/FieldLens-worktrees/task-044-edm-completion-check`; investigation first, a profile only if justified and owner-approved; independent QA follows.
-**Evidence.** none yet
+**Next action.** None. Completion/production equipment for F-14 and F-5 comes from the scanned completion documents (TASK-030 OCR layer, then TASK-041); F-12 uses generic assets per the owner policy. Optional low-value EDM uses (identity cross-checks, labelled casing/liner design context) only after units are confirmed.
+**Evidence.** Offline deterministic check October 31 of the 211 MB EDM export (PV-24; streamed in about 5 s, about 38 MB peak RSS, no model calls, no spend): a drilling/well-planning database (142 element types, 21 wells, 54 wellbores) with no installed/as-built/dated completion or perforation history for F-12, F-14 or F-5, no units and no assembly-level datum (scenario and case datum links disagree: 177.165 versus 180.118); only design-variant tubing/liner/packer for F-14 A (packer depth 8350.07 versus StressCheck PackerDepth 8678.15, a source conflict). A streaming EDM profile is not worthwhile for completion or perforation history. Integrated as 0.16.2 (branch `feature/task-044-edm-completion-check`, head `2c681d4`; scripts and evidence only). Independent QA returned the first candidate (minor factual errors) and re-verified the repair; the final wording-only commit was reviewed by the orchestrator, not re-QA'd.
 
 ## Journal
 

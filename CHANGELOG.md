@@ -8,6 +8,17 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.16.2 - 2026-10-31
+
+- **TASK-044 (FL-005-D):** Added the offline check of the deferred 211 MB EDM export (PV-24) for production/completion
+  equipment and perforation history: streaming spike scripts in `scripts/spikes/` (reusing the hardened XML parser,
+  about 5 s and 38 MB for a full census) and `docs/evidence/TASK044_EDM_COMPLETION_CHECK.md`. Finding: the export is a
+  drilling/planning database with no installed completion, perforation or dated history for F-12, F-14 or F-5, no
+  units, and conflicting scenario/case datum elevations (177.165 versus 180.118); only F-14 A has design-variant
+  tubing, liner and packer data (design packer depth conflicts: 8350.07 versus 8678.15). A streaming EDM profile is not
+  recommended for this purpose. No product code changed; the final wording-only evidence commit was reviewed by the
+  orchestrator and not re-QA'd.
+
 ## 0.16.1 - 2026-10-31
 
 - **TASK-042 (FL-022-E):** Added the live feasibility spike of model reading of the seven approved completion
