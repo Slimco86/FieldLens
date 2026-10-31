@@ -1337,7 +1337,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, rag, data |
 | Depends on | TASK-005, TASK-009, TASK-043 |
@@ -1350,7 +1350,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-E |
 
 **Outcome.** A bounded, read-only experiment (no product code, no persistence) that sends page images and text of the seven local completion documents (PV-11..14, 17, 18, 21 for F-12, F-14 and F-5) to the model through the TASK-004 adapter and records, against a human reading of the same pages, which production/completion equipment (tubing, casing/liners, packers, pumps, bearings, depths, dimensions) it finds, cost per page, failure modes and what the validators would reject. The result decides the TASK-041 approach before any build.
-**Next action.** Owner approved on October 31: allowance USD 3 inside the USD 150 total (per-document selection and page caps still required in the brief) and sending the seven completion PDFs to the provider (all documents are shareable, per the October 30 decision). Dispatch after TASK-043 (reasoning-effort control and a safe token estimate) is integrated, because at the default `high` effort reasoning tokens consumed the output budget on a 680x280 image; independent QA follows. The brief must cap pages and spend and measure page-size image tokens.
+**Next action.** Dispatched October 31 (TASK-005 and TASK-043 integrated) on branch `feature/task-042-completion-spike`, worktree `/home/slimco/code/FieldLens-worktrees/task-042-completion-spike`. Owner-approved: USD 3 allowance (enforced at the conservative placeholder rates, about six times the real cost) and sending the seven completion PDFs to the provider. Page rendering uses `uv run --with pypdfium2 --with pillow` for the spike only (no lockfile change); a production rendering decision belongs to TASK-030/TASK-041. Independent QA follows.
 **Evidence.** none yet
 
 ### TASK-041 · Production/completion equipment candidates from completion documents
