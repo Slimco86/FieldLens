@@ -49,13 +49,13 @@ def _paths() -> list[str]:
     return out
 
 
-def _parse(rel: str) -> ProfileOutput:
+def _parse(rel: str) -> tuple[ProfileOutput, str]:
     path = ROOT / rel
     family = inspect_file(
         path, path.name, max_file_bytes=2 * 1024**3, remaining_batch_bytes=2 * 1024**3
     ).format_family
     profile = registry.detect(path, family, path.name)[0]
-    return profile.parse(path, ParseContext(uuid4(), uuid4(), "0" * 64, path.name))
+    return profile.parse(path, ParseContext(uuid4(), uuid4(), "0" * 64, path.name)), profile.name
 
 
 def test_real_subset_identity_and_depth_defaults(world: World) -> None:
@@ -63,7 +63,7 @@ def test_real_subset_identity_and_depth_defaults(world: World) -> None:
     defaulted = Counter[str]()
     warnings: dict[str, int] = {}
     for rel in _paths():
-        out = _parse(rel)
+        out, profile_name = _parse(rel)
         n_default = sum(
             1
             for r in out.records
@@ -87,7 +87,12 @@ def test_real_subset_identity_and_depth_defaults(world: World) -> None:
             }
             for r in out.records
         ]
-        world.add_doc(pid, Path(rel).name, records)
+        doc = world.add_doc(pid, Path(rel).name, records)
+        world.sql(
+            "UPDATE extraction_run SET profile_name = :p WHERE run_id = :r",
+            p=profile_name,
+            r=doc.run_id,
+        )
     with session_scope(world.factory) as session:
         outcome = resolve_project(session, UUID(pid))
     listing = world.api.client.get(f"/api/v1/projects/{pid}/identity").json()
@@ -111,5 +116,8 @@ def test_real_subset_identity_and_depth_defaults(world: World) -> None:
     assert {"15/9-F-12", "15/9-F-14", "15/9-F-5"} <= names
     bores: dict[str, Any] = {b["name"]: b for w in listing["wells"] for b in w["wellbores"]}
     assert "15/9-F-12" in bores and "15/9-F-12 PILOT" in bores
+    # production H/AH bores are aliased to the observed base wellbore (owner rule)
+    assert "15/9-F-12 H" not in bores and "15/9-F-5 AH" not in bores
+    assert any(k["kind"] == "production_day" for k in bores["15/9-F-12"]["record_counts"])
     assert not any("volve" in n.lower() for n in names | set(bores))
     assert listing["resolved_current"] is True
