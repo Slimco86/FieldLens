@@ -16,7 +16,9 @@ from tests.series.support import DAILY_HEAD, NULL, day_row, las_text, workbook_b
 
 
 def _rec_curve(out, name):  # type: ignore[no-untyped-def]
-    return next(r for r in out.records if r.locator.get("las_mnemonic") == name and r.kind == "las_curve")
+    return next(
+        r for r in out.records if r.locator.get("las_mnemonic") == name and r.kind == "las_curve"
+    )
 
 
 def test_las_series_matches_the_per_curve_summary_records(tmp_path: Path) -> None:
@@ -26,7 +28,9 @@ def test_las_series_matches_the_per_curve_summary_records(tmp_path: Path) -> Non
     axis = out.series[0]
     assert axis.kind == "log" and axis.index_type == "depth" and axis.index_unit == "M"
     assert axis.index.tolist() == [100.0, 101.0, 102.0, 103.0]
-    first = next(i for i, ln in enumerate(las_text(rows).splitlines(), 1) if ln.startswith(" 100.0"))
+    first = next(
+        i for i, ln in enumerate(las_text(rows).splitlines(), 1) if ln.startswith(" 100.0")
+    )
     assert axis.positions.tolist() == [first, first + 1, first + 2, first + 3]
     data_rows = out.records[0].attr("las_header.data_rows")
     assert data_rows is not None and data_rows.number == len(axis.index)
@@ -80,9 +84,14 @@ def test_las_series_limit_is_explicit_partial_not_success(
 
 
 def test_las_unordered_index_keeps_source_order(tmp_path: Path) -> None:
-    axis = LasProfile().parse(
-        write(tmp_path, "u.las", las_text([[3.0, 1.0, 1.0], [1.0, 2.0, 2.0], [2.0, 3.0, 3.0]])), CTX
-    ).series[0]
+    axis = (
+        LasProfile()
+        .parse(
+            write(tmp_path, "u.las", las_text([[3.0, 1.0, 1.0], [1.0, 2.0, 2.0], [2.0, 3.0, 3.0]])),
+            CTX,
+        )
+        .series[0]
+    )
     assert axis.index.tolist() == [3.0, 1.0, 2.0]
 
 

@@ -51,14 +51,29 @@ MONTHLY_HEAD = ["Wellbore name", "NPDCode", "Year", "Month", "On Stream", "Oil",
 
 
 def day_row(serial: int, bore: str, code: int, oil: Any, hours: Any = 24) -> list[Any]:
-    return [("date", serial), f"NO {bore}", bore, code, hours, oil, "NULL", None, None, "production", "OP"]
+    return [
+        ("date", serial),
+        f"NO {bore}",
+        bore,
+        code,
+        hours,
+        oil,
+        "NULL",
+        None,
+        None,
+        "production",
+        "OP",
+    ]
 
 
 def workbook_bytes(daily: list[list[Any]]) -> bytes:
     return xlsx_bytes(
         {
             "Daily Production Data": [DAILY_HEAD, *daily],
-            "Monthly Production Data": [MONTHLY_HEAD, [None, None, None, None, "Hrs", "Sm3", "Sm3", "Sm3"]],
+            "Monthly Production Data": [
+                MONTHLY_HEAD,
+                [None, None, None, None, "Hrs", "Sm3", "Sm3", "Sm3"],
+            ],
         }
     )
 

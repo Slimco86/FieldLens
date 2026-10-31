@@ -94,13 +94,18 @@ def test_window_bounds_nulls_downsampling_and_determinism(lane: Lane) -> None:
     assert d1 == d2 and d1["cache_key"] == d2["cache_key"]
     assert d1["downsampled"] is True and d1["returned_points"] <= 50
     assert d1["algorithm"] == "minmax-gap-v1" and d1["source_samples_in_window"] == 1000
-    assert max(v for v in d1["values"] if v is not None) == max(v for v in full["values"] if v is not None)
+    assert max(v for v in d1["values"] if v is not None) == max(
+        v for v in full["values"] if v is not None
+    )
     assert None in d1["values"], "the null gap stays visible"
     assert d1["index"] == sorted(d1["index"])
     assert d1["null_samples_in_window"] == 40
     other = lane.get(f"/{sid}/window", max_points=51).json()
     assert other["cache_key"] != d1["cache_key"]
-    assert lane.get(f"/{sid}/window", max_points=50, **{"from": "100"}).json()["cache_key"] != d1["cache_key"]
+    assert (
+        lane.get(f"/{sid}/window", max_points=50, **{"from": "100"}).json()["cache_key"]
+        != d1["cache_key"]
+    )
     # window units and evidence ride along
     assert d1["series"]["unit"] == "GAPI" and d1["series"]["evidence"]["record_ordinal"] is not None
 
@@ -112,7 +117,9 @@ def test_full_resolution_is_capped(lane: Lane, monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(service_module, "FULL_RESOLUTION_LIMIT", 100)
     r = lane.get(f"/{sid}/window", resolution="full")
     assert r.status_code == 422 and "limited to 100" in r.json()["error"]["message"]
-    assert lane.get(f"/{sid}/window", resolution="downsampled", max_points=10_000).status_code == 200
+    assert (
+        lane.get(f"/{sid}/window", resolution="downsampled", max_points=10_000).status_code == 200
+    )
 
 
 def test_unordered_index_windows_keep_source_order(lane: Lane) -> None:

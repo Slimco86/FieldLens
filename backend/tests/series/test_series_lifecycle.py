@@ -11,7 +11,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
 
@@ -58,7 +58,8 @@ def test_series_are_written_with_the_run_and_a_failure_after_insert_leaves_none(
     monkeypatch.setattr(runner_module, "store_series", real)
     # a retry (explicit) produces the series exactly once
     r = lane.api.client.post(
-        f"/api/v1/projects/{lane.pid}/documents/{doc}/extraction?retry=true", headers=lane.api.headers
+        f"/api/v1/projects/{lane.pid}/documents/{doc}/extraction?retry=true",
+        headers=lane.api.headers,
     )
     assert r.json()["outcome"] == "queued"
     lane.drain()
@@ -112,9 +113,16 @@ def test_killed_process_mid_finalization_leaves_no_series_and_recovers(
         )
     )
     proc = subprocess.run(  # noqa: S603
-        [sys.executable, str(script), lane.url.render_as_string(hide_password=False),
-         str(lane.tmp_path)],
-        capture_output=True, text=True, timeout=120, check=False,
+        [
+            sys.executable,
+            str(script),
+            lane.url.render_as_string(hide_password=False),
+            str(lane.tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
     )
     assert proc.returncode == 137, proc.stderr[-2000:]
     assert "series_rows_in_open_transaction=2" in proc.stderr
@@ -156,7 +164,12 @@ def test_profile_bump_supersedes_series_with_the_run(
         == "queued"
     )
     assert lane.series() == [], "a superseded run's series are not visible while it is rederived"
-    assert lane.api.client.get(f"/api/v1/projects/{lane.pid}/series/{next(iter(first_ids))}").status_code == 404
+    assert (
+        lane.api.client.get(
+            f"/api/v1/projects/{lane.pid}/series/{next(iter(first_ids))}"
+        ).status_code
+        == 404
+    )
     lane.drain()
     second = lane.series()
     assert second and {i["series_id"] for i in second}.isdisjoint(first_ids)
@@ -198,7 +211,9 @@ def test_cascades_run_record_and_document_hook(lane: Lane) -> None:
         "fk_series_curve_record": "c",
     }
     # the source-removal hook: deleting by document removes every series of that document
-    lane.sql("delete from series_axis where project_id = :p and document_id = :d", p=lane.pid, d=doc)
+    lane.sql(
+        "delete from series_axis where project_id = :p and document_id = :d", p=lane.pid, d=doc
+    )
     assert _counts(lane) == (0, 0)
     # re-derive, then removing a record or the run takes the dependent series with it
     lane.sql("update extraction_run set superseded = true where document_id = :d", d=doc)

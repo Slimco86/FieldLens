@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from fieldlens.series.downsample import PER_BUCKET, RESERVED, select_positions
+from fieldlens.series.downsample import RESERVED, select_positions
 
 
 def _noisy(n: int, seed: int = 7) -> np.ndarray:
@@ -38,7 +38,7 @@ def test_every_bucket_keeps_its_own_min_and_max() -> None:
     v = _noisy(10_000)
     max_points = 62
     pos, _ = select_positions(v, max_points)
-    buckets = (max_points - RESERVED) // PER_BUCKET
+    buckets = (max_points - RESERVED) // 2  # no null runs: every sample-pair is a bucket
     edges = (np.arange(buckets + 1) * v.size) // buckets
     kept = set(pos.tolist())
     for lo, hi in zip(edges[:-1], edges[1:], strict=True):

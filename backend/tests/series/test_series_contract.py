@@ -38,7 +38,9 @@ def test_series_dtos_are_registered_in_openapi_and_generated_types() -> None:
         assert set(entry) == {"get"}, "read-only"
     params = {
         p["name"]
-        for p in paths["/api/v1/projects/{project_id}/series/{series_id}/window"]["get"]["parameters"]
+        for p in paths["/api/v1/projects/{project_id}/series/{series_id}/window"]["get"][
+            "parameters"
+        ]
     }
     assert {"from", "to", "max_points", "resolution"} <= params
     ts = GENERATED.read_text()
@@ -57,7 +59,9 @@ def test_window_schema_is_bounded() -> None:
     )
 
 
-@pytest.mark.parametrize("bad", [{"max_points": 9}, {"max_points": 10_001}, {"to": "a\x00"}, {"x": 1}])
+@pytest.mark.parametrize(
+    "bad", [{"max_points": 9}, {"max_points": 10_001}, {"to": "a\x00"}, {"x": 1}]
+)
 def test_window_query_rejects_out_of_range_and_unknown(bad: dict[str, object]) -> None:
     with pytest.raises(ValidationError):
         SeriesWindowQuery(**bad)  # type: ignore[arg-type]
