@@ -216,6 +216,22 @@ backend/tests/activity` covers the persisted work-unit log, its read API
 migration 0006 on throwaway PostgreSQL databases; offline, no provider calls. The harness writes
 through `fieldlens.activity.ActivityLog`; the log is display/audit only, not an engineering source.
 
+**Source retrieval (`backend/fieldlens/retrieval/`, TASK-011, FL-011-A).** `uv run pytest
+backend/tests/retrieval` covers chunking, exact-ID/full-text/vector fusion, scope and eligibility,
+degraded embedding states, index jobs and migration 0007 on throwaway PostgreSQL databases with an
+offline fake embedder (no network, no provider call; `FIELDLENS_EMBEDDING_PROVIDER=none` is forced
+for every default run so an installed real model is never loaded). Read API:
+`GET /api/v1/projects/{id}/retrieval/search?q=...` and `.../retrieval/coverage`. The gold set is
+synthetic and proves mechanics only. Meta has no embeddings endpoint, so the real embedder is the
+pinned local `BAAI/bge-small-en-v1.5` (int8 ONNX, FastEmbed, CPU). Its one-off, hash-pinned download
+is an explicit setup step, never part of tests or the app: `uv run python
+scripts/fetch_embedding_model.py` (to `.local/fieldlens/models`, gitignored). Without the model the
+service reports `degraded` (exact + full text) rather than hybrid. Opt-in checks (excluded by
+default): `uv run pytest backend/tests/retrieval/test_local_embedder.py -m local_embedder -s`
+(real model latency/RSS/similarity) and, with `FIELDLENS_LOCAL_DATA_ROOT` set, `uv run pytest
+backend/tests/retrieval/test_local_data_retrieval.py -m local_data -s` (real-subset chunking and
+exact-ID lookup).
+
 Opt-in local-data check (skipped when unset; read-only, nothing is copied into the repo):
 
 ```bash

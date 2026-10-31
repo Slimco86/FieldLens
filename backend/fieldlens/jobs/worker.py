@@ -19,6 +19,8 @@ from fieldlens.config import Settings
 from fieldlens.evidence.storage import BlobStore, VerifyOutcome
 from fieldlens.extraction.runner import ExtractionRunner
 from fieldlens.persistence.session import session_scope
+from fieldlens.retrieval.embedder import EmbedderProvider
+from fieldlens.retrieval.indexer import IndexRunner
 
 from . import repository as repo
 
@@ -27,7 +29,11 @@ logger = logging.getLogger(__name__)
 
 class JobWorker:
     def __init__(
-        self, factory: sessionmaker[Session], store: BlobStore, settings: Settings
+        self,
+        factory: sessionmaker[Session],
+        store: BlobStore,
+        settings: Settings,
+        embedders: EmbedderProvider | None = None,
     ) -> None:
         self._factory = factory
         self._store = store
@@ -37,6 +43,10 @@ class JobWorker:
         self._thread: threading.Thread | None = None
         self.extraction = ExtractionRunner(
             factory, store, settings, self.owner, self._is_dead_owner
+        )
+        self.embedders = embedders or EmbedderProvider(settings)
+        self.indexing = IndexRunner(
+            factory, settings, self.owner, self._is_dead_owner, self.embedders
         )
 
     # -- recovery ---------------------------------------------------------------------------
@@ -165,7 +175,7 @@ class JobWorker:
                 self._sweep_staging()
                 next_sweep = time.monotonic() + self._settings.staging_sweep_interval_s
             try:
-                handled = self.run_once() or self.extraction.run_once()
+                handled = self.run_once() or self.extraction.run_once() or self.indexing.run_once()
             except Exception as exc:
                 logger.error("job loop error: %s", type(exc).__name__)
                 handled = False
