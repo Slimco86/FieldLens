@@ -7,6 +7,17 @@
 > **Delivery state:** specifying; no application implementation or acceptance run.
 > **Zero-Question Score:** 0 unowned questions; dispatch requires approved committed contract.
 
+> **Owner amendment, October 31 (demo policy):** no user correction or manual fix flow is planned for the
+> demo. Minor inconsistencies that do not break structure (for example a small difference in a perforation
+> depth, or a missing or imprecise production date) are NOT blockers: the system records a persisted warning
+> issue that keeps every source value and its evidence link, applies one deterministic, documented
+> resolution rule that is named in the issue (never silent, never LLM-chosen), and continues. Structural
+> problems (wellbore/well identity conflicts, MD/TVD or datum/CRS conflicts, missing critical measurements
+> without which a geometry or calculation cannot be defined) still block only the affected outputs as
+> specified below; unrelated valid records are never blocked. Generic 3D assets remain acceptable for missing
+> equipment dimensions when the rest of that wellbore's data is available. Which of DQ-3 and DQ-4 count as
+> minor is an owner classification still to be confirmed; until then they stay as specified.
+
 ## How to Read This Spec
 
 Owner: scope and the real-data cases. Backend/frontend: issue contract and DQ

@@ -761,7 +761,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-005 |
 | Slice | FL-005-C |
 
-**Outcome.** Ingestion owner qualifies scanned-PDF and legacy-Word embedded-image profiles for selected F-14/F-5 evidence, with original locators, a safe evidence viewer and human-checked attribute fixtures. Required for selected equipment, not optional OCR polish.
+**Outcome.** (Owner decision October 31: an OCR text layer with page/box locators comes first for scanned pages, so quoted values can be verified against source text; the model then reads page images and a value is accepted only when the OCR token and the image read agree.) Ingestion owner qualifies scanned-PDF and legacy-Word embedded-image profiles for selected F-14/F-5 evidence, with original locators, a safe evidence viewer and human-checked attribute fixtures. Required for selected equipment, not optional OCR polish.
 **Next action.** Ready (TASK-009 is integrated, 0.14.0). Carries the production/completion-equipment priority: the completion schematics and scans that name tubing, packers and pumps are the target content. Dispatch after the live smoke (TASK-005) shows whether page images are usable; independent QA follows.
 **Evidence.** none yet
 
@@ -1371,7 +1371,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-D |
 
 **Outcome.** Using the TASK-036 harness and the TASK-030 page-image profiles, extract the production-period wellbore equipment (tubing, casing and liners in service, packers, pumps, bearings and similar completion components) for at least two of F-12, F-14 and F-5 as typed, source-located candidates with type, dimensions, depth reference, wellbore scope and effective time; validators, conflict flagging and unknown-stays-unknown follow AX-2/3/5. Drilling-side assemblies are out of scope by the owner decision of October 31.
-**Next action.** Spec amendment with measurable acceptance criteria (EQ/AX extension) must be written and approved from the TASK-042 findings before dispatch. Not dispatchable until then.
+**Next action.** TASK-042 is done (docs/evidence/TASK042_COMPLETION_SPIKE.md). Remaining before dispatch: TASK-030 (OCR layer with locators for the scanned F-14/F-5 documents, owner decision October 31), TASK-036, and a spec amendment with measurable acceptance criteria written from the spike findings (upright pages about 1600 px at effort low, orientation fix, zoomed second pass, text layer for native pages; F-12 has no completion source in the seven files, generic display applies; F-11 B pages are wrong-folder evidence, not F-12).
 **Evidence.** none yet
 
 ### TASK-043 · Provider adapter hardening from the live findings (effort control, tool-token estimate, cancel and liable semantics)
@@ -1395,11 +1395,39 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** None. Live checks still open (for TASK-042): that the `reasoning.effort` payload is accepted by the real API with our payload builder, that 404/405 stay unbilled (405 by analogy), and the page-size image bound; set `effort` to `low` or `minimal` for extraction calls (no default is chosen).
 **Evidence.** Integrated October 31 as 0.16.0 (branch `feature/task-043-adapter-hardening`, head `7309acb`; no migration or contract change). Independent QA returned the first candidate for two medium defects (release could erase billed attempts; 4xx non-billable generalized beyond the observed 404), repaired and re-verified (735 backend tests passed, 1 skipped, 1 deselected; ruff, mypy, single head 0005). Offline only; no live behavior verified.
 
+### TASK-044 · Offline check of the EDM export for production/completion equipment and perforation history
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | ingestion, data |
+| Depends on | TASK-009 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-01 |
+| Sprint | Hackathon |
+| Spec | specs/INGESTION.md |
+| Version | none |
+| Parent | FL-005 |
+| Slice | FL-005-D |
+
+**Outcome.** A bounded, read-only, offline investigation (no model calls, no spend) of the deferred 211 MB EDM export (PV-24) and any other already-present structured source for deterministic completion/production equipment (tubing, casing/liners in service, packers, pumps, bearings, depths) and perforation history for F-12, F-14 and F-5, with exact locators; recommends a streaming profile if worthwhile. Owner decision October 31: if nothing is found it is fine, and generic 3D assets cover missing equipment as long as the rest of that wellbore's data exists.
+**Next action.** Dispatched October 31 on branch `feature/task-044-edm-completion-check`, worktree `/home/slimco/code/FieldLens-worktrees/task-044-edm-completion-check`; investigation first, a profile only if justified and owner-approved; independent QA follows.
+**Evidence.** none yet
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
 work-items table and finalized priorities), kept as history. Where it conflicts with the
 item blocks above, the item blocks are authoritative for current status.
+
+## Owner decisions, October 31 (second pass)
+
+- **Scans need OCR first.** An OCR text layer with page/box locators precedes model reading for scanned documents (TASK-030); a number is accepted only when the OCR token and the image read agree.
+- **F-12 equipment.** The EDM export is checked offline for deterministic completion data (TASK-044); if none is found, generic 3D assets cover missing equipment as long as the other F-12 data is available. The three completion reports in the F-12 folder describe F-11 wells and are not used for F-12.
+- **Demo data-quality policy.** No user correction flow is planned; minor non-structural inconsistencies are recorded as warnings and auto-resolved by a documented deterministic rule, structural ones still block affected outputs (DATA_QUALITY amendment). DQ-3 and DQ-4 classification is pending the owner.
+- **No human verification of the spike reference** for now; QA's audit stands and gold fixtures come later (TASK-002).
 
 ## Owner decisions, October 31
 
