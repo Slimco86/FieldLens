@@ -1,8 +1,9 @@
 # TASK-044 evidence: offline check of the EDM export (PV-24) for production/completion equipment and perforation history
 
 Status: investigation evidence, deterministic file observations only. Offline, read-only, no model or
-provider call, no spend, no network, no database. Revision 1, 2026-10-31, branch
-`feature/task-044-edm-completion-check` (base 1885ed1). Independent QA has not run.
+provider call, no spend, no network, no database. 2026-10-31, branch
+`feature/task-044-edm-completion-check` (base 1885ed1). Independent QA reviewed two rounds; no installed
+completion or perforation history was found.
 
 Source: `Well_technical_data/EDM.XML/Volve F.edm.xml` (211,263,929 bytes, 320,922 lines; Landmark EDM
 5000.14 export, header `DB_Version=EDM 5000.14.0`). It was streamed with the hardened expat set-up of
@@ -45,7 +46,7 @@ Perforation, packer and SSSV *words* do occur in StressCheck design inputs (not 
 
 | Where | Observation (design inputs) |
 |---|---|
-| `TU_CASE_PARAMETER` | `parameter_name` `ReservoirPerforationDepth` (13 rows) and `PackerDepth` (13 rows), 13 distinct scenario ids by my count (QA counted 19 scenarios), only F-10 A, F-13 and F-14 A. Cohort rows: F-14 A scenario `F-14 A NW target - SIGULU - rev0` (PROTOTYPE, L309937): L310295 `ReservoirPerforationDepth` 9498.3595800145, L310301 `PackerDepth` 8678.1496062645 (`parameter_value_num`, no unit). F-12 and F-5 have no such rows |
+| `TU_CASE_PARAMETER` | `parameter_name` `ReservoirPerforationDepth` (13 rows) and `PackerDepth` (13 rows), 13 distinct scenario ids (26 rows; `PackerFluidDensity` adds 13 rows in the same 13 scenarios), only F-10 A, F-13 and F-14 A. Cohort rows: F-14 A scenario `F-14 A NW target - SIGULU - rev0` (PROTOTYPE, L309937): L310295 `ReservoirPerforationDepth` 9498.3595800145, L310301 `PackerDepth` 8678.1496062645 (`parameter_value_num`, no unit). F-12 and F-5 have no such rows |
 | `TU_CUSTOM_LOAD_PROFILE` | profiles named `Perforating Gun Firing Pressure` for F-1 wellbores (e.g. L101564, wellbore 3Ox3zu412Z = F-1 B); not cohort |
 | `TU_LOAD_HEADER` | L101607 `L.10a.Tubing leak below closed SCSSSV` (F-13); not cohort |
 
@@ -78,8 +79,16 @@ The file states **no units** and no depth reference on assembly rows. There is n
 (`active_ui_unitsys_id=20` on every one of the 21 CD_WELL rows is an unresolved code) and CD_ASSEMBLY/CD_ASSEMBLY_COMP
 carry no `datum_id`. A scenario/case-level reference does exist: `CD_SCENARIO.datum_id` (and `original_tubular_datum_id`
 on some rows, and `CD_CASE.datum_id`) link to CD_DATUM. For the cohort, scenarios point at: F-12 `Rotary Table`;
-F-14 and F-14 A `Inspirer Rotary Table`; F-5 `Rotary Table (As Installed)` (I verified the scenario links; QA verified
-the case links). Because strings are not tied to a scenario, which datum a string depth uses is not stated. Facts only:
+F-14 and F-14 A `Inspirer Rotary Table`; F-5 `Rotary Table (As Installed)`. Case-level links disagree with these:
+- F-12: of 106 cases 99 have no `datum_id` and 7 point to `Maersk Inspirer` (L24764, elevation 177.16535433, not the
+  180.1181102355 of `Rotary Table` L24766), including L51016 `Weight of tubing`.
+- F-14: of 210 cases 115 point to `Maersk Inspirer` (177.165), 13 to `Inspirer Rotary Table` (180.118), 1 to a
+  `Rotary Table (As Installed)` copy, 81 have none.
+- F-5: of 57 cases 37 have none, 12 point to `Rotary Table (As Installed)`, 2 to `Inspirer Rotary Table` (including L51824 and
+  L51789), 6 to `(copy)` datums (all 180.118).
+- F-14 A: 1 of 14 cases is set (`Inspirer Rotary Table`).
+Two different elevations (177.165 and 180.118, units unstated) are therefore in play for the cohort depending on the
+level, and strings are not tied to a scenario, so the depth reference is not determinable from this file. Facts only:
 - CD_DATUM (124 rows) holds named datums with `datum_elevation` (e.g. F-12 `Rotary Table` 180.1181102355, default
   `Y`, L24766; `WELL` 72.17847769 L24765), still without unit.
 - Magnitudes strongly suggest US oilfield internal units (OD `9.625`, `13.375`, `30.0` read as inches; depths
