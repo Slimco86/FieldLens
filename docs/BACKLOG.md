@@ -112,7 +112,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | specifying |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | FL-004 |
@@ -473,7 +473,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
 | Depends on | FL-003, FL-005 |
@@ -623,7 +623,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-004 |
@@ -636,7 +636,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-003-B |
 
 **Outcome.** RAG worker runs MI-6 only after the approved USD 1 ceiling and balance/key readiness, recording the actual entitlement and tool protocol, including a harmless image-input (multimodal) check because FL-022 relies on page images. No pilot documents are needed.
-**Next action.** Wait for TASK-004 and a separate owner authorization of live calls.
+**Next action.** Owner authorized the live MI-6 smoke on October 31 under the USD 1 total ceiling (synthetic prompts only, no project documents). Branch `feature/task-005-live-meta-smoke`, worktree `/home/slimco/code/FieldLens-worktrees/task-005-live-meta-smoke`; the key reaches the process only through the `MODEL_API_KEY` environment variable. Independent QA follows.
 **Evidence.** none yet
 
 ### TASK-009 · Native source profiles and evidence UI for the qualified subset (IN-2/6)
@@ -657,7 +657,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-B |
 
 **Outcome.** Ingestion owner implements selected qualified native source profiles and the evidence UI: IN-2/6 for this subset, exact record/page coverage and the wrong-folder fixture. This is a small approved subset, not full IN-8/G1 acceptance.
-**Next action.** None. Follow-ups: owner decision on a completion-PDF profile task (completion string, packers and tubing are not extracted for any wellbore; the F-14 RKB-MSL 53.870 vs 54.90 DQ-3 conflict can only appear from the completion schematic); owner confirmation of units/datum for the perforation and pick tables (the Wells README states none, so depths stay `unsupported`); a vitest for the evidence panel's null-status polling. Approved subset (October 30): WITSML tubular/BHA/bore geometry (PV-25..33), LAS (PV-15/19/22), production workbook (PV-01), perforation table (PV-03), picks (PV-04), three survey PDFs (PV-10/16/20), mirrored F-5 trajectory XML. Deferred: EDM export (PV-24), grids (PV-07..09), large completion PDFs/plots, OCR (TASK-030).
+**Next action.** None. Follow-ups: owner decided October 31 that production/completion equipment is the target and drilling-side assemblies are not needed, so the completion-PDF work is TASK-030, TASK-042 and TASK-041 (completion string, packers and tubing are not extracted for any wellbore; the F-14 RKB-MSL 53.870 vs 54.90 DQ-3 conflict can only appear from the completion schematic); owner confirmation of units/datum for the perforation and pick tables (the Wells README states none, so depths stay `unsupported`); a vitest for the evidence panel's null-status polling. Approved subset (October 30): WITSML tubular/BHA/bore geometry (PV-25..33), LAS (PV-15/19/22), production workbook (PV-01), perforation table (PV-03), picks (PV-04), three survey PDFs (PV-10/16/20), mirrored F-5 trajectory XML. Deferred: EDM export (PV-24), grids (PV-07..09), large completion PDFs/plots, OCR (TASK-030).
 **Evidence.** Integrated October 30 as version 0.14.0 (merge of `feature/task-009-native-profiles`, head `1df81f7`, migration `0005_native_profiles`). Independent QA (`fieldlens-qa`) returned the first candidate for a report-endpoint 500 on real perforation/production files plus nine further findings; all repaired and re-verified on the real subset (all 18 real files build a report; 677 backend tests, ruff, mypy, frontend gates, and the Playwright evidence spec on a lane port). Real coverage (trajectory stations / production days / perforation intervals / drilling-assembly and casing-point records): F-12 211/3056/5/14, F-14 93/3056/6/9, F-5 97/3306/5/6. The owner's two-of-three requirement is met for trajectories, production and perforation history; equipment is drilling-side only. Offline parsing, no model calls.
 
 ### TASK-032 · Source-first issue inspector API and UI (DQ-1/2/3/4/7, DTO-negative DQ-5/6)
@@ -686,7 +686,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | ready |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-009 |
@@ -699,7 +699,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-011-A |
 
 **Outcome.** RAG owner implements project/source-scoped exact/text/vector retrieval in retrieval, source coverage and bounded evidence search; unresolved observations are labeled. No accepted asset graph is a prerequisite, and the embedding gate/degradation is explicit.
-**Next action.** Dispatch after TASK-009 is integrated.
+**Next action.** Ready (TASK-009 is integrated, 0.14.0). Next in the RAG lane after TASK-005; with TASK-038 it unblocks TASK-036. Dispatch with a fresh preflight in its own worktree; independent QA follows.
 **Evidence.** none yet
 
 ### TASK-019 · Source-context chat and evidence UI (RG-8 offline, applicable RG-3/4/5)
@@ -749,7 +749,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | ready |
 | Priority | P0 |
 | Tags | ingestion, data |
 | Depends on | TASK-009 |
@@ -762,7 +762,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-C |
 
 **Outcome.** Ingestion owner qualifies scanned-PDF and legacy-Word embedded-image profiles for selected F-14/F-5 evidence, with original locators, a safe evidence viewer and human-checked attribute fixtures. Required for selected equipment, not optional OCR polish.
-**Next action.** Dispatch after TASK-009 is integrated.
+**Next action.** Ready (TASK-009 is integrated, 0.14.0). Carries the production/completion-equipment priority: the completion schematics and scans that name tubing, packers and pumps are the target content. Dispatch after the live smoke (TASK-005) shows whether page images are usable; independent QA follows.
 **Evidence.** none yet
 
 ### TASK-026 · Reconstruction proposals, validator and review UI (RC-1..9, DQ-6)
@@ -1274,7 +1274,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
 | Depends on | TASK-004 |
@@ -1287,7 +1287,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-B |
 
 **Outcome.** Ingestion owner implements the persisted, project-scoped agent activity log (question, ordered steps, tool-call summaries, candidates, validator outcomes, usage, stop reason; no hidden reasoning) with a read API, migration and offline fixtures. One shared-contract change with a single writer (coordinated with TASK-036). The Reconstruction tab view is TASK-040.
-**Next action.** Dispatch after TASK-004 is integrated, with a fresh preflight; independent QA follows.
+**Next action.** Dispatched October 31 (TASK-004 is integrated) with a fresh preflight, branch `feature/task-038-agent-activity-log`, worktree `/home/slimco/code/FieldLens-worktrees/task-038-agent-activity-log`; independent QA follows. This task owns the Alembic head and the single shared-contract change among the parallel lanes.
 **Evidence.** none yet
 
 ### TASK-040 · Reconstruction tab: agent activity log view (AX-10 UI)
@@ -1332,11 +1332,72 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Ready: TASK-009 is integrated (0.14.0), so real derived records exist to invalidate. Dispatch with a fresh preflight in its own worktree; independent QA follows.
 **Evidence.** none yet
 
+### TASK-042 · Live feasibility spike: model reading of the real completion documents
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | ingestion, rag, data |
+| Depends on | TASK-005, TASK-009 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-01 |
+| Sprint | Hackathon |
+| Spec | specs/AGENTIC_EXTRACTION.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-E |
+
+**Outcome.** A bounded, read-only experiment (no product code, no persistence) that sends page images and text of the seven local completion documents (PV-11..14, 17, 18, 21 for F-12, F-14 and F-5) to the model through the TASK-004 adapter and records, against a human reading of the same pages, which production/completion equipment (tubing, casing/liners, packers, pumps, bearings, depths, dimensions) it finds, cost per page, failure modes and what the validators would reject. The result decides the TASK-041 approach before any build.
+**Next action.** Needs the TASK-005 result (image input and tool protocol) and an owner-approved allowance (proposed USD 3 inside the USD 150 total, with per-document selection and page caps). The owner said on October 30 that all documents may be shared with the provider; confirm this covers these PDFs before dispatch. Not dispatchable until then.
+**Evidence.** none yet
+
+### TASK-041 · Production/completion equipment candidates from completion documents
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | ingestion, rag, backend |
+| Depends on | TASK-036, TASK-030, TASK-042 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-02 |
+| Sprint | Hackathon |
+| Spec | specs/EQUIPMENT_RECONSTRUCTION.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-D |
+
+**Outcome.** Using the TASK-036 harness and the TASK-030 page-image profiles, extract the production-period wellbore equipment (tubing, casing and liners in service, packers, pumps, bearings and similar completion components) for at least two of F-12, F-14 and F-5 as typed, source-located candidates with type, dimensions, depth reference, wellbore scope and effective time; validators, conflict flagging and unknown-stays-unknown follow AX-2/3/5. Drilling-side assemblies are out of scope by the owner decision of October 31.
+**Next action.** Spec amendment with measurable acceptance criteria (EQ/AX extension) must be written and approved from the TASK-042 findings before dispatch. Not dispatchable until then.
+**Evidence.** none yet
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
 work-items table and finalized priorities), kept as history. Where it conflicts with the
 item blocks above, the item blocks are authoritative for current status.
+
+## Owner decisions, October 31
+
+- **Equipment scope.** Production/completion equipment (pumps, tubing, casing and liners in service, bearings,
+  packers: everything that constitutes the wellbore during production) is the visualization target.
+  Development/drilling equipment (BHA, bits, drilling assemblies) is not to be visualized or used.
+  TASK-009's 0.14.0 equipment output is drilling-side only, so equipment extraction restarts from the
+  completion documents (TASK-030 profiles, TASK-042 feasibility spike, TASK-041 extraction).
+- **Agentic extraction first.** No model call has ever been made (database: 0 provider attempts, 0 spend
+  reservations; the offline adapter, TASK-004, is the only agent code). The live smoke (TASK-005) is authorized
+  at USD 1 with synthetic prompts only. TASK-039 and TASK-034 move behind the extraction path.
+- **Parallel lanes.** Two parallel per-task worktrees (the October 30 amendment) for TASK-005 and TASK-038;
+  TASK-011 follows in the RAG lane.
+- **Cleanup.** Six QA test projects (QA9 A, QA9 B, three QA9b A, QA9b probe) were deleted from
+  `fieldlens_app` in one transaction (the four append-only guard triggers were disabled inside it and
+  verified re-enabled); the project `Test` was kept. A pre-cleanup dump is in the session scratchpad.
+  The application has no project-delete feature.
+- Added TASK-041 and TASK-042 (proposed, awaiting spec amendment and an allowance); TASK-011 and TASK-030
+  are ready; FL-003 and FL-022 are in progress.
 
 ## Owner realignment, October 30
 

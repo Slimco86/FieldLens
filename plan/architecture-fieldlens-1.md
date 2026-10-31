@@ -179,6 +179,8 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | TASK-038 | FL-022-B | TASK-004 | Ingestion owner implements the persisted agent activity log, migration and read API; AX-10 backend. | | |
 | TASK-039 | FL-005-C | TASK-009 | Backend owner implements source removal (bytes deleted, tombstone revision, derived claims inactive) and replacement as a new revision; IN-9, IN-5. | | |
 | TASK-040 | FL-022-C | TASK-038, TASK-034 | Frontend owner implements the Reconstruction tab's agent activity log view; AX-10 UI. | | |
+| TASK-041 | FL-022-D | TASK-036, TASK-030, TASK-042 | Ingestion owner extracts production/completion equipment candidates (tubing, casing/liners in service, packers, pumps, bearings) from the completion documents with the TASK-036 harness; spec amendment first. | | |
+| TASK-042 | FL-022-E | TASK-005, TASK-009 | Ingestion owner runs a bounded live feasibility spike of model reading on the seven completion documents (read-only, no product code, owner-approved allowance). | | |
 
 ### Dispatch, ownership and resource allocation
 

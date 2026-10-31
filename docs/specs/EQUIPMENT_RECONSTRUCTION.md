@@ -6,6 +6,13 @@
 > **Status:** F-12 generic fallback approved; F-14/F-5 dimensions inspected, final installed/reference qualification remains.
 > **Zero-Question Score:** 0 unowned design questions; DF-9 acceptance remains gated.
 
+> **Owner amendment, October 31:** the equipment to reconstruct and visualize is the
+> production/completion equipment that constitutes the wellbore during the production period
+> (pumps, tubing, casings/liners in service, bearings, packers and similar). Development/drilling
+> equipment (BHA, bits, drilling assemblies) is not visualized or used. The 0.14.0 drilling-side
+> records stay available as source evidence only. Acceptance criteria for the completion-equipment
+> extraction (TASK-041) are added after the TASK-042 feasibility findings.
+
 ## How to Read This Spec
 
 Executor: placement/catalog contracts. QA: EQ tests. Owner: installed-evidence gate.

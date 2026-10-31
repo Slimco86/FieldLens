@@ -4,9 +4,14 @@
 > **Load-bearing frameworks:** outcome, acceptance, scope, context. **Supporting:** failure conditions, ambiguity audit.
 > **Date:** 2026-10-30. **Author:** orchestrator (draft). **Decision owner:** project owner.
 > **Status:** Approved by the owner on 2026-10-30 (section 6 records the decisions); implementation not started.
-> **Backlog ID:** FL-022 (TASK-035 approval, TASK-036 extraction, TASK-038 activity log, TASK-040 Reconstruction view). **Delivery state:** ready.
+> **Backlog ID:** FL-022 (TASK-035 approval, TASK-036 extraction, TASK-038 activity log, TASK-040 Reconstruction view). **Delivery state:** in progress (TASK-038 dispatched October 31).
 > **Approved spec revision/date:** r1, 2026-10-30. **Integration version:** pending.
 > **Zero-Question Score:** 0 blocking. Non-blocking: multimodal entitlement is verified by the TASK-005 live smoke, and TASK-036 uses the stub until then.
+
+> **Owner amendment, October 31:** the priority extraction target is production/completion equipment
+> (tubing, casings/liners in service, packers, pumps, bearings) from the completion documents; drilling-side
+> assemblies are out of scope. TASK-042 (live feasibility spike) and TASK-041 (extraction) follow the TASK-005
+> live smoke; their acceptance criteria are added after the spike. The harness contract (AX-1..11) is unchanged.
 
 ## How to Read This Spec
 
