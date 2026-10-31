@@ -1379,7 +1379,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-005 |
@@ -1392,7 +1392,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-003-C |
 
 **Outcome.** Offline fixes to the TASK-004 adapter driven by docs/evidence/MI6_LIVE_SMOKE.md: a per-request `reasoning.effort` control (API accepts low and minimal; default high exhausted output budgets), a per-tool-definition/round-trip input-token overhead so the reservation bound holds (245 estimated vs 552 billed), explicit and documented in-flight cancel semantics (the response still completes and bills, so account for it), and a reconcile path for reservations left `liable` by rejected requests. Default tests stay offline; no live spend.
-**Next action.** Ready. Dispatch in the RAG lane with a fresh preflight and no env key: the worker must run every command with `env -u MODEL_API_KEY`. Independent QA follows. Gates TASK-042 and the live parts of TASK-036 and TASK-020.
+**Next action.** Dispatched October 31 on branch `feature/task-043-adapter-hardening`, worktree `/home/slimco/code/FieldLens-worktrees/task-043-adapter-hardening`; every worker command runs with `env -u MODEL_API_KEY`. Independent QA follows. Gates TASK-042 and the live parts of TASK-036 and TASK-020.
 **Evidence.** none yet
 
 ## Journal
