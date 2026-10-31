@@ -74,12 +74,19 @@ def page_text(pv: str, page: int) -> str:
     return PdfReader(str(doc_path(pv))).pages[page - 1].extract_text() or ""
 
 
-def page_jpeg(pv: str, page: int, long_side: int, rotate: int = 0) -> tuple[bytes, tuple[int, int]]:
+def page_jpeg(
+    pv: str, page: int, long_side: int, rotate: int = 0, crop: tuple[float, ...] | None = None
+) -> tuple[bytes, tuple[int, int]]:
     pdf = pdfium.PdfDocument(str(doc_path(pv)))
     try:
         pg = pdf[page - 1]
         w, h = pg.get_size()
         img = pg.render(scale=long_side / max(w, h)).to_pil().convert("RGB")
+        if crop:
+            cw, ch = img.size
+            img = img.crop(
+                (int(cw * crop[0]), int(ch * crop[1]), int(cw * crop[2]), int(ch * crop[3]))
+            )
         if rotate:
             img = img.rotate(-rotate, expand=True)  # positive = clockwise
         buf = io.BytesIO()
@@ -97,6 +104,7 @@ def main() -> int:
     ap.add_argument("--long-side", type=int, default=1800)
     ap.add_argument("--effort", choices=["minimal", "low", "medium", "high"], default="low")
     ap.add_argument("--rotate", type=int, default=0, choices=[0, 90, 180, 270])
+    ap.add_argument("--crop", default="", help="x0,y0,x1,y1 fractions of the rendered page")
     ap.add_argument("--extra", default="", help="diagnostic sentence appended to the prompt")
     ap.add_argument("--max-out", type=int, default=4096)
     ap.add_argument("--reserve", default="0.30")
@@ -136,6 +144,7 @@ def main() -> int:
         pages = all_pages()
     else:
         pages = [(x.split(":")[0], int(x.split(":")[1])) for x in args.pages.split(",")]
+    crop = tuple(float(x) for x in args.crop.split(",")) if args.crop else None
     out_dir = SCRATCH / "runs" / args.tag
     out_dir.mkdir(parents=True, exist_ok=True)
     modes = ["image", "text"] if args.mode == "both" else [args.mode]
@@ -158,14 +167,15 @@ def main() -> int:
                 "effort": args.effort,
                 "long_side": args.long_side if mode == "image" else None,
                 "rotate": args.rotate,
+                "crop": args.crop or None,
             }
             parts: list[Any]
             if mode == "image":
-                raw_img, size = page_jpeg(pv, page, args.long_side, args.rotate)
+                raw_img, size = page_jpeg(pv, page, args.long_side, args.rotate, crop)
                 rec["image_px"] = size
                 rec["image_bytes"] = len(raw_img)
                 parts = [
-                    TextPart(text=image_user_prompt()),
+                    TextPart(text=image_user_prompt() + args.extra),
                     ImagePart(
                         media_type="image/jpeg", data_base64=base64.b64encode(raw_img).decode()
                     ),
