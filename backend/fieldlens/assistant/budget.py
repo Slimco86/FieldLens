@@ -11,6 +11,7 @@ here replays a paid call; ``recover_interrupted`` only converts in-flight state 
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -31,6 +32,7 @@ logger = logging.getLogger("fieldlens.assistant.budget")
 
 ZERO = Decimal("0")
 QUANT = Decimal("0.000001")
+_REASON = re.compile(r"[a-z][a-z0-9_]{0,31}")
 CHARGEABLE_UNKNOWN = ("dispatched", "timeout", "unknown")
 
 
@@ -143,6 +145,7 @@ class BudgetLedger:
 
     def register_pricing(self, pricing: Pricing, source: str) -> UUID:
         """Idempotent by revision; the same revision with different rates is rejected."""
+        pricing.validate()  # typed InvalidPricing before any database write
         values = dict(
             revision=pricing.revision,
             model=pricing.model,
@@ -369,6 +372,16 @@ class BudgetLedger:
             return self._attempt_total(s, reservation_id)[0]
 
     @staticmethod
+    def _known_billed(s: Session, reservation_id: UUID) -> Decimal:
+        total = s.execute(
+            select(func.coalesce(func.sum(provider_attempt.c.billed_usd), 0)).where(
+                provider_attempt.c.reservation_id == reservation_id,
+                provider_attempt.c.billed_usd.is_not(None),
+            )
+        ).scalar_one()
+        return usd(total)
+
+    @staticmethod
     def _attempt_total(s: Session, reservation_id: UUID) -> tuple[Decimal, bool]:
         rows = s.execute(
             select(provider_attempt.c.billed_usd, provider_attempt.c.estimated_usd).where(
@@ -454,17 +467,86 @@ class BudgetLedger:
             ).one()
             return _row_to_reservation(out)
 
-    def reconcile(self, reservation_id: UUID, billed_total_usd: Decimal) -> Reservation:
-        """Owner/provider-confirmed total for a liable reservation (idempotent for equal totals)."""
-        total = usd(billed_total_usd)
+    def list_liable(self, period_id: UUID) -> list[Reservation]:
+        """Liable (billing-unknown) reservations awaiting reconciliation; survives restarts."""
+        with session_scope(self._factory) as s:
+            rows = s.execute(
+                select(spend_reservation)
+                .where(
+                    spend_reservation.c.period_id == period_id,
+                    spend_reservation.c.state == "liable",
+                )
+                .order_by(spend_reservation.c.created_at)
+            ).all()
+        return [_row_to_reservation(r) for r in rows]
+
+    def release_liable(self, reservation_id: UUID, reason: str) -> Reservation:
+        """Release the *unresolved* attempts of a liable reservation as not billed.
+
+        The reservation settles at the sum of its attempts with known billed amounts (the known
+        floor), never below it; it only drops to 0 when no attempt has a known bill. The reason
+        slug is appended to the unresolved attempts' error code (``provider_timeout>reason``).
+        The row ends ``settled`` (``released`` is reserved for never-dispatched reservations by a
+        table constraint).
+        """
+        return self.reconcile(reservation_id, None, reason=reason)
+
+    def reconcile(
+        self,
+        reservation_id: UUID,
+        billed_total_usd: Decimal | None,
+        *,
+        reason: str | None = None,
+    ) -> Reservation:
+        """Owner/provider-confirmed total for a liable reservation (idempotent for equal totals).
+
+        The total may not be negative, non-finite or below the known billed floor (completed
+        attempts' billed amounts); that raises ``ReservationStateError``. A total above the
+        reservation is accepted but flagged as an overrun and pauses the period. ``None`` means
+        the known floor (used by ``release_liable``). ``reason`` (a short slug) is recorded on the
+        unresolved attempts; a repeat call with an unchanged total returns the stored result, so
+        the first reason wins. When the total equals the floor, unresolved attempts are recorded
+        as billed 0.
+        """
+        if reason is not None and not _REASON.fullmatch(reason):
+            raise ReservationStateError("reconcile reason must be a short lowercase slug")
+        if billed_total_usd is not None and (
+            not billed_total_usd.is_finite() or billed_total_usd < 0
+        ):
+            raise ReservationStateError("reconciled total must be a finite non-negative amount")
         with session_scope(self._factory) as s:
             row = self._lock(s, reservation_id)
+            floor = self._known_billed(s, reservation_id)
+            total = floor if billed_total_usd is None else usd(billed_total_usd)
             if row.reconciliation_status == "reconciled":
                 if row.committed_usd == total:
                     return _row_to_reservation(row)
                 raise ReservationStateError("reservation already reconciled with a different total")
             if row.state != "liable":
                 raise ReservationStateError("only a liable reservation can be reconciled")
+            if total < floor:
+                raise ReservationStateError("reconciled total is below the known billed amount")
+            unresolved = s.execute(
+                select(provider_attempt.c.attempt_no, provider_attempt.c.error_code).where(
+                    provider_attempt.c.reservation_id == reservation_id,
+                    provider_attempt.c.billed_usd.is_(None),
+                )
+            ).all()
+            for attempt in unresolved:
+                values: dict[str, Any] = {}
+                if total == floor:
+                    values["billed_usd"] = ZERO
+                if reason is not None:
+                    values["error_code"] = f"{attempt.error_code or 'unknown'}>{reason}"[:64]
+                if values:
+                    s.execute(
+                        update(provider_attempt)
+                        .where(
+                            provider_attempt.c.reservation_id == reservation_id,
+                            provider_attempt.c.attempt_no == attempt.attempt_no,
+                        )
+                        .values(**values)
+                    )
             s.execute(
                 update(provider_attempt)
                 .where(provider_attempt.c.reservation_id == reservation_id)

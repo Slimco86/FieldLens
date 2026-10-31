@@ -159,10 +159,49 @@ byte; `provider_image_token_bound` per image) until MI-6 compares them with prov
 MI-6 live results (October 31, `docs/evidence/MI6_LIVE_SMOKE.md`): `muse-spark-1.3` Responses
 text, tool round trip with opaque reasoning replay and image input are entitled and work
 (Validated, live). No embeddings endpoint exists for this key (404; local embeddings stand).
-Corrections: default reasoning effort is `high` and consumes output tokens (adapter has no
-effort control; `low`/`minimal` are accepted); the 1-token-per-byte input bound underestimates
-tool requests (about 2.3x); in-flight cancel does not stop billing. Provider rates are still
+Corrections: default reasoning effort is `high` and consumes output tokens; the 1-token-per-byte
+input bound underestimates tool requests (about 2.3x); in-flight cancel does not stop billing;
+The owner observed on the provider dashboard (October 31) that billed requests equal exactly the 20
+successful responses, so the four 404 rejections (unknown model, embeddings; twice) were not billed. Provider
+rates are still
 unknown (spend estimated at placeholder rates; owner must reconcile the balance).
+
+TASK-043 adapter hardening (offline-tested; stub/fixture payloads, not live proof):
+- Effort: `ProviderRequest.effort` (`minimal|low|medium|high`, default unset = provider default
+  `high`) is sent as `reasoning.effort`. `WorkUnit(effort=...)`, `RequestLimits.default_effort`
+  and `step(..., effort=...)` choose it per unit/call site (call > unit > limits). An unset effort
+  is excluded from the request fingerprint, so older recordings still match; the recorder stores
+  the requested effort and stub/replay `calls` expose it. The API accepted `low` and `minimal`.
+- Input bound: bytes-as-tokens plus 512 tokens when any tool is sent, 128 per tool definition,
+  128 per tool call/result item and 256 per replayed reasoning item (plus its bytes). Chosen
+  above the MI-6 figures (one-tool request billed 552, follow-up step 992; old estimate 245).
+  Image bound unchanged. Still an estimate from one model's one data point.
+- Cancel: the synchronous SDK call is not aborted in flight. A cancel during a call lets it
+  complete and bill; the unit records the actual usage (reservation `settled`, not `liable`)
+  and then raises `RequestCancelled(settled=True)`. Cancel stops later calls, not billing of the
+  call in flight. If usage is missing the attempt stays estimated liability.
+- Rejected 404 and 405 map to `ProviderRejected` (non-chargeable): the reservation settles at 0
+  instead of `liable` (see the registry row below). Every other 4xx not already handled
+  (400, 408, 409, 413, 422, ...) stays chargeable/`liable` until observed; 401/403/429 keep their
+  earlier behavior. The `released` state stays for never-dispatched reservations (table
+  constraint); no migration. 5xx, timeouts, connection errors and unknown outcomes stay `liable`.
+- Reconcile: `BudgetLedger.list_liable`, `release_liable(id, reason)` and
+  `reconcile(id, total, reason=...)`. A liable reservation never settles below the sum of its
+  attempts with known billed amounts: `release_liable` releases only the unresolved attempts
+  (settles at that floor), and `reconcile` rejects a negative, non-finite or below-floor total
+  with `ReservationStateError`. A total above the reservation is accepted, flagged as an overrun
+  and pauses the period. Repeating a reconcile with an unchanged total returns the stored
+  result, so the first reason wins. The reason slug is appended to the unresolved attempts' error
+  code. State is in PostgreSQL and survives restarts.
+- Pricing stays data: `load_pricing(path)` builds a `Pricing` from a JSON rate card to register
+  as a new revision; no rates are in code. Cards are validated (`InvalidPricing`, before any
+  database write, also in `register_pricing`): slug revision, model, finite rates greater than
+  zero and at most 1000 USD per Mtok, cached rate not above the input rate.
+
+| Assumption | Confidence | Status |
+|---|---|---|
+| Provider rejects 404/405 responses before processing, so they are not billed | M | `[Assumed: only 404 observed live; 405 by analogy]`. 400/413/422 and other 4xx stay liable until observed. |
+
 Published rates bound the chosen mode (M; unresolved: no rate source). USD 150 is the original
 allowance, not current balance (H; owner must supply current credit).
 

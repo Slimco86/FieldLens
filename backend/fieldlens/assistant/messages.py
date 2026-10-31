@@ -155,15 +155,29 @@ class Usage(_Frozen):
         return self.input_tokens is not None and self.output_tokens is not None
 
 
+Effort = Literal["minimal", "low", "medium", "high"]
+EFFORTS: tuple[str, ...] = ("minimal", "low", "medium", "high")
+
+
 class ProviderRequest(_Frozen):
     model: str
     messages: tuple[Message, ...]
     tools: tuple[ToolSpec, ...] = ()
     max_output_tokens: int = Field(4096, ge=1, le=4096)
+    effort: Effort | None = None
+    """Requested ``reasoning.effort``. ``None`` omits the field: the provider default applies
+    (``high`` on muse-spark-1.3 in MI-6, which exhausted small output budgets)."""
 
     def fingerprint(self) -> str:
-        """Stable hash of the request for replay lookup and idempotency (no secrets inside)."""
-        return hashlib.sha256(canonical_json(self.model_dump(mode="json")).encode()).hexdigest()
+        """Stable hash of the request for replay lookup and idempotency (no secrets inside).
+
+        An unset effort is left out of the hash, so fingerprints (and recordings) made before the
+        effort field existed stay valid; any explicit effort yields a different fingerprint.
+        """
+        data = self.model_dump(mode="json")
+        if self.effort is None:
+            data.pop("effort")
+        return hashlib.sha256(canonical_json(data).encode()).hexdigest()
 
 
 class ProviderResponse(_Frozen):

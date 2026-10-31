@@ -8,6 +8,18 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.16.0 - 2026-10-31
+
+- **TASK-043 (FL-003-C):** Hardened the provider adapter from the live MI-6 findings: optional per-request
+  reasoning effort (`minimal`/`low`/`medium`/`high`; unset keeps the provider default and old recordings still
+  replay), a tool- and reasoning-aware input-token reservation bound (a one-tool request now reserves at least the
+  552 billed tokens), explicit in-flight cancel settlement (the call still bills and is settled; cancel does not
+  stop billing), 404/405 rejections settled as non-billable while every other 4xx stays liable, and ledger helpers
+  to list, reconcile and release liable reservations that never go below known billed attempts. Rate cards are
+  validated before registration; no rates changed. Independent QA found two medium defects, repaired and
+  re-verified. Offline only: effort acceptance, the 404/405 non-billing rule and multi-tool token bounds are not
+  yet verified live.
+
 ## 0.15.0 - 2026-10-31
 
 - **TASK-038 (FL-022-B):** Added the persisted, project-scoped agent activity log (AX-10 backend):

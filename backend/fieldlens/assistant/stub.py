@@ -39,6 +39,7 @@ ERROR_CLASSES: dict[str, type[AssistantError]] = {
         errors.ProviderTimeout,
         errors.ProviderConnectionError,
         errors.ProviderMalformed,
+        errors.ProviderRejected,
     )
 }
 RECORDING_SCHEMA = 1
@@ -181,9 +182,17 @@ class RecordingProvider:
             response = self._inner.complete(request, timeout_s=timeout_s, cancel=cancel)
         except AssistantError as exc:
             if exc.code in ERROR_CLASSES:
-                self.recordings.append({"fingerprint": key, "error": {"code": exc.code}})
+                self.recordings.append(
+                    {"fingerprint": key, "effort": request.effort, "error": {"code": exc.code}}
+                )
             raise
-        self.recordings.append({"fingerprint": key, "response": response.model_dump(mode="json")})
+        self.recordings.append(
+            {
+                "fingerprint": key,
+                "effort": request.effort,
+                "response": response.model_dump(mode="json"),
+            }
+        )
         return response
 
     def to_json(self) -> str:

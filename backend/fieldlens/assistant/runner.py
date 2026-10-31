@@ -33,6 +33,7 @@ from .errors import (
     RequestLimitExceeded,
 )
 from .messages import (
+    Effort,
     Message,
     ProviderRequest,
     ProviderResponse,
@@ -65,6 +66,9 @@ class RequestLimits:
     max_reserved_usd: Decimal = Decimal("0.50")
     image_token_bound: int = 8192
     retry_backoff_s: float = DEFAULT_BACKOFF_S
+    default_effort: Effort | None = None
+    """``reasoning.effort`` for steps that do not choose one. ``None`` leaves the provider default
+    (``high``), which can exhaust ``max_output_tokens`` on trivial prompts (MI-6)."""
 
     @classmethod
     def from_settings(cls, settings: Settings) -> RequestLimits:
@@ -97,6 +101,7 @@ class WorkUnit:
         cancel: CancelToken | None = None,
         tools: Sequence[ToolSpec] = (),
         unattended: bool = False,
+        effort: Effort | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         if pricing.model != model:
@@ -113,6 +118,7 @@ class WorkUnit:
         self.cancel = cancel or CancelToken()
         self._tools = {t.name: t for t in tools}
         self._unattended = unattended
+        self._effort = effort if effort is not None else limits.default_effort
         self._clock = clock
         self._started = 0.0
         self.reservation: Reservation | None = None
@@ -169,7 +175,10 @@ class WorkUnit:
         return bound
 
     # -- one provider step (with at most one retry) -------------------------------------------
-    def step(self, messages: Sequence[Message]) -> ProviderResponse:
+    def step(
+        self, messages: Sequence[Message], *, effort: Effort | None = None
+    ) -> ProviderResponse:
+        """One provider step. ``effort`` overrides the unit default for this call only."""
         if self.reservation is None:
             raise ReservationNotOpen("work unit is not open")
         request = ProviderRequest(
@@ -177,6 +186,7 @@ class WorkUnit:
             messages=tuple(messages),
             tools=tuple(self._tools.values()),
             max_output_tokens=self.limits.max_output_tokens,
+            effort=effort if effort is not None else self._effort,
         )
         retry_of: int | None = None
         retried = False
@@ -255,7 +265,13 @@ class WorkUnit:
             web_search_queries=usage.web_search_queries if usage else None,
             elapsed_ms=elapsed_ms,
         )
-        self.cancel.raise_if_cancelled()  # a late cancel discards the answer; usage is recorded
+        # A cancel during the in-flight call cannot abort it: the call completed and billed.
+        # Usage is recorded above, so the reservation settles at actual cost; only now raise.
+        if self.cancel.cancelled:
+            raise RequestCancelled(
+                "request cancelled after the provider responded; its usage was settled",
+                settled=True,
+            )
         if response.status == "refusal":
             raise ProviderRefusal("provider refused the request")
         if response.status == "truncated":
@@ -280,6 +296,7 @@ class WorkUnit:
         executor: ToolExecutor,
         *,
         max_rounds: int | None = None,
+        effort: Effort | None = None,
     ) -> tuple[ProviderResponse, list[Message]]:
         """Alternate provider steps and read-only tool execution until a tool-free answer.
 
@@ -289,7 +306,7 @@ class WorkUnit:
         history = list(messages)
         rounds = 0
         while True:
-            response = self.step(history)
+            response = self.step(history, effort=effort)
             calls = response.tool_calls()
             history.append(Message(role="assistant", parts=response.parts))
             if not calls:

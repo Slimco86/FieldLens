@@ -1379,21 +1379,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-005 |
 | Assignee | agent:fieldlens-rag |
-| Due | 2026-11-01 |
+| Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/META_INTEGRATION.md |
-| Version | none |
+| Version | 0.16.0 |
 | Parent | FL-003 |
 | Slice | FL-003-C |
 
 **Outcome.** Offline fixes to the TASK-004 adapter driven by docs/evidence/MI6_LIVE_SMOKE.md: a per-request `reasoning.effort` control (API accepts low and minimal; default high exhausted output budgets), a per-tool-definition/round-trip input-token overhead so the reservation bound holds (245 estimated vs 552 billed), explicit and documented in-flight cancel semantics (the response still completes and bills, so account for it), and a reconcile path for reservations left `liable` by rejected requests. Default tests stay offline; no live spend.
-**Next action.** Dispatched October 31 on branch `feature/task-043-adapter-hardening`, worktree `/home/slimco/code/FieldLens-worktrees/task-043-adapter-hardening`; every worker command runs with `env -u MODEL_API_KEY`. Independent QA follows. Gates TASK-042 and the live parts of TASK-036 and TASK-020.
-**Evidence.** none yet
+**Next action.** None. Live checks still open (for TASK-042): that the `reasoning.effort` payload is accepted by the real API with our payload builder, that 404/405 stay unbilled (405 by analogy), and the page-size image bound; set `effort` to `low` or `minimal` for extraction calls (no default is chosen).
+**Evidence.** Integrated October 31 as 0.16.0 (branch `feature/task-043-adapter-hardening`, head `7309acb`; no migration or contract change). Independent QA returned the first candidate for two medium defects (release could erase billed attempts; 4xx non-billable generalized beyond the observed 404), repaired and re-verified (735 backend tests passed, 1 skipped, 1 deselected; ruff, mypy, single head 0005). Offline only; no live behavior verified.
 
 ## Journal
 
