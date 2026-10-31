@@ -12,7 +12,7 @@ import re
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -107,6 +107,23 @@ class Settings(BaseSettings):
     @classmethod
     def _blank_key_is_absent(cls, value: SecretStr | None) -> SecretStr | None:
         return value if value is not None and value.get_secret_value().strip() else None
+
+    # Local retrieval embeddings (TASK-011). Meta has no embeddings endpoint for our key, so the
+    # only real backend is the pinned local FastEmbed model; ``none`` forces the degraded
+    # (exact + full text) retrieval mode, ``fake`` is the deterministic offline test embedder.
+    embedding_provider: Literal["fastembed", "fake", "none"] = "fastembed"
+    embedding_model_dir: Path | None = None
+    retrieval_max_chunks_per_document: int = Field(50_000, ge=1, le=200_000)
+    retrieval_max_embedded_chunks_per_document: int = Field(3000, ge=1, le=200_000)
+    """Embedding cap per document (CPU budget: ~0.15-0.2 s/chunk measured); chunks beyond it stay
+    exact/full-text searchable and the document reports a partial vector index."""
+    retrieval_max_attempts: int = Field(3, ge=1, le=10)
+    retrieval_min_vector_similarity: float = Field(0.0, ge=-1.0, le=1.0)
+
+    @field_validator("embedding_model_dir", mode="before")
+    @classmethod
+    def _blank_model_dir_is_default(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
 
     # Native-profile extraction (TASK-009).
     extraction_max_attempts: int = Field(3, ge=1, le=10)

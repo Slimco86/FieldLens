@@ -17,6 +17,9 @@ from tests import live_meta_support, support
 if os.environ.get(live_meta_support.OPT_IN_VAR) == "1":
     live_meta_support.STASHED_KEY["key"] = os.environ.get("MODEL_API_KEY", "")
 os.environ["MODEL_API_KEY"] = ""
+# Default tests never load the real local embedding model, even when it is installed under
+# .local: embeddings are disabled unless a test sets the provider explicitly (fake offline).
+os.environ["FIELDLENS_EMBEDDING_PROVIDER"] = "none"
 
 
 @pytest.fixture(scope="session", autouse=True)
