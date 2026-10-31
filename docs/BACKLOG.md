@@ -1426,7 +1426,8 @@ item blocks above, the item blocks are authoritative for current status.
 
 - **Scans need OCR first.** An OCR text layer with page/box locators precedes model reading for scanned documents (TASK-030); a number is accepted only when the OCR token and the image read agree.
 - **F-12 equipment.** The EDM export is checked offline for deterministic completion data (TASK-044); if none is found, generic 3D assets cover missing equipment as long as the other F-12 data is available. The three completion reports in the F-12 folder describe F-11 wells and are not used for F-12.
-- **Demo data-quality policy.** No user correction flow is planned; minor non-structural inconsistencies are recorded as warnings and auto-resolved by a documented deterministic rule, structural ones still block affected outputs (DATA_QUALITY amendment). DQ-3 and DQ-4 classification is pending the owner.
+- **Demo data-quality policy.** No user correction flow is planned; minor non-structural inconsistencies are recorded as warnings and auto-resolved by a documented deterministic rule, structural ones still block affected outputs (DATA_QUALITY amendment). Owner then classified DQ-3 (F-14 reference elevation) and DQ-4 (F-12 perforation interval) as minor: warning plus deterministic auto-resolution.
+- **Vector indexing policy (TASK-011).** Skip vectors for pure numeric tables (they dominate the production workbook, 97% of chunks); embed everything else completely; exact identifiers and full-text still cover the numeric tables.
 - **No human verification of the spike reference** for now; QA's audit stands and gold fixtures come later (TASK-002).
 
 ## Owner decisions, October 31

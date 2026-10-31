@@ -15,8 +15,12 @@
 > problems (wellbore/well identity conflicts, MD/TVD or datum/CRS conflicts, missing critical measurements
 > without which a geometry or calculation cannot be defined) still block only the affected outputs as
 > specified below; unrelated valid records are never blocked. Generic 3D assets remain acceptable for missing
-> equipment dimensions when the rest of that wellbore's data is available. Which of DQ-3 and DQ-4 count as
-> minor is an owner classification still to be confirmed; until then they stay as specified.
+> equipment dimensions when the rest of that wellbore's data is available. Owner classification October 31: both
+> DQ-4 (F-12 perforation interval 3126.2-3139.7 m versus 3126.2-3130.7 m) and DQ-3 (F-14 reference elevation
+> 53.870 m versus 54.90 m) are treated as minor for the demo: each is recorded as a persisted warning that keeps
+> both source values and evidence links and is resolved by a documented deterministic rule named in the issue
+> (the rule for each is chosen in the implementing slice and approved with that slice; the DQ-3/DQ-4 acceptance
+> checks that require blocking are superseded accordingly).
 
 ## How to Read This Spec
 
