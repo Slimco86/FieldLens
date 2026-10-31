@@ -210,7 +210,7 @@ def test_real_subset_topical_queries_rank_the_right_kinds(
     migrated_url: URL, tmp_path: Path
 ) -> None:
     """Round-2 QA queries on REAL extracted observations (fake embedder: exact/full text only)."""
-    world = make_world(migrated_url, tmp_path)
+    world = make_world(migrated_url, tmp_path, retrieval_vector_support_floor=0.68)
     pid = world.project("Volve full subset")
     for rel in _paths(with_production=True):
         world.add_doc(pid, Path(rel).name, [_row(r) for r in _parse(rel)])
@@ -233,6 +233,14 @@ def test_real_subset_topical_queries_rank_the_right_kinds(
         )
     # Ranking of the topical queries is printed, not asserted: on real data production_day
     # chunks still reach 'tubing size F-12' (follow-up item D); only the identity rule is asserted.
+    f11 = world.search(pid, "F-11")
+    assert not any(
+        any(x in h["text"] for x in ("F-11 A", "F-11 B", "F-11 T2")) for h in f11["hits"]
+    ), "the parent query must not return sidetrack rows"
+    f11b = world.search(pid, "F-11 B perforation")
+    assert f11b["status"] == "ok" and any("F-11 B" in h["text"] for h in f11b["hits"])
+    for q in ("well", "size", "tell me about the well"):
+        assert world.search(pid, q)["status"] == "weak_evidence", q
     for q in ("F-12 A perforation", "F-12 Z perforation"):
         out = world.search(pid, q)
         assert out["status"] in ("weak_evidence", "no_results") and out["exact_matches"] == []

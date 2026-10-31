@@ -79,15 +79,22 @@ def record_identifiers(
     subject: dict[str, Any], attributes: list[dict[str, Any]]
 ) -> list[IdentifierRow]:
     rows: list[IdentifierRow] = []
-    bore = next(
-        (
-            subject[k]
-            for k in ("wellbore_label", "wellbore_name")
-            if isinstance(subject.get(k), str) and subject[k].strip()
-        ),
-        None,
-    )
-    sidetrack = bore is not None and has_suffix(bore)
+    suffix = subject.get("wellbore_suffix")
+    suffix = suffix.strip() if isinstance(suffix, str) else ""
+    subject = dict(subject)
+    if suffix:  # the bore's own name: "NO 15/9-F-11" + "B" -> "NO 15/9-F-11 B"
+        for k in ("wellbore_label", "wellbore_name", "well_name"):
+            v = subject.get(k)
+            if isinstance(v, str) and v.strip() and not has_suffix(v):
+                subject[k] = f"{v} {suffix}"
+    names = [
+        subject[k]
+        for k in ("wellbore_label", "wellbore_name", "well_name")
+        if isinstance(subject.get(k), str) and subject[k].strip()
+    ]
+    # Real perforation subjects look like {well_key, well_name: "NO 15/9-F-11 B",
+    # wellbore_suffix: "B"}: any suffix marks a sidetrack, which must not carry the parent key.
+    sidetrack = bool(suffix) or any(has_suffix(n) for n in names)
     for key, kind in _SUBJECT_KINDS.items():
         value = subject.get(key)
         if key == "well_key" and sidetrack:
@@ -125,7 +132,16 @@ def document_well_rows(
             ),
             None,
         )
-        use_key = isinstance(key, str) and key.strip() and not (label and has_suffix(label))
+        suffix = subject.get("wellbore_suffix")
+        suffix = suffix.strip() if isinstance(suffix, str) else ""
+        if label and suffix and not has_suffix(label):
+            label = f"{label} {suffix}"  # the bore's own name: "NO 15/9-F-11" + "B"
+        use_key = (
+            isinstance(key, str)
+            and key.strip()
+            and not suffix
+            and not (label and has_suffix(label))
+        )
         chosen = key if use_key else label
         if isinstance(chosen, str) and chosen.strip():
             wells.add(_COUNTRY.sub("", norm_identifier(chosen)))

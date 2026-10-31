@@ -186,11 +186,13 @@ and reported as a complete vector index with the exclusion stated, not as degrad
 else is embedded completely, with a 3000-chunk safety cap that is reported as partial if ever
 hit. Relevance (what is actually guaranteed): each hit carries `support {exact, lexical, vector,
 strong}`. `strong` (and result status `ok`) requires an exact-ID-only query, a discriminative
-full-text match (a number/identifier phrase, or a word found in at most 20% of the scoped chunks),
+full-text match (a number/identifier phrase, or a non-schema word found in at most 20% of the
+scoped chunks; with fewer than 50 scoped chunks every word counts; a query whose words are all
+frequent or schema words has no lexical support and stays weak),
 or a vector hit that clears the floor (default 0.68) AND stands 0.04 above the median of the
 vector candidates. Vector-only results below that bar are returned with their similarity but
 flagged, and the result is `weak_evidence` (never cite them). The floor and margin are
-UNCALIBRATED: on the real int8 model off-topic text scores 0.50-0.63 and in-domain paraphrases
+UNCALIBRATED, as are the 20% and 50-chunk thresholds: on the real int8 model off-topic text scores 0.50-0.63 and in-domain paraphrases
 about 0.6-0.8, so the guard separates noise from clear matches only roughly and needs the G1
 gold set. A short suffix after a well name that no source names (`F-12 Z`) is reported unmatched
 and never resolves to the parent well; a sidetrack's records do not carry the parent well key.

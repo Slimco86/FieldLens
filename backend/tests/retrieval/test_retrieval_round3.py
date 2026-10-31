@@ -344,3 +344,78 @@ def test_failed_index_jobs_are_requeued_on_process_start_and_on_demand(world: Wo
     assert world.coverage(pid)["documents"][0]["vector_index"] == "complete"
     with session_scope(world.factory) as session:
         assert requeue_failed_jobs(session, UUID(pid)) == 0  # nothing failed any more
+
+
+# --- round 3: frequent words, real sidetrack subject shapes ---------------------------------
+
+
+def test_all_frequent_or_schema_words_give_no_lexical_support(
+    migrated_url: Any, tmp_path: Any
+) -> None:
+    world = make_world(migrated_url, tmp_path, retrieval_vector_support_floor=0.68)
+    pid = world.project()
+    for i in range(60):
+        world.add_doc(pid, f"n{i}.pdf", [note(f"well depth size reading {i}", label=f"W{i}")])
+    world.add_doc(pid, "p.pdf", [note("packer setting min value", label="WP")])
+    world.index(limit=500)
+    for q in ("well", "size", "tell me about the well", "the well depth size", "min"):
+        out = world.search(pid, q)
+        assert out["status"] == "weak_evidence", (q, out["status"])
+        assert all(not h["support"]["lexical"] for h in out["hits"]), q
+    legit = world.search(pid, "packer setting")
+    assert legit["status"] == "ok" and legit["hits"][0]["support"]["lexical"]
+
+
+def _perf(subject: dict[str, str], n: int = 3) -> list[dict[str, Any]]:
+    return [
+        rec(
+            "perforation_interval",
+            subject,
+            [attr("top_md", f"{3000 + i}", None, number=3000.0 + i)],
+        )
+        for i in range(n)
+    ]
+
+
+def test_sidetrack_rows_with_real_subject_shapes_stay_out_of_the_parent_query(world: World) -> None:
+    pid = world.project()
+    world.add_doc(
+        pid,
+        "parent.dat",
+        _perf({"well_key": "15/9-F-11", "well_name": "NO 15/9-F-11", "remark": "parent"}),
+    )
+    world.add_doc(
+        pid,
+        "b.dat",
+        _perf({"well_key": "15/9-F-11", "well_name": "NO 15/9-F-11 B", "wellbore_suffix": "B"}),
+    )
+    world.add_doc(
+        pid,
+        "a.dat",
+        _perf({"well_key": "15/9-F-11", "well_name": "NO 15/9-F-11", "wellbore_suffix": "A"}),
+    )
+    world.add_doc(
+        pid, "t.dat", _perf({"well_key": "15/9-F-11", "wellbore_label": "NO 15/9-F-11 T2"})
+    )
+    world.index()
+    parent = world.search(pid, "F-11 perforation")
+    docs = {h["document_id"] for h in parent["hits"]}
+    assert docs == {str(world.docs["parent.dat"].document_id)}, docs
+    assert parent["hits"] and parent["status"] == "ok"
+    for q, name in (
+        ("F-11 B perforation", "b.dat"),
+        ("F-11 A perforation", "a.dat"),
+        ("F-11 T2 perforation", "t.dat"),
+    ):
+        out = world.search(pid, q)
+        assert out["status"] == "ok" and out["unmatched_identifiers"] == [], (
+            q,
+            out["unmatched_identifiers"],
+        )
+        assert {h["document_id"] for h in out["hits"]} == {str(world.docs[name].document_id)}, q
+
+
+def test_identifier_change_bumps_the_chunker_version_so_indexes_are_rebuilt() -> None:
+    from fieldlens.retrieval.chunker import CHUNKER_VERSION
+
+    assert CHUNKER_VERSION != "chunker-2"  # stored identifiers changed: chunker-2 rows are deleted

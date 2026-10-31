@@ -146,6 +146,10 @@ _PRODUCTION_VOCABULARY = {
     "output": ("oil", "gas", "water", "vol"),
     "produced": ("oil", "gas", "water", "vol"),
 }
+# Metadata words that name schema keys/units, not content, even when they are rare enough.
+_SCHEMA_WORDS = frozenset(
+    "min max unit units mnemonic null count design key label kind name well wellbore".split()
+)
 _DF_DISCRIMINATIVE = 0.2  # a word in more than 20% of the scoped chunks does not discriminate
 _DF_MIN_CHUNKS = 50  # below this scope size every word counts as discriminative
 
@@ -367,7 +371,10 @@ class RetrievalService:
         ) = self._resolve_identifiers(session, scope, query)
         exact_matches = [*uuid_hits, *exact_matches]
         known = matched_all | {m.identifier for m in uuid_hits}
-        unmatched = [t for t in id_shaped_tokens(query) if t not in known] + suffix_missing
+        in_match = {norm_identifier(t) for i, t in enumerate(query_tokens(query)) if i in consumed}
+        unmatched = [
+            t for t in id_shaped_tokens(query) if t not in known and t not in in_match
+        ] + suffix_missing
         cache_key = self._cache_key(project_id, revision, query, scope, limit, fingerprint, index)
         if ambiguities:
             return EvidenceSearchResult(
@@ -692,8 +699,8 @@ class RetrievalService:
 
         A match is supported only through a discriminative term: a digit/number/identifier
         phrase, or a plain word found in at most 20% of the scoped chunks (word frequency is
-        measured in scope; below 50 scoped chunks every word counts, and when every word is
-        frequent the rarest one counts). A word like ``size`` that only appears as a unit or key
+        measured in scope; below 50 scoped chunks every word counts; all of these thresholds are
+        uncalibrated, and a query whose words are all frequent has no support). A word like ``size`` that only appears as a unit or key
         name in most rows of a numeric table therefore proves nothing. Supported matches rank
         first."""
         terms = query_terms(tokens)
@@ -714,9 +721,13 @@ class RetrievalService:
             if total >= _DF_MIN_CHUNKS:
                 freq = {w: getattr(row, f"d{i}") for i, w in enumerate(terms.plain)}
                 seen = {w: n for w, n in freq.items() if n > 0}
-                disc = [w for w, n in seen.items() if n <= _DF_DISCRIMINATIVE * total]
-                if not disc and seen:
-                    disc = [min(seen, key=lambda w: (seen[w], w))]
+                # No fallback: when every word is frequent (or schema metadata), the query has
+                # no discriminative term and its hits stay weak_evidence.
+                disc = [
+                    w
+                    for w, n in seen.items()
+                    if n <= _DF_DISCRIMINATIVE * total and w not in _SCHEMA_WORDS
+                ]
         rows = session.execute(
             text(
                 "SELECT c.chunk_id, ts_rank(c.tsv, qs.q) + ts_rank(c.tsv_en, qe.q) AS score, "

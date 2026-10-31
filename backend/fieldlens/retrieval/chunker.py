@@ -33,7 +33,7 @@ from uuid import UUID
 from .identifiers import IdentifierRow, record_identifiers, unique_rows
 from .text import estimate_tokens, search_text
 
-CHUNKER_VERSION = "chunker-2"
+CHUNKER_VERSION = "chunker-3"  # 3: sidetrack identity rule changed stored identifiers
 TARGET_TOKENS = 400
 MAX_TOKENS = 480
 OVERLAP_TOKENS = 50
