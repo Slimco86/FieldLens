@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path("/mnt/c/Users/slimc/Downloads/Hackathon_Data/Well_logs_pr_WELL")
-SCRATCH = Path(".local/spike042")
+# Anchored to the repository root (gitignored `.local/`), independent of the working directory.
+SCRATCH = Path(__file__).resolve().parents[2] / ".local" / "spike042"
 
 # The ONLY seven files the owner approved for the provider (October 31).
 DOCS: dict[str, tuple[str, str]] = {

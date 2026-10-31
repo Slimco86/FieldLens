@@ -94,20 +94,37 @@ def ref_tokens(s: Any) -> set[str]:
     return {t for t in re.split(r"[^a-z]+", str(s).lower()) if t}
 
 
+def usable_keys(g: dict[str, Any], strict: bool) -> list[str]:
+    """Keys that identify a reference item. Lenient: all keys (possibly none). Strict: only keys
+    of 4+ normalised characters, else the printed depth value; items with neither are
+    not eligible for strict matching."""
+    keys = [norm(k) for k in g["keys"]]
+    if not strict:
+        return keys
+    long_keys = [k for k in keys if len(k) >= 4]
+    if long_keys:
+        return long_keys
+    depth = g["attrs"].get("depth")
+    return [norm(depth)] if depth else []
+
+
 def match_items(
-    gold: list[dict[str, Any]], preds: list[dict[str, Any]]
+    gold: list[dict[str, Any]], preds: list[dict[str, Any]], strict: bool = False
 ) -> tuple[list[tuple[int, int]], dict[int, int]]:
-    """Greedy match: same group and any key in the flattened candidate. Returns pairs and
-    type-confused pairs (gold idx -> pred idx) where only keys match."""
+    """Greedy match: same group and any usable key in the flattened candidate (lenient mode: an
+    item without keys matches any candidate of its type). Returns pairs and type-confused pairs
+    (gold idx -> pred idx) where only keys match."""
     used: set[int] = set()
     pairs: list[tuple[int, int]] = []
     confused: dict[int, int] = {}
     for gi, g in enumerate(gold):
+        keys = usable_keys(g, strict)
+        if strict and not keys:
+            continue
         best, score = None, -1
         for pi, p in enumerate(preds):
             if pi in used or p.get("type") != g["group"]:
                 continue
-            keys = [norm(k) for k in g["keys"]]
             hits = sum(1 for k in keys if k and k in flat(p))
             if keys and hits == 0:
                 continue
@@ -119,7 +136,7 @@ def match_items(
     for gi, g in enumerate(gold):
         if any(gi == a for a, _ in pairs):
             continue
-        keys = [norm(k) for k in g["keys"]]
+        keys = usable_keys(g, strict)
         for pi, p in enumerate(preds):
             if pi in used:
                 continue
@@ -234,6 +251,10 @@ def score_record(rec: dict[str, Any]) -> dict[str, Any]:
         sure = [i for i, x in enumerate(g) if not x["unsure"]]
         hit_sure = [gi for gi, _ in pairs if gi in sure]
         out["gold_sure"], out["tp_sure"] = len(sure), len(hit_sure)
+        spairs, _ = match_items(g, cands, strict=True)
+        elig = [i for i in sure if usable_keys(g[i], True)]
+        out["strict_eligible"] = len(elig)
+        out["tp_strict"] = len([gi for gi, _ in spairs if gi in elig])
         out["gold_unsure"] = len(g) - len(sure)
         out["tp_unsure"] = len([gi for gi, _ in pairs if gi not in sure])
         out["pred_matched"] = len(pairs)
@@ -252,6 +273,7 @@ def score_record(rec: dict[str, Any]) -> dict[str, Any]:
         out["missed"] = [x["name"] for i, x in enumerate(g) if i not in {a for a, _ in pairs}]
     elif key in CONTROLS:
         out["control_kind"] = CONTROLS[key]["kind"]
+        out["control_perfs"] = len(perfs)
         out["control_cands"] = [f"{c.get('type')}|{str(c.get('name'))[:50]}" for c in cands]
     return out
 

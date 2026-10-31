@@ -1,7 +1,7 @@
 """Live runner for TASK-042 (opt-in, spends capped credit). Sends ONLY the seven approved PDFs.
 
     env -u FIELDLENS_DATABASE_URL MODEL_API_KEY=... uv run --with pypdfium2 --with pillow \
-        python scripts/spikes/spike042_run.py --tag A --pages PV-21:49 --mode image \
+        python scripts/spikes/spike042_run.py --live --tag A --pages PV-21:49 --mode image \
         --long-side 1800 --effort low
 
 The key is read from the environment only and is never printed or stored. Results go to
@@ -98,6 +98,7 @@ def page_jpeg(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--live", action="store_true", help="explicit opt-in: spends capped credit")
     ap.add_argument("--tag", required=True)
     ap.add_argument("--pages", default="all")
     ap.add_argument("--mode", choices=["image", "text", "both"], default="image")
@@ -111,14 +112,21 @@ def main() -> int:
     ap.add_argument("--limit-usd", default="3.00", help="stop before the next call beyond this")
     args = ap.parse_args()
 
+    if not args.live:
+        print("refusing to call the provider without --live")
+        return 2
     key = os.environ.get("MODEL_API_KEY", "")
     if not key.strip():
         print("MODEL_API_KEY missing")
         return 2
     settings = Settings(MODEL_API_KEY=key)
-    assert settings.database_url is not None
+    if settings.database_url is None:
+        print("lane database url missing")
+        return 2
     url = settings.database_url.get_secret_value()
-    assert "fieldlens_task_042_completion_spike" in url, "lane database only"
+    if "fieldlens_task_042_completion_spike" not in url:
+        print("refusing: not the TASK-042 lane database")
+        return 2
     engine = create_engine(url)
     ledger = BudgetLedger(create_session_factory(engine))
     period = ledger.ensure_period(
@@ -152,7 +160,9 @@ def main() -> int:
     limit = Decimal(args.limit_usd)
 
     for pv, page in pages:
-        assert pv in DOCS
+        if pv not in DOCS:
+            print(f"refusing: {pv} is not an approved document")
+            return 2
         for mode in modes:
             if mode == "text" and not page_text(pv, page).strip():
                 continue

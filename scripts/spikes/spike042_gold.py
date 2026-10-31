@@ -128,10 +128,41 @@ GOLD: dict[str, dict[str, Any]] = {
         "items": [],
         "perforations": [
             perf("4527", "4539"),
+        ],
+    },
+    # Corrected after QA: Perf#2..#8 are on p.20, not p.19 (my first assignment was wrong).
+    # No model call was made on p.20, so it is not scored.
+    "PV-13:20": {
+        "kind": "gold",
+        "well": "F-11 B",
+        "text_layer": True,
+        "items": [],
+        "perforations": [
             perf("4488", "4500"),
             perf("4355", "4367"),
             perf("4304", "4316"),
             perf("4286", "4295"),
+            perf("4268", "4280"),
+            perf("4063", "4075"),
+            perf("4031", "4043"),
+        ],
+    },
+    # PV-11 p.136: geological log with the F-11 B perforated-interval table (MD RKB), no other
+    # equipment reference. Reclassified from "control" after QA.
+    "PV-11:136": {
+        "kind": "gold",
+        "well": "F-11 B",
+        "text_layer": True,
+        "items": [],
+        "perforations": [
+            perf("4527", "4539", "MD RKB"),
+            perf("4488", "4500", "MD RKB"),
+            perf("4355", "4367", "MD RKB"),
+            perf("4304", "4316", "MD RKB"),
+            perf("4286", "4295", "MD RKB"),
+            perf("4268", "4280", "MD RKB"),
+            perf("4063", "4075", "MD RKB"),
+            perf("4031", "4043", "MD RKB"),
         ],
     },
     "PV-17:4": {
@@ -189,18 +220,24 @@ GOLD: dict[str, dict[str, Any]] = {
             it("mandrel", "7 x 1.5 Side Pocket Mandrel MMRG-4-5", ["MMRG"]),
             it("mandrel", "Chemical Injection Mandrel", ["Chemical"]),
             it("gauge", "Well Dynamic Gauge Carrier 29#", ["Gauge"]),
-            it("seal_assembly", "Baker PBR size 190-80 20ft stroke", ["190-80"]),
+            it("seal_assembly", "Baker PBR size 190-60 20ft stroke", ["190-60"]),
             it("packer", "Granite Packer 9 5/8 x 7", ["Granite"]),
             it("seal_assembly", "Sealstem 15 ft w/4 A-Ryte Seal Units", ["Sealstem", "Ryte"]),
             it("seal_assembly", "190-75 Ratcheting Muleshoe", ["190-75"]),
-            it("hanger", "VetcoGray Tubing Hanger", ["Hanger"], unsure=True),
+            it("hanger", "VetcoGray Tubing Hanger", ["Hanger"]),
             it("casing", "30 @ 196.800 m MD", ["196.8"], depth="196.800", ref="MD"),
             it("casing", "20 @ 1077.000 m MD", ["1077"], depth="1077.000", ref="MD"),
             it("casing", "10 3/4 @ 1604.000 m MD", ["1604"], depth="1604.000", ref="MD"),
             it("casing", "14 @ 2275.000 m MD", ["2275"], depth="2275.000", ref="MD"),
             it("casing", "9.625 @ 2783.000 m MD", ["2783"], depth="2783.000", ref="MD"),
             it("casing", "10.75 @ 140.780 m MD", ["140.78"], depth="140.780", ref="MD"),
-            it("liner", "7 liner @ 2616.000-3695.000 m MD", ["2616"], unsure=True),
+            it("liner", "7 liner @ 2616.000-3695.000 m MD", ["2616"]),
+            # Added after QA (all printed plainly on the page):
+            it("casing", "9.625 @ 2041.000 m MD", ["2041"], depth="2041.000", ref="MD"),
+            it("casing", "9.625 @ 2355.000 m MD", ["2355"], depth="2355.000", ref="MD"),
+            it("gas_lift_valve", "Gas Lift Valve 1366.790-1367.090 m MD", ["1366.79"]),
+            it("control_line", "Control line 1/4 Hydraulic", ["Hydraulic"]),
+            it("control_line", "Control line 1/4 Electrical cable", ["Electrical"]),
         ],
         "perforations": [],
     },
@@ -332,24 +369,29 @@ CONTROLS: dict[str, dict[str, Any]] = {
     "PV-21:13": {"kind": "control", "note": "time distribution table/chart"},
     "PV-21:50": {"kind": "control", "note": "contractors list"},
     "PV-12:17": {"kind": "control", "note": "drawworks incident, trap words motor/hanger/plug"},
-    "PV-11:136": {
-        "kind": "control",
-        "note": "geological completion log text (liner hanger legend)",
-    },
     "PV-12:39": {"kind": "exclusion", "note": "drilling 12 1/4 section narrative"},
     "PV-21:37": {"kind": "exclusion", "note": "drilling BHA list with OD/ID/length"},
     "PV-17:48": {"kind": "exclusion", "note": "BHA list incl. perforation tool strings"},
 }
 
+# Source-only (not scored, no model call): PV-11 p.74 "Table 6-1 Perforation intervals" (F-11 B).
+# Interval 7 reads 4065-4075 there but 4063-4075 on PV-11 p.136 and PV-13 p.20: a source
+# disagreement the validators must flag.
+SOURCE_ONLY: dict[str, str] = {"PV-11:74": "perforation table, interval 7 = 4065-4075"}
 
 # Remaining pup joints of the F-5 as-installed table (read from the image, MD RKB, metres).
 for _d in ("21.900", "23.430", "26.430", "511.000", "2783.770", "2808.530"):
     GOLD["PV-21:49"]["items"].append(it("pup_joint", f"pup {_d}", [_d], depth=_d, ref="MD RKB"))
 
 
+UNRUN = {"PV-13:20"}  # reference exists, no model call was made on it
+
+
 def all_pages() -> list[tuple[str, int]]:
     out = []
     for key in list(GOLD) + list(CONTROLS):
+        if key in UNRUN:
+            continue
         pv, page = key.split(":")
         out.append((pv, int(page)))
     return out
