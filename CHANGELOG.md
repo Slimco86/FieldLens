@@ -8,6 +8,19 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.16.1 - 2026-10-31
+
+- **TASK-042 (FL-022-E):** Added the live feasibility spike of model reading of the seven approved completion
+  PDFs: reviewable scripts in `scripts/spikes/` (survey, render, live runner behind `--live`, scoring) and
+  `docs/evidence/TASK042_COMPLETION_SPIKE.md`. Findings (live `muse-spark-1.3` on an agent-read, not
+  human-verified reference): typed equipment candidates are read reliably from upright page images at about
+  1600 px and `low` effort (strict 68/83 uniform, 80/83 tuned), depths and units exact as printed, no invented
+  items on control pages, but small-print digit misreads and silent empty answers on rotated pages; scanned
+  documents need OCR first; the three completion reports in the F-12 folder describe F-11 wells, so no F-12
+  production equipment exists in the seven files; F-11 B perforation history appears on PV-11 pages 74 and 136
+  (with a 4065 versus 4063 disagreement). Spend USD 2.9036 at placeholder rates (real about one sixth,
+  unverified). No product code changed.
+
 ## 0.16.0 - 2026-10-31
 
 - **TASK-043 (FL-003-C):** Hardened the provider adapter from the live MI-6 findings: optional per-request

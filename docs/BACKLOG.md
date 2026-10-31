@@ -1337,21 +1337,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | ingestion, rag, data |
 | Depends on | TASK-005, TASK-009, TASK-043 |
 | Assignee | agent:fieldlens-ingestion |
-| Due | 2026-11-01 |
+| Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/AGENTIC_EXTRACTION.md |
-| Version | none |
+| Version | 0.16.1 |
 | Parent | FL-022 |
 | Slice | FL-022-E |
 
 **Outcome.** A bounded, read-only experiment (no product code, no persistence) that sends page images and text of the seven local completion documents (PV-11..14, 17, 18, 21 for F-12, F-14 and F-5) to the model through the TASK-004 adapter and records, against a human reading of the same pages, which production/completion equipment (tubing, casing/liners, packers, pumps, bearings, depths, dimensions) it finds, cost per page, failure modes and what the validators would reject. The result decides the TASK-041 approach before any build.
-**Next action.** Dispatched October 31 (TASK-005 and TASK-043 integrated) on branch `feature/task-042-completion-spike`, worktree `/home/slimco/code/FieldLens-worktrees/task-042-completion-spike`. Owner-approved: USD 3 allowance (enforced at the conservative placeholder rates, about six times the real cost) and sending the seven completion PDFs to the provider. Page rendering uses `uv run --with pypdfium2 --with pillow` for the spike only (no lockfile change); a production rendering decision belongs to TASK-030/TASK-041. Independent QA follows.
-**Evidence.** none yet
+**Next action.** None. Findings feed TASK-041 and TASK-030 (see docs/evidence/TASK042_COMPLETION_SPIKE.md): upright whole pages at about 1600 px with effort `low`, orientation fix and a zoomed second pass for tiny labels, text layer for native-text pages, OCR layer with locators for the scanned F-14 and F-5 documents. Open owner decisions: OCR as a prerequisite versus a two-read agreement rule for scans, a deterministic source for F-12 completion equipment (the three F-12-folder completion reports are F-11 wells), and human verification of the agent-read reference.
+**Evidence.** Live spike run October 31 on `muse-spark-1.3` over the seven approved completion PDFs: 50 settled responses, USD 2.903620 at the conservative placeholder rates (real cost about one sixth, unverified), cap USD 3.00 never exceeded, effort minimal/low/medium accepted. On 14 equipment pages scored against an agent-read reference (not human-verified): tuned best-per-page 80/83 strict, uniform `low` 68/83 strict, the gap being the rotated schematic (8/21 plain, 20/21 rotated); depth values and units exact on every matched item; no invented items on control pages; digit misreads on small print. PV-11/12/13 in the F-12 folder are F-11 wells. Integrated as 0.16.1 (branch `feature/task-042-completion-spike`, head `729147c`; scripts and evidence only). Independent QA returned the first candidate (reference page error, tuned headline), repaired offline and re-verified; scorer reproduced exactly. Live-model results, not production acceptance.
 
 ### TASK-041 · Production/completion equipment candidates from completion documents
 
