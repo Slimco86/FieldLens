@@ -2,14 +2,18 @@
 
 Rules (RETRIEVAL_ASSISTANT.md section 4):
 
-* <= 800 estimated tokens per chunk (hard cap); the working target is 400 so a chunk also fits
-  the 512-token window of the embedder instead of being silently truncated by it.
+* <= 480 estimated tokens per chunk (hard cap, well inside the spec's 800); the working target
+  is 400 so a chunk also fits the 512-token window of the embedder instead of being silently
+  truncated by it.
 * Consecutive records of one kind and one subject (bore) form a *table*. Every chunk of that table repeats the table
   header (kind, subject values and a ``units`` line); every row restates each
   attribute as ``key=value unit``, so a number is never separated from its attribute or unit.
 * Table chunks split only at row boundaries. A single oversized row splits at attribute
   boundaries, and only a single oversized text attribute splits at word boundaries, with a
   <= 50-token overlap and never between a number and the token that follows it.
+* ``vector_policy``: numeric-dominated chunks (explicit kinds, or records whose attributes are
+  almost all plain numbers) are excluded from embedding BY POLICY; they stay exact-identifier and
+  full-text searchable. This is a deterministic function of the records, see ``vector_policy_of``.
 * The original ``extracted_record`` stays the evidence authority: a chunk only carries record
   ids and locators, plus the extraction quality those records had.
 
@@ -21,7 +25,7 @@ import hashlib
 import json
 import re
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
@@ -29,12 +33,19 @@ from uuid import UUID
 from .identifiers import IdentifierRow, record_identifiers, unique_rows
 from .text import estimate_tokens, search_text
 
-CHUNKER_VERSION = "chunker-1"
+CHUNKER_VERSION = "chunker-2"
 TARGET_TOKENS = 400
-MAX_TOKENS = 800
+MAX_TOKENS = 480
 OVERLAP_TOKENS = 50
 MAX_COLUMNS = 40
 MAX_LOCATORS_PER_CHUNK = 200
+EMBED = "embed"
+NUMERIC_TABLE = "numeric_table"
+# Kinds that are numeric time series / station tables whatever their attribute mix.
+NUMERIC_TABLE_KINDS = frozenset({"production_day", "production_month", "trajectory_station"})
+NUMERIC_ATTR_RATIO = 0.8  # share of attributes that are plain numbers (or unknown numbers)
+NUMERIC_MIN_RECORDS = 8  # a numeric TABLE has many rows; a few-record chunk keeps its vector
+MAX_PROSE_CHARS = 24  # any longer text attribute makes the chunk prose, not a numeric table
 _NUMERIC_WORD = re.compile(r"^[+-]?[\d.,]+(?:[eE][+-]?\d+)?%?$")
 
 
@@ -65,6 +76,7 @@ class ChunkDraft:
     temporal_coverage: dict[str, Any] | None
     validation_states: dict[str, int]
     identifiers: list[IdentifierRow]
+    vector_policy: str = EMBED
     fingerprint: str = ""
     search_text: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
@@ -208,6 +220,32 @@ def _temporal(records: list[RecordIn]) -> dict[str, Any] | None:
     }
 
 
+def vector_policy_of(kind: str, records: list[RecordIn]) -> str:
+    """``numeric_table`` when the chunk is numeric-dominated, else ``embed``.
+
+    Deterministic rule (owner decision, October 31): the kind is one of ``NUMERIC_TABLE_KINDS``,
+    or the chunk holds at least ``NUMERIC_MIN_RECORDS`` (8) records, at least 80% of whose attributes
+    are plain numbers (a number, or an unknown numeric value with no text), and no attribute
+    carries more than ``MAX_PROSE_CHARS`` of prose. Such chunks carry little semantic content
+    for a text embedder and dominate the corpus (the production workbook is 97% of the approved
+    subset), so they are skipped by policy; exact identifiers and full text still reach them."""
+    if kind in NUMERIC_TABLE_KINDS:
+        return NUMERIC_TABLE
+    attrs = [a for r in records for a in r.attributes]
+    if len(records) < NUMERIC_MIN_RECORDS or not attrs:
+        return EMBED
+    for a in attrs:
+        text = a.get("text")
+        if (
+            a.get("number") is None
+            and isinstance(text, str)
+            and len(text.strip()) > MAX_PROSE_CHARS
+        ):
+            return EMBED
+    numeric = sum(1 for a in attrs if a.get("number") is not None)
+    return NUMERIC_TABLE if numeric / len(attrs) >= NUMERIC_ATTR_RATIO else EMBED
+
+
 def _make(
     ordinal: int,
     kind: str,
@@ -215,9 +253,15 @@ def _make(
     body: list[str],
     records: list[RecordIn],
     content_sha: str,
+    doc_identifiers: Sequence[IdentifierRow] = (),
 ) -> ChunkDraft:
     text = "\n".join([header, *body])
-    ids = unique_rows([i for r in records for i in record_identifiers(r.subject, r.attributes)])
+    ids = unique_rows(
+        [
+            *doc_identifiers,
+            *[i for r in records for i in record_identifiers(r.subject, r.attributes)],
+        ]
+    )
     draft = ChunkDraft(
         ordinal=ordinal,
         kind=kind,
@@ -230,6 +274,7 @@ def _make(
         temporal_coverage=_temporal(records),
         validation_states=dict(Counter(r.validation_state for r in records)),
         identifiers=ids,
+        vector_policy=vector_policy_of(kind, records),
     )
     draft.search_text = search_text(text)
     draft.fingerprint = _fingerprint(draft, content_sha)
@@ -259,17 +304,24 @@ def _flush(
     plain_header: str,
     batch: list[tuple[RecordIn, list[dict[str, Any]], str]],
     content_sha: str,
+    doc_identifiers: Sequence[IdentifierRow] = (),
 ) -> ChunkDraft:
     rows = [t for _, _, t in batch]
     members = [r for r, _, _ in batch]
-    draft = _make(ordinal, kind, header, rows, members, content_sha)
+    draft = _make(ordinal, kind, header, rows, members, content_sha, doc_identifiers)
     if draft.token_count > MAX_TOKENS:  # header too wide: keep the rows, drop the column line
-        draft = _make(ordinal, kind, plain_header, rows, members, content_sha)
+        draft = _make(ordinal, kind, plain_header, rows, members, content_sha, doc_identifiers)
     return draft
 
 
-def chunk_records(records: Iterable[RecordIn], content_sha: str) -> Iterator[ChunkDraft]:
-    """Chunk records in ordinal order. Deterministic: same input -> identical chunks."""
+def chunk_records(
+    records: Iterable[RecordIn],
+    content_sha: str,
+    doc_identifiers: Sequence[IdentifierRow] = (),
+) -> Iterator[ChunkDraft]:
+    """Chunk records in ordinal order. Deterministic: same input -> identical chunks.
+    ``doc_identifiers`` are the document-level well identity rows (``document_well_rows``),
+    added to every chunk of a single-well document."""
     ordinal = 0
     for group in _groups(records):
         kind = group[0].kind
@@ -287,13 +339,15 @@ def chunk_records(records: Iterable[RecordIn], content_sha: str) -> Iterator[Chu
             for part_attrs, text in _row_parts(rec, cells, rec.attributes, budget):
                 cost = estimate_tokens(text) + 1
                 if batch and used + cost > budget:
-                    yield _flush(ordinal, kind, header, plain_header, batch, content_sha)
+                    yield _flush(
+                        ordinal, kind, header, plain_header, batch, content_sha, doc_identifiers
+                    )
                     ordinal += 1
                     batch, used = [], 0
                 batch.append((rec, part_attrs, text))
                 used += cost
         if batch:
-            yield _flush(ordinal, kind, header, plain_header, batch, content_sha)
+            yield _flush(ordinal, kind, header, plain_header, batch, content_sha, doc_identifiers)
             ordinal += 1
 
 

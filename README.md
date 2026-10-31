@@ -230,7 +230,11 @@ service reports `degraded` (exact + full text) rather than hybrid. Opt-in checks
 default): `uv run pytest backend/tests/retrieval/test_local_embedder.py -m local_embedder -s`
 (real model latency/RSS/similarity) and, with `FIELDLENS_LOCAL_DATA_ROOT` set, `uv run pytest
 backend/tests/retrieval/test_local_data_retrieval.py -m local_data -s` (real-subset chunking and
-exact-ID lookup).
+exact-ID lookup, first-search latency, worst real-tokenizer wordpiece count).
+New dependency note: FastEmbed 0.9.1 (Apache-2.0) brings py-rust-stemmers 0.1.8, which has no
+license metadata field but ships a `LICENSE` file in the wheel (MIT, Copyright 2024 qdrant; verified
+in the installed package, not assumed). Numeric tables (production/trajectory series) are excluded
+from embedding by policy and stay exact/full-text searchable; coverage states it.
 
 Opt-in local-data check (skipped when unset; read-only, nothing is copied into the repo):
 

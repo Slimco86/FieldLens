@@ -8,11 +8,12 @@ text is only a retrieval index entry."""
 
 from __future__ import annotations
 
+import unicodedata
 from enum import StrEnum
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from .base import ContractModel
 from .context import ReadLimit
@@ -33,10 +34,22 @@ class EvidenceSearchQuery(ContractModel):
     document_id: list[UUID] = Field(default_factory=list, max_length=20)
     limit: ReadLimit = Field(default=MAX_EVIDENCE_CHUNKS, ge=1, le=MAX_EVIDENCE_CHUNKS)
 
+    @field_validator("q")
+    @classmethod
+    def _no_control_characters(cls, value: str) -> str:
+        if any(unicodedata.category(ch) == "Cc" and ch not in "\t\n\r" for ch in value):
+            raise ValueError("q must not contain NUL or other control characters")
+        if not value.strip():
+            raise ValueError("q must not be blank")
+        return value
+
 
 class SearchStatus(StrEnum):
     OK = "ok"
     NO_RESULTS = "no_results"
+    WEAK_EVIDENCE = "weak_evidence"
+    """Hits exist but none has exact, full-text or above-floor vector support: do not answer
+    from them as if they were evidence."""
     AMBIGUOUS = "ambiguous"
     UNAVAILABLE = "unavailable"
 
@@ -54,6 +67,7 @@ class DegradedReason(StrEnum):
     EMBEDDING_FAILED = "embedding_failed"
     VECTOR_INDEX_INCOMPLETE = "vector_index_incomplete"
     VECTOR_INDEX_PARTIAL = "vector_index_partial"
+    QUERY_EMBEDDING_INVALID = "query_embedding_invalid"
     NO_INDEXED_DOCUMENTS = "no_indexed_documents"
 
 
@@ -63,6 +77,7 @@ class IndexedState(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
     COMPLETE = "complete"
+    INVALIDATED = "invalidated"
     PARTIAL = "partial"
     FAILED = "failed"
     INTERRUPTED = "interrupted"
@@ -87,17 +102,34 @@ class HitSignals(ContractModel):
     vector_similarity: float | None = None
 
 
+class HitSupport(ContractModel):
+    """Why a hit is relevant. A hit with all three false is flagged noise, never evidence."""
+
+    exact: bool = Field(description="Inside an exact-identifier scope (well/model/document id).")
+    lexical: bool = Field(description="Matched by the full-text query (plain or stemmed).")
+    vector: bool = Field(
+        description="Vector similarity at or above the (uncalibrated) support floor."
+    )
+
+
 class EvidenceHit(ContractModel):
     chunk_id: UUID
     rank: int = Field(ge=1)
     rrf_score: float
     signals: HitSignals
+    support: HitSupport
+    searched_revision_id: UUID | None = Field(
+        description="The source revision that was searched (membership scope)."
+    )
     label: Literal["source_observation"] = "source_observation"
     text: str
     token_count: int = Field(ge=1)
     kind: str
     document_id: UUID
-    source_revision_id: UUID = Field(description="Revision the extraction run was made for.")
+    source_revision_id: UUID = Field(
+        description="Originating revision: the one the extraction run was made for. It can be "
+        "older than the searched revision (documents carry over between revisions)."
+    )
     record_ids: list[UUID]
     first_record_ordinal: int = Field(ge=0)
     last_record_ordinal: int = Field(ge=0)
@@ -137,11 +169,19 @@ class IndexState(ContractModel):
 
 class EvidenceSearchResult(ContractModel):
     project_id: UUID
-    source_revision_id: UUID | None
+    source_revision_id: UUID | None = Field(
+        description="The searched revision (membership scope), not a hit's originating revision."
+    )
     query: str
     status: SearchStatus
     mode: RetrievalMode
     degraded_reasons: list[DegradedReason] = Field(default_factory=list)
+    evidence_strength: Literal["strong", "weak", "none"] = Field(
+        description="strong: at least one supported hit; weak: hits without any support; none."
+    )
+    vector_support_floor: float | None = Field(
+        default=None, description="Uncalibrated cosine floor used for HitSupport.vector."
+    )
     hits: list[EvidenceHit]
     returned_tokens: int = Field(ge=0)
     max_chunks: int = MAX_EVIDENCE_CHUNKS
@@ -179,6 +219,10 @@ class DocumentCoverage(ContractModel):
     not_indexed: list[str] = Field(
         default_factory=list, description="What is not searchable and why."
     )
+    vector_excluded_chunks: int = Field(
+        default=0, ge=0, description="Chunks excluded from embedding by policy (numeric tables)."
+    )
+    vector_notes: list[str] = Field(default_factory=list)
     coverage_notes: list[str] = Field(
         default_factory=list, description="Explicit extraction gaps for this document."
     )

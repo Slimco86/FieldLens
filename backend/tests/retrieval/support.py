@@ -189,4 +189,5 @@ class World:
 
 def make_world(url: URL, tmp_path: Path, **overrides: Any) -> World:
     overrides.setdefault("embedding_provider", "fake")
+    overrides.setdefault("retrieval_vector_support_floor", 0.3)  # fake-embedder test value
     return World(make_api(url, tmp_path, **overrides), url)

@@ -137,6 +137,14 @@ def upgrade() -> None:
             postgresql.TSVECTOR,
             sa.Computed("to_tsvector('simple', search_text)", persisted=True),
         ),
+        sa.Column(
+            "tsv_en",
+            postgresql.TSVECTOR,
+            sa.Computed("to_tsvector('english', search_text)", persisted=True),
+        ),
+        sa.Column(
+            "vector_policy", sa.String(16), server_default=sa.text("'embed'"), nullable=False
+        ),
         sa.Column("token_count", sa.Integer, nullable=False),
         sa.Column("record_ids", postgresql.ARRAY(UUID), nullable=False),
         sa.Column("first_record_ordinal", sa.Integer, nullable=False),
@@ -177,11 +185,24 @@ def upgrade() -> None:
             name=F("ck_evidence_chunk_ordinals_ordered"),
         ),
         sa.CheckConstraint(
+            "vector_policy IN ('embed', 'numeric_table')",
+            name=F("ck_evidence_chunk_vector_policy_known"),
+        ),
+        sa.CheckConstraint(
             "(invalidated_at IS NULL) = (invalidated_reason IS NULL)",
             name=F("ck_evidence_chunk_invalidation_paired"),
         ),
     )
     op.create_index(F("ix_evidence_chunk_tsv"), "evidence_chunk", ["tsv"], postgresql_using="gin")
+    op.create_index(
+        F("ix_evidence_chunk_tsv_en"), "evidence_chunk", ["tsv_en"], postgresql_using="gin"
+    )
+    op.create_index(
+        "ix_evidence_chunk_invalidated",
+        "evidence_chunk",
+        ["index_id"],
+        postgresql_where=sa.text("invalidated_at IS NOT NULL"),
+    )
     op.create_index(
         F("ix_evidence_chunk_document_revision"),
         "evidence_chunk",
@@ -255,6 +276,8 @@ def downgrade() -> None:
     op.drop_index(F("ix_chunk_identifier_lookup"), table_name="chunk_identifier")
     op.drop_table("chunk_identifier")
     op.drop_index(F("ix_evidence_chunk_document_revision"), table_name="evidence_chunk")
+    op.drop_index("ix_evidence_chunk_invalidated", table_name="evidence_chunk")
+    op.drop_index(F("ix_evidence_chunk_tsv_en"), table_name="evidence_chunk")
     op.drop_index(F("ix_evidence_chunk_tsv"), table_name="evidence_chunk")
     op.drop_table("evidence_chunk")
     op.drop_index(F("ix_retrieval_index_project_document"), table_name="retrieval_index")

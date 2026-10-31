@@ -28,12 +28,14 @@ from fieldlens.persistence.session import session_scope
 from . import tables as t
 from .chunker import CHUNKER_VERSION, ChunkDraft, RecordIn, chunk_records
 from .embedder import BATCH_SIZE, EmbedderProvider, EmbedderUnavailable
+from .identifiers import document_well_rows
 
 logger = logging.getLogger(__name__)
 rix = t.retrieval_index
 ec = t.evidence_chunk
 ADVISORY_LOCK = 0x464C0011
 INSERT_BATCH = 200
+ANALYZED_TABLES = ("evidence_chunk", "chunk_identifier", "chunk_embedding", "retrieval_index")
 CLEANUP_INTERVAL_S = 15.0  # stale-data deletion sweep; job discovery runs every poll
 _RETRYABLE_EMBEDDER_CODES = ("embedder_unavailable", "model_missing", "model_load_failed")
 
@@ -336,6 +338,7 @@ class IndexRunner:
                 self._build_chunks(claim, lost)
             else:
                 self._build_embeddings(claim, lost)
+            self._analyze()
         except FenceLost:
             logger.warning("index job %s lost its fence", claim.index_id)
         except RunGone:
@@ -353,6 +356,19 @@ class IndexRunner:
         finally:
             done.set()
             beater.join(timeout=5)
+
+    def _analyze(self) -> None:
+        """Refresh planner statistics after a job commits (QA: a cold first search took 32-55 s
+        on stale stats). Runs on the worker thread, never the request path; sampled by
+        PostgreSQL so bounded; a failure only costs plan quality, never correctness."""
+        if not self._settings.retrieval_analyze_after_index:
+            return
+        try:
+            with session_scope(self._factory) as session:
+                for table in ANALYZED_TABLES:
+                    session.execute(text(f"ANALYZE {table}"))  # noqa: S608 - fixed table names
+        except Exception as exc:
+            logger.warning("index ANALYZE failed: %s", type(exc).__name__)
 
     # -- finalization -----------------------------------------------------------------------
     def _fenced(self, session: Session, claim: IndexClaim, **values: Any) -> None:
@@ -399,6 +415,13 @@ class IndexRunner:
         }
         cap = self._settings.retrieval_max_chunks_per_document
         er_rec = m.extracted_record
+        with session_scope(self._factory) as session:
+            doc_rows = document_well_rows(
+                r[0]
+                for r in session.execute(
+                    select(er_rec.c.subject).where(er_rec.c.run_id == claim.run_id).distinct()
+                )
+            )
         truncated = False
         last_ordinal = -1
         with session_scope(self._factory) as write:
@@ -435,7 +458,7 @@ class IndexRunner:
                 )
                 pending: list[ChunkDraft] = []
                 count = 0
-                for draft in chunk_records(records, run.content_sha256):
+                for draft in chunk_records(records, run.content_sha256, doc_rows):
                     if lost.is_set():
                         raise FenceLost("lease lost")
                     if count >= cap:
@@ -496,6 +519,7 @@ class IndexRunner:
                     "chunker_version": CHUNKER_VERSION,
                     "ordinal": d.ordinal,
                     "kind": d.kind,
+                    "vector_policy": d.vector_policy,
                     "chunk_fingerprint": d.fingerprint,
                     "text": d.text,
                     "search_text": d.search_text,
@@ -544,8 +568,30 @@ class IndexRunner:
         fingerprint = embedder.spec.fingerprint
         emb = t.chunk_embedding
         cap = self._settings.retrieval_max_embedded_chunks_per_document
-        expected = min(chunks_index.chunk_count, cap)
-        capped = chunks_index.chunk_count > cap
+        with session_scope(self._factory) as session:
+            embeddable = session.execute(
+                select(func.count()).where(
+                    ec.c.index_id == chunks_index.index_id,
+                    ec.c.vector_policy == "embed",
+                    ec.c.invalidated_at.is_(None),
+                )
+            ).scalar_one()
+        # Owner decision: numeric-dominated chunks are excluded by policy (not "partial"); only
+        # the safety cap over embeddable chunks can make the vector index partial.
+        excluded = chunks_index.chunk_count - embeddable
+        expected = min(embeddable, cap)
+        capped = embeddable > cap
+        target = (
+            select(ec.c.chunk_id)
+            .where(
+                ec.c.index_id == chunks_index.index_id,
+                ec.c.vector_policy == "embed",
+                ec.c.invalidated_at.is_(None),
+            )
+            .order_by(ec.c.ordinal)
+            .limit(cap)
+            .subquery()
+        )
         while True:
             if lost.is_set():
                 raise FenceLost("lease lost")
@@ -553,8 +599,7 @@ class IndexRunner:
                 batch = session.execute(
                     select(ec.c.chunk_id, ec.c.text, ec.c.chunk_fingerprint)
                     .where(
-                        ec.c.index_id == chunks_index.index_id,
-                        ec.c.ordinal < cap,
+                        ec.c.chunk_id.in_(select(target.c.chunk_id)),
                         ~select(emb.c.chunk_id)
                         .where(
                             emb.c.chunk_id == ec.c.chunk_id,
@@ -595,10 +640,9 @@ class IndexRunner:
         with session_scope(self._factory) as session:
             total = session.execute(
                 select(func.count())
-                .select_from(emb.join(ec, ec.c.chunk_id == emb.c.chunk_id))
+                .select_from(emb)
                 .where(
-                    ec.c.index_id == chunks_index.index_id,
-                    ec.c.ordinal < cap,
+                    emb.c.chunk_id.in_(select(target.c.chunk_id)),
                     emb.c.embedding_fingerprint == fingerprint,
                 )
             ).scalar_one()
@@ -611,9 +655,9 @@ class IndexRunner:
                 claim,
                 status="complete",
                 embedded_count=total,
-                chunk_count=chunks_index.chunk_count,
+                chunk_count=embeddable,
                 truncated=capped,
-                detail={"embedding_cap": cap},
+                detail={"embedding_cap": cap, "excluded_numeric_table_chunks": excluded},
                 lease_owner=None,
                 lease_expires_at=None,
                 finished_at=func.now(),

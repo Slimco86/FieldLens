@@ -105,6 +105,63 @@ def test_real_subset_chunks_are_bounded_complete_and_number_safe() -> None:
     print(f"real subset: {total_records} records -> {total_chunks} chunks")
 
 
+def test_real_subset_worst_wordpiece_count_by_the_real_tokenizer() -> None:
+    from fieldlens.retrieval import model_manifest as mm
+
+    if mm.verify_model_dir(mm.DEFAULT_DIR) is not None:
+        pytest.skip("local embedding model is not installed")
+    from tokenizers import Tokenizer
+
+    tokenizer = Tokenizer.from_file(str(mm.DEFAULT_DIR / "tokenizer.json"))
+    worst = worst_est = n_embed = n_numeric = 0
+    for rel in _paths(with_production=True):
+        records = [
+            RecordIn(
+                i,
+                uuid4(),
+                r.kind,
+                r.subject,
+                r.locator,
+                None,
+                r.validation_state,
+                [a.to_json() for a in r.attrs],
+            )
+            for i, r in enumerate(_parse(rel))
+        ]
+        for c in chunk_records(records, "0" * 64):
+            worst = max(worst, len(tokenizer.encode(c.text).ids))
+            worst_est = max(worst_est, c.token_count)
+            n_numeric += c.vector_policy == "numeric_table"
+            n_embed += c.vector_policy == "embed"
+    print(
+        f"worst wordpieces {worst} (worst estimate {worst_est}); embed={n_embed} numeric={n_numeric}"
+    )
+    assert worst <= mm.MAX_TOKENS and worst_est <= MAX_TOKENS
+
+
+@pytest.mark.parametrize("analyze", [False, True], ids=["no-analyze", "analyze"])
+def test_real_subset_first_search_latency_with_the_production_workbook(
+    migrated_url: URL, tmp_path: Path, analyze: bool
+) -> None:
+    import time
+
+    world = make_world(migrated_url, tmp_path, retrieval_analyze_after_index=analyze)
+    pid = world.project("Volve full subset")
+    for rel in _paths(with_production=True):
+        world.add_doc(pid, Path(rel).name, [_row(r) for r in _parse(rel)])
+    t0 = time.perf_counter()
+    world.index(limit=2000)
+    index_s = time.perf_counter() - t0
+    timings = []
+    for q in ("F-12 survey measured depth", "what perforations were made in F-5", "gamma ray"):
+        t1 = time.perf_counter()
+        out = world.search(pid, q)
+        timings.append((q, round(time.perf_counter() - t1, 2), out["status"], out["mode"]))
+    print(f"analyze={analyze}: index {index_s:.1f}s, first searches {timings}")
+    if analyze:
+        assert timings[0][1] < 5.0, timings
+
+
 @pytest.fixture
 def real_world(migrated_url: URL, tmp_path: Path) -> tuple[World, str]:
     world = make_world(migrated_url, tmp_path)

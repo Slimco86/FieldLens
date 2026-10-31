@@ -246,7 +246,7 @@ def test_results_are_bounded_to_ten_chunks_and_twelve_thousand_tokens(world: Wor
             f"n{i}.pdf",
             [
                 rec(
-                    "report_note",
+                    f"report_note_{i % 12}",
                     {"wellbore_label": f"W{i}"},
                     [attr("remark", "pressure test " * 8)],
                 )

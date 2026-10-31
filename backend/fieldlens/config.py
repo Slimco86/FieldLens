@@ -115,8 +115,14 @@ class Settings(BaseSettings):
     embedding_model_dir: Path | None = None
     retrieval_max_chunks_per_document: int = Field(50_000, ge=1, le=200_000)
     retrieval_max_embedded_chunks_per_document: int = Field(3000, ge=1, le=200_000)
-    """Embedding cap per document (CPU budget: ~0.15-0.2 s/chunk measured); chunks beyond it stay
-    exact/full-text searchable and the document reports a partial vector index."""
+    """Safety bound on embedded chunks per document (CPU budget ~0.15-0.2 s/chunk). Numeric
+    tables are excluded by policy before this applies; if non-numeric content ever exceeds it the
+    document honestly reports a partial vector index."""
+    retrieval_analyze_after_index: bool = True
+    retrieval_vector_support_floor: float = Field(0.6, ge=-1.0, le=1.0)
+    """Cosine below which a vector-only hit is flagged unsupported. UNCALIBRATED: 0.6 is a first
+    guess for the int8 bge-small model (unrelated pairs reached 0.575, related 0.624 in a 4-case
+    sample); calibrate with the G1 gold set before relying on it."""
     retrieval_max_attempts: int = Field(3, ge=1, le=10)
     retrieval_min_vector_similarity: float = Field(0.0, ge=-1.0, le=1.0)
 

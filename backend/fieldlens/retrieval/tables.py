@@ -138,6 +138,8 @@ evidence_chunk = Table(
     Column("text", Text, nullable=False),
     Column("search_text", Text, nullable=False),
     Column("tsv", TSVECTOR, Computed("to_tsvector('simple', search_text)", persisted=True)),
+    Column("tsv_en", TSVECTOR, Computed("to_tsvector('english', search_text)", persisted=True)),
+    Column("vector_policy", String(16), nullable=False, server_default=text("'embed'")),
     Column("token_count", Integer, nullable=False),
     Column("record_ids", ARRAY(UUID(as_uuid=True)), nullable=False),
     Column("first_record_ordinal", Integer, nullable=False),
@@ -173,7 +175,14 @@ evidence_chunk = Table(
     CheckConstraint(
         "(invalidated_at IS NULL) = (invalidated_reason IS NULL)", name="invalidation_paired"
     ),
+    CheckConstraint("vector_policy IN ('embed', 'numeric_table')", name="vector_policy_known"),
     Index("ix_evidence_chunk_tsv", "tsv", postgresql_using="gin"),
+    Index(
+        "ix_evidence_chunk_invalidated",
+        "index_id",
+        postgresql_where=text("invalidated_at IS NOT NULL"),
+    ),
+    Index("ix_evidence_chunk_tsv_en", "tsv_en", postgresql_using="gin"),
     Index("ix_evidence_chunk_document_revision", "project_id", "document_id", "source_revision_id"),
 )
 

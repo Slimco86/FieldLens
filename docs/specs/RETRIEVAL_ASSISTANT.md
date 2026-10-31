@@ -161,22 +161,25 @@ FL-011-A status (TASK-011, candidate; independent QA pending): implemented in
 `backend/fieldlens/retrieval/` with migration 0007 and `GET .../retrieval/{search,coverage}`.
 Facts that refine this spec: Meta exposes no embeddings endpoint for our key (MI-6 probe 404),
 so embeddings are the pinned local FastEmbed `BAAI/bge-small-en-v1.5` int8 ONNX port
-(`Qdrant/bge-small-en-v1.5-onnx-Q@aa8f8b06`, MIT); chunks target 400 estimated tokens (hard cap
-800) so they also fit the model's 512-token window (estimator calibrated to WordPiece on the
-approved subset); wide record tables render one `key=value unit` per attribute with a repeated
-`units:` header; exact identifiers treat `NO 15/9-F-12`, `15/9-F-12` and an unqualified `F-12`
-as one naming only when a single block carries that short form (two blocks, or a sidetrack
-suffix, never merge: explicit ambiguity); embeddings are capped per document (default 3000
-chunks, ~0.15-0.2 s/chunk on this host) and a capped or pending vector index reports
-`degraded` with a reason. Offline synthetic results prove mechanics only; RG-2 real-data recall
-and RG-6 remain unverified until the G1 gold cases exist.
-FL-011-B/D: offline/live source chat and RG-8 with applicable RG-1/3/4/5 checks.
-FL-011-E: complete domain tools, graph retrieval and RG-1..5/7.
-FL-011-C: live RG-6 and authorized research check. Planned commands: retrieval/
-assistant pytest files, frontend assistant interactions, type/build, separate
-live marker only after allowance approval. Record model/index revisions,
-gold-case results and every failed/control case. No implementation result yet.
-Propose minor; orchestrator owns release metadata and final evaluation acceptance.
+(`Qdrant/bge-small-en-v1.5-onnx-Q@aa8f8b06`, MIT). Chunks target 400 estimated tokens with a
+hard cap of 480 (the spec's 800 is an upper bound; the model window is 512); the estimator was
+calibrated to WordPiece on the approved Volve subset only (mean ratio 0.99, max 1.09 there),
+so the opt-in embedder test re-checks real chunks. Wide record tables render one
+`key=value unit` per attribute with a repeated `units:` header. Exact identifiers treat
+`NO 15/9-F-12`, `15/9-F-12` and an unqualified `F-12` as one naming only when a single block
+carries that short form (two blocks, or a sidetrack suffix, never merge: explicit ambiguity);
+a document that maps to exactly one well also carries that well as a document-level identity
+so well+topic queries reach its topical chunks (a multi-well or unidentified document gets
+none). Exact identification is a scope (filter), not a ranking list. Lexical search fuses
+`simple` (identifiers/numbers as exact phrases) with `english` stemmed words. Owner decision
+October 31: numeric-dominated chunks (explicit kinds production/trajectory tables, or tables of
+at least 8 records with >=80% plain-number attributes) are excluded from embedding by policy
+and reported as a complete vector index with the exclusion stated, not as degraded; everything
+else is embedded completely, with a 3000-chunk safety cap that is reported as partial if ever
+hit. Hits carry `support` flags (exact/lexical/vector) and an uncalibrated vector support floor
+(default 0.6); a result with no supported hit is `weak_evidence`, never `ok`. Offline synthetic
+results prove mechanics only; RG-2 real-data recall and RG-6 remain unverified until the G1
+gold cases exist.
 
 ## Open Tensions
 

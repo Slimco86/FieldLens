@@ -677,7 +677,7 @@ export interface components {
          * DegradedReason
          * @enum {string}
          */
-        DegradedReason: "embedder_disabled" | "model_missing" | "model_load_failed" | "embedder_busy" | "embedding_failed" | "vector_index_incomplete" | "vector_index_partial" | "no_indexed_documents";
+        DegradedReason: "embedder_disabled" | "model_missing" | "model_load_failed" | "embedder_busy" | "embedding_failed" | "vector_index_incomplete" | "vector_index_partial" | "query_embedding_invalid" | "no_indexed_documents";
         /** DerivationLocator */
         DerivationLocator: {
             /** Input Claim Ids */
@@ -785,7 +785,15 @@ export interface components {
              */
             not_indexed?: string[];
             text_index: components["schemas"]["IndexedState"];
+            /**
+             * Vector Excluded Chunks
+             * @description Chunks excluded from embedding by policy (numeric tables).
+             * @default 0
+             */
+            vector_excluded_chunks: number;
             vector_index: components["schemas"]["IndexedState"];
+            /** Vector Notes */
+            vector_notes?: string[];
         };
         /**
          * DocumentListParams
@@ -988,13 +996,19 @@ export interface components {
             resolved_entity_id: string | null;
             /** Rrf Score */
             rrf_score: number;
+            /**
+             * Searched Revision Id
+             * @description The source revision that was searched (membership scope).
+             */
+            searched_revision_id: string | null;
             signals: components["schemas"]["HitSignals"];
             /**
              * Source Revision Id
              * Format: uuid
-             * @description Revision the extraction run was made for.
+             * @description Originating revision: the one the extraction run was made for. It can be older than the searched revision (documents carry over between revisions).
              */
             source_revision_id: string;
+            support: components["schemas"]["HitSupport"];
             /** Text */
             text: string;
             /** Token Count */
@@ -1051,6 +1065,12 @@ export interface components {
             cache_key: string;
             /** Degraded Reasons */
             degraded_reasons?: components["schemas"]["DegradedReason"][];
+            /**
+             * Evidence Strength
+             * @description strong: at least one supported hit; weak: hits without any support; none.
+             * @enum {string}
+             */
+            evidence_strength: "strong" | "weak" | "none";
             /** Exact Matches */
             exact_matches?: components["schemas"]["ExactMatch"][];
             /** Hits */
@@ -1078,7 +1098,10 @@ export interface components {
             query: string;
             /** Returned Tokens */
             returned_tokens: number;
-            /** Source Revision Id */
+            /**
+             * Source Revision Id
+             * @description The searched revision (membership scope), not a hit's originating revision.
+             */
             source_revision_id: string | null;
             status: components["schemas"]["SearchStatus"];
             /**
@@ -1086,6 +1109,12 @@ export interface components {
              * @description Identifier-shaped query tokens found in no source.
              */
             unmatched_identifiers?: string[];
+            /**
+             * Vector Support Floor
+             * @description Uncalibrated cosine floor used for HitSupport.vector.
+             * @default null
+             */
+            vector_support_floor: number | null;
         };
         /** ExactMatch */
         ExactMatch: {
@@ -1357,6 +1386,27 @@ export interface components {
              */
             vector_similarity: number | null;
         };
+        /**
+         * HitSupport
+         * @description Why a hit is relevant. A hit with all three false is flagged noise, never evidence.
+         */
+        HitSupport: {
+            /**
+             * Exact
+             * @description Inside an exact-identifier scope (well/model/document id).
+             */
+            exact: boolean;
+            /**
+             * Lexical
+             * @description Matched by the full-text query (plain or stemmed).
+             */
+            lexical: boolean;
+            /**
+             * Vector
+             * @description Vector similarity at or above the (uncalibrated) support floor.
+             */
+            vector: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1439,7 +1489,7 @@ export interface components {
          * IndexedState
          * @enum {string}
          */
-        IndexedState: "not_indexable" | "not_started" | "queued" | "running" | "complete" | "partial" | "failed" | "interrupted" | "disabled" | "unavailable";
+        IndexedState: "not_indexable" | "not_started" | "queued" | "running" | "complete" | "invalidated" | "partial" | "failed" | "interrupted" | "disabled" | "unavailable";
         /** IndexState */
         IndexState: {
             /** Eligible Documents */
@@ -2000,7 +2050,7 @@ export interface components {
          * SearchStatus
          * @enum {string}
          */
-        SearchStatus: "ok" | "no_results" | "ambiguous" | "unavailable";
+        SearchStatus: "ok" | "no_results" | "weak_evidence" | "ambiguous" | "unavailable";
         /**
          * SelectedEntityType
          * @enum {string}

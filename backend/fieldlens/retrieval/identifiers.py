@@ -8,6 +8,7 @@ ambiguity instead of a silent pick. Aliases never broaden a well to its sidetrac
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -79,6 +80,38 @@ def record_identifiers(
         if _ATTR_KEY.search(key) and isinstance(value, str) and value.strip():
             rows.extend(_rows(value, "attribute"))
     return rows
+
+
+def document_well_rows(subjects: Iterable[dict[str, Any]]) -> list[IdentifierRow]:
+    """Document-level well identity: identifier rows (kind ``document_well``) for the ONE well a
+    document is about, else none.
+
+    Each distinct record subject names a well by its ``well_key`` when present, otherwise by its
+    wellbore/well label (country prefix dropped). Unqualified and block-qualified spellings of one
+    label count as one well (the same naming rule as exact lookup); anything else, including a
+    sidetrack label without a well key, a second well, or no identity at all, leaves the document
+    unassociated. Never a guess: a multi-well workbook gets no document-level identity."""
+    wells: set[str] = set()
+    for subject in subjects:
+        key = subject.get("well_key")
+        label = next(
+            (
+                subject[k]
+                for k in ("wellbore_label", "wellbore_name", "well_name")
+                if isinstance(subject.get(k), str) and subject[k].strip()
+            ),
+            None,
+        )
+        chosen = key if isinstance(key, str) and key.strip() else label
+        if chosen is not None:
+            wells.add(_COUNTRY.sub("", norm_identifier(chosen)))
+    qualified = [w for w in wells if unqualified(w) is not None]
+    if len(qualified) == 1 and all(w == unqualified(qualified[0]) for w in wells - set(qualified)):
+        wells = set(qualified)
+    if len(wells) != 1 or len(next(iter(wells))) > MAX_IDENTIFIER_CHARS:
+        return []
+    canonical = next(iter(wells))
+    return [IdentifierRow(a, canonical, "document_well") for a in aliases(canonical)]
 
 
 def unique_rows(rows: list[IdentifierRow]) -> list[IdentifierRow]:

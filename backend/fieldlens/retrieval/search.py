@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
+import re
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -48,6 +49,7 @@ from fieldlens.contracts.retrieval import (
     ExactMatch,
     ExtractionQuality,
     HitSignals,
+    HitSupport,
     IdentifierAmbiguity,
     IndexedState,
     IndexState,
@@ -68,7 +70,7 @@ from .identifiers import (
     unqualified,
 )
 from .indexer import vector_literal
-from .text import search_text
+from .text import norm_identifier, search_text
 
 logger = logging.getLogger(__name__)
 RRF_K = 60
@@ -79,6 +81,7 @@ _STOP_WORDS = frozenset(
     "where which who with".split()
 )
 _LINKS_PER_HIT = 5
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 _ELIGIBLE = """
 FROM evidence_chunk c
@@ -131,21 +134,30 @@ def evidence_link(
         return None
 
 
-def tsquery_for(query: str) -> str | None:
-    """Full-text query from bound text only. Plain words are OR-ed (stop words dropped); a token
-    that normalizes to several words (``F-14`` -> ``f 14``, ``1234.5`` -> ``1234 5``) becomes a
-    phrase (``f <-> 14``) so an identifier or number must match whole and ``F-77`` cannot match
-    every chunk that merely contains the letter ``f``. Every term is ``[a-z0-9]`` only."""
-    terms: list[str] = []
-    for token in query_tokens(query):
+def _or_terms(terms: list[str]) -> str | None:
+    return " | ".join(list(dict.fromkeys(terms))[:MAX_TERMS]) or None
+
+
+def tsqueries_for(tokens: list[str]) -> tuple[str | None, str | None]:
+    """(simple, english) tsquery strings from bound text only.
+
+    ``simple`` ORs plain words and turns a token that normalizes to several words (``F-14`` ->
+    ``f 14``, ``1234.5`` -> ``1234 5``) into a phrase (``f <-> 14``), so an identifier or number
+    must match whole. ``english`` ORs only the plain words, stemmed by PostgreSQL, so
+    ``perforations`` reaches ``perforation``; identifiers and numbers are never stemmed.
+    Stop words are dropped; every term is ``[a-z0-9]`` only."""
+    simple: list[str] = []
+    english: list[str] = []
+    for token in tokens:
         words = search_text(token).split()
         if len(words) == 1:
             if words[0] not in _STOP_WORDS:
-                terms.append(words[0])
+                simple.append(words[0])
+                if not words[0].isdigit():
+                    english.append(words[0])
         elif words:
-            terms.append("(" + " <-> ".join(words) + ")")
-    unique = list(dict.fromkeys(terms))[:MAX_TERMS]
-    return " | ".join(unique) if unique else None
+            simple.append("(" + " <-> ".join(words) + ")")
+    return _or_terms(simple), _or_terms(english)
 
 
 def rrf(lists: dict[str, list[UUID]]) -> list[tuple[UUID, float]]:
@@ -175,7 +187,7 @@ class RetrievalService:
         document_ids: list[UUID] | None = None,
         limit: int = MAX_EVIDENCE_CHUNKS,
     ) -> EvidenceSearchResult:
-        query = query.strip()
+        query = _CONTROL.sub(" ", query).strip()  # NUL/control characters never reach SQL
         if not query:
             raise ContractError(ErrorCode.VALIDATION_ERROR, "query must not be empty", 422)
         limit = max(1, min(limit, MAX_EVIDENCE_CHUNKS))
@@ -191,7 +203,14 @@ class RetrievalService:
                 embedding = self._provider.embed_query(query)
             except EmbedderUnavailable as exc:
                 problem = exc
+            if embedding is not None and not _valid_embedding(embedding, status.spec.dimension):
+                embedding = None  # zero/NaN/wrong-size vector: explicit degraded, never silent
+                problem = EmbedderUnavailable(
+                    "query_embedding_invalid", "query embedding is zero, non-finite or wrong size"
+                )
         with session_scope(self._factory) as session:
+            # JIT compilation costs seconds on these selective queries and gains nothing.
+            session.execute(text("SET LOCAL jit = off"))
             return self._search(
                 session,
                 project_id,
@@ -285,7 +304,7 @@ class RetrievalService:
 
         # 1. Exact identifiers (document ids, well/wellbore labels, model numbers).
         uuid_hits = self._document_id_matches(query, docs, scope)
-        ambiguities, canon, exact_matches, matched_all = self._resolve_identifiers(
+        ambiguities, canon, exact_matches, matched_all, consumed = self._resolve_identifiers(
             session, scope, query
         )
         exact_matches = [*uuid_hits, *exact_matches]
@@ -300,6 +319,8 @@ class RetrievalService:
                 status=SearchStatus.AMBIGUOUS,
                 mode=RetrievalMode.DEGRADED if reasons else RetrievalMode.HYBRID,
                 degraded_reasons=reasons,
+                evidence_strength="none",
+                vector_support_floor=self._settings.retrieval_vector_support_floor,
                 hits=[],
                 returned_tokens=0,
                 exact_matches=exact_matches,
@@ -309,48 +330,84 @@ class RetrievalService:
                 cache_key=cache_key,
                 notes=["An identifier maps to more than one entity; no evidence is returned."],
             )
+        exact_scope = bool(canon or uuid_hits)
         if canon:
             scope.canonicals = canon
         if index.text_indexed_documents == 0:
-            notes.append("No document in this revision has a complete text index yet.")
+            notes.append(_why_empty(docs))
 
-        # 2. Ranking inside the scope.
-        exact_ranked = self._exact_list(session, scope) if (canon or uuid_hits) else []
-        lexical = self._lexical(session, scope, query)
+        # 2. Ranking inside the scope. Exact identification is a SCOPE (filter), not a ranking
+        # list: identifier tokens are removed from the topical full-text query, and the exact
+        # list is only a fallback when the query is nothing but an identifier.
+        uuids = set(query_uuids(query))
+        topical_tokens = [
+            tok
+            for i, tok in enumerate(query_tokens(query))
+            if i not in consumed and norm_identifier(tok) not in uuids
+        ]
+        topical = bool(topical_tokens)
+        lexical = self._lexical(session, scope, topical_tokens)
         vector: list[tuple[UUID, float]] = []
-        if embedding is not None and fingerprint is not None and _usable(embedding):
+        if embedding is not None and fingerprint is not None:
             vector = self._vector(session, scope, embedding, fingerprint)
-        lists = {
-            "exact": exact_ranked,
-            "lexical": lexical,
-            "vector": [cid for cid, _ in vector],
-        }
+        lists = {"lexical": lexical, "vector": [cid for cid, _ in vector]}
         fused = rrf({k: v for k, v in lists.items() if v})
+        if not fused and exact_scope:
+            fused = rrf({"exact": self._exact_list(session, scope)})
         sim = dict(vector)
         lex_rank = {cid: i for i, cid in enumerate(lexical, start=1)}
         vec_rank = {cid: i for i, (cid, _) in enumerate(vector, start=1)}
-        exact_set = set(exact_ranked)
+        floor = self._settings.retrieval_vector_support_floor
         details = self._load_chunks(session, [cid for cid, _ in fused])
+
+        def support(cid: UUID) -> HitSupport:
+            return HitSupport(
+                exact=exact_scope,
+                lexical=cid in lex_rank,
+                vector=cid in sim and sim[cid] >= floor,
+            )
+
+        needles = [search_text(u) for u in unmatched]
+
+        def relevant(sp: HitSupport, cid: UUID) -> bool:
+            # An identifier-shaped token found in no source identifier (unknown well, model or
+            # number) must itself appear in the chunk text, else topical overlap proves nothing.
+            row = details.get(cid)
+            if row is None or (needles and not all(n in search_text(row.text) for n in needles)):
+                return False
+            return sp.lexical or sp.vector or (sp.exact and not topical)
+
+        any_supported = any(relevant(support(cid), cid) for cid, _ in fused)
+        per_kind_cap = max(1, limit // 2)
+        kinds: dict[str, int] = {}
         hits: list[EvidenceHit] = []
         tokens = 0
         for chunk_id, score in fused:
             row = details.get(chunk_id)
             if row is None:
                 continue
+            sp = support(chunk_id)
+            if any_supported and not relevant(sp, chunk_id):
+                continue  # noise next to real evidence is dropped, not flagged
+            if not exact_scope and kinds.get(row.kind, 0) >= per_kind_cap:
+                continue  # diversity guard: one record kind cannot flood an unscoped query
             if len(hits) >= limit or tokens + row.token_count > MAX_CONTEXT_TOKENS:
                 break
             tokens += row.token_count
+            kinds[row.kind] = kinds.get(row.kind, 0) + 1
             hits.append(
                 _hit(
                     row,
                     len(hits) + 1,
                     score,
                     HitSignals(
-                        exact=chunk_id in exact_set,
+                        exact=exact_scope,
                         lexical_rank=lex_rank.get(chunk_id),
                         vector_rank=vec_rank.get(chunk_id),
                         vector_similarity=sim.get(chunk_id),
                     ),
+                    sp,
+                    revision,
                 )
             )
         if reasons:
@@ -360,13 +417,27 @@ class RetrievalService:
                 + "; results come from exact identifiers and full text"
                 + (" plus the vectors that exist." if vector else " only.")
             )
+        if not hits and index.text_indexed_documents > 0:
+            notes.append("No indexed chunk matched this query within the eligible sources.")
+        if hits and not any_supported:
+            status = SearchStatus.WEAK_EVIDENCE
+            strength = "weak"
+            notes.append(
+                "No hit has exact, full-text or above-floor vector support (floor "
+                f"{floor}, uncalibrated); the hits are flagged and must not be cited as evidence."
+            )
+        else:
+            status = SearchStatus.OK if hits else SearchStatus.NO_RESULTS
+            strength = "strong" if hits else "none"
         return EvidenceSearchResult(
             project_id=project_id,
             source_revision_id=revision,
             query=query,
-            status=SearchStatus.OK if hits else SearchStatus.NO_RESULTS,
+            status=status,
             mode=RetrievalMode.DEGRADED if reasons else RetrievalMode.HYBRID,
             degraded_reasons=reasons,
+            evidence_strength=strength,
+            vector_support_floor=floor,
             hits=hits,
             returned_tokens=tokens,
             exact_matches=exact_matches,
@@ -392,6 +463,8 @@ class RetrievalService:
             status=SearchStatus.UNAVAILABLE,
             mode=RetrievalMode.DEGRADED,
             degraded_reasons=reasons,
+            evidence_strength="none",
+            vector_support_floor=self._settings.retrieval_vector_support_floor,
             hits=[],
             returned_tokens=0,
             index=IndexState(
@@ -440,10 +513,10 @@ class RetrievalService:
 
     def _resolve_identifiers(
         self, session: Session, scope: _Scope, query: str
-    ) -> tuple[list[IdentifierAmbiguity], list[str], list[ExactMatch], set[str]]:
+    ) -> tuple[list[IdentifierAmbiguity], list[str], list[ExactMatch], set[str], set[int]]:
         candidates = query_candidates(query)
         if not candidates:
-            return [], [], [], set()
+            return [], [], [], set(), set()
         where, params = scope.where()
         rows = session.execute(
             text(
@@ -512,7 +585,8 @@ class RetrievalService:
                     chunk_count=v["chunks"],
                 )
             )
-        return ambiguities, sorted(set(canon)), exact, matched
+        consumed = {i for t in keep for i in range(spans[t].start, spans[t].end)}
+        return ambiguities, sorted(set(canon)), exact, matched, consumed
 
     def _exact_list(self, session: Session, scope: _Scope) -> list[UUID]:
         where, params = scope.where()
@@ -528,20 +602,20 @@ class RetrievalService:
         ).all()
         return [r.chunk_id for r in rows]
 
-    def _lexical(self, session: Session, scope: _Scope, query: str) -> list[UUID]:
-        tsq = tsquery_for(query)
-        if tsq is None:
+    def _lexical(self, session: Session, scope: _Scope, tokens: list[str]) -> list[UUID]:
+        simple, english = tsqueries_for(tokens)
+        if simple is None and english is None:
             return []
         where, params = scope.where()
         rows = session.execute(
             text(
-                "SELECT c.chunk_id, ts_rank(c.tsv, q.query) AS score "
+                "SELECT c.chunk_id, ts_rank(c.tsv, qs.q) + ts_rank(c.tsv_en, qe.q) AS score "
                 + _ELIGIBLE
-                + ", to_tsquery('simple', :tsq) AS q(query) WHERE "
-                + where
-                + " AND c.tsv @@ q.query ORDER BY score DESC, c.chunk_id LIMIT :n"
+                + ", to_tsquery('simple', :tss) AS qs(q), to_tsquery('english', :tse) AS qe(q)"
+                " WHERE " + where + " AND (c.tsv @@ qs.q OR c.tsv_en @@ qe.q)"
+                " ORDER BY score DESC, c.chunk_id LIMIT :n"
             ),
-            {**params, "tsq": tsq, "n": CANDIDATES},
+            {**params, "tss": simple or "", "tse": english or "", "n": CANDIDATES},
         ).all()
         return [r.chunk_id for r in rows]
 
@@ -588,9 +662,13 @@ class RetrievalService:
         return {r.chunk_id: r for r in rows}
 
 
-def _usable(embedding: list[float]) -> bool:
-    """A zero or non-finite query vector has no cosine direction: skip vector ranking."""
-    return all(math.isfinite(x) for x in embedding) and any(x != 0.0 for x in embedding)
+def _valid_embedding(embedding: list[float], dimension: int) -> bool:
+    """A zero, non-finite or wrong-size query vector has no usable cosine direction."""
+    return (
+        len(embedding) == dimension
+        and all(math.isfinite(x) for x in embedding)
+        and any(x != 0.0 for x in embedding)
+    )
 
 
 def _merge_unqualified(cands: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -617,7 +695,9 @@ def _merge_unqualified(cands: dict[str, dict[str, Any]]) -> dict[str, dict[str, 
     return {q: merged}
 
 
-def _hit(row: Any, rank: int, score: float, signals: HitSignals) -> EvidenceHit:
+def _hit(
+    row: Any, rank: int, score: float, signals: HitSignals, support: HitSupport, searched: UUID
+) -> EvidenceHit:
     links = [
         link
         for loc in row.locators[: _LINKS_PER_HIT * 4]
@@ -629,6 +709,8 @@ def _hit(row: Any, rank: int, score: float, signals: HitSignals) -> EvidenceHit:
         rank=rank,
         rrf_score=score,
         signals=signals,
+        support=support,
+        searched_revision_id=searched,
         text=row.text,
         token_count=row.token_count,
         kind=row.kind,
@@ -710,7 +792,8 @@ SELECT sd.document_id, sd.original_filename, sd.format_family, dp.storage_state,
        ci.index_id AS ci_id, ci.status AS ci_status, ci.chunk_count AS ci_chunks,
        ci.truncated AS ci_truncated, ci.error AS ci_error, ci.detail AS ci_detail,
        ei.status AS ei_status, ei.embedded_count AS ei_embedded, ei.error AS ei_error,
-       ei.truncated AS ei_truncated, ei.chunk_count AS ei_chunks
+       ei.truncated AS ei_truncated, ei.chunk_count AS ei_chunks, ei.detail AS ei_detail,
+       inv.invalid AS inv_count, inv.reason AS inv_reason
 FROM source_revision_document srd
 JOIN source_document sd ON sd.project_id = srd.project_id AND sd.document_id = srd.document_id
 JOIN document_processing dp ON dp.project_id = srd.project_id AND dp.document_id = srd.document_id
@@ -720,6 +803,10 @@ LEFT JOIN retrieval_index ci ON ci.run_id = er.run_id AND ci.kind = 'chunks'
   AND ci.chunker_version = :cv
 LEFT JOIN retrieval_index ei ON ei.run_id = er.run_id AND ei.kind = 'embeddings'
   AND ei.chunker_version = :cv AND ei.embedding_fingerprint = :fp
+LEFT JOIN LATERAL (
+  SELECT count(*) AS invalid, max(x.invalidated_reason) AS reason FROM evidence_chunk x
+  WHERE x.index_id = ci.index_id AND x.invalidated_at IS NOT NULL
+) inv ON true
 WHERE srd.project_id = :pid AND srd.source_revision_id = :rev
 ORDER BY sd.original_filename, sd.document_id
 """
@@ -792,6 +879,15 @@ def _one_document(r: Any, status: Any) -> DocumentCoverage:
             not_indexed.append(f"text index failed ({(r.ci_error or {}).get('code')})")
         else:
             not_indexed.append(f"text index {r.ci_status}")
+    invalid = r.inv_count or 0
+    if r.ci_status == "complete" and invalid:
+        if invalid >= (r.ci_chunks or 0):
+            text_state = IndexedState.INVALIDATED
+            not_indexed.append(
+                f"all chunks invalidated ({r.inv_reason or 'unknown reason'}); not searchable"
+            )
+        else:
+            not_indexed.append(f"{invalid} chunks invalidated ({r.inv_reason}); not searchable")
     if r.run_status == "partial":
         not_indexed.append("extraction itself was partial; unextracted content is not searchable")
     vector_state: IndexedState
@@ -799,7 +895,11 @@ def _one_document(r: Any, status: Any) -> DocumentCoverage:
         vector_state = (
             IndexedState.DISABLED if status.state == "disabled" else IndexedState.UNAVAILABLE
         )
-    elif text_state in (IndexedState.NOT_INDEXABLE, IndexedState.NOT_STARTED):
+    elif text_state in (
+        IndexedState.NOT_INDEXABLE,
+        IndexedState.NOT_STARTED,
+        IndexedState.INVALIDATED,
+    ):
         vector_state = text_state
     elif r.ei_status is None:
         vector_state = IndexedState.NOT_STARTED
@@ -814,6 +914,15 @@ def _one_document(r: Any, status: Any) -> DocumentCoverage:
         vector_state = IndexedState(r.ei_status)
     if text_state is IndexedState.PARTIAL and vector_state is IndexedState.COMPLETE:
         vector_state = IndexedState.PARTIAL
+    excluded = (
+        int((r.ei_detail or {}).get("excluded_numeric_table_chunks", 0)) if r.ei_detail else 0
+    )
+    vector_notes: list[str] = []
+    if excluded and vector_state in (IndexedState.COMPLETE, IndexedState.PARTIAL):
+        vector_notes.append(
+            f"{excluded} numeric-table chunks are excluded from embedding by policy (numeric "
+            "tables); they remain exact-identifier and full-text searchable"
+        )
     return DocumentCoverage(
         document_id=r.document_id,
         filename=r.original_filename,
@@ -821,12 +930,25 @@ def _one_document(r: Any, status: Any) -> DocumentCoverage:
         extraction_status=run_status,
         text_index=text_state,
         vector_index=vector_state,
-        chunk_count=r.ci_chunks or 0 if r.ci_status == "complete" else 0,
+        chunk_count=max(0, (r.ci_chunks or 0) - invalid) if r.ci_status == "complete" else 0,
         embedded_count=r.ei_embedded or 0,
         extraction_coverage=_coverage_dto(r.run_coverage),
         not_indexed=not_indexed,
+        vector_excluded_chunks=excluded,
+        vector_notes=vector_notes,
         coverage_notes=notes,
     )
+
+
+def _why_empty(docs: list[_Doc]) -> str:
+    """Explain an empty envelope: which documents are pending, invalid or not indexable."""
+    counts: dict[str, int] = {}
+    for d in docs:
+        counts[d.public.text_index.value] = counts.get(d.public.text_index.value, 0) + 1
+    if not docs:
+        return "The searched revision has no documents."
+    parts = ", ".join(f"{n} {state}" for state, n in sorted(counts.items()))
+    return f"No document is searchable ({parts}); see coverage for the per-document reasons."
 
 
 def _index_state(docs: list[_Doc], fingerprint: str | None) -> IndexState:
