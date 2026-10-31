@@ -63,8 +63,15 @@ class RequestLimitExceeded(AssistantError):
 
 
 class RequestCancelled(AssistantError):
+    """Cooperative cancel. Raised before dispatch (nothing billed) or, with ``settled`` true,
+    after an in-flight call completed and its actual usage was recorded (that call is billed)."""
+
     code = "request_cancelled"
     chargeable = False
+
+    def __init__(self, message: str | None = None, *, settled: bool = False) -> None:
+        super().__init__(message)
+        self.settled = settled
 
 
 class ProviderAuthError(AssistantError):
@@ -111,6 +118,16 @@ class ProviderMalformed(AssistantError):
     """Bad schema, unknown tool, invalid tool arguments or unparseable output."""
 
     code = "provider_malformed"
+
+
+class ProviderRejected(ProviderMalformed):
+    """HTTP 4xx refusal before processing (unknown model, no such endpoint): not billed.
+
+    Observed in MI-6: rejected requests do not appear as billed on the provider dashboard.
+    """
+
+    code = "provider_rejected"
+    chargeable = False
 
 
 class ReplayMiss(AssistantError):

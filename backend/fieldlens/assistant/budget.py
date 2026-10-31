@@ -11,6 +11,7 @@ here replays a paid call; ``recover_interrupted`` only converts in-flight state 
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -31,6 +32,7 @@ logger = logging.getLogger("fieldlens.assistant.budget")
 
 ZERO = Decimal("0")
 QUANT = Decimal("0.000001")
+_REASON = re.compile(r"[a-z][a-z0-9_]{0,31}")
 CHARGEABLE_UNKNOWN = ("dispatched", "timeout", "unknown")
 
 
@@ -454,9 +456,39 @@ class BudgetLedger:
             ).one()
             return _row_to_reservation(out)
 
-    def reconcile(self, reservation_id: UUID, billed_total_usd: Decimal) -> Reservation:
-        """Owner/provider-confirmed total for a liable reservation (idempotent for equal totals)."""
+    def list_liable(self, period_id: UUID) -> list[Reservation]:
+        """Liable (billing-unknown) reservations awaiting reconciliation; survives restarts."""
+        with session_scope(self._factory) as s:
+            rows = s.execute(
+                select(spend_reservation)
+                .where(
+                    spend_reservation.c.period_id == period_id,
+                    spend_reservation.c.state == "liable",
+                )
+                .order_by(spend_reservation.c.created_at)
+            ).all()
+        return [_row_to_reservation(r) for r in rows]
+
+    def release_liable(self, reservation_id: UUID, reason: str) -> Reservation:
+        """Close a liable reservation as not billed (committed 0) with a recorded reason.
+
+        Use when the provider dashboard shows no billed request for it. The row ends ``settled``
+        at 0 (the ``released`` state is reserved for never-dispatched reservations by a table
+        constraint); the reason is appended to the unresolved attempts' error code.
+        """
+        return self.reconcile(reservation_id, ZERO, reason=reason)
+
+    def reconcile(
+        self, reservation_id: UUID, billed_total_usd: Decimal, *, reason: str | None = None
+    ) -> Reservation:
+        """Owner/provider-confirmed total for a liable reservation (idempotent for equal totals).
+
+        ``reason`` (a short slug, e.g. ``dashboard_not_billed``) is recorded on the attempts whose
+        billing was unknown; a zero total also records those attempts as billed 0.
+        """
         total = usd(billed_total_usd)
+        if reason is not None and not _REASON.fullmatch(reason):
+            raise ReservationStateError("reconcile reason must be a short lowercase slug")
         with session_scope(self._factory) as s:
             row = self._lock(s, reservation_id)
             if row.reconciliation_status == "reconciled":
@@ -465,6 +497,27 @@ class BudgetLedger:
                 raise ReservationStateError("reservation already reconciled with a different total")
             if row.state != "liable":
                 raise ReservationStateError("only a liable reservation can be reconciled")
+            unresolved = s.execute(
+                select(provider_attempt.c.attempt_no, provider_attempt.c.error_code).where(
+                    provider_attempt.c.reservation_id == reservation_id,
+                    provider_attempt.c.billed_usd.is_(None),
+                )
+            ).all()
+            for attempt in unresolved:
+                values: dict[str, Any] = {}
+                if total == ZERO:
+                    values["billed_usd"] = ZERO
+                if reason is not None:
+                    values["error_code"] = f"{attempt.error_code or 'unknown'}>{reason}"[:64]
+                if values:
+                    s.execute(
+                        update(provider_attempt)
+                        .where(
+                            provider_attempt.c.reservation_id == reservation_id,
+                            provider_attempt.c.attempt_no == attempt.attempt_no,
+                        )
+                        .values(**values)
+                    )
             s.execute(
                 update(provider_attempt)
                 .where(provider_attempt.c.reservation_id == reservation_id)

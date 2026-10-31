@@ -94,3 +94,11 @@ placeholder rates, under request keys `mi6-1793468188-*`. The lane ledger period
 both runs (about USD 0.42 combined upper bound, under the USD 1.00 ceiling, which the ledger enforced). The QA
 run overwrote the gitignored raw capture `live_meta_main_result.json`; the original run is verified from the
 ledger rows. Real provider rates and balance are still unknown; the owner reconciles from the provider dashboard.
+
+## Follow-up (TASK-043, offline)
+
+The adapter changes derived from these findings (effort control, tool-aware input bound, explicit
+cancel settlement, non-billable 4xx, reconcile helpers) are described in
+`docs/specs/META_INTEGRATION.md`. They are verified with stub/fixture payloads only; the 4xx
+non-billing rests on the owner's dashboard observation (billed requests equal the successful
+responses), and none of it has been re-run live.

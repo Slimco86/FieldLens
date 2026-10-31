@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 import threading
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Protocol
+from pathlib import Path
+from typing import Any, Protocol
 
 from .errors import RequestCancelled
 from .messages import (
@@ -68,24 +70,65 @@ class Pricing:
     output_usd_per_mtok: Decimal
     cached_input_usd_per_mtok: Decimal | None = None
 
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> Pricing:
+        """Build from rate-card data (strings or numbers; never floats-through-code)."""
+        cached = data.get("cached_input_usd_per_mtok")
+        return cls(
+            revision=str(data["revision"]),
+            model=str(data["model"]),
+            input_usd_per_mtok=Decimal(str(data["input_usd_per_mtok"])),
+            output_usd_per_mtok=Decimal(str(data["output_usd_per_mtok"])),
+            cached_input_usd_per_mtok=None if cached is None else Decimal(str(cached)),
+        )
+
     def input_rate(self, cached: bool) -> Decimal:
         if cached and self.cached_input_usd_per_mtok is not None:
             return self.cached_input_usd_per_mtok
         return self.input_usd_per_mtok
 
 
+def load_pricing(path: Path) -> Pricing:
+    """Load an owner-supplied rate card (JSON data file). Rates live in data, not in code.
+
+    Register the result with ``BudgetLedger.register_pricing`` under a new ``revision``; an
+    existing revision with different rates is rejected, so a new rate card is a new revision.
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("rate card must be a JSON object")
+    return Pricing.from_mapping(data)
+
+
 def _quantize_up(value: Decimal) -> Decimal:
     return (value / _CENT_FRACTION).to_integral_value(rounding="ROUND_CEILING") * _CENT_FRACTION
 
 
+# Hidden-token allowances for the input bound, chosen from MI-6 (muse-spark-1.3, Responses):
+# a one-tool request estimated at 245 bytes-as-tokens billed 552 input tokens (about 307 hidden),
+# and the follow-up step with the tool result and two replayed reasoning items billed 992.
+# Each allowance is deliberately above what that single data point implies, so a reservation
+# is not exceeded by the measured cases; over-reserving costs little against the USD 0.50 cap.
+TOOLS_PRESENT_OVERHEAD_TOKENS = 512  # provider-added tool/system preamble when any tool is sent
+PER_TOOL_OVERHEAD_TOKENS = 128  # per tool definition, on top of its JSON bytes
+TOOL_ROUND_TRIP_OVERHEAD_TOKENS = 128  # per tool call or tool result item replayed in input
+REASONING_ITEM_OVERHEAD_TOKENS = 256  # per replayed opaque reasoning item, on top of its bytes
+
+
 def estimate_input_tokens(request: ProviderRequest, image_token_bound: int) -> int:
-    """Upper bound: one token per UTF-8 byte of text/JSON plus a fixed bound per image.
+    """Upper bound: one token per UTF-8 byte of text/JSON, a fixed bound per image, plus
+    allowances for tool definitions, tool round trips and replayed opaque reasoning items.
 
     Image bytes are not counted per byte; the configured per-image bound stands in and is an
-    owner-visible assumption (MI-6 compares it with provider-reported usage).
+    owner-visible assumption (MI-6: measured at most 242 tokens for 680x280 px, bound 8192).
+    The tool/reasoning allowances exist because MI-6 showed bytes-as-tokens under-counting tool
+    requests by 2.3x (245 estimated vs 552 billed).
     """
     total = 0
+    if request.tools:
+        total += TOOLS_PRESENT_OVERHEAD_TOKENS
     for tool in request.tools:
+        total += PER_TOOL_OVERHEAD_TOKENS
         total += len(canonical_json(tool.model_dump(mode="json")).encode())
     for message in request.messages:
         total += 4
@@ -95,11 +138,12 @@ def estimate_input_tokens(request: ProviderRequest, image_token_bound: int) -> i
             elif isinstance(part, ImagePart):
                 total += image_token_bound
             elif isinstance(part, ToolCallPart):
+                total += TOOL_ROUND_TRIP_OVERHEAD_TOKENS
                 total += len(part.name.encode()) + len(canonical_json(part.arguments).encode())
             elif isinstance(part, ToolResultPart):
-                total += len(part.content.encode())
+                total += TOOL_ROUND_TRIP_OVERHEAD_TOKENS + len(part.content.encode())
             elif isinstance(part, ReasoningPart):
-                total += len(part.opaque.encode())
+                total += REASONING_ITEM_OVERHEAD_TOKENS + len(part.opaque.encode())
     return max(total, 1)
 
 

@@ -159,10 +159,34 @@ byte; `provider_image_token_bound` per image) until MI-6 compares them with prov
 MI-6 live results (October 31, `docs/evidence/MI6_LIVE_SMOKE.md`): `muse-spark-1.3` Responses
 text, tool round trip with opaque reasoning replay and image input are entitled and work
 (Validated, live). No embeddings endpoint exists for this key (404; local embeddings stand).
-Corrections: default reasoning effort is `high` and consumes output tokens (adapter has no
-effort control; `low`/`minimal` are accepted); the 1-token-per-byte input bound underestimates
-tool requests (about 2.3x); in-flight cancel does not stop billing. Provider rates are still
+Corrections: default reasoning effort is `high` and consumes output tokens; the 1-token-per-byte
+input bound underestimates tool requests (about 2.3x); in-flight cancel does not stop billing;
+HTTP 4xx rejections (404 unknown model, 404 embeddings) were not billed. Provider rates are still
 unknown (spend estimated at placeholder rates; owner must reconcile the balance).
+
+TASK-043 adapter hardening (offline-tested; stub/fixture payloads, not live proof):
+- Effort: `ProviderRequest.effort` (`minimal|low|medium|high`, default unset = provider default
+  `high`) is sent as `reasoning.effort`. `WorkUnit(effort=...)`, `RequestLimits.default_effort`
+  and `step(..., effort=...)` choose it per unit/call site (call > unit > limits). An unset effort
+  is excluded from the request fingerprint, so older recordings still match; the recorder stores
+  the requested effort and stub/replay `calls` expose it. The API accepted `low` and `minimal`.
+- Input bound: bytes-as-tokens plus 512 tokens when any tool is sent, 128 per tool definition,
+  128 per tool call/result item and 256 per replayed reasoning item (plus its bytes). Chosen
+  above the MI-6 figures (one-tool request billed 552, follow-up step 992; old estimate 245).
+  Image bound unchanged. Still an estimate from one model's one data point.
+- Cancel: the synchronous SDK call is not aborted in flight. A cancel during a call lets it
+  complete and bill; the unit records the actual usage (reservation `settled`, not `liable`)
+  and then raises `RequestCancelled(settled=True)`. Cancel stops later calls, not billing of the
+  call in flight. If usage is missing the attempt stays estimated liability.
+- Rejected 4xx (not 408/409, not 429/401/403 which were already handled) map to
+  `ProviderRejected` (non-chargeable): the reservation settles at 0 instead of `liable`. The
+  `released` state stays for never-dispatched reservations (table constraint); no migration.
+  5xx, timeouts, connection errors, 408/409 and unknown outcomes remain `liable`.
+- Reconcile: `BudgetLedger.list_liable`, `release_liable(id, reason)` (settle at 0) and
+  `reconcile(id, total, reason=...)` (settle at the confirmed total); the reason slug is appended
+  to the unresolved attempts' error code. State is in PostgreSQL and survives restarts.
+- Pricing stays data: `load_pricing(path)` builds a `Pricing` from a JSON rate card to register
+  as a new revision; no rates are in code.
 Published rates bound the chosen mode (M; unresolved: no rate source). USD 150 is the original
 allowance, not current balance (H; owner must supply current credit).
 
