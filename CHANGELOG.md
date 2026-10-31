@@ -8,6 +8,17 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.16.3 - 2026-10-31
+
+- **TASK-030 phase A (FL-005-C):** Added the offline OCR/rendering/orientation evaluation for the scanned completion
+  pages: `scripts/spikes/ocr_*.py` and `docs/evidence/TASK030_OCR_EVALUATION.md`. Findings (agent-read reference, not
+  human-verified): RapidOCR with onnxruntime recovers 63-66 of 67 reference numbers at 300 dpi (Tesseract 54/67), only the
+  rotated schematic needs a second pass, and an OCR-agreement rule would have confirmed 265 of 278 model-read numbers
+  while rejecting the judged misreads; the legacy F-5 completion `.doc` has extractable text and 12 pictures (macros
+  present, never read). Records the phase B design, its contract needs (an OCR issue code, no EvidenceClass change),
+  third-party notices and owner decisions. No product code, contract, migration or lockfile change; the final
+  evidence-text commit was reviewed by the orchestrator, not re-QA'd.
+
 ## 0.16.2 - 2026-10-31
 
 - **TASK-044 (FL-005-D):** Added the offline check of the deferred 211 MB EDM export (PV-24) for production/completion
