@@ -175,21 +175,55 @@ def _missing_depth_findings(
                 ["calculation", "placement"],
             )
         )
-    findings.append(
-        Finding(
-            MISSING_REFERENCE,
-            "warning",
-            f"MD has no stated datum in this file ({reference_note}); TVD/TVDSS are labelled but "
-            "the elevation they imply is not stated"
-            + ("; easting/northing carry no CRS or datum" if easting else "")
-            + ".",
-            f"{attr_prefix}_reference_missing",
-            keys,
-            idx,
-            [recs[0].locator],
-            ["placement", "calculation"],
+    if used:
+        findings.append(
+            Finding(
+                MISSING_REFERENCE,
+                "warning",
+                f"MD has no stated datum in this file ({reference_note}); reference unspecified, "
+                "assumed the well's depth reference for the "
+                f"{len(used)} defaulted depth value(s). TVD/TVDSS are labelled but the "
+                "elevation they imply is not stated.",
+                f"{attr_prefix}_reference_missing",
+                keys,
+                idx,
+                [recs[0].locator],
+                [],
+            )
         )
+    else:
+        findings.append(
+            Finding(
+                MISSING_REFERENCE,
+                "warning",
+                f"MD has no stated datum in this file ({reference_note}); no usable depth value "
+                "was found.",
+                f"{attr_prefix}_reference_missing",
+                keys,
+                idx,
+                [recs[0].locator],
+                ["placement", "calculation"],
+            )
+        )
+    has_xy = easting and any(
+        a.number is not None
+        for r in recs
+        for a in r.attrs
+        if a.key.endswith(("easting", "northing"))
     )
+    if has_xy:
+        findings.append(
+            Finding(
+                MISSING_REFERENCE,
+                "warning",
+                "easting/northing values carry no CRS or datum.",
+                f"{attr_prefix}_crs_missing",
+                [],
+                idx,
+                [recs[0].locator],
+                ["placement"],
+            )
+        )
 
 
 def _depth_attr(key: str, line: int, column: str, text: str | None, reference: str | None) -> Attr:
@@ -206,7 +240,7 @@ def _depth_attr(key: str, line: int, column: str, text: str | None, reference: s
 
 class PerforationTableProfile:
     name = "dat_perforations_volve"
-    version = "2"  # 2: undocumented depth unit defaults to meters (MD), warned (TASK-046)
+    version = "3"  # 2: undocumented depth unit defaults to meters; 3: reference warning (TASK-046)
     method = "native_text_fixed_width"
     families = ("csv", "text")
 
@@ -419,7 +453,7 @@ class PerforationTableProfile:
 
 class PickTableProfile:
     name = "dat_well_picks_volve"
-    version = "2"  # 2: undocumented depth unit defaults to meters (MD), warned (TASK-046)
+    version = "3"  # 2: undocumented depth unit defaults to meters; 3: reference warning (TASK-046)
     method = "native_text_fixed_width"
     families = ("csv", "text")
 

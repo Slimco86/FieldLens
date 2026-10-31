@@ -42,6 +42,11 @@ RESOLVER_VERSION = "identity-1"
 OK_STATUSES = ("succeeded", "partial")
 MAX_ORDINALS = 200
 MAX_LOCATORS = 5
+# Owner decision (October 31): production-workbook records naming a base well with exactly these
+# suffixes resolve to the BASE wellbore when that base wellbore is observed in the project.
+ALIAS_PROFILE = "production_workbook_volve"
+ALIAS_SUFFIXES = frozenset({"H", "AH"})
+ALIAS_BASIS = "alias:h_ah_production"
 RANGE_TOLERANCE = 0.05  # DC-3: a defaulted MD beyond the known MD range by more than 5%
 ISSUE_PREFIX = "identity_resolution:"
 _LABEL_KEYS = ("wellbore_label", "wellbore_name", "well_name")
@@ -163,6 +168,9 @@ class SubjectGroup:
     kinds: dict[str, int] = field(default_factory=dict)
     documents: set[UUID] = field(default_factory=set)
     records: int = 0
+    profile: str | None = None
+    run_counts: dict[UUID, int] = field(default_factory=dict)
+    alias_of: str | None = None  # raw wellbore name when the production alias rule applied
 
     @property
     def label(self) -> str:
@@ -184,6 +192,7 @@ def current_subject_groups(session: Session, project_id: UUID) -> list[SubjectGr
             er.c.kind,
             func.count().label("n"),
             func.min(er.c.ordinal).label("first"),
+            ru.c.profile_name,
         )
         .join(ru, ru.c.run_id == er.c.run_id)
         .where(
@@ -191,7 +200,7 @@ def current_subject_groups(session: Session, project_id: UUID) -> list[SubjectGr
             ru.c.superseded.is_(False),
             ru.c.status.in_(OK_STATUSES),
         )
-        .group_by(er.c.subject, er.c.run_id, er.c.document_id, er.c.kind)
+        .group_by(er.c.subject, er.c.run_id, er.c.document_id, er.c.kind, ru.c.profile_name)
     ).all()
     by_subject: dict[str, SubjectGroup] = {}
     subjects: dict[str, dict[str, Any]] = {}
@@ -200,15 +209,41 @@ def current_subject_groups(session: Session, project_id: UUID) -> list[SubjectGr
         subjects[sk] = row.subject
     tails = _tails(list(subjects.values()))
     for row in rows:
-        sk = json.dumps(row.subject, sort_keys=True)
+        sk = json.dumps([row.subject, row.profile_name], sort_keys=True)
         group = by_subject.get(sk)
         if group is None:
-            group = by_subject[sk] = SubjectGroup(row.subject, resolve_subject(row.subject, tails))
+            group = by_subject[sk] = SubjectGroup(
+                row.subject, resolve_subject(row.subject, tails), profile=row.profile_name
+            )
         group.records += row.n
         group.kinds[row.kind] = group.kinds.get(row.kind, 0) + row.n
         group.documents.add(row.document_id)
         group.runs.setdefault(row.run_id, []).append(row.first)
-    return list(by_subject.values())
+        group.run_counts[row.run_id] = group.run_counts.get(row.run_id, 0) + row.n
+    out = list(by_subject.values())
+    _apply_production_alias(out)
+    return out
+
+
+def _apply_production_alias(groups: list[SubjectGroup]) -> None:
+    """H/AH production bores -> the observed base wellbore (documented demo rule). Only the
+    production workbook profile and exactly these suffixes; other suffixes stay distinct; with no
+    observed base wellbore the H/AH bore remains its own wellbore."""
+    base = {
+        g.outcome.wellbore_name
+        for g in groups
+        if isinstance(g.outcome, Resolved) and g.outcome.bore.suffix is None
+    }
+    for g in groups:
+        o = g.outcome
+        if (
+            g.profile == ALIAS_PROFILE
+            and isinstance(o, Resolved)
+            and o.bore.suffix in ALIAS_SUFFIXES
+            and o.well_name in base
+        ):
+            g.alias_of = o.wellbore_name
+            g.outcome = Resolved(BoreLabel(o.bore.block, o.bore.well_slot, None))
 
 
 @dataclass
@@ -299,12 +334,19 @@ def resolve_project(session: Session, project_id: UUID) -> ResolveOutcome:
         assert isinstance(g.outcome, Resolved)
         wid = bore_ids[g.outcome.wellbore_name]
         sel = (
-            select(er.c.run_id, er.c.ordinal, ru.c.project_id, literal(wid), literal("label"))
+            select(
+                er.c.run_id,
+                er.c.ordinal,
+                ru.c.project_id,
+                literal(wid),
+                literal(ALIAS_BASIS if g.alias_of else "label"),
+            )
             .join(ru, ru.c.run_id == er.c.run_id)
             .where(
                 ru.c.project_id == project_id,
                 ru.c.superseded.is_(False),
                 ru.c.status.in_(OK_STATUSES),
+                er.c.run_id.in_(list(g.runs)),
                 er.c.subject == bindparam("subj", g.subject, type_=JSONB),
             )
         )
@@ -378,8 +420,46 @@ def _replace_findings(
                     "blocked_operations": ["claim_acceptance"],
                 }
             )
+    rows.extend(_alias_findings(project_id, groups))
     _insert_issues(session, rows)
     return len(rows)
+
+
+def _alias_findings(project_id: UUID, groups: list[SubjectGroup]) -> list[dict[str, Any]]:
+    """ONE non-blocking warning per run naming the production alias rule and its counts."""
+    per_run: dict[UUID, dict[tuple[str, str], int]] = defaultdict(dict)
+    for g in groups:
+        if g.alias_of is None or not isinstance(g.outcome, Resolved):
+            continue
+        for run_id, n in g.run_counts.items():
+            key = (g.alias_of, g.outcome.wellbore_name)
+            per_run[run_id][key] = per_run[run_id].get(key, 0) + n
+    rows = []
+    for run_id, pairs in sorted(per_run.items(), key=lambda kv: str(kv[0])):
+        issue_key = f"{ISSUE_PREFIX}IDENTITY_MISMATCH:alias_h_ah"
+        total = sum(pairs.values())
+        detail = "; ".join(f"{a} -> {b}: {n}" for (a, b), n in sorted(pairs.items()))
+        rows.append(
+            {
+                "issue_id": _issue_id(run_id, issue_key),
+                "project_id": project_id,
+                "run_id": run_id,
+                "producer_key": issue_key,
+                "code": "IDENTITY_MISMATCH",
+                "severity": "warning",
+                "message": (
+                    f"Alias rule (production workbook, suffix H/AH -> base wellbore, applied only "
+                    f"because the base wellbore is observed): {total} record(s) attached to the "
+                    f"base wellbore ({detail}). The raw label stays in each record; no source "
+                    "states that the two names are one bore."
+                ),
+                "attribute_keys": [],
+                "record_ordinals": [],
+                "locators": [],
+                "blocked_operations": [],
+            }
+        )
+    return rows
 
 
 def _ordinals(session: Session, run_id: UUID, subject: dict[str, Any]) -> list[int]:

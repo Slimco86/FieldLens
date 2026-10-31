@@ -110,5 +110,18 @@ def test_stated_unit_wins_and_feet_convert_exactly(tmp_path: Path) -> None:
 
 
 def test_profile_versions_bumped_so_runs_are_re_derived() -> None:
-    assert registry.current_version("dat_perforations_volve") == "2"
-    assert registry.current_version("dat_well_picks_volve") == "2"
+    assert registry.current_version("dat_perforations_volve") == "3"
+    assert registry.current_version("dat_well_picks_volve") == "3"
+
+
+def test_missing_reference_is_a_non_blocking_warning_for_defaulted_depths(tmp_path: Path) -> None:
+    out = PerforationTableProfile().parse(_perf(tmp_path), CTX)
+    refs = [f for f in out.findings if f.code == "MISSING_REFERENCE"]
+    assert len(refs) == 1 and refs[0].severity == "warning" and refs[0].blocked == []
+    assert "reference unspecified" in refs[0].message
+    assert "assumed the well's depth reference" in refs[0].message
+    # no depth could be used (all blank): genuinely unusable, still blocking
+    blank = write(tmp_path, "blank.dat", PERF_HEAD + _perf_row(1, 1, "", "", "", "", ""))
+    blank_out = PerforationTableProfile().parse(blank, CTX)
+    (ref,) = [f for f in blank_out.findings if f.code == "MISSING_REFERENCE"]
+    assert "placement" in ref.blocked

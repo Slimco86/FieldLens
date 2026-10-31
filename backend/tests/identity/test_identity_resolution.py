@@ -97,7 +97,7 @@ def _volve_docs(world: World, pid: str) -> None:
         "log.las",
         [rec("las_header", _subj("15/9-F5", None, "15/9-F-5"), [attr("las_header.stop", "2000")])],
     )
-    world.add_doc(
+    prod = world.add_doc(
         pid,
         "prod.xlsx",
         [
@@ -108,6 +108,10 @@ def _volve_docs(world: World, pid: str) -> None:
             )
         ],
     )
+    world.sql(
+        "UPDATE extraction_run SET profile_name = 'production_workbook_volve' WHERE run_id = :r",
+        r=prod.run_id,
+    )
     world.add_doc(
         pid, "field.txt", [rec("note", _subj("Volve F", None, None), [attr("note.text", "x")])]
     )
@@ -117,7 +121,7 @@ def test_identity_resolution(world: World) -> None:
     pid = world.project()
     _volve_docs(world, pid)
     out = _resolve(world, pid)
-    assert out.wells == 5 and out.wellbores == 12
+    assert out.wells == 5 and out.wellbores == 11
     listing = _listing(world, pid)
     assert [w["name"] for w in listing["wells"]] == [
         "15/9-19",
@@ -128,7 +132,7 @@ def test_identity_resolution(world: World) -> None:
     ]
     bores = _bores(listing)
     # distinct wellbores, never merged
-    assert {"15/9-F-12", "15/9-F-12 H", "15/9-F-12 PILOT", "15/9-F-11", "15/9-F-11 A"} <= set(bores)
+    assert {"15/9-F-12", "15/9-F-12 PILOT", "15/9-F-11", "15/9-F-11 A"} <= set(bores)
     assert {"15/9-F-1", "15/9-F-1 B", "15/9-19 SR", "15/9-19 BT2", "15/9-F-5"} <= set(bores)
     assert not any(b == "Volve F" or b.startswith("volve") for b in bores)
     # parent links only to an OBSERVED base wellbore, by name suffix
@@ -138,20 +142,22 @@ def test_identity_resolution(world: World) -> None:
     )
     assert f11["parent_wellbore_id"] is None and f11["suffix"] is None
     assert bores["15/9-19 SR"]["parent_wellbore_id"] is None, "no base 15/9-19 bore was observed"
-    assert bores["15/9-F-12 H"]["parent_wellbore_id"] == bores["15/9-F-12"]["wellbore_id"]
+    assert "15/9-F-12 H" not in bores, "production H bore is aliased to the observed base bore"
+    assert bores["15/9-F-12 PILOT"]["parent_wellbore_id"] == bores["15/9-F-12"]["wellbore_id"]
     # F-12 (survey 'F-12' + perforation + key) is one wellbore; the field-level doc is unresolved
     f12 = bores["15/9-F-12"]
     assert {c["kind"]: c["records"] for c in f12["record_counts"]} == {
         "perforation_interval": 1,
+        "production_day": 1,
         "trajectory_station": 2,
     }
-    assert f12["document_count"] == 2 and f12["record_count"] == 3
+    assert f12["document_count"] == 3 and f12["record_count"] == 4
     assert listing["unresolved_record_count"] == 1
     (group,) = listing["unresolved"]
     assert group["reason"] == "not_a_well" and group["labels"] == ["Volve F"]
     assert listing["resolved_current"] is True
     well_f12 = next(w for w in listing["wells"] if w["name"] == "15/9-F-12")
-    assert well_f12["record_count"] == 3 + 1 + 1 and well_f12["document_count"] == 4
+    assert well_f12["record_count"] == 4 + 1 and well_f12["document_count"] == 4
 
 
 def test_resolution_is_idempotent_with_stable_ids(world: World) -> None:
@@ -247,7 +253,7 @@ def test_wellbore_evidence_documents_and_locators(world: World) -> None:
     )
     assert r.status_code == 200
     docs = r.json()["documents"]
-    assert sorted(d["filename"] for d in docs) == ["perf.dat", "survey.pdf"]
+    assert sorted(d["filename"] for d in docs) == ["perf.dat", "prod.xlsx", "survey.pdf"]
     assert sum(d["record_count"] for d in docs) == bore["record_count"]
     assert all(d["first_record_locator"]["kind"] == "text" for d in docs)
     missing = world.api.client.get(
@@ -340,3 +346,81 @@ def test_identity_tables_cascade_with_record_and_wellbore(world: World) -> None:
     _resolve(world, pid)
     world.sql("DELETE FROM extraction_run WHERE run_id = :r", r=doc.run_id)
     assert world.sql("SELECT count(*) FROM record_wellbore_link")[0][0] == 0
+
+
+def _prod(label: str, key: str, bore: str) -> dict[str, Any]:
+    return rec(
+        "production_day",
+        _subj(key, bore, key, None, bore),
+        [attr("production_day.bore_oil_vol", "1", number=1.0)],
+    )
+
+
+def _as_production(world: World, run_id: UUID) -> None:
+    world.sql(
+        "UPDATE extraction_run SET profile_name = 'production_workbook_volve' WHERE run_id = :r",
+        r=run_id,
+    )
+
+
+def test_production_h_ah_alias_to_observed_base_only(world: World) -> None:
+    pid = world.project()
+    world.add_doc(
+        pid,
+        "perf.dat",
+        [
+            _perf("NO 15/9-F-12", "15/9-F-12", None, 1, 2),
+            _perf("NO 15/9-F-5", "15/9-F-5", None, 1, 2),
+            _perf("NO 15/9-F-12 T2", "15/9-F-12", "T2", 1, 2),
+        ],
+    )
+    prod = world.add_doc(
+        pid,
+        "prod.xlsx",
+        [
+            _prod("F-12 H", "15/9-F-12", "NO 15/9-F-12 H"),
+            _prod("F-12 H", "15/9-F-12", "NO 15/9-F-12 H"),
+            _prod("F-5 AH", "15/9-F-5", "NO 15/9-F-5 AH"),
+            _prod("F-12 T2", "15/9-F-12", "NO 15/9-F-12 T2"),  # not an alias suffix
+            _prod("F-4 AH", "15/9-F-4", "NO 15/9-F-4 AH"),  # base F-4 never observed
+        ],
+    )
+    _as_production(world, prod.run_id)
+    # the same H label from a NON-production profile is not aliased
+    world.add_doc(pid, "other.txt", [_prod("F-12 H", "15/9-F-12", "NO 15/9-F-12 H")])
+    out = _resolve(world, pid)
+    bores = _bores(_listing(world, pid))
+    assert sorted(bores) == [
+        "15/9-F-12",
+        "15/9-F-12 H",  # only from the non-production document
+        "15/9-F-12 T2",
+        "15/9-F-4 AH",
+        "15/9-F-5",
+    ]
+    counts = lambda n: {c["kind"]: c["records"] for c in bores[n]["record_counts"]}  # noqa: E731
+    assert counts("15/9-F-12")["production_day"] == 2
+    assert counts("15/9-F-5")["production_day"] == 1
+    assert counts("15/9-F-12 T2")["production_day"] == 1
+    assert counts("15/9-F-12 H") == {"production_day": 1}
+    assert bores["15/9-F-4 AH"]["parent_wellbore_id"] is None
+    bases = world.sql("SELECT basis, count(*) FROM record_wellbore_link GROUP BY basis ORDER BY 1")
+    assert {b[0]: b[1] for b in bases} == {"alias:h_ah_production": 3, "label": 6}
+    (finding,) = world.sql(
+        "SELECT severity, message, blocked_operations FROM extraction_issue "
+        "WHERE code='IDENTITY_MISMATCH' AND run_id = :r",
+        r=prod.run_id,
+    )
+    assert finding.severity == "warning" and finding.blocked_operations == []
+    assert "3 record(s)" in finding.message
+    assert "15/9-F-12 H -> 15/9-F-12: 2" in finding.message
+    assert "15/9-F-5 AH -> 15/9-F-5: 1" in finding.message
+    assert out.identity_findings == 1
+    # raw subject label stays in the record
+    raw = world.sql(
+        "SELECT count(*) FROM extracted_record WHERE subject->>'wellbore_name' = 'NO 15/9-F-12 H'"
+    )
+    assert raw[0][0] == 3
+    _resolve(world, pid)  # idempotent
+    assert (
+        world.sql("SELECT count(*) FROM extraction_issue WHERE code='IDENTITY_MISMATCH'")[0][0] == 1
+    )
