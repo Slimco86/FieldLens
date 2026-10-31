@@ -61,7 +61,9 @@ from fieldlens.persistence.session import session_scope
 
 from .chunker import CHUNKER_VERSION
 from .embedder import EmbedderProvider, EmbedderUnavailable
+from .health import IndexHealth
 from .identifiers import (
+    SUFFIX_TOKEN,
     Candidate,
     id_shaped_tokens,
     query_candidates,
@@ -134,30 +136,67 @@ def evidence_link(
         return None
 
 
+# Tiny deterministic query-time vocabulary for production questions: the source keys are
+# ``bore_oil_vol`` / ``bore_gas_vol`` / ``bore_wat_vol``, so "rate/volume/output" reach them.
+_PRODUCTION_VOCABULARY = {
+    "rate": ("oil", "gas", "water", "vol"),
+    "rates": ("oil", "gas", "water", "vol"),
+    "volume": ("oil", "gas", "water", "vol"),
+    "volumes": ("oil", "gas", "water", "vol"),
+    "output": ("oil", "gas", "water", "vol"),
+    "produced": ("oil", "gas", "water", "vol"),
+}
+_DF_DISCRIMINATIVE = 0.2  # a word in more than 20% of the scoped chunks does not discriminate
+_DF_MIN_CHUNKS = 50  # below this scope size every word counts as discriminative
+
+
 def _or_terms(terms: list[str]) -> str | None:
     return " | ".join(list(dict.fromkeys(terms))[:MAX_TERMS]) or None
 
 
-def tsqueries_for(tokens: list[str]) -> tuple[str | None, str | None]:
-    """(simple, english) tsquery strings from bound text only.
+@dataclass(frozen=True)
+class QueryTerms:
+    plain: list[str]  # plain alphabetic words (stemmed by PostgreSQL ``english``)
+    exact: list[str]  # digit words and identifier/number phrases (``simple``, never stemmed)
 
-    ``simple`` ORs plain words and turns a token that normalizes to several words (``F-14`` ->
-    ``f 14``, ``1234.5`` -> ``1234 5``) into a phrase (``f <-> 14``), so an identifier or number
-    must match whole. ``english`` ORs only the plain words, stemmed by PostgreSQL, so
-    ``perforations`` reaches ``perforation``; identifiers and numbers are never stemmed.
-    Stop words are dropped; every term is ``[a-z0-9]`` only."""
-    simple: list[str] = []
-    english: list[str] = []
+    @property
+    def simple(self) -> str | None:
+        return _or_terms([*self.plain, *self.exact])
+
+    @property
+    def english(self) -> str | None:
+        return _or_terms(self.plain)
+
+
+def query_terms(tokens: list[str]) -> QueryTerms:
+    """Full-text terms from bound text only (every term is ``[a-z0-9]``).
+
+    Plain words are OR-ed and stemmed (``perforations`` reaches ``perforation``). A token that
+    normalizes to several words (``F-14`` -> ``f 14``, ``1234.5`` -> ``1234 5``) becomes a phrase
+    (``f <-> 14``) and a digit-only word stays exact: identifiers and numbers are never stemmed
+    and must match whole. Stop words are dropped; production vocabulary is expanded."""
+    plain: list[str] = []
+    exact: list[str] = []
     for token in tokens:
         words = search_text(token).split()
         if len(words) == 1:
-            if words[0] not in _STOP_WORDS:
-                simple.append(words[0])
-                if not words[0].isdigit():
-                    english.append(words[0])
+            word = words[0]
+            if word in _STOP_WORDS:
+                continue
+            if word.isdigit():
+                exact.append(word)
+            elif word in _PRODUCTION_VOCABULARY:
+                plain.extend(_PRODUCTION_VOCABULARY[word])
+            else:
+                plain.append(word)
         elif words:
-            simple.append("(" + " <-> ".join(words) + ")")
-    return _or_terms(simple), _or_terms(english)
+            exact.append("(" + " <-> ".join(words) + ")")
+    return QueryTerms(list(dict.fromkeys(plain)), list(dict.fromkeys(exact)))
+
+
+def tsqueries_for(tokens: list[str]) -> tuple[str | None, str | None]:
+    terms = query_terms(tokens)
+    return terms.simple, terms.english
 
 
 def rrf(lists: dict[str, list[UUID]]) -> list[tuple[UUID, float]]:
@@ -171,8 +210,13 @@ def rrf(lists: dict[str, list[UUID]]) -> list[tuple[UUID, float]]:
 
 class RetrievalService:
     def __init__(
-        self, factory: sessionmaker[Session], settings: Settings, provider: EmbedderProvider
+        self,
+        factory: sessionmaker[Session],
+        settings: Settings,
+        provider: EmbedderProvider,
+        health: IndexHealth | None = None,
     ) -> None:
+        self._health = health
         self._factory = factory
         self._settings = settings
         self._provider = provider
@@ -262,7 +306,16 @@ class RetrievalService:
             documents=[d.public for d in docs],
             index=index,
             notes=notes,
+            warnings=self._warnings(),
         )
+
+    def _warnings(self) -> list[str]:
+        if self._health is not None and self._health.analyze_error:
+            return [
+                "planner statistics refresh failed "
+                f"({self._health.analyze_error}); searches may be slow until it succeeds"
+            ]
+        return []
 
     # -- internals --------------------------------------------------------------------------
     def _search(
@@ -304,12 +357,17 @@ class RetrievalService:
 
         # 1. Exact identifiers (document ids, well/wellbore labels, model numbers).
         uuid_hits = self._document_id_matches(query, docs, scope)
-        ambiguities, canon, exact_matches, matched_all, consumed = self._resolve_identifiers(
-            session, scope, query
-        )
+        (
+            ambiguities,
+            canon,
+            exact_matches,
+            matched_all,
+            consumed,
+            suffix_missing,
+        ) = self._resolve_identifiers(session, scope, query)
         exact_matches = [*uuid_hits, *exact_matches]
         known = matched_all | {m.identifier for m in uuid_hits}
-        unmatched = [t for t in id_shaped_tokens(query) if t not in known]
+        unmatched = [t for t in id_shaped_tokens(query) if t not in known] + suffix_missing
         cache_key = self._cache_key(project_id, revision, query, scope, limit, fingerprint, index)
         if ambiguities:
             return EvidenceSearchResult(
@@ -346,7 +404,7 @@ class RetrievalService:
             if i not in consumed and norm_identifier(tok) not in uuids
         ]
         topical = bool(topical_tokens)
-        lexical = self._lexical(session, scope, topical_tokens)
+        lexical, lex_supported = self._lexical(session, scope, topical_tokens)
         vector: list[tuple[UUID, float]] = []
         if embedding is not None and fingerprint is not None:
             vector = self._vector(session, scope, embedding, fingerprint)
@@ -358,13 +416,19 @@ class RetrievalService:
         lex_rank = {cid: i for i, cid in enumerate(lexical, start=1)}
         vec_rank = {cid: i for i, (cid, _) in enumerate(vector, start=1)}
         floor = self._settings.retrieval_vector_support_floor
+        sims = sorted(sim.values())
+        median = sims[len(sims) // 2] if sims else 0.0
+        bar = (
+            floor if len(sims) < 3 else max(floor, median + self._settings.retrieval_vector_margin)
+        )
         details = self._load_chunks(session, [cid for cid, _ in fused])
 
         def support(cid: UUID) -> HitSupport:
             return HitSupport(
                 exact=exact_scope,
-                lexical=cid in lex_rank,
+                lexical=cid in lex_supported,
                 vector=cid in sim and sim[cid] >= floor,
+                strong=False,
             )
 
         needles = [search_text(u) for u in unmatched]
@@ -375,7 +439,10 @@ class RetrievalService:
             row = details.get(cid)
             if row is None or (needles and not all(n in search_text(row.text) for n in needles)):
                 return False
-            return sp.lexical or sp.vector or (sp.exact and not topical)
+            # strong = exact (id-only query) or a discriminative lexical match, or a vector hit
+            # that clears the floor AND stands clearly above the candidate median (margin).
+            vector_strong = cid in sim and sim[cid] >= bar
+            return sp.lexical or vector_strong or (sp.exact and not topical)
 
         any_supported = any(relevant(support(cid), cid) for cid, _ in fused)
         per_kind_cap = max(1, limit // 2)
@@ -387,7 +454,9 @@ class RetrievalService:
             if row is None:
                 continue
             sp = support(chunk_id)
-            if any_supported and not relevant(sp, chunk_id):
+            strong = relevant(sp, chunk_id)
+            sp = sp.model_copy(update={"strong": strong})
+            if any_supported and not strong:
                 continue  # noise next to real evidence is dropped, not flagged
             if not exact_scope and kinds.get(row.kind, 0) >= per_kind_cap:
                 continue  # diversity guard: one record kind cannot flood an unscoped query
@@ -423,8 +492,9 @@ class RetrievalService:
             status = SearchStatus.WEAK_EVIDENCE
             strength = "weak"
             notes.append(
-                "No hit has exact, full-text or above-floor vector support (floor "
-                f"{floor}, uncalibrated); the hits are flagged and must not be cited as evidence."
+                "No hit is strong: none has exact-ID or discriminative full-text support and no "
+                f"vector hit clears the floor {floor} and the median margin (both uncalibrated). "
+                "The hits are returned with their similarity but must not be cited as evidence."
             )
         else:
             status = SearchStatus.OK if hits else SearchStatus.NO_RESULTS
@@ -513,10 +583,12 @@ class RetrievalService:
 
     def _resolve_identifiers(
         self, session: Session, scope: _Scope, query: str
-    ) -> tuple[list[IdentifierAmbiguity], list[str], list[ExactMatch], set[str], set[int]]:
+    ) -> tuple[
+        list[IdentifierAmbiguity], list[str], list[ExactMatch], set[str], set[int], list[str]
+    ]:
         candidates = query_candidates(query)
         if not candidates:
-            return [], [], [], set(), set()
+            return [], [], [], set(), set(), []
         where, params = scope.where()
         rows = session.execute(
             text(
@@ -544,6 +616,17 @@ class RetrievalService:
                 for o in spans.values()
             )
         }
+        # A short suffix typed right after a matched identifier ("F-12 A", "F-14 T2") that no
+        # source names is a bore that does not exist here: report it unmatched and do NOT
+        # resolve to the parent (well and wellbore identities are distinct).
+        words = query_tokens(query)
+        suffix_missing: list[str] = []
+        for t in sorted(keep):
+            end = spans[t].end
+            if end < len(words) and SUFFIX_TOKEN.match(words[end]):
+                if not any(spans[o].start <= end < spans[o].end for o in keep):
+                    suffix_missing.append(norm_identifier(f"{t} {words[end]}"))
+                    keep.discard(t)
         grouped: dict[str, dict[str, dict[str, Any]]] = {}
         for r in rows:
             if r.identifier not in keep:
@@ -586,7 +669,7 @@ class RetrievalService:
                 )
             )
         consumed = {i for t in keep for i in range(spans[t].start, spans[t].end)}
-        return ambiguities, sorted(set(canon)), exact, matched, consumed
+        return ambiguities, sorted(set(canon)), exact, matched, consumed, suffix_missing
 
     def _exact_list(self, session: Session, scope: _Scope) -> list[UUID]:
         where, params = scope.where()
@@ -602,22 +685,58 @@ class RetrievalService:
         ).all()
         return [r.chunk_id for r in rows]
 
-    def _lexical(self, session: Session, scope: _Scope, tokens: list[str]) -> list[UUID]:
-        simple, english = tsqueries_for(tokens)
-        if simple is None and english is None:
-            return []
+    def _lexical(
+        self, session: Session, scope: _Scope, tokens: list[str]
+    ) -> tuple[list[UUID], set[UUID]]:
+        """(ranked chunk ids, ids whose match is *supported*).
+
+        A match is supported only through a discriminative term: a digit/number/identifier
+        phrase, or a plain word found in at most 20% of the scoped chunks (word frequency is
+        measured in scope; below 50 scoped chunks every word counts, and when every word is
+        frequent the rarest one counts). A word like ``size`` that only appears as a unit or key
+        name in most rows of a numeric table therefore proves nothing. Supported matches rank
+        first."""
+        terms = query_terms(tokens)
+        if terms.simple is None:
+            return [], set()
         where, params = scope.where()
+        disc = terms.plain
+        if terms.plain:
+            counts = ", ".join(
+                f"count(*) FILTER (WHERE c.tsv_en @@ to_tsquery('english', :w{i})) AS d{i}"
+                for i in range(len(terms.plain))
+            )
+            row = session.execute(
+                text(f"SELECT count(*) AS total, {counts} " + _ELIGIBLE + " WHERE " + where),  # noqa: S608
+                {**params, **{f"w{i}": w for i, w in enumerate(terms.plain)}},
+            ).one()
+            total = row.total
+            if total >= _DF_MIN_CHUNKS:
+                freq = {w: getattr(row, f"d{i}") for i, w in enumerate(terms.plain)}
+                seen = {w: n for w, n in freq.items() if n > 0}
+                disc = [w for w, n in seen.items() if n <= _DF_DISCRIMINATIVE * total]
+                if not disc and seen:
+                    disc = [min(seen, key=lambda w: (seen[w], w))]
         rows = session.execute(
             text(
-                "SELECT c.chunk_id, ts_rank(c.tsv, qs.q) + ts_rank(c.tsv_en, qe.q) AS score "
+                "SELECT c.chunk_id, ts_rank(c.tsv, qs.q) + ts_rank(c.tsv_en, qe.q) AS score, "
+                "(c.tsv_en @@ qd.q OR c.tsv @@ qn.q) AS supported "
                 + _ELIGIBLE
-                + ", to_tsquery('simple', :tss) AS qs(q), to_tsquery('english', :tse) AS qe(q)"
+                + ", to_tsquery('simple', :tss) AS qs(q), to_tsquery('english', :tse) AS qe(q),"
+                " to_tsquery('english', :tsd) AS qd(q), to_tsquery('simple', :tsn) AS qn(q)"
                 " WHERE " + where + " AND (c.tsv @@ qs.q OR c.tsv_en @@ qe.q)"
-                " ORDER BY score DESC, c.chunk_id LIMIT :n"
+                " ORDER BY supported DESC, score DESC, c.chunk_id LIMIT :n"
             ),
-            {**params, "tss": simple or "", "tse": english or "", "n": CANDIDATES},
+            {
+                **params,
+                "tss": terms.simple or "",
+                "tse": terms.english or "",
+                "tsd": _or_terms(disc) or "",
+                "tsn": _or_terms(terms.exact) or "",
+                "n": CANDIDATES,
+            },
         ).all()
-        return [r.chunk_id for r in rows]
+        return [r.chunk_id for r in rows], {r.chunk_id for r in rows if r.supported}
 
     def _vector(
         self, session: Session, scope: _Scope, embedding: list[float], fingerprint: str

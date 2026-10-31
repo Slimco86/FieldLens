@@ -175,7 +175,8 @@ def test_identifier_aliases_never_broaden_to_parent_or_sibling() -> None:
     rows = record_identifiers({"wellbore_label": "15/9-F-12 A", "well_key": "15/9-F-12"}, [])
     by_kind = {(r.id_kind, r.identifier, r.canonical) for r in rows}
     assert ("wellbore", "f-12 a", "15/9-f-12 a") in by_kind
-    assert ("well", "f-12", "15/9-f-12") in by_kind
+    # a sidetrack's records do not carry the parent well key as an identifier of their own
+    assert ("well", "f-12", "15/9-f-12") not in by_kind
     assert ("wellbore", "f-12", "15/9-f-12 a") not in by_kind
     country = record_identifiers({"wellbore_label": "NO 15/9-F-12"}, [])
     assert {r.canonical for r in country} == {"15/9-f-12"}  # country prefix is not a new entity

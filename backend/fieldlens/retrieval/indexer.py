@@ -28,6 +28,7 @@ from fieldlens.persistence.session import session_scope
 from . import tables as t
 from .chunker import CHUNKER_VERSION, ChunkDraft, RecordIn, chunk_records
 from .embedder import BATCH_SIZE, EmbedderProvider, EmbedderUnavailable
+from .health import IndexHealth
 from .identifiers import document_well_rows
 
 logger = logging.getLogger(__name__)
@@ -203,7 +204,10 @@ class IndexRunner:
         owner: str,
         is_dead_owner: Any,
         provider: EmbedderProvider,
+        health: IndexHealth | None = None,
     ) -> None:
+        self.health = health or IndexHealth()
+        self._startup_requeued = False
         self._factory = factory
         self._settings = settings
         self.owner = owner
@@ -244,6 +248,12 @@ class IndexRunner:
         return count
 
     def run_once(self) -> bool:
+        if not self._startup_requeued:
+            # A process start retries index jobs that failed with attempts exhausted (a fixed
+            # chunker/embedder/DB problem, an unavailable model that is back, ...).
+            self._startup_requeued = True
+            with session_scope(self._factory) as session:
+                requeue_failed_jobs(session)
         self.recover_once()
         now = time.monotonic()
         sweep = now - self._last_cleanup >= self.cleanup_interval_s
@@ -358,17 +368,32 @@ class IndexRunner:
             beater.join(timeout=5)
 
     def _analyze(self) -> None:
-        """Refresh planner statistics after a job commits (QA: a cold first search took 32-55 s
-        on stale stats). Runs on the worker thread, never the request path; sampled by
-        PostgreSQL so bounded; a failure only costs plan quality, never correctness."""
+        """Refresh planner statistics for a table whose row count has drifted more than 10% from
+        the planner's estimate (or that was never analyzed). QA: a cold first search took 32-71 s
+        on stale statistics, and ANALYZE after EVERY job cost ~2.6 s each at 18k rows, so it now
+        runs only on drift. Runs on the worker thread, never the request path. A failure is
+        logged at error level and exposed through ``IndexHealth`` (shown in coverage)."""
         if not self._settings.retrieval_analyze_after_index:
             return
         try:
             with session_scope(self._factory) as session:
                 for table in ANALYZED_TABLES:
-                    session.execute(text(f"ANALYZE {table}"))  # noqa: S608 - fixed table names
+                    count = session.execute(text(f"SELECT count(*) FROM {table}")).scalar_one()  # noqa: S608
+                    reltuples = session.execute(
+                        text(
+                            "SELECT reltuples FROM pg_class WHERE relname = :t "
+                            "AND relnamespace = 'public'::regnamespace"
+                        ),
+                        {"t": table},
+                    ).scalar_one_or_none()
+                    if count == 0 or reltuples is None:
+                        continue
+                    if reltuples < 0 or abs(count - reltuples) > 0.1 * count:
+                        session.execute(text(f"ANALYZE {table}"))  # noqa: S608 - fixed names
+            self.health.analyze_error = None
         except Exception as exc:
-            logger.warning("index ANALYZE failed: %s", type(exc).__name__)
+            logger.error("index ANALYZE failed (searches may be slow): %s", type(exc).__name__)
+            self.health.analyze_error = type(exc).__name__
 
     # -- finalization -----------------------------------------------------------------------
     def _fenced(self, session: Session, claim: IndexClaim, **values: Any) -> None:
@@ -417,10 +442,25 @@ class IndexRunner:
         er_rec = m.extracted_record
         with session_scope(self._factory) as session:
             doc_rows = document_well_rows(
-                r[0]
-                for r in session.execute(
-                    select(er_rec.c.subject).where(er_rec.c.run_id == claim.run_id).distinct()
-                )
+                [
+                    r[0]
+                    for r in session.execute(
+                        select(er_rec.c.subject).where(er_rec.c.run_id == claim.run_id).distinct()
+                    )
+                ],
+                [
+                    r[0]
+                    for r in session.execute(
+                        text(
+                            "SELECT DISTINCT COALESCE(a->>'text', a->>'original_text') "
+                            "FROM extracted_record r, jsonb_array_elements(r.attributes) a "
+                            "WHERE r.run_id = :run AND a->>'key' ~ "
+                            "'(^|[._])(well|well_name|wellbore|wellbore_name|well_key|uwi)$' "
+                            "AND COALESCE(a->>'text', a->>'original_text') IS NOT NULL"
+                        ),
+                        {"run": claim.run_id},
+                    )
+                ],
             )
         truncated = False
         last_ordinal = -1
@@ -702,5 +742,19 @@ def drop_document_index(session: Session, project_id: UUID, document_id: UUID) -
     extraction run is re-indexed by the next sweep; use it to rebuild, not to hide."""
     result = session.execute(
         delete(rix).where(rix.c.project_id == project_id, rix.c.document_id == document_id)
+    )
+    return int(getattr(result, "rowcount", 0))
+
+
+def requeue_failed_jobs(session: Session, project_id: UUID | None = None) -> int:
+    """Manual/startup retry: failed index jobs become queued again with a fresh attempt budget.
+    Coverage shows the ``failed`` state (and its error code) until they succeed."""
+    condition = [rix.c.status == "failed"]
+    if project_id is not None:
+        condition.append(rix.c.project_id == project_id)
+    result = session.execute(
+        update(rix)
+        .where(*condition)
+        .values(status="queued", attempt_no=0, error=None, finished_at=None)
     )
     return int(getattr(result, "rowcount", 0))

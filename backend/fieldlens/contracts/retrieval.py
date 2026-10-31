@@ -110,6 +110,11 @@ class HitSupport(ContractModel):
     vector: bool = Field(
         description="Vector similarity at or above the (uncalibrated) support floor."
     )
+    strong: bool = Field(
+        description="Counts as evidence: exact-ID only query, a discriminative full-text match "
+        "(lexical), or vector similarity above the floor AND clearly above the candidate "
+        "median. False means the hit is flagged weak and must not be cited."
+    )
 
 
 class EvidenceHit(ContractModel):
@@ -236,3 +241,8 @@ class SourceCoverage(ContractModel):
     documents: list[DocumentCoverage]
     index: IndexState
     notes: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Maintenance problems that can affect search quality or speed (for example a "
+        "failed statistics refresh).",
+    )

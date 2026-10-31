@@ -157,6 +157,14 @@ Actual embedding suitability is G5; no unknown model endpoint is assumed.
 ## 7. Implementation Guidance
 
 FL-011-A: source retrieval/index tests; model graph expansion follows FL-016.
+FL-011-B/D: offline/live source chat and RG-8 with applicable RG-1/3/4/5 checks.
+FL-011-E: complete domain tools, graph retrieval and RG-1..5/7.
+FL-011-C: live RG-6 and authorized research check. Planned commands: retrieval/
+assistant pytest files, frontend assistant interactions, type/build, separate
+live marker only after allowance approval. Record model/index revisions,
+gold-case results and every failed/control case. No implementation result yet.
+Propose minor; orchestrator owns release metadata and final evaluation acceptance.
+
 FL-011-A status (TASK-011, candidate; independent QA pending): implemented in
 `backend/fieldlens/retrieval/` with migration 0007 and `GET .../retrieval/{search,coverage}`.
 Facts that refine this spec: Meta exposes no embeddings endpoint for our key (MI-6 probe 404),
@@ -176,10 +184,20 @@ October 31: numeric-dominated chunks (explicit kinds production/trajectory table
 at least 8 records with >=80% plain-number attributes) are excluded from embedding by policy
 and reported as a complete vector index with the exclusion stated, not as degraded; everything
 else is embedded completely, with a 3000-chunk safety cap that is reported as partial if ever
-hit. Hits carry `support` flags (exact/lexical/vector) and an uncalibrated vector support floor
-(default 0.6); a result with no supported hit is `weak_evidence`, never `ok`. Offline synthetic
+hit. Relevance (what is actually guaranteed): each hit carries `support {exact, lexical, vector,
+strong}`. `strong` (and result status `ok`) requires an exact-ID-only query, a discriminative
+full-text match (a number/identifier phrase, or a word found in at most 20% of the scoped chunks),
+or a vector hit that clears the floor (default 0.68) AND stands 0.04 above the median of the
+vector candidates. Vector-only results below that bar are returned with their similarity but
+flagged, and the result is `weak_evidence` (never cite them). The floor and margin are
+UNCALIBRATED: on the real int8 model off-topic text scores 0.50-0.63 and in-domain paraphrases
+about 0.6-0.8, so the guard separates noise from clear matches only roughly and needs the G1
+gold set. A short suffix after a well name that no source names (`F-12 Z`) is reported unmatched
+and never resolves to the parent well; a sidetrack's records do not carry the parent well key.
+Offline synthetic
 results prove mechanics only; RG-2 real-data recall and RG-6 remain unverified until the G1
 gold cases exist.
+
 
 ## Open Tensions
 

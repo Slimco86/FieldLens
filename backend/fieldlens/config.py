@@ -119,10 +119,12 @@ class Settings(BaseSettings):
     tables are excluded by policy before this applies; if non-numeric content ever exceeds it the
     document honestly reports a partial vector index."""
     retrieval_analyze_after_index: bool = True
-    retrieval_vector_support_floor: float = Field(0.6, ge=-1.0, le=1.0)
-    """Cosine below which a vector-only hit is flagged unsupported. UNCALIBRATED: 0.6 is a first
-    guess for the int8 bge-small model (unrelated pairs reached 0.575, related 0.624 in a 4-case
-    sample); calibrate with the G1 gold set before relying on it."""
+    retrieval_vector_support_floor: float = Field(0.68, ge=-1.0, le=1.0)
+    retrieval_vector_margin: float = Field(0.04, ge=0.0, le=1.0)
+    """Cosine a vector-only hit must reach, and stand ``retrieval_vector_margin`` above the median
+    of the vector candidates, to count as strong. UNCALIBRATED: the int8 bge-small model puts
+    off-topic text at 0.50-0.63, in-domain paraphrases at about 0.6-0.8; calibrate with the G1 gold
+    set before relying on it. Vector-only results below it are returned but flagged weak."""
     retrieval_max_attempts: int = Field(3, ge=1, le=10)
     retrieval_min_vector_similarity: float = Field(0.0, ge=-1.0, le=1.0)
 

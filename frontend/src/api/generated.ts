@@ -1402,6 +1402,11 @@ export interface components {
              */
             lexical: boolean;
             /**
+             * Strong
+             * @description Counts as evidence: exact-ID only query, a discriminative full-text match (lexical), or vector similarity above the floor AND clearly above the candidate median. False means the hit is flagged weak and must not be cited.
+             */
+            strong: boolean;
+            /**
              * Vector
              * @description Vector similarity at or above the (uncalibrated) support floor.
              */
@@ -2102,6 +2107,11 @@ export interface components {
             project_id: string;
             /** Source Revision Id */
             source_revision_id: string | null;
+            /**
+             * Warnings
+             * @description Maintenance problems that can affect search quality or speed (for example a failed statistics refresh).
+             */
+            warnings?: string[];
         };
         /**
          * SourceDocument

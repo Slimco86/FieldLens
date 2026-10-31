@@ -162,3 +162,62 @@ def test_hybrid_search_with_the_real_embedder_end_to_end(migrated_url: URL, tmp_
     assert out["mode"] == "hybrid", out["degraded_reasons"]
     assert out["hits"][0]["kind"] == "las_curve"
     assert out["hits"][0]["signals"]["vector_rank"] == 1
+
+
+def test_real_model_similarity_distributions_off_topic_vs_in_domain(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    """Prints (does not assert) the similarity distributions the uncalibrated floor/margin are
+    judged against: real int8 bge-small, synthetic gold corpus."""
+    from tests.retrieval.test_retrieval_gold import build
+
+    world = make_world(
+        migrated_url, tmp_path, embedding_provider="fastembed", retrieval_vector_support_floor=0.68
+    )
+    pid = world.project()
+    build(world, pid)
+    world.index()
+    off_topic = [
+        "who won the football match",
+        "seismic velocity model",
+        "cement bond log",
+        "wellhead",
+        "quarterly marketing budget forecast",
+        "how do I bake sourdough bread",
+    ]
+    in_domain = [
+        "natural radioactivity measurement tool",
+        "how much oil came out in March",
+        "steel grade of the large pipe",
+        "where was the formation top picked",
+        "what device isolates the production zone",
+        "drilling assembly with a steerable bit",
+        "stuck pipe incident while tripping",
+        "when was the well shot again",
+    ]
+    rows = {}
+    for label, queries in (("off-topic", off_topic), ("in-domain", in_domain)):
+        for q in queries:
+            out = world.search(pid, q)
+            sims = sorted(
+                h["signals"]["vector_similarity"]
+                for h in out["hits"]
+                if h["signals"]["vector_similarity"] is not None
+            )
+            top = sims[-1] if sims else None
+            median = sims[len(sims) // 2] if sims else None
+            rows[q] = (
+                label,
+                out["status"],
+                out["evidence_strength"],
+                top,
+                median,
+                len(out["hits"]),
+            )
+            print(
+                f"{label:9s} {out['status']:13s} {out['evidence_strength']:6s} "
+                f"top={top if top is None else round(top, 3)} "
+                f"median={median if median is None else round(median, 3)} hits={len(out['hits'])} "
+                f"| {q}"
+            )
+    assert all(r[1] in ("ok", "weak_evidence", "no_results") for r in rows.values())

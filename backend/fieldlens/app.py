@@ -229,7 +229,12 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         else None
     )
     app.state.retrieval = (
-        RetrievalService(app.state.session_factory, settings, app.state.embedders)
+        RetrievalService(
+            app.state.session_factory,
+            settings,
+            app.state.embedders,
+            app.state.job_worker.health if app.state.job_worker is not None else None,
+        )
         if app.state.session_factory is not None
         else None
     )

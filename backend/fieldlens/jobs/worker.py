@@ -20,6 +20,7 @@ from fieldlens.evidence.storage import BlobStore, VerifyOutcome
 from fieldlens.extraction.runner import ExtractionRunner
 from fieldlens.persistence.session import session_scope
 from fieldlens.retrieval.embedder import EmbedderProvider
+from fieldlens.retrieval.health import IndexHealth
 from fieldlens.retrieval.indexer import IndexRunner
 
 from . import repository as repo
@@ -45,8 +46,9 @@ class JobWorker:
             factory, store, settings, self.owner, self._is_dead_owner
         )
         self.embedders = embedders or EmbedderProvider(settings)
+        self.health = IndexHealth()
         self.indexing = IndexRunner(
-            factory, settings, self.owner, self._is_dead_owner, self.embedders
+            factory, settings, self.owner, self._is_dead_owner, self.embedders, self.health
         )
 
     # -- recovery ---------------------------------------------------------------------------

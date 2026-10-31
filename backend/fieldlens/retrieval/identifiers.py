@@ -24,8 +24,11 @@ _SUBJECT_KINDS = {
 }
 _ATTR_KEY = re.compile(
     r"(^|[._])(model|model_number|part_number|part_no|serial|serial_number|catalog_number|"
-    r"item_number|uid|uwi|name|label|id)$"
+    r"item_number|uid|uwi|name|label|id|well|well_name|wellbore|wellbore_name|well_key)$"
 )
+_SIDETRACK = re.compile(r"^(?:\d{1,2}/\d{1,2}-)?[a-z]{1,2}-?\d{1,3}\s+\S")
+# A short bore suffix typed after a well identifier: "F-12 A", "F-14 T2", "F-5 ST1".
+SUFFIX_TOKEN = re.compile(r"^(?:[A-Z]\d{0,2}|(?i:t|st)\d{1,2})$")
 _COUNTRY = re.compile(r"^(no|nor|norway)\s+")
 _BLOCK = re.compile(r"^(\d{1,2}/\d{1,2})-(.+)$")
 MAX_IDENTIFIER_CHARS = 80
@@ -58,6 +61,12 @@ def unqualified(canonical: str) -> str | None:
     return match.group(2) if match else None
 
 
+def has_suffix(label: str) -> bool:
+    """True for a bore label with a suffix after the well name (``15/9-F-12 A``, ``F-1 C``):
+    a distinct wellbore, never the parent well."""
+    return bool(_SIDETRACK.match(_COUNTRY.sub("", norm_identifier(label))))
+
+
 def _rows(label: str, kind: str) -> list[IdentifierRow]:
     full = norm_identifier(label)
     if not full or len(full) > MAX_IDENTIFIER_CHARS:
@@ -70,8 +79,19 @@ def record_identifiers(
     subject: dict[str, Any], attributes: list[dict[str, Any]]
 ) -> list[IdentifierRow]:
     rows: list[IdentifierRow] = []
+    bore = next(
+        (
+            subject[k]
+            for k in ("wellbore_label", "wellbore_name")
+            if isinstance(subject.get(k), str) and subject[k].strip()
+        ),
+        None,
+    )
+    sidetrack = bore is not None and has_suffix(bore)
     for key, kind in _SUBJECT_KINDS.items():
         value = subject.get(key)
+        if key == "well_key" and sidetrack:
+            continue  # the parent well key must not pull a sidetrack's data into the parent
         if isinstance(value, str) and value.strip():
             rows.extend(_rows(value, kind))
     for attr in attributes:
@@ -82,17 +102,20 @@ def record_identifiers(
     return rows
 
 
-def document_well_rows(subjects: Iterable[dict[str, Any]]) -> list[IdentifierRow]:
+def document_well_rows(
+    subjects: Iterable[dict[str, Any]], attribute_wells: Iterable[str] = ()
+) -> list[IdentifierRow]:
     """Document-level well identity: identifier rows (kind ``document_well``) for the ONE well a
     document is about, else none.
 
     Each distinct record subject names a well by its ``well_key`` when present, otherwise by its
-    wellbore/well label (country prefix dropped). Unqualified and block-qualified spellings of one
-    label count as one well (the same naming rule as exact lookup); anything else, including a
-    sidetrack label without a well key, a second well, or no identity at all, leaves the document
-    unassociated. Never a guess: a multi-well workbook gets no document-level identity."""
+    wellbore/well label (country prefix dropped); a sidetrack label (``F-12 A``) names itself, not
+    its parent. A well named in a record ATTRIBUTE (``attribute_wells``) counts as another
+    naming, so a document that mentions a second well anywhere has no single identity. Unqualified
+    and block-qualified spellings of one label count as one well (the exact-lookup naming rule);
+    anything else leaves the document unassociated. Never a guess."""
     wells: set[str] = set()
-    for subject in subjects:
+    for subject in [*subjects, *({"well_name": v} for v in attribute_wells)]:
         key = subject.get("well_key")
         label = next(
             (
@@ -102,8 +125,9 @@ def document_well_rows(subjects: Iterable[dict[str, Any]]) -> list[IdentifierRow
             ),
             None,
         )
-        chosen = key if isinstance(key, str) and key.strip() else label
-        if chosen is not None:
+        use_key = isinstance(key, str) and key.strip() and not (label and has_suffix(label))
+        chosen = key if use_key else label
+        if isinstance(chosen, str) and chosen.strip():
             wells.add(_COUNTRY.sub("", norm_identifier(chosen)))
     qualified = [w for w in wells if unqualified(w) is not None]
     if len(qualified) == 1 and all(w == unqualified(qualified[0]) for w in wells - set(qualified)):

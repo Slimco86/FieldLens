@@ -80,7 +80,7 @@ def test_real_subset_chunks_are_bounded_complete_and_number_safe() -> None:
                 r.kind,
                 r.subject,
                 r.locator,
-                None,
+                _time(r.effective_time),
                 r.validation_state,
                 [a.to_json() for a in r.attrs],
             )
@@ -122,7 +122,7 @@ def test_real_subset_worst_wordpiece_count_by_the_real_tokenizer() -> None:
                 r.kind,
                 r.subject,
                 r.locator,
-                None,
+                _time(r.effective_time),
                 r.validation_state,
                 [a.to_json() for a in r.attrs],
             )
@@ -204,3 +204,35 @@ def test_real_subset_exact_ids_and_source_lookup(real_world: tuple[World, str]) 
     assert any(h["kind"] == "formation_pick" for h in picks["hits"])
     cross = world.search(pid, "F-5 tubular component")
     print("F-5 tubular:", cross["status"], [h["kind"] for h in cross["hits"]])
+
+
+def test_real_subset_topical_queries_rank_the_right_kinds(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    """Round-2 QA queries on REAL extracted observations (fake embedder: exact/full text only)."""
+    world = make_world(migrated_url, tmp_path)
+    pid = world.project("Volve full subset")
+    for rel in _paths(with_production=True):
+        world.add_doc(pid, Path(rel).name, [_row(r) for r in _parse(rel)])
+    world.index(limit=2000)
+    seen: dict[str, list[str]] = {}
+    for q in (
+        "tubing size F-12",
+        "F-14 tubing",
+        "oil rate F-5",
+        "production F-14 2010",
+        "F-12 A perforation",
+        "F-12 Z perforation",
+        "F-12 gamma ray",
+    ):
+        out = world.search(pid, q)
+        seen[q] = [h["kind"] for h in out["hits"]]
+        print(
+            f"{q!r}: {out['status']} {out['evidence_strength']} unmatched={out['unmatched_identifiers']}"
+            f" exact={[m['canonical'] for m in out['exact_matches']]} kinds={seen[q][:6]}"
+        )
+    # Ranking of the topical queries is printed, not asserted: on real data production_day
+    # chunks still reach 'tubing size F-12' (follow-up item D); only the identity rule is asserted.
+    for q in ("F-12 A perforation", "F-12 Z perforation"):
+        out = world.search(pid, q)
+        assert out["status"] in ("weak_evidence", "no_results") and out["exact_matches"] == []

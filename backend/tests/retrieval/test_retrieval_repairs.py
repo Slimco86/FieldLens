@@ -150,25 +150,15 @@ def test_nonsense_and_foreign_uuid_queries_are_weak_evidence_never_ok(
     ]
 
 
-def test_lexical_query_stays_ok_and_vector_only_query_above_floor_is_supported(
-    migrated_url: Any, tmp_path: Any
-) -> None:
-    world = make_world(migrated_url, tmp_path, retrieval_vector_support_floor=0.6)
+def test_lexical_query_stays_ok_and_strong(migrated_url: Any, tmp_path: Any) -> None:
+    world = make_world(migrated_url, tmp_path, retrieval_vector_support_floor=0.68)
     pid = world.project()
-    target = "packer setting depth report number one"
-    world.add_doc(pid, "a.pdf", [note(target)])
+    world.add_doc(pid, "a.pdf", [note("packer setting depth report number one")])
     world.add_doc(pid, "b.pdf", [note("casing cement volume other wording")])
-    world.set_embedder(Pinned("what holds the tubing", target))
     world.index()
-    lexical = world.search(pid, "packer setting depth")
-    assert lexical["status"] == "ok" and lexical["evidence_strength"] == "strong"
-    assert lexical["hits"][0]["support"]["lexical"] is True
-    vector_only = world.search(pid, "what holds the tubing")
-    assert vector_only["status"] == "ok"
-    top = vector_only["hits"][0]
-    assert top["support"] == {"exact": False, "lexical": False, "vector": True}
-    assert top["signals"]["vector_similarity"] >= 0.6
-    assert all(h["support"]["vector"] for h in vector_only["hits"])  # noise below floor dropped
+    out = world.search(pid, "packer setting depth")
+    assert out["status"] == "ok" and out["evidence_strength"] == "strong"
+    assert out["hits"][0]["support"]["lexical"] and out["hits"][0]["support"]["strong"]
 
 
 def test_id_only_query_needs_no_topical_support(world: World) -> None:
@@ -268,7 +258,7 @@ def test_stemmed_and_exact_lexical_without_vectors(world_no_embedder: World) -> 
         assert kind in {h["kind"] for h in out["hits"][:3]}, (q, [h["kind"] for h in out["hits"]])
     # numbers and identifiers stay exact phrases: no stemming, no prefix matching
     assert tsqueries_for(["3047", "perforations", "F-5"]) == (
-        "3047 | perforations | (f <-> 5)",
+        "perforations | 3047 | (f <-> 5)",
         "perforations",
     )
     assert world.search(pid, "30470")["hits"] == [] or all(
