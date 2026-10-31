@@ -4,7 +4,9 @@ Adopted 2026-10-27 from the owner's requirements. This governs **development
 agents**, not the application's Meta reconstruction/exploration harness. The approved
 [agent registry](../.github/agents/README.md) defines model-tier routing, role
 boundaries and host activation checks. See [FL-001](specs/DEVELOPMENT_AGENTS.md)
-for configuration versus runtime verification.
+for configuration versus runtime verification. The same policy applies when the
+work is driven from Claude Code; see [section 9](#9-claude-code-harness) for its
+agent, model and activation equivalents (registry: [.claude/agents](../.claude/agents/README.md)).
 
 **Owner amendment, 2026-10-30 at 13:10 EDT (supersedes the 2026-10-28 14:47 serial rule for
 this phase):** each feature/task is implemented in its own linked Git worktree under
@@ -137,6 +139,8 @@ not a blanket "all implementation is simple" or "all domain work is expensive":
 - **Sol / high:** one bounded gap in the plan/contract, returning evidence and a
   proposed amendment to Astra/owner; no speculative implementation.
 - **Astra / xhigh:** global decisions, orchestration and integration only.
+
+Under Claude Code the tiers map to Claude aliases (see [section 9](#9-claude-code-harness)).
 
 One role owns each slice; its domain does not force that model for trivial work.
 Do not create tier duplicates for every role. Workers return blockers instead of
@@ -332,3 +336,43 @@ Their removal requires separate approval; no forced removal or automatic cleanup
 Done means persistent code/docs, passing required checks, confirmed integration,
 matching version/changelog and a reconciled backlog. A subagent saying "finished,"
 a clean feature test run, or a prepared commit alone is not done.
+
+## 9. Claude Code harness
+
+The workflow above is harness-neutral. It was first verified with GitHub Copilot
+profiles in `.github/agents/`; the same roles are also defined as Claude Code
+subagents in `.claude/agents/` (registry: [README](../.claude/agents/README.md);
+project instructions: [CLAUDE.md](../CLAUDE.md)). The two sets are maintained
+separately. Roles, gates, ownership, handoff and integration rules are identical;
+only the model names and activation mechanics differ. Use one harness per feature.
+
+| Role | Copilot profile model | Claude Code model / effort |
+|---|---|---|
+| Orchestrator (Astra / xhigh) | GPT-6 Astra | `sonnet` / high (owner decision) |
+| Task worker (Terra / low) | GPT-6.1 Terra | `haiku` / low |
+| Domain specialists and QA | Sonnet 5.5 / medium | `sonnet` / medium |
+| Plan repair (Sol / high) | GPT-6.1 Sol | `sonnet` / high |
+
+Wherever this document says Astra, Terra or Sol, read the Claude Code column when
+running under Claude Code. Differences that matter:
+
+- **Orchestrator is the main session.** Start it with
+  `claude --agent fieldlens-orchestrator`. Claude Code subagents cannot spawn
+  subagents, so it cannot be delegated to; it launches workers with the Agent tool.
+  Workers still never delegate.
+- **Verification.** Confirm the worker is listed as an available agent type and its
+  frontmatter `model`/`effort`/`tools` match the table; do not pass `model`
+  overrides at launch; check `~/.claude/agents/` for shadowing. Agent files load
+  at session start, so restart after editing. Self-identification is still not evidence.
+- **Tools.** Research and plan-repair are restricted to read/search (plus web for
+  research) via `tools:`; other workers inherit all tools and their limits remain
+  instructions, not isolation.
+- **Skills.** `.claude/skills` is a symlink to `.github/skills`, so both harnesses
+  share the same skill files. Workers read only the skills linked from their profile.
+- **Records.** In the assignment/handoff contract, "Requested model/effort / actual
+  host selection evidence" refers to the Claude Code frontmatter values and the
+  session/trace metadata. Claude Code usage is development usage, separate from the
+  USD 150 Meta application credit.
+- **Unchanged.** Branch/worktree policy, independent QA, version/changelog
+  allocation, notifications, tracker sync and the no-push/no-destructive-cleanup
+  rules apply as written.
