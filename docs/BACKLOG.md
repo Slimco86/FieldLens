@@ -686,7 +686,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-009 |
@@ -699,7 +699,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-011-A |
 
 **Outcome.** RAG owner implements project/source-scoped exact/text/vector retrieval in retrieval, source coverage and bounded evidence search; unresolved observations are labeled. No accepted asset graph is a prerequisite, and the embedding gate/degradation is explicit.
-**Next action.** Ready (TASK-009 is integrated, 0.14.0). Next in the RAG lane after TASK-005; with TASK-038 it unblocks TASK-036. Dispatch with a fresh preflight in its own worktree; independent QA follows.
+**Next action.** Dispatched October 31 on branch `feature/task-011-source-retrieval`, worktree `/home/slimco/code/FieldLens-worktrees/task-011-source-retrieval` (owns migration 0007 and the single shared-contract change; no Meta embeddings endpoint exists, so local FastEmbed/bge-small is evaluated behind the explicit gate, with exact/text retrieval degraded-but-working without it); independent QA follows.
 **Evidence.** none yet
 
 ### TASK-019 · Source-context chat and evidence UI (RG-8 offline, applicable RG-3/4/5)
