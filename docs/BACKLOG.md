@@ -749,21 +749,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | ingestion, data |
 | Depends on | TASK-009 |
 | Assignee | agent:fieldlens-ingestion |
-| Due | 2026-11-01 |
+| Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/INGESTION.md |
-| Version | none |
+| Version | 0.16.3 |
 | Parent | FL-005 |
 | Slice | FL-005-C |
 
 **Outcome.** (Owner decision October 31: an OCR text layer with page/box locators comes first for scanned pages, so quoted values can be verified against source text; the model then reads page images and a value is accepted only when the OCR token and the image read agree.) Ingestion owner qualifies scanned-PDF and legacy-Word embedded-image profiles for selected F-14/F-5 evidence, with original locators, a safe evidence viewer and human-checked attribute fixtures. Required for selected equipment, not optional OCR polish.
-**Next action.** Phase A is done and merged (0.16.3, evidence docs/evidence/TASK030_OCR_EVALUATION.md). Phase B (implementation) is scoped by the orchestrator after the schedule decision: RapidOCR only (Tesseract evaluation-only), new dependencies `rapidocr`, `pypdfium2`, `pillow` (+`olefile` only if the `.doc` is included), OCR text as `source_record` with method `ocr` and an engine fingerprint (no EvidenceClass change), an `OCR_DISAGREEMENT` issue code added by a single contract writer, page artifacts plus index table in migration 0008 after TASK-011 (0007) merges, one OCR child process with page/RSS/time caps, per-page commit/resume and cancellation, unconfirmed numerics not accepted as fact (warning recorded; automatic OCR-value resolution only when exactly one same-line/cell OCR token is one digit away). Phase B waits on TASK-011 integration; independent QA follows.
-**Evidence.** Phase A (October 31, offline, no model calls): RapidOCR 3.10 + onnxruntime finds 63-66 of 67 reference numbers at 300 dpi on 11 scanned pages (best-config selected on the test set; word-box mode 3-4 points lower), Tesseract fallback 54/67; replayed against saved model outputs the OCR agreement rule confirmed 265/278 model-read numbers with 2/87 false rejects (agent-read reference; only the native-text set is independent: 115 values, 1 false accept); short integers need same-line/cell locality; the legacy F-5 completion `.doc` has extractable text and 12 pictures (VBA macros present, never read). Phase B estimate about 10.5 agent-days before the orchestrator cut. Independent QA passed with findings (numbers reproduce; wording and design corrections applied).
+**Next action.** None. Owner decision October 31: OCR (phase B) is dropped for the demo; completion equipment is read directly from page images at a visual level (TASK-036/TASK-041). Page rendering with pypdfium2 moves into TASK-036; the OCR evaluation stays as evidence.
+**Evidence.** Phase A merged as 0.16.3 (docs/evidence/TASK030_OCR_EVALUATION.md): offline OCR/rendering evaluation, agreement-rule analysis, `.doc` structure check and phase B design; independent QA passed with findings, corrected. Phase B (OCR implementation) intentionally not built.
 
 ### TASK-026 · Reconstruction proposals, validator and review UI (RC-1..9, DQ-6)
 
@@ -962,7 +962,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | charts, frontend |
-| Depends on | TASK-009, TASK-034 |
+| Depends on | TASK-009, TASK-034, TASK-047 |
 | Assignee | agent:fieldlens-frontend |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
@@ -983,7 +983,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | charts, frontend |
-| Depends on | TASK-009, TASK-034 |
+| Depends on | TASK-009, TASK-034, TASK-047 |
 | Assignee | agent:fieldlens-frontend |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
@@ -1235,7 +1235,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | ready |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
-| Depends on | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038 |
+| Depends on | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038, TASK-046 |
 | Assignee | agent:fieldlens-ingestion |
 | Due | 2026-11-01 |
 | Sprint | Hackathon |
@@ -1361,7 +1361,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
-| Depends on | TASK-036, TASK-030, TASK-042 |
+| Depends on | TASK-036, TASK-030, TASK-042, TASK-046 |
 | Assignee | agent:fieldlens-ingestion |
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
@@ -1370,8 +1370,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-022 |
 | Slice | FL-022-D |
 
-**Outcome.** Using the TASK-036 harness and the TASK-030 page-image profiles, extract the production-period wellbore equipment (tubing, casing and liners in service, packers, pumps, bearings and similar completion components) for at least two of F-12, F-14 and F-5 as typed, source-located candidates with type, dimensions, depth reference, wellbore scope and effective time; validators, conflict flagging and unknown-stays-unknown follow AX-2/3/5. Drilling-side assemblies are out of scope by the owner decision of October 31.
-**Next action.** TASK-042 is done (docs/evidence/TASK042_COMPLETION_SPIKE.md). Remaining before dispatch: TASK-030 (OCR layer with locators for the scanned F-14/F-5 documents, owner decision October 31), TASK-036, and a spec amendment with measurable acceptance criteria written from the spike findings (upright pages about 1600 px at effort low, orientation fix, zoomed second pass, text layer for native pages; F-12 has no completion source in the seven files, generic display applies; F-11 B pages are wrong-folder evidence, not F-12).
+**Outcome.** Using the TASK-036 harness, read the completion pages of F-14 and F-5 (scanned page images, and the text layer where it exists) and propose a superficial, visual-level production/completion equipment structure (casing/liner strings, tubing, packers, pumps, perforations, isolations: type, material if printed, OD/ID/length, top/bottom depth) as model-read, unverified candidates for the 3D model. Owner decision October 31: no OCR gate, speed and performance first, missed details are acceptable, values are never used in calculations; F-12 uses generic assets.
+**Next action.** Depends on TASK-036 (harness with page-image reading) and TASK-046 (wellbore identity). Spec amendment for the visual-level equipment taxonomy and acceptance written when TASK-036 is handed off; settings from the spike: upright pages about 1600 px, effort `low`, orientation fix, page triage by keywords or the printed table of contents.
 **Evidence.** none yet
 
 ### TASK-043 · Provider adapter hardening from the live findings (effort control, tool-token estimate, cancel and liable semantics)
@@ -1437,11 +1437,59 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Dispatch only after the owner confirms the priority; the assistant/exploration tasks (TASK-019/031) must not use `evidence_strength` as a citation gate until this is done or the calibration gold set exists.
 **Evidence.** none yet
 
+### TASK-046 · Depth unit/datum defaults and deterministic well/wellbore identity
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | ingestion, backend |
+| Depends on | TASK-009, TASK-011 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-01 |
+| Sprint | Hackathon |
+| Spec | specs/DATA_COMPLETENESS.md |
+| Version | none |
+| Parent | FL-005 |
+| Slice | FL-005-E |
+
+**Outcome.** Perforation, formation-pick and similar depths without a documented unit default to meters (MD) as a warning (DC-1..3), and `well`/`wellbore` rows are created deterministically from the extracted record subjects with sidetrack distinctness, parent links and evidence counts, sharing one naming rule with retrieval (DC-4..6).
+**Next action.** Dispatched October 31 on branch `feature/task-046-units-identity`, worktree `/home/slimco/code/FieldLens-worktrees/task-046-units-identity` (owns migration 0008 if one is needed and the DTO additions for the identity API); independent QA follows.
+**Evidence.** none yet
+
+### TASK-047 · Time-series storage and window API for logs and production
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend, ingestion, charts |
+| Depends on | TASK-009, TASK-011 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-01 |
+| Sprint | Hackathon |
+| Spec | specs/DATA_COMPLETENESS.md |
+| Version | none |
+| Parent | FL-005 |
+| Slice | FL-005-F |
+
+**Outcome.** LAS curve samples and production series are stored at full resolution (not only the per-curve summary), written atomically with the extraction run, and served through a windowed, min/max-preserving downsampled API and a typed service for later chart and agent tools (DC-7..11).
+**Next action.** Dispatched October 31 on branch `feature/task-047-series-storage`, worktree `/home/slimco/code/FieldLens-worktrees/task-047-series-storage`; migrations are serialized with TASK-046 (the second to merge renumbers onto the new head); independent QA follows.
+**Evidence.** none yet
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
 work-items table and finalized priorities), kept as history. Where it conflicts with the
 item blocks above, the item blocks are authoritative for current status.
+
+## Owner decisions, October 31 (third pass)
+
+- **Data completeness first.** Before agents aggregate anything: depth defaults and deterministic identity (TASK-046) and time-series storage (TASK-047), specified in specs/DATA_COMPLETENESS.md.
+- **Depth units.** Meters (MD) are the default for depths without a unit; a warning, never a blocker.
+- **OCR dropped; equipment is visual-level.** Casing, tubing, pumps, perforations, isolations and similar are read directly from page images with a superficial goal (type, material, sizes, structure); model-read, unverified, never used in calculations; speed and performance first. TASK-030 phase B cancelled (TASK-030 closed as done with phase A), page rendering moves to TASK-036.
 
 ## Owner decisions, October 31 (second pass)
 

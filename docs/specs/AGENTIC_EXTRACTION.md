@@ -13,6 +13,11 @@
 > assemblies are out of scope. TASK-042 (live feasibility spike) and TASK-041 (extraction) follow the TASK-005
 > live smoke; their acceptance criteria are added after the spike. The harness contract (AX-1..11) is unchanged.
 
+> **Owner amendment, October 31 (demo, second pass):** OCR is dropped. For scanned completion pages the model reads
+> page images directly and proposes a superficial, visual-level equipment structure; values are labelled model-read
+> and unverified, are never used in calculations, and the AX-2 quote-in-span check applies only where a text layer
+> exists. Speed and performance take priority over detail; missed details are acceptable. See DATA_COMPLETENESS.
+
 ## How to Read This Spec
 
 Owner: outcome, scope, acceptance policy and spend (section 6). Implementer: scope, contract and ACs.

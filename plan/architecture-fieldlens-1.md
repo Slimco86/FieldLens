@@ -181,6 +181,8 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | TASK-040 | FL-022-C | TASK-038, TASK-034 | Frontend owner implements the Reconstruction tab's agent activity log view; AX-10 UI. | | |
 | TASK-041 | FL-022-D | TASK-036, TASK-030, TASK-042 | Ingestion owner extracts production/completion equipment candidates (tubing, casing/liners in service, packers, pumps, bearings) from the completion documents with the TASK-036 harness; spec amendment first. | | |
 | TASK-043 | FL-003-C | TASK-005 | RAG owner hardens the provider adapter from the live findings: reasoning-effort control, tool-request token estimate, documented in-flight cancel semantics, reconcile path for liable reservations; offline. | | |
+| TASK-047 | FL-005-F | TASK-009, TASK-011 | Backend owner stores LAS samples and production series at full resolution with a windowed downsampled API and typed service (DC-7..11). | | |
+| TASK-046 | FL-005-E | TASK-009, TASK-011 | Ingestion owner adds depth unit/datum defaults as warnings and deterministic well/wellbore identity (DC-1..6). | | |
 | TASK-045 | FL-011-F | TASK-011 | RAG owner handles the small retrieval follow-ups deferred by QA (id-only coverage, numeric-only sidetracks, production flooding, requeue). | | |
 | TASK-044 | FL-005-D | TASK-009 | Ingestion owner investigates the deferred EDM export offline for deterministic completion/production equipment and perforation history; profile only if justified. | | |
 | TASK-042 | FL-022-E | TASK-005, TASK-009, TASK-043 | Ingestion owner runs a bounded live feasibility spike of model reading on the seven completion documents (read-only, no product code, owner-approved allowance). | | |
