@@ -5,6 +5,10 @@ gapless under concurrency. Writes are fenced: ``start_unit`` returns a handle ho
 counter, and recovery, resume and finalize all move or check it, so a stale worker can never
 append to or finalize a unit that a newer attempt owns. Steps carry a caller-supplied
 ``step_key``; replaying a key returns the stored step without a duplicate or double-counted usage.
+The step_key convention is owned by the TASK-036 harness. A replay returns the stored step
+WITHOUT comparing content, so reusing a key with different content is silently ignored.
+Evidence locator free-text fields are redacted and cut to 200 characters (the step is flagged
+``truncated``); oversized evidence raises ``EvidenceTooLarge``.
 
 Usage (harness)::
 
@@ -18,6 +22,7 @@ Usage (harness)::
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -37,6 +42,24 @@ from .sanitize import QUESTION_LIMIT, SUMMARY_LIMIT, bound_text, sanitize_detail
 MAX_STEPS = 200
 MAX_REGULAR_STEPS = 190  # the last 10 are reserved for lifecycle marks (interrupt/resume)
 MAX_EVIDENCE_LINKS = 8
+MAX_EVIDENCE_BYTES = 12288
+LOCATOR_TEXT_LIMIT = 200
+LOCATOR_LIST_LIMIT = 20
+# Free-text locator fields (contracts/evidence.py). Identity fields (document/revision ids,
+# page, line numbers, sha256 hashes, kind) are never altered.
+_LOCATOR_TEXT_FIELDS = (
+    "table_id",
+    "cell_id",
+    "sheet",
+    "cell_range",
+    "namespace_uri",
+    "element_path",
+    "attribute_name",
+    "column_name",
+    "las_section",
+    "las_mnemonic",
+    "extractor_version",
+)
 STOP_PROCESS_INTERRUPTED = "process_interrupted"
 
 
@@ -62,6 +85,10 @@ class UnitConflict(ActivityLogError):
 
 class StepLimitExceeded(ActivityLogError):
     pass
+
+
+class EvidenceTooLarge(ActivityLogError):
+    """Serialized evidence links exceed the stored bound (never a raw database error)."""
 
 
 @dataclass(frozen=True)
@@ -115,6 +142,33 @@ def _lock_unit(s: Session, project_id: UUID, unit_id: UUID) -> Any:
     return row
 
 
+def _clean_evidence(links: list[EvidenceLink]) -> tuple[list[dict[str, Any]], bool]:
+    """Dump links, redacting and bounding free-text locator fields; True when any was cut."""
+    cut_any = False
+    out: list[dict[str, Any]] = []
+    for link in links:
+        dumped = link.model_dump(mode="json")
+        loc = dumped["locator"]
+        for name in _LOCATOR_TEXT_FIELDS:
+            if isinstance(loc.get(name), str):
+                loc[name], cut = bound_text(loc[name], LOCATOR_TEXT_LIMIT)
+                cut_any = cut_any or cut
+        uids = loc.get("source_uids")
+        if isinstance(uids, list):
+            if len(uids) > LOCATOR_LIST_LIMIT:
+                cut_any = True
+            kept = []
+            for uid in uids[:LOCATOR_LIST_LIMIT]:
+                text, cut = bound_text(str(uid), LOCATOR_TEXT_LIMIT)
+                kept.append(text)
+                cut_any = cut_any or cut
+            loc["source_uids"] = kept
+        out.append(dumped)
+    if len(json.dumps(out, ensure_ascii=False).encode()) > MAX_EVIDENCE_BYTES:
+        raise EvidenceTooLarge("evidence links exceed the stored size bound; cite fewer or smaller")
+    return out, cut_any
+
+
 def _add_step(
     s: Session,
     unit: Any,
@@ -144,6 +198,7 @@ def _add_step(
     if len(links) > MAX_EVIDENCE_LINKS:
         raise ScopeError("too many evidence links")
     _check_evidence(s, unit, links)
+    stored_links, links_cut = _clean_evidence(links)
     step_no = unit["step_count"] + 1
     step_id = s.execute(
         insert(m.agent_step)
@@ -157,8 +212,8 @@ def _add_step(
             tool_name=tool_name[:64] if tool_name else None,
             summary=text,
             detail=clean,
-            evidence=[link.model_dump(mode="json") for link in links],
-            truncated=cut or detail_cut,
+            evidence=stored_links,
+            truncated=cut or detail_cut or links_cut,
         )
         .returning(m.agent_step.c.step_id)
     ).scalar_one()

@@ -408,3 +408,91 @@ def test_database_constraints_back_the_service_ax10(world: World) -> None:
             ),
             {"p": h.project_id, "u": h.unit_id},
         )
+
+
+def _link(world: World, locator: dict[str, Any]) -> Any:
+    from fieldlens.contracts.evidence import EvidenceLink
+
+    base = {
+        "document_id": world.a.documents[0],
+        "source_revision_id": world.a.revisions[0],
+    }
+    return EvidenceLink.model_validate({**base, "locator": {**base, **locator}})
+
+
+def _stored_evidence(world: World, unit_id: Any) -> list[dict[str, Any]]:
+    return list(_detail(world, world.a, unit_id)["steps"][0]["evidence"])
+
+
+LOCATOR_CASES = [
+    ("xml", "element_path"),
+    ("xml", "namespace_uri"),
+    ("xml", "attribute_name"),
+    ("xlsx", "sheet"),
+    ("xlsx", "cell_range"),
+    ("pdf", "table_id"),
+    ("pdf", "cell_id"),
+    ("text", "column_name"),
+    ("text", "las_section"),
+    ("text", "las_mnemonic"),
+]
+_REQUIRED = {
+    "xml": {"element_path": "/a"},
+    "xlsx": {"sheet": "S", "cell_range": "A1"},
+    "pdf": {"page": 3},
+    "text": {"line_start": 2, "line_end": 4},
+}
+
+
+@pytest.mark.parametrize(("kind", "field"), LOCATOR_CASES)
+def test_locator_text_is_redacted_and_bounded_ax10(world: World, kind: str, field: str) -> None:
+    h = _start(world)
+    secret = "/a/sk-abcdefghijklmnop1234567890 password=hunter2"
+    link = _link(world, {"kind": kind, **_REQUIRED[kind], field: secret})
+    world.log.append_step(h, "note", "n", step_key="a", evidence=[link])
+    loc = _stored_evidence(world, h.unit_id)[0]["locator"]
+    assert "sk-abcdefghijklmnop" not in loc[field] and "hunter2" not in loc[field]
+    assert "[redacted]" in loc[field]
+    big = _link(world, {"kind": kind, **_REQUIRED[kind], field: "x" * 5000})
+    world.log.append_step(h, "note", "n2", step_key="b", evidence=[big])
+    steps = _detail(world, world.a, h.unit_id)["steps"]
+    assert len(steps[1]["evidence"][0]["locator"][field]) < 260
+    assert "[truncated" in steps[1]["evidence"][0]["locator"][field] and steps[1]["truncated"]
+
+
+def test_locator_identity_fields_stay_intact_ax10(world: World) -> None:
+    h = _start(world)
+    link = _link(
+        world, {"kind": "pdf", "page": 7, "table_id": "t" * 500, "rect": [0.1, 0.1, 0.5, 0.5]}
+    )
+    world.log.append_step(h, "note", "n", step_key="a", evidence=[link])
+    ev = _stored_evidence(world, h.unit_id)[0]
+    assert ev["document_id"] == str(world.a.documents[0])
+    assert ev["source_revision_id"] == str(world.a.revisions[0])
+    loc = ev["locator"]
+    assert (loc["kind"], loc["page"], loc["rect"]) == ("pdf", 7, [0.1, 0.1, 0.5, 0.5])
+    assert loc["document_id"] == str(world.a.documents[0])
+
+
+def test_oversize_evidence_raises_typed_error_ax10(world: World) -> None:
+    from fieldlens.activity.service import EvidenceTooLarge
+
+    h = _start(world)
+    links = [
+        _link(
+            world,
+            {
+                "kind": "xml",
+                "element_path": "p" * 3000,
+                "source_uids": [f"{i}-" + "u " * 1500 for i in range(60)],
+                "namespace_uri": "n" * 3000,
+                "attribute_name": "q" * 3000,
+            },
+        )
+        for _ in range(8)
+    ]
+    with pytest.raises(EvidenceTooLarge):
+        world.log.append_step(h, "note", "n", step_key="a", evidence=links)
+    five = [_link(world, {"kind": "xml", "element_path": "e" * 3000}) for _ in range(5)]
+    world.log.append_step(h, "note", "n", step_key="b", evidence=five)  # bounded, so it fits
+    assert _detail(world, world.a, h.unit_id)["unit"]["step_count"] == 1
