@@ -62,7 +62,7 @@ def _alembic(engine: Engine, fn: str, rev: str) -> None:
 
 
 def test_single_head_and_known_revision() -> None:
-    assert expected_head() == "0007_source_retrieval"
+    assert expected_head() == "0008_identity_links"
 
 
 def test_migration_roundtrip(empty_database: URL) -> None:
@@ -231,7 +231,14 @@ def test_contract_fixture_roundtrips_through_postgresql(engine: Engine) -> None:
         assert drow.pop("storage_key") == "k/ab/cd"  # server-owned, outside the client DTO
         assert SourceDocument.model_validate(drow) == f["document"]
         rows = conn.execute(select(m.wellbore).order_by(m.wellbore.c.name)).mappings().all()
-        got = [Wellbore.model_validate(dict(r)) for r in rows]
+        server_owned = (
+            "wellbore_key",
+            "suffix",
+        )  # identity resolution columns (0008), not in the DTO
+        got = [
+            Wellbore.model_validate({k: v for k, v in dict(r).items() if k not in server_owned})
+            for r in rows
+        ]
         assert got == sorted([f["bore"], f["side"]], key=lambda w: w.name)
 
 
