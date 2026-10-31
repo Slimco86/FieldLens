@@ -749,7 +749,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, data |
 | Depends on | TASK-009 |
@@ -762,7 +762,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-C |
 
 **Outcome.** (Owner decision October 31: an OCR text layer with page/box locators comes first for scanned pages, so quoted values can be verified against source text; the model then reads page images and a value is accepted only when the OCR token and the image read agree.) Ingestion owner qualifies scanned-PDF and legacy-Word embedded-image profiles for selected F-14/F-5 evidence, with original locators, a safe evidence viewer and human-checked attribute fixtures. Required for selected equipment, not optional OCR polish.
-**Next action.** Ready (TASK-009 is integrated, 0.14.0). Carries the production/completion-equipment priority: the completion schematics and scans that name tubing, packers and pumps are the target content. Dispatch after the live smoke (TASK-005) shows whether page images are usable; independent QA follows.
+**Next action.** Phase A dispatched October 31 on branch `feature/task-030-ocr-evaluation`, worktree `/home/slimco/code/FieldLens-worktrees/task-030-ocr-evaluation`: offline evaluation of OCR engines, page rendering and orientation handling on the scanned F-14/F-5 pages (no migration, no model calls, no lockfile change), ending in a recommended design and an explicit stop for orchestrator approval. Phase B (implementation, which may need a migration after TASK-011 merges) follows only after approval; independent QA follows each phase.
 **Evidence.** none yet
 
 ### TASK-026 · Reconstruction proposals, validator and review UI (RC-1..9, DQ-6)
