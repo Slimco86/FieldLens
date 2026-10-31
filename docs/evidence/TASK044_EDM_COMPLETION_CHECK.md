@@ -36,11 +36,22 @@ CD_ATTACHMENT`; `LINKTABLE` rows). 142 distinct element names. Row counts of the
 | Analysis (WellPlan/StressCheck) | TU_*, WP_* tables (torque/drag, hydraulics, cement, loads), tens of thousands of rows |
 | Binary | CD_ATTACHMENT 719 (all `mime_type=dws-app-data/stresscheck` application data, not documents) |
 
-There is **no** table for perforations, completion events, well tests, daily reports, production or
-injection, ESP/gas-lift pumps, SSSV, nipples, bearings or installed/removed dates (the census contains no
+There is **no** table for perforation or completion event history, well tests, daily reports, production or
+injection, ESP/gas-lift pumps, nipples, bearings or installed/removed dates (the census contains no
 element whose name contains PERF, COMPLET, TUBING, EVENT, REPORT, DAILY or PRODUC; `CD_WEQP_PACKER`, `WP_CASE_PUMP`
 and `WP_CASE_BOOSTER_PUMP` are the only equipment-like names, the last two being rig mud-pump simulation parameters).
 It is a drilling/well-planning (COMPASS, WELLPLAN, StressCheck, Wellcat) database, not a completion history.
+Perforation, packer and SSSV *words* do occur in StressCheck design inputs (not history, not as-built):
+
+| Where | Observation (design inputs) |
+|---|---|
+| `TU_CASE_PARAMETER` | `parameter_name` `ReservoirPerforationDepth` (13 rows) and `PackerDepth` (13 rows), 13 distinct scenario ids by my count (QA counted 19 scenarios), only F-10 A, F-13 and F-14 A. Cohort rows: F-14 A scenario `F-14 A NW target - SIGULU - rev0` (PROTOTYPE, L309937): L310295 `ReservoirPerforationDepth` 9498.3595800145, L310301 `PackerDepth` 8678.1496062645 (`parameter_value_num`, no unit). F-12 and F-5 have no such rows |
+| `TU_CUSTOM_LOAD_PROFILE` | profiles named `Perforating Gun Firing Pressure` for F-1 wellbores (e.g. L101564, wellbore 3Ox3zu412Z = F-1 B); not cohort |
+| `TU_LOAD_HEADER` | L101607 `L.10a.Tubing leak below closed SCSSSV` (F-13); not cohort |
+
+None of these is a dated or installed record. Source conflict: the F-14 A `PackerDepth` 8678.15 (L310301) disagrees
+with `CD_WEQP_PACKER.packer_depth` 8350.07 (L48650 and L48651) for the same sidetrack, a difference of 328.08 in the
+file's unstated unit (equal to 100 m if feet). Both are design inputs; neither can be chosen without a rule.
 
 Wells and wellbores: `CD_WELL.well_id` (opaque 10-char id), `well_common_name`, `well_legal_name` (`NO 15/9-F-12`
 style, absent on some). `CD_WELLBORE` carries `wellbore_id`, `wellbore_name`, `parent_wellbore_id` (sidetrack
@@ -56,15 +67,19 @@ Development). Unique identification of the cohort (all by `well_id`/`wellbore_id
 
 Name traps: wellbores named `F-12` also exist under the wells `Relief well location 3` (w88Iwym18B, L24875) and
 `Relief well location 5` (KN3GtZgOuN, L24890); a wellbore named `F-1 ...` sits under relief-well sites; F-11 is a
-separate well (`15/9-F-11`, `15/9-F-11 A/B/T2`, ids 3W9ZjV2yj0 etc.) and has the only other packer rows
-(`Packer @ 3064`, wellbore uLkXB6Hbm2) and a 7" tubing design (L25337). A name-based join would mix these; key
+separate well (`15/9-F-11`, `15/9-F-11 A/B/T2`, ids 3W9ZjV2yj0 etc.) and has one packer row
+(L48646 `Packer @ 3064`, wellbore uLkXB6Hbm2) and a 7" tubing design (L25337). The 6 `CD_WEQP_PACKER` rows split:
+F-11 1 (L48646), F-13 3 (L48647 `Help packer`, L48648 `Production Packer`, L48649 fluid density only), F-14 A 2 (L48650, L48651). A name-based join would mix these; key
 by `well_id` plus `wellbore_id`.
 
 ## 2. Units, datum and reference metadata the file states
 
-The file states **no units and no depth reference** per attribute. There is no unit table (`active_ui_unitsys_id=20`
-on every CD_WELL is an unresolved code), no vertical datum on assembly rows, and CD_ASSEMBLY/CD_ASSEMBLY_COMP
-depths carry no `datum_id`. Facts only:
+The file states **no units** and no depth reference on assembly rows. There is no unit table
+(`active_ui_unitsys_id=20` on every one of the 21 CD_WELL rows is an unresolved code) and CD_ASSEMBLY/CD_ASSEMBLY_COMP
+carry no `datum_id`. A scenario/case-level reference does exist: `CD_SCENARIO.datum_id` (and `original_tubular_datum_id`
+on some rows, and `CD_CASE.datum_id`) link to CD_DATUM. For the cohort, scenarios point at: F-12 `Rotary Table`;
+F-14 and F-14 A `Inspirer Rotary Table`; F-5 `Rotary Table (As Installed)` (I verified the scenario links; QA verified
+the case links). Because strings are not tied to a scenario, which datum a string depth uses is not stated. Facts only:
 - CD_DATUM (124 rows) holds named datums with `datum_elevation` (e.g. F-12 `Rotary Table` 180.1181102355, default
   `Y`, L24766; `WELL` 72.17847769 L24765), still without unit.
 - Magnitudes strongly suggest US oilfield internal units (OD `9.625`, `13.375`, `30.0` read as inches; depths
@@ -85,9 +100,12 @@ Design/case semantics observed: strings live in `CD_ASSEMBLY` (`string_type` Cas
 70, Conductor 15, Tubing 4, Tieback 3, blank 313; `phase` PLAN/PROTOTYPE/ACTUAL/blank; `string_class`
 Conductor/Surface/Intermediate/Production/blank, set on 411 rows) and components in `CD_ASSEMBLY_COMP`
 (`comp_type_code`/`sect_type_code`, od_body, id_body, length, md_top/md_base on casing comps only, grade,
-manufacturer on 1,724 rows, `model` on 13). `phase=ACTUAL` appears only on 20 CD_CASE rows, all of them
-torque/drag or hydraulics cases (running strings such as `7" liner scraper`), plus one ACTUAL scenario per
-wellbore that is the COMPASS survey (`CD_SCENARIO` ACTUAL, e.g. F-12 L309867). **No assembly row is flagged
+manufacturer on 1,724 rows, `model` on 13). `phase=ACTUAL` appears on 20 CD_CASE rows, all of them
+torque/drag or hydraulics cases (running strings such as `7" liner scraper`), one ACTUAL scenario per
+wellbore that is the COMPASS survey (`CD_SCENARIO` ACTUAL, e.g. F-12 L309867), and 10 CD_ASSEMBLY rows, all
+drillstring `Assembly`/`Inner Assembly` rows (F-11 L25299/L25303, F-9 L25859/L25861, F-15 L28042/L28057/L28074/L28076
+and two in the cohort: F-5 L27914 assembly gSjAB, F-14 L28157 assembly DSb2o), i.e. drilling-side running strings.
+**No completion, tubing, liner or casing assembly row is flagged
 as-built/installed**, there are no installation dates and the casing rows are StressCheck/WELLPLAN design
 variants; hence none of what follows is installed history, only designs or what-if strings.
 
@@ -98,9 +116,15 @@ variants; hence none of what follows is installed history, only designs or what-
 | F-14 A 1j6NvagBYE | 15 assemblies, all PROTOTYPE or blank | Tubing x2 (`7" Production Tubing`, L28083 phase blank, L28090 PROTOTYPE; md 298.556 to 8842.19, length 8543.64, TBG comps L34858/L34865 od 7.0 id 6.184 grade 13CR80); Liner x2 (`7" Production Liner` L28086, L28089; md 8842.19 to 12113.19, length 3270.997, comps L34859/L34863); PKR comps L34857/L34864 without dimensions; `CD_WEQP_PACKER` rows L48650/L48651 (`Packer #1`, `packer_depth` 8350.0656, `plug_depth` 8842.19, bore 7.0, `is_sheared N`); PBR 8.0 x 6.184, 20.997 long (comp L34847, Weatherford `Standard PBR`, in a drillstring-type running assembly 5nuQ8 L28078) | design only: scenarios are PROTOTYPE `F-14 A NW target` (planned sidetrack), records dated 2015-09/10 |
 | F-5 2suJ4qMKKw | Casing 36 (24 distinct), Liner 2, Drillstring 18, untyped 10 | Liner x2 `7" Production Liner` (L27916 and L27948, `string_class` Production, md 9009.19 to 11896.33, record date 2005-11-22); no Tubing or Packer rows; one running-string tubing comp `7" 29 ppf S13CRS110` length 9022.31 in an unnamed assembly pKO8d (L27936, comp L34617) used by the case `Displace to overbalance` (L51789) | design only. The ACTUAL case `Pull tubing AJP 290816` (L51824, record date 2016-08-29) is a torque/drag model of a tubing pull job: weak circumstantial hint that tubing was present, not an equipment record |
 
-Not found for any of the three wells (or anywhere in the file): ESP, gas lift, SSSV, landing/nipple profiles,
-bearings, mandrels, screens, perforation guns, quantity of installed items, installed/removed dates,
-status flags. Drilling-side material (BHA, bits, drill pipe, MWD/LWD, hole openers, drilling casing runs) is by
+Not found for any of the three wells as equipment records (searched by component codes, descriptions and table
+names across the whole file): ESP, gas lift, SSSV, landing/nipple profiles, bearings, mandrels, screens, perforation
+guns, quantity of installed items, installed/removed dates, status flags.
+
+Weak circumstantial hints (names only, not equipment records, no dates of installation): F-12 has 5 `CD_HOLE_SECT_GROUP`
+rows named `Run upper completion` (PROTOTYPE; L267186, L267194, L267206, L267218, L267220) and a case `Weight of tubing`
+(L51016); F-14 main has cases `Pull tubing and displ. annulus SIGULU 170416` (L51977), `Pull tubing SIGULU 170416` (L52168)
+and `Tubingvekt` (L52160); F-5 has `Pull tubing AJP 290816` (L51824). They suggest completion/workover design work
+existed, nothing more. Drilling-side material (BHA, bits, drill pipe, MWD/LWD, hole openers, drilling casing runs) is by
 far the dominant content (CD_BHA_COMP_*, 132 of F-14's 225 assemblies).
 
 Hole sections (`CD_HOLE_SECT`: 99 F-12, 291 F-14, 66 F-5 rows; `od_casing`, `md_shoe`, `hole_size`, `length`) give
@@ -111,7 +135,8 @@ shoe/OD design data without dates or as-built flag.
 
 ## 4. Perforations and production-relevant events
 
-The EDM export contains none (see section 1). PV-03 (`Geophysical_Interpretations/Wells/Well_perforations_Volve.dat`,
+The EDM export contains no perforation interval or event history (see section 1; only the design-input depths
+`ReservoirPerforationDepth` for F-14 A, L310295, and no cohort well-test or status record). PV-03 (`Geophysical_Interpretations/Wells/Well_perforations_Volve.dat`,
 48 data rows, header on line 1) holds for the cohort: F-12 5 intervals (file lines 31-35, top MD 3130.68 to base
 3280.68), F-14 6 intervals (lines 36-41, 3005.00 to 3354.20), F-5 5 intervals (lines 45-49, 3605.00 to 3712.00),
 perf type GUN, formation `Hugin Fm. VOLVE`; for these 16 rows the perf date, current status and status date are
@@ -188,6 +213,7 @@ placeholders apply per owner decision.
 
 ## 8. Limits of this check
 
-Only the single XML export was parsed; the zip alongside it (`Volve F.edm.zip`, 77,698,104 bytes) was not opened and is
-assumed to contain the same export. Coverage claims are limited to the tables and wellbores listed; unit and datum
+Only the single XML export was parsed. Explicitly **not covered**: `Volve F.edm.zip` (77,698,104 bytes, not opened, assumed
+to contain the same export), the `.sck` (StressCheck) and `.wcd` (Wellcat) application files, and the RMS
+perforation folders (listed only; section 4), the Daily Drilling Report XML/HTML/PDF folders and the WITSML data. Coverage claims are limited to the tables and wellbores listed; unit and datum
 statements are inferences from magnitudes where marked; field values were not compared across the large analysis tables.

@@ -17,7 +17,8 @@ from pathlib import Path
 from typing import Any
 
 PROD_STRING_TYPES = {"Tubing", "Liner", "Tieback"}
-PROD_SECT = {"TBG", "PKR", "PBR", "HOO", "SRP", "SS", "SL", "LH", "TUJ"}  # TBG/PKR/... sect codes
+# Completion-type section codes. HOO (hole opener) is a drilling tool and is deliberately excluded.
+PROD_SECT = {"TBG", "PKR", "PBR", "SRP", "SS", "SL", "LH", "TUJ"}
 
 
 def load(path: Path) -> dict[str, list[dict[str, Any]]]:
