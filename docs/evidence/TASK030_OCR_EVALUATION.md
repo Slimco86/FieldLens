@@ -6,7 +6,7 @@ lockfile change. Every accuracy figure is measured against the TASK-042 **agent-
 (`scripts/spikes/spike042_gold.py`), which is **not human verified** and not exhaustive; a few figures use a
 native text layer as exact ground truth and say so. Evaluation set: 11 pages (8 reference pages: PV-17 p.4, 29,
 30, 35, 36, PV-21 p.48, 49, PV-12 p.164; 3 pages without equipment: PV-21 p.13, 50, PV-17 p.48), 67 reference numbers.
-This is a small sample: differences of one or two tokens (about 1.5 to 3 points) are noise. Nothing here
+**Selection caveat (QA finding F1):** the best configuration per engine was picked from about a dozen configurations scored on the same 67 numbers, so the best figure is optimistic (tuning data equal test data). The honest RapidOCR 3 range at 300 dpi is **63 to 66 of 67 (94 to 99%)** across raw/gray, line/word-box and pass choices; 99% appears only with gray plus a 270-degree pass. Scripts also read the local text layers and images of PV-11..14 (F-12 COMPLETION_REPORT_1/2/3, COMPLETION_LOG_MD_PLOT_2, including PV-12 p.164 and text-layer ground truth) as well as PV-17, PV-18 and PV-21, all within the seven owner-approved files, local read-only. This is a small sample: differences of one or two tokens (about 1.5 to 3 points) are noise. Nothing here
 claims coverage of the other roughly 100 scanned pages of the two documents (I viewed only p.36 and p.49).
 Scripts: `scripts/spikes/ocr_*.py` (spike only, not product code). Page renders, OCR dumps, model files and
 downloads stay in gitignored `.local/ocr/`. Quotes are short.
@@ -15,7 +15,7 @@ downloads stay in gitignored `.local/ocr/`. Quotes are short.
 
 | Question | Recommendation | Evidence |
 |---|---|---|
-| OCR engine | **RapidOCR 3.x (`rapidocr` + `onnxruntime`, PP-OCRv6 small det/rec, PP-OCRv4 mobile cls ONNX), default detector settings, word boxes on** | 64 to 66 of 67 reference numbers (96 to 99%) at 300 dpi; 38 of 38 decimals, 2 of 2 fractions; 39 of 39 numbers on the F-5 as-installed table (gray); about 1.0 GB peak RSS; deterministic |
+| OCR engine | **RapidOCR 3.x (`rapidocr` + `onnxruntime`, PP-OCRv6 small det/rec, PP-OCRv4 mobile cls ONNX), default detector settings; line mode for text, word-box mode only where a token locator is needed** | **63 to 66 of 67 (94 to 99%)** at 300 dpi, best config selected on the test set. Line mode: raw pass 0 64, gray pass 0 63, gray 0+270 66. **Word-box mode (needed for token boxes): 63 pass 0, 62 with 0+270**, i.e. about 3 to 4 points below the best line-mode figure. About 1.0 GB peak RSS; deterministic |
 | Fallback / second reader | **Tesseract 5.5.3 via the `tesserocr` manylinux wheel + `tessdata_fast` eng**, PSM 11, 300 dpi, two passes | 54 of 67 (81%); 0.38 GB RSS; 2.6 s/page; word-level boxes; 34 MB install. Fits the 1.5 GB bound with large margin; weaker on tiny annotation text and tables |
 | Rendering | **pypdfium2 at 300 dpi (equals the native scan resolution), page /Rotate applied by pdfium, grayscale + autocontrast before OCR** | all scanned pages are 3507x2480 24-bit JPEG at 299.9 dpi inside a page marked `/Rotate 270`; render 0.1 to 0.4 s; deterministic |
 | Orientation | pass 0 always; **additional 90/270 passes on pages flagged by tall-box count** | only p.36 (rotated schematic) needs it; tesseract 61% to 81% with a 270 pass, RapidOCR 12 of 13 to 13 of 13 on p.36 |
@@ -42,7 +42,9 @@ All speeds are wall seconds per page on this WSL host (20 cores, other jobs runn
 | olefile 0.47 | BSD (METADATA says `BSD`; upstream states BSD-2-Clause) | n/a | small | PyPI | used only for the `.doc` structure check |
 
 Neither `pypdfium2`, `pillow`, `rapidocr`, `onnxruntime`, `tesserocr` nor `olefile` is in `uv.lock` today (only `pypdf` and
-`numpy` are), so phase B adds dependencies and a lockfile change by one writer after owner approval.
+`numpy` are), so phase B adds new dependencies (`olefile`, `pypdfium2`, `pillow`, `rapidocr`, `onnxruntime`) and a lockfile change by one writer after owner approval. Per the orchestrator decision RapidOCR is the only engine; `tesserocr`/Tesseract is evaluation-only and not adopted.
+
+**Third-party notices to record (QA finding F5; acceptable for a local demo, not yet a redistribution review):** the `tesserocr` wheel bundles `libjbig` (GPL-2.0-or-later) plus libtiff, libwebp, libpng, libjpeg and leptonica without notices (another reason it is evaluation-only); `opencv-python-headless` (required by `rapidocr`) bundles FFmpeg (LGPL) and OpenSSL 1.1.1k (end of life).
 
 Speed, memory and determinism on the 11-page set (peak RSS is the process `ru_maxrss`, cumulative over the dpi
 loop of that process; `time` includes render):
@@ -96,8 +98,8 @@ Findings:
 
 * **Engine.** PP-OCRv6 small (RapidOCR 3) is clearly better than Tesseract on these pages and than the older
   PP-OCRv4 package, mainly on small table and annotation text. On PV-21 p.49 (the F-5 as-installed table plus
-  small schematic annotations) RapidOCR 3 found 38 to 39 of 39 reference numbers, including the tiny
-  `Perf 3605.000-3608.000` lines; Tesseract 27 to 29 of 39 (digit errors in those perforation lines); PP-OCRv4 34 to 35 of 40.
+  small schematic annotations) RapidOCR 3 found 38 of 39 reference numbers in the raw default run and in gray alone (39 of 39 only with gray plus a 270-degree pass, which is meaningless for an upright page and is not a headline), including the tiny
+  `Perf 3605.000-3608.000` lines; Tesseract 27 to 29 of 39 or 40 (digit errors in those perforation lines); PP-OCRv4 34 to 35 of 40.
 * **Resolution.** 300 dpi is better than 200 for every engine and 150 is clearly worse for Tesseract
   (67% versus 81% with two passes). The scans are natively 299.9 dpi, so 300 dpi loses nothing and higher dpi adds
   nothing. RapidOCR's default pre-processing resizes the long side to 2000 px (about 170 dpi) for detection, so
@@ -154,7 +156,7 @@ Inputs: the saved TASK-042 model outputs (read-only, 21 image-mode run files on 
 1000 to 2400 px, plain and rotated), OCR from RapidOCR 3 default 300 dpi pass 0 (the simplest recommended
 configuration). A model-read value is a numeric string from the candidate fields `od`, `id`, `length`, `depth.value` ("structured")
 or numbers inside the candidate `name`/`quote`/`ident` ("descriptive"), unique per run file. Normalization as above.
-**Sample is small: 3 real misreads in the scanned set.**
+**Sample is small and not independent (QA finding F3): the unconfirmed misreads are per-run instances of about 5 distinct values (`1386.79`, `2816`, `28`, `1367.06`, `631`); only 3 instances are gold-adjudicated structured misreads; four unconfirmed values were not judged; the gold is agent-read (partly circular). The only independent ground truth is the native-text set in 5.3.**
 
 **5.1 Scanned pages with the agent-read reference** (`ocr_agree.py`; 178 structured + 100 descriptive values):
 
@@ -171,8 +173,7 @@ The 8 unconfirmed non-reference values: `1367.06` (OCR has `1367.09`; the printe
 correctly rejected; `4.5` twice, `8.31` and `3896` have no OCR neighbor and were not adjudicated (likely
 the model composing a value from `MMRG-4-5`/`831`; not verified). An earlier tesseract-based run also showed a false
 reject class: `1367.09` (correct) not confirmed because Tesseract read `1367.08`.
-So on the scanned set the rule accepted 95% of values, rejected every adjudicable misread (7 of 7), and its measured
-false-reject cost was 2 of 87 reference-number reads (2%) with RapidOCR (Tesseract: 5 of 89, 6%).
+So on the scanned set the rule accepted 95% of values and rejected the misreads that could be adjudicated (7 per-run instances of about 5 distinct values; 3 gold-adjudicated); four values (`4.5` twice, `8.31`, `3896`) were not judged, so "no false accepts" means none among the judged values only. Measured false-reject cost: 2 of 87 reference-number reads (2%) with RapidOCR; Tesseract 5 of 87 structured plus 1 descriptive.
 
 **5.2 Coincidental confirmation (why page-level matching is not enough).** For every reference number, I generated
 all one-digit substitutions that are not themselves reference numbers and counted how often such a *wrong* value occurs among the
@@ -191,10 +192,10 @@ recall here is an upper bound for scans). Truth = numbers in the text layer. OCR
 | in native text and confirmed | 105 | 94 |
 | in native text but OCR missed (false reject) | 3 (fraction fragments `5/8`, `3/4`: a normalization gap, see below) | 14 (e.g. `29`, `114`, `3100`, `1327`, `2780`, `53.5` on the busy PV-13 p.58) |
 | not in native text and rejected | 6 (the documented misreads `8-3/8` twice, `55.7`; 3 are parse artifacts: `1358/1327`, `3/4` twice) | 5 |
-| not in native text but confirmed (false accept) | 1 (`34`, a short integer present elsewhere on the page) | 2 (`34`, `1358/1327` artifact) |
+| not in native text but confirmed (false accept) | 1 (`34`; it is not in the native text, so it is probably an OCR-produced `34`, e.g. from `3/4`, not a coincidence with a printed number) | 2 (`34`, `1358/1327` artifact) |
 
 The two misreads the spike reported on text-layer pages (`6-3/8` as `8-3/8`, `65.7` as `55.7`) are both rejected by the OCR
-agreement rule with either engine; the one clear false accept is a two-digit integer, as 5.2 predicts.
+agreement rule with either engine; the one false accept is a two-digit integer; its cause is probably OCR splitting `3/4`, which still shows short integers are the weak spot. Total independent misreads here: 8 value instances (including parse artifacts).
 
 **5.4 Cost of the rule and conclusions.**
 * Accepted fraction is about 95% on the scanned set and 91% (105 of 115) on clean text pages, or 94% once mixed fractions
@@ -220,13 +221,13 @@ agreement rule with either engine; the one clear false accept is a two-digit int
 * **Native text is extractable** without a conversion tool: FIB to the piece table (CLX) gives 67,574 characters, with 3,395
   table-cell marks (real Word tables) and 100 picture-anchor characters. Keyword counts: tubing 27, packer 16, casing 48, liner
   40, perforat 14, pump 28, hanger 31, schematic 8, mandrel 0. It is the F-5 *Final Well Report: Completion* narrative (same
-  template as the F-14 PDF), not the as-installed table: only 7 of the 40 PV-21 p.49 reference numbers occur in its text.
+  template as the F-14 PDF), not the as-installed table: only 7 of the 39 PV-21 p.49 reference numbers occur in its text.
 * **Embedded pictures** (scan of the Data stream for the PICF/OfficeArt records): 12 records: 9 PNG, 1 JPEG, 2 EMF (vector
   metafiles with a verified EMF signature; sizes 103 and 123 KB). Raster sizes: 1193x895 (1.4 MB), 611x553, 573x723, 928x721,
   1111x766, 960x720 (JPEG), 1620x682, and three 164x28 (logos). OCR of the raster pictures (RapidOCR, counts only, no text kept):
-  pic03 (928x721, 28 tokens, 4 as-installed reference numbers, keywords tubing/packer/liner/hanger/valve) and **pic08 (1620x682, 210 tokens,
-  124 numeric tokens, 12 as-installed reference numbers, keywords tubing x4, packer, hanger, valve)** look like the completion
-  schematic/as-installed table; pic00 (1.4 MB) yielded no text (a photo or text-free drawing). The two EMF records can carry text
+  pic03 (928x721, 28 tokens, 4 hits against the combined p.48/p.49 reference numbers, keywords tubing/packer/liner/hanger/valve) and **pic08 (1620x682, 210 tokens,
+  124 numeric tokens, 12 hits against the combined PV-21 p.48/p.49 reference numbers (mixed, mostly numbers shared with the narrative, so not evidence that this is the as-installed table), keywords tubing x4, packer, hanger, valve)** are plausibly completion
+  schematics or tables (unverified); pic00 (1.4 MB) yielded no text (a photo or text-free drawing). The two EMF records can carry text
   records (`EMR_EXTTEXTOUTW`) that a bounded EMF reader could extract without rendering; not evaluated.
 * **Safety.** No unsafe parser was needed: bounded `struct` reads, length checks against stream size, depth-limited OfficeArt
   walk, bounded zlib decompression (1 MB) for EMF header verification only. Remaining risks for phase B: a hostile `.doc` with a forged piece
@@ -246,10 +247,7 @@ Add `ScannedPdfProfile` (`name="scanned_pdf_ocr"`, `families=("pdf",)`) and `Wor
 `backend/fieldlens/profiles/registry.py`. `detect()` must stay content-based and cheap (pypdf/pdfium page text and image coverage,
 no OCR); `SurveyReportProfile` (text PDFs) and the scanned profile must be mutually exclusive per page, and a hybrid
 document yields per-page decisions (PV-12 p.164 case). `parse()` is synchronous today and returns one `ProfileOutput`; a
-110-page OCR run (9 to 14 minutes) does not fit one blocking call without a heartbeat. Proposal: the profile does the
-**per-page** work through a small `OcrPageSource` interface; the runner gets an optional progress callback that renews the lease and
-checks cancellation between pages, and each finished page is committed (artifact + row) before the next, so interruption resumes
-at the next page. This is a runner interface extension (one writer: the TASK-009 owner area), not a contract change.
+110-page OCR run (7 to 14 minutes) is one blocking call. Correction after QA: the runner **already has a heartbeat thread** (`_process`/`beat`), so lease renewal during a long parse exists. The real gaps are (1) cancellation (the `lost` event is not passed to profiles) and (2) per-page commit and resume: `_execute` calls `profile.parse` once and `_finalize_ok` writes one `ProfileOutput`, so partial resume needs persisted intermediate state (the migration 0008 artifact table plus run-state semantics for a resumable run). Proposal: the profile does the per-page work through a small `OcrPageSource` interface and receives the cancel event; each finished page is committed (artifact + row) before the next. This is a runner extension (one writer), and it is larger than a callback.
 Profile `version` includes nothing about the engine; the **engine fingerprint** (engine, version, model hashes, render dpi,
 preprocess, passes, thresholds) is separate and recorded per page; changing it invalidates only OCR artifacts and their
 derived records, in line with the existing "version bump supersedes the run" rule.
@@ -258,14 +256,14 @@ derived records, in line with the existing "version bump supersedes the run" rul
 * Records: one `ocr_page` record per processed page (page number, token/line counts, mean confidence, orientation passes
   used, quality state) and, for the selected equipment pages, row/table candidates; **not one record per token** (about 60 to
   470 words per page, tens of thousands per document). Tokens live in the per-page OCR artifact.
-* **No shared-contract change is needed for token locators.** `PdfLocator` already has `page` and a normalized `rect`
-  (`[x0,y0,x1,y1]`, top-left origin, validated). Coordinates are in the pdfium-rotated (displayed) page space, so the
-  frontend's PDF.js viewport at the same page rotation lines up; phase B must test this with the evidence viewer and pad
-  rectangles by about 2 to 3 px at 300 dpi for rotated text. The profile `Attr.locator` is a free `dict`, so the profile can emit
+* **No shared-contract change is needed for token locators, but there are two other contract points (below).** `PdfLocator` already has `page` and a normalized `rect`
+  (`[x0,y0,x1,y1]`, top-left origin). `NormalizedRect` requires 0<=v<=1 and x0<x1, so padding must be clamped to the page. Rect-space convention: OCR boxes are in the **pdfium-rotated (displayed) page space**, whereas existing text-PDF locators may use the unrotated page space; the convention must be stated per locator source, and a **viewer test on a `/Rotate 270` page is required** before acceptance. Pad rectangles by about 2 to 3 px at 300 dpi for rotated text (clamped). The profile `Attr.locator` is a free `dict`, so the profile can emit
   `{"kind":"pdf","page":36,"rect":[...]}` today. Add to the claim's evidence list a second link, `ConvertedTextLocator`
   (`artifact_id`, `artifact_sha256`, `extractor_version`, `line_start`, `line_end`), pointing at the OCR text artifact line, which
   also records the engine fingerprint via `extractor_version`. Engine, confidence and pass angle go into the record/attr
   detail JSON, not the locator.
+* **Contract change A (required if findings are first-class): `ocr_disagreement` is not an `IssueCode` in `contracts/quality.py`.** A new code means a contract change plus OpenAPI/`generated.ts` regeneration by a single writer after TASK-011 merges; alternatively reuse an existing code (for example `SUSPICIOUS_VALUE`) with a detail field until then.
+* **Contract point B (orchestrator decision, no enum change): `EvidenceClass` has only `source_record`, `catalog_derived`, `derived`, `interpolated`, `generic`.** OCR-derived text and claims use `source_record` with extraction method `ocr` and the engine/version fingerprint in the locator/method fields; validation state is kept separate. Retrieval chunks use a chunk-level `ocr_text` label that is not an `EvidenceClass`.
 * Optional additive contract change if the owner wants a self-contained OCR locator: `PdfLocator.ocr_artifact_id`
   and `token_index` (both optional, additive; OpenAPI regeneration; **single writer**; TASK-011 currently owns migration 0007 and
   the contract registry, so serialize after it merges). I do not recommend it for phase B.
@@ -289,6 +287,7 @@ derived records, in line with the existing "version bump supersedes the run" rul
   is independent of model download, but unexpected network access must fail).
 
 ### 7.4 Job, memory and time bounds
+* **Host-level coordination:** the OCR child (about 1 GB), the local embedding model and PostgreSQL share about 7 GB with other jobs; a host-level semaphore or run-state rule must prevent OCR and embedding indexing from running together.
 * One OCR worker, run in a **child process** (isolation, RSS limit, kill on timeout), started by the extraction runner; one OCR
   process at a time across the host; threads capped (`intra_op_num_threads=4`, `OMP_THREAD_LIMIT=1` for Tesseract).
 * Per-page timeout 60 s (measured worst 10 s), per-run page cap equal to `MAX_PDF_PAGES` (500), default selection cap of 120
@@ -328,12 +327,12 @@ show-through noise, hostile PDF (existing 500-page and byte limits; pdfium/Pillo
 | Slice | Content | Estimate |
 |---|---|---|
 | B1 | render + RapidOCR adapter (child process, bounds, fingerprint), artifact store, migration 0008 (after TASK-011), lock/dependency change | 2.0 |
-| B2 | `ScannedPdfProfile` + runner progress/lease/cancel hook, coverage/findings, orientation pass rule | 1.5 |
+| B2 | `ScannedPdfProfile` + runner cancellation pass-through and per-page commit/resume with persisted intermediate state (needs the 0008 table and run-state semantics), coverage/findings, orientation pass rule | 2.5 |
 | B3 | span API for AX-2 (rect/line, numeric agreement rule with locality) and TASK-011 chunk feed (with RAG owner) | 1.5 |
 | B4 | `.doc` native text profile + picture extraction + OCR of pictures (safety tests) | 1.5 |
 | B5 | human-checked fixtures (F-14 p.29/30/35/36, F-5 p.48/49 attribute fixtures), row/table clustering for the as-installed table | 1.5 |
 | QA | independent acceptance of each phase B increment | 1.5 |
-Total about 9.5 agent-days; the deadline is November 4, so the realistic cut is B1+B2+B5 for the selected F-14/F-5 pages first (about 5 days with
+Total about 10.5 agent-days (B2 raised from 1.5 after QA); the deadline is November 4, so the realistic cut is B1+B2+B5 for the selected F-14/F-5 pages first (about 5 days with
 QA is already tight; B3 and B4 are the ones to defer or parallelize). That is a schedule risk for the owner to weigh, not a technical blocker.
 
 ### 7.9 Test plan (phase B)
