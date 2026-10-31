@@ -623,21 +623,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-004 |
 | Assignee | agent:fieldlens-rag |
-| Due | 2026-11-01 |
+| Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/META_INTEGRATION.md |
-| Version | none |
+| Version | 0.14.1 |
 | Parent | FL-003 |
 | Slice | FL-003-B |
 
 **Outcome.** RAG worker runs MI-6 only after the approved USD 1 ceiling and balance/key readiness, recording the actual entitlement and tool protocol, including a harmless image-input (multimodal) check because FL-022 relies on page images. No pilot documents are needed.
-**Next action.** Owner authorized the live MI-6 smoke on October 31 under the USD 1 total ceiling (synthetic prompts only, no project documents). Branch `feature/task-005-live-meta-smoke`, worktree `/home/slimco/code/FieldLens-worktrees/task-005-live-meta-smoke`; the key reaches the process only through the `MODEL_API_KEY` environment variable. Independent QA follows.
-**Evidence.** none yet
+**Next action.** None. Adapter follow-ups from the live findings are TASK-043; the page-size image check and real-document reading are TASK-042. The owner still needs to read the real balance change in the Meta dashboard (two live runs happened, see evidence note).
+**Evidence.** Live MI-6 smoke run October 31 on `muse-spark-1.3` (Responses protocol; text, tool round trip with reasoning replay, in-flight cancel, synthetic image input, error result; `/embeddings` returns 404, so local embeddings stand). Integrated as 0.14.1 (branch `feature/task-005-live-meta-smoke`, head `e9518c6`). Independent QA: all gates and isolation, secret and evidence audits passed (681 passed, 1 skipped, 1 deselected); fail-closed refusal re-verified with the key removed. Placeholder-rate upper bound about USD 0.42 across the original and an accidental QA re-run of the live test (ledger cap USD 1.00); real rates and balance unknown. See docs/evidence/MI6_LIVE_SMOKE.md.
 
 ### TASK-009 · Native source profiles and evidence UI for the qualified subset (IN-2/6)
 
@@ -1340,7 +1340,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | ingestion, rag, data |
-| Depends on | TASK-005, TASK-009 |
+| Depends on | TASK-005, TASK-009, TASK-043 |
 | Assignee | agent:fieldlens-ingestion |
 | Due | 2026-11-01 |
 | Sprint | Hackathon |
@@ -1350,7 +1350,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-E |
 
 **Outcome.** A bounded, read-only experiment (no product code, no persistence) that sends page images and text of the seven local completion documents (PV-11..14, 17, 18, 21 for F-12, F-14 and F-5) to the model through the TASK-004 adapter and records, against a human reading of the same pages, which production/completion equipment (tubing, casing/liners, packers, pumps, bearings, depths, dimensions) it finds, cost per page, failure modes and what the validators would reject. The result decides the TASK-041 approach before any build.
-**Next action.** Owner approved on October 31: allowance USD 3 inside the USD 150 total (per-document selection and page caps still required in the brief) and sending the seven completion PDFs to the provider (all documents are shareable, per the October 30 decision). Dispatch as soon as TASK-005 is integrated and its image-input and protocol result is recorded; independent QA follows.
+**Next action.** Owner approved on October 31: allowance USD 3 inside the USD 150 total (per-document selection and page caps still required in the brief) and sending the seven completion PDFs to the provider (all documents are shareable, per the October 30 decision). Dispatch after TASK-043 (reasoning-effort control and a safe token estimate) is integrated, because at the default `high` effort reasoning tokens consumed the output budget on a 680x280 image; independent QA follows. The brief must cap pages and spend and measure page-size image tokens.
 **Evidence.** none yet
 
 ### TASK-041 · Production/completion equipment candidates from completion documents
@@ -1372,6 +1372,27 @@ the slice letter and `Slice` keeps the plan's original string.
 
 **Outcome.** Using the TASK-036 harness and the TASK-030 page-image profiles, extract the production-period wellbore equipment (tubing, casing and liners in service, packers, pumps, bearings and similar completion components) for at least two of F-12, F-14 and F-5 as typed, source-located candidates with type, dimensions, depth reference, wellbore scope and effective time; validators, conflict flagging and unknown-stays-unknown follow AX-2/3/5. Drilling-side assemblies are out of scope by the owner decision of October 31.
 **Next action.** Spec amendment with measurable acceptance criteria (EQ/AX extension) must be written and approved from the TASK-042 findings before dispatch. Not dispatchable until then.
+**Evidence.** none yet
+
+### TASK-043 · Provider adapter hardening from the live findings (effort control, tool-token estimate, cancel and liable semantics)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | ready |
+| Priority | P0 |
+| Tags | rag, backend |
+| Depends on | TASK-005 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-01 |
+| Sprint | Hackathon |
+| Spec | specs/META_INTEGRATION.md |
+| Version | none |
+| Parent | FL-003 |
+| Slice | FL-003-C |
+
+**Outcome.** Offline fixes to the TASK-004 adapter driven by docs/evidence/MI6_LIVE_SMOKE.md: a per-request `reasoning.effort` control (API accepts low and minimal; default high exhausted output budgets), a per-tool-definition/round-trip input-token overhead so the reservation bound holds (245 estimated vs 552 billed), explicit and documented in-flight cancel semantics (the response still completes and bills, so account for it), and a reconcile path for reservations left `liable` by rejected requests. Default tests stay offline; no live spend.
+**Next action.** Ready. Dispatch in the RAG lane with a fresh preflight and no env key: the worker must run every command with `env -u MODEL_API_KEY`. Independent QA follows. Gates TASK-042 and the live parts of TASK-036 and TASK-020.
 **Evidence.** none yet
 
 ## Journal

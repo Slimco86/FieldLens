@@ -8,6 +8,17 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.14.1 - 2026-10-31
+
+- **TASK-005 (FL-003-B):** Added the opt-in live Meta smoke (MI-6): `test_meta_live_smoke` behind the
+  `live_meta` marker and an explicit `FIELDLENS_LIVE_META=1` plus a real-environment `MODEL_API_KEY` (default
+  runs exclude it, blank the key and keep the loopback socket guard), with evidence in
+  `docs/evidence/MI6_LIVE_SMOKE.md`. Live findings on `muse-spark-1.3` (Responses): text, tool round trip with
+  reasoning replay and synthetic image input work; there is no embeddings endpoint; reasoning effort defaults to
+  high and consumes output tokens; the input estimator under-counts tool requests (about 2.3x); in-flight
+  cancel still bills. Adapter fixes are tracked as TASK-043. Placeholder-rate upper bound about USD 0.42
+  across two runs (one accidental during QA), real rates and balance unconfirmed. No runtime code changed.
+
 ## 0.14.0 - 2026-10-30
 
 - **TASK-009 (FL-005-B):** Added versioned native source profiles with attribute-level

@@ -10,16 +10,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import URL, Engine
 
 from fieldlens.config import Settings
-from tests import support
+from tests import live_meta_support, support
 
 # Default tests never see a real provider key: an explicitly blank process variable wins over
 # both the real environment and the root .env, so Settings() resolves the key as absent.
+if os.environ.get(live_meta_support.OPT_IN_VAR) == "1":
+    live_meta_support.STASHED_KEY["key"] = os.environ.get("MODEL_API_KEY", "")
 os.environ["MODEL_API_KEY"] = ""
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _deny_external_network() -> Iterator[None]:
     undo = support.install_network_guard()
+    live_meta_support.GUARD_UNDO.extend(undo)
     try:
         yield
     finally:
