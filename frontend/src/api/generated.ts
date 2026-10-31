@@ -241,6 +241,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Series */
+        get: operations["list_series_api_v1_projects__project_id__series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/series/{series_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Series */
+        get: operations["get_series_api_v1_projects__project_id__series__series_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/series/{series_id}/window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Window */
+        get: operations["get_window_api_v1_projects__project_id__series__series_id__window_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/source-revisions": {
         parameters: {
             query?: never;
@@ -1495,6 +1546,16 @@ export interface components {
          * @enum {string}
          */
         IndexedState: "not_indexable" | "not_started" | "queued" | "running" | "complete" | "invalidated" | "partial" | "failed" | "interrupted" | "disabled" | "unavailable";
+        /**
+         * IndexEncoding
+         * @enum {string}
+         */
+        IndexEncoding: "numeric" | "epoch_days";
+        /**
+         * IndexOrder
+         * @enum {string}
+         */
+        IndexOrder: "increasing" | "non_decreasing" | "unordered";
         /** IndexState */
         IndexState: {
             /** Eligible Documents */
@@ -1516,6 +1577,11 @@ export interface components {
             /** Vector Indexed Documents */
             vector_indexed_documents: number;
         };
+        /**
+         * IndexType
+         * @enum {string}
+         */
+        IndexType: "depth" | "time" | "unknown";
         /** InstantAsOf */
         InstantAsOf: {
             /**
@@ -2061,6 +2127,321 @@ export interface components {
          * @enum {string}
          */
         SelectedEntityType: "field" | "well" | "wellbore" | "completion" | "component" | "interval";
+        /** SeriesEvidence */
+        SeriesEvidence: {
+            /** First Source Position */
+            first_source_position: number;
+            /** Last Source Position */
+            last_source_position: number;
+            /**
+             * Locator
+             * @description Source locators (curve record, data range, sheet/column) for this series.
+             */
+            locator: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Position Kind
+             * @description Whether source positions are LAS data lines or workbook rows.
+             * @enum {string}
+             */
+            position_kind: "line" | "row";
+            /**
+             * Profile Name
+             * @default null
+             */
+            profile_name: string | null;
+            /**
+             * Profile Version
+             * @default null
+             */
+            profile_version: string | null;
+            /**
+             * Record Ordinal
+             * @description Ordinal of the extracted record this series is anchored to.
+             * @default null
+             */
+            record_ordinal: number | null;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+        };
+        /** SeriesIndex */
+        SeriesIndex: {
+            encoding: components["schemas"]["IndexEncoding"];
+            /**
+             * First
+             * @description Index value of the first stored sample.
+             */
+            first: number;
+            /**
+             * First Date
+             * @description ISO date when encoding is epoch_days.
+             * @default null
+             */
+            first_date: string | null;
+            /**
+             * Last
+             * @description Index value of the last stored sample.
+             */
+            last: number;
+            /**
+             * Last Date
+             * @default null
+             */
+            last_date: string | null;
+            /** Max */
+            max: number;
+            /** Min */
+            min: number;
+            /**
+             * Name
+             * @description Index column name as written in the source.
+             */
+            name: string;
+            order: components["schemas"]["IndexOrder"];
+            type: components["schemas"]["IndexType"];
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            unit_status: components["schemas"]["SeriesUnitStatus"];
+        };
+        /** SeriesInfo */
+        SeriesInfo: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            evidence: components["schemas"]["SeriesEvidence"];
+            /**
+             * First Valid Index
+             * @default null
+             */
+            first_valid_index: number | null;
+            index: components["schemas"]["SeriesIndex"];
+            kind: components["schemas"]["SeriesKind"];
+            /**
+             * Last Valid Index
+             * @default null
+             */
+            last_valid_index: number | null;
+            /**
+             * Max Value
+             * @default null
+             */
+            max_value: number | null;
+            /**
+             * Measure
+             * @description Curve mnemonic or production measure key.
+             */
+            measure: string;
+            /**
+             * Min Value
+             * @default null
+             */
+            min_value: number | null;
+            /** Null Count */
+            null_count: number;
+            /**
+             * Null Sentinel
+             * @description Source NULL value that was converted to a real null.
+             * @default null
+             */
+            null_sentinel: number | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Revision
+             * @description SHA-256 of the stored index and sample bytes.
+             */
+            revision: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Sample Count */
+            sample_count: number;
+            /**
+             * Series Id
+             * Format: uuid
+             */
+            series_id: string;
+            /** Subject */
+            subject: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            unit_status: components["schemas"]["SeriesUnitStatus"];
+            /** Valid Count */
+            valid_count: number;
+            /**
+             * Well Name
+             * @default null
+             */
+            well_name: string | null;
+            /**
+             * Wellbore Label
+             * @description Wellbore label exactly as written in the source records.
+             * @default null
+             */
+            wellbore_label: string | null;
+        };
+        /**
+         * SeriesKind
+         * @enum {string}
+         */
+        SeriesKind: "log" | "production";
+        /** SeriesList */
+        SeriesList: {
+            /** Items */
+            items: components["schemas"]["SeriesInfo"][];
+            /** Limit */
+            limit: number;
+            /**
+             * Next Offset
+             * @default null
+             */
+            next_offset: number | null;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** SeriesListQuery */
+        SeriesListQuery: {
+            /**
+             * Document Id
+             * @default null
+             */
+            document_id: string | null;
+            /** @default null */
+            kind: components["schemas"]["SeriesKind"] | null;
+            /**
+             * Limit
+             * @default 100
+             */
+            limit: number;
+            /**
+             * Mnemonic
+             * @default null
+             */
+            mnemonic: string | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Wellbore Label
+             * @default null
+             */
+            wellbore_label: string | null;
+        };
+        /**
+         * SeriesUnitStatus
+         * @enum {string}
+         */
+        SeriesUnitStatus: "stated" | "missing" | "mixed";
+        /** SeriesWindow */
+        SeriesWindow: {
+            /**
+             * Algorithm
+             * @description Downsampling algorithm; null when every sample is returned.
+             * @default null
+             */
+            algorithm: string | null;
+            /**
+             * Cache Key
+             * @description Stable for the same series revision, window and mode.
+             */
+            cache_key: string;
+            /**
+             * Dates
+             * @description ISO dates, epoch_days only.
+             * @default null
+             */
+            dates: string[] | null;
+            /** Downsampled */
+            downsampled: boolean;
+            /**
+             * Gaps Omitted
+             * @description Null runs in the window that the downsampled output could not represent.
+             */
+            gaps_omitted: number;
+            /** Index */
+            index: number[];
+            /** Max Points */
+            max_points: number;
+            /** Null Samples In Window */
+            null_samples_in_window: number;
+            /**
+             * Requested From
+             * @default null
+             */
+            requested_from: string | null;
+            /**
+             * Requested To
+             * @default null
+             */
+            requested_to: string | null;
+            resolution: components["schemas"]["WindowResolution"];
+            /** Returned Points */
+            returned_points: number;
+            series: components["schemas"]["SeriesInfo"];
+            /** Source Samples In Window */
+            source_samples_in_window: number;
+            /**
+             * Values
+             * @description Null marks a missing sample (a gap).
+             */
+            values: (number | null)[];
+        };
+        /**
+         * SeriesWindowQuery
+         * @description ``from``/``to`` are inclusive: numbers for numeric indexes, ``YYYY-MM-DD`` for dates.
+         */
+        SeriesWindowQuery: {
+            /**
+             * From
+             * @default null
+             */
+            from: string | null;
+            /**
+             * Max Points
+             * @default 2000
+             */
+            max_points: number;
+            /** @default downsampled */
+            resolution: components["schemas"]["WindowResolution"];
+            /**
+             * To
+             * @default null
+             */
+            to: string | null;
+        };
         /**
          * SessionResponse
          * @description Local mutation token; process-local, regenerated on API restart.
@@ -2489,6 +2870,11 @@ export interface components {
             /** Wellbore Label */
             wellbore_label: string;
         };
+        /**
+         * WindowResolution
+         * @enum {string}
+         */
+        WindowResolution: "downsampled" | "full";
         /** XlsxLocator */
         XlsxLocator: {
             /**
@@ -3544,6 +3930,167 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvidenceSearchResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_series_api_v1_projects__project_id__series_get: {
+        parameters: {
+            query?: {
+                document_id?: string | null;
+                kind?: components["schemas"]["SeriesKind"] | null;
+                limit?: number;
+                mnemonic?: string | null;
+                offset?: number;
+                wellbore_label?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_series_api_v1_projects__project_id__series__series_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesInfo"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_window_api_v1_projects__project_id__series__series_id__window_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                max_points?: number;
+                resolution?: components["schemas"]["WindowResolution"];
+                to?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesWindow"];
                 };
             };
             /** @description Not Found */
