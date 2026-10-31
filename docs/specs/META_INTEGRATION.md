@@ -178,15 +178,27 @@ TASK-043 adapter hardening (offline-tested; stub/fixture payloads, not live proo
   complete and bill; the unit records the actual usage (reservation `settled`, not `liable`)
   and then raises `RequestCancelled(settled=True)`. Cancel stops later calls, not billing of the
   call in flight. If usage is missing the attempt stays estimated liability.
-- Rejected 4xx (not 408/409, not 429/401/403 which were already handled) map to
-  `ProviderRejected` (non-chargeable): the reservation settles at 0 instead of `liable`. The
-  `released` state stays for never-dispatched reservations (table constraint); no migration.
-  5xx, timeouts, connection errors, 408/409 and unknown outcomes remain `liable`.
-- Reconcile: `BudgetLedger.list_liable`, `release_liable(id, reason)` (settle at 0) and
-  `reconcile(id, total, reason=...)` (settle at the confirmed total); the reason slug is appended
-  to the unresolved attempts' error code. State is in PostgreSQL and survives restarts.
+- Rejected 404 and 405 map to `ProviderRejected` (non-chargeable): the reservation settles at 0
+  instead of `liable` (see the registry row below). Every other 4xx not already handled
+  (400, 408, 409, 413, 422, ...) stays chargeable/`liable` until observed; 401/403/429 keep their
+  earlier behavior. The `released` state stays for never-dispatched reservations (table
+  constraint); no migration. 5xx, timeouts, connection errors and unknown outcomes stay `liable`.
+- Reconcile: `BudgetLedger.list_liable`, `release_liable(id, reason)` and
+  `reconcile(id, total, reason=...)`. A liable reservation never settles below the sum of its
+  attempts with known billed amounts: `release_liable` releases only the unresolved attempts
+  (settles at that floor), and `reconcile` rejects a negative, non-finite or below-floor total
+  with `ReservationStateError`. A total above the reservation is accepted, flagged as an overrun
+  and pauses the period. Repeating a reconcile with an unchanged total returns the stored
+  result, so the first reason wins. The reason slug is appended to the unresolved attempts' error
+  code. State is in PostgreSQL and survives restarts.
 - Pricing stays data: `load_pricing(path)` builds a `Pricing` from a JSON rate card to register
-  as a new revision; no rates are in code.
+  as a new revision; no rates are in code. Cards are validated (`InvalidPricing`, before any
+  database write, also in `register_pricing`): slug revision, model, finite rates greater than
+  zero and at most 1000 USD per Mtok, cached rate not above the input rate.
+
+| Assumption | Confidence | Status |
+|---|---|---|
+| Provider rejects 404/405 responses before processing, so they are not billed | M | `[Assumed: only 404 observed live; 405 by analogy]`. 400/413/422 and other 4xx stay liable until observed. |
 Published rates bound the chosen mode (M; unresolved: no rate source). USD 150 is the original
 allowance, not current balance (H; owner must supply current credit).
 

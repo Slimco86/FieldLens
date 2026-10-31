@@ -229,15 +229,15 @@ def _status_error(code: int) -> openai.APIStatusError:
     return openai.APIStatusError("x", response=response, body=None)
 
 
-@pytest.mark.parametrize("code", [400, 404, 405, 413, 422])
+@pytest.mark.parametrize("code", [404, 405])
 def test_rejected_4xx_maps_to_non_chargeable(code: int) -> None:
     err = map_sdk_error(_status_error(code))
     assert isinstance(err, errors.ProviderRejected) and not err.chargeable
     assert isinstance(err, errors.ProviderMalformed) and not err.retryable
 
 
-@pytest.mark.parametrize("code", [408, 409])
-def test_ambiguous_4xx_stays_chargeable(code: int) -> None:
+@pytest.mark.parametrize("code", [400, 408, 409, 413, 422, 418])
+def test_unobserved_4xx_stays_chargeable(code: int) -> None:
     err = map_sdk_error(_status_error(code))
     assert err.chargeable and not isinstance(err, errors.ProviderRejected)
 
@@ -352,5 +352,166 @@ def test_pricing_loads_from_a_data_file(tmp_path: Path) -> None:
         output_usd_per_mtok=Decimal("6"),
     )
     card.write_text("[]", encoding="utf-8")
-    with pytest.raises(ValueError):
+    with pytest.raises(errors.InvalidPricing):
         load_pricing(card)
+
+
+def test_liable_4xx_other_than_404_405_is_reconcilable(
+    make_unit: MakeUnit, ledger: BudgetLedger, period: UUID
+) -> None:
+    with pytest.raises(errors.ProviderMalformed):
+        with make_unit(StubProvider([map_sdk_error(_status_error(422))])) as unit:
+            unit.step([user("x")])
+    assert unit.closed is not None and unit.closed.state == "liable"
+    assert len(ledger.list_liable(period)) == 1
+    assert ledger.release_liable(unit.closed.reservation_id, "dashboard_not_billed").state == (
+        "settled"
+    )
+
+
+# -- repair: known billed floor ---------------------------------------------------------------
+
+
+def _mixed_liable(make_unit: MakeUnit) -> tuple[UUID, Decimal]:
+    """Attempt 1 completed with usage (billed), attempt 2 timed out (unknown) -> liable."""
+    usage = Usage(input_tokens=1000, cached_input_tokens=0, output_tokens=500)
+    stub = StubProvider([text_response("ok", usage), errors.ProviderTimeout("t")])
+    with pytest.raises(errors.ProviderTimeout):
+        with make_unit(stub) as unit:
+            unit.step([user("a")])
+            unit.step([user("b")])
+    assert unit.closed is not None and unit.closed.state == "liable"
+    return unit.closed.reservation_id, Decimal("0.003")  # 0.001 + 500 * 4 / 1e6
+
+
+def test_release_liable_keeps_known_billed_attempts(
+    make_unit: MakeUnit, ledger: BudgetLedger, period: UUID, engine: Engine
+) -> None:
+    rid, known = _mixed_liable(make_unit)
+    assert ledger.get(rid).committed_usd > known
+    out = ledger.release_liable(rid, "dashboard_not_billed")
+    assert out.state == "settled" and out.committed_usd == known
+    assert ledger.status(period).committed_usd == known
+    assert ledger.release_liable(rid, "other_reason") == out  # idempotent, first reason wins
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT attempt_no, billed_usd, error_code FROM provider_attempt ORDER BY 1")
+        ).all()
+    assert rows[0].billed_usd == known
+    assert rows[1].billed_usd == 0 and rows[1].error_code == "provider_timeout>dashboard_not_billed"
+
+
+def test_reconcile_below_known_floor_is_rejected(
+    make_unit: MakeUnit, ledger: BudgetLedger, period: UUID
+) -> None:
+    rid, known = _mixed_liable(make_unit)
+    before = ledger.status(period).committed_usd
+    with pytest.raises(errors.ReservationStateError):
+        ledger.reconcile(rid, Decimal("0"))
+    with pytest.raises(errors.ReservationStateError):
+        ledger.reconcile(rid, known - Decimal("0.000001"))
+    assert ledger.get(rid).state == "liable" and ledger.status(period).committed_usd == before
+    out = ledger.reconcile(rid, known + Decimal("0.002"), reason="dashboard_actual")
+    assert out.committed_usd == Decimal("0.005")
+
+
+@pytest.mark.parametrize("bad", [Decimal("-0.01"), Decimal("NaN"), Decimal("Infinity")])
+def test_reconcile_rejects_negative_or_non_finite_with_typed_error(
+    make_unit: MakeUnit, ledger: BudgetLedger, bad: Decimal
+) -> None:
+    with pytest.raises(errors.ProviderTimeout):
+        with make_unit(StubProvider([errors.ProviderTimeout("t")])) as unit:
+            unit.step([user("x")])
+    assert unit.closed is not None
+    with pytest.raises(errors.ReservationStateError):
+        ledger.reconcile(unit.closed.reservation_id, bad)
+    assert ledger.get(unit.closed.reservation_id).state == "liable"
+
+
+def test_over_ceiling_total_is_accepted_but_flagged_and_pauses(
+    make_unit: MakeUnit, ledger: BudgetLedger, period: UUID
+) -> None:
+    with pytest.raises(errors.ProviderTimeout):
+        with make_unit(StubProvider([errors.ProviderTimeout("t")])) as unit:
+            unit.step([user("x")])
+    assert unit.closed is not None
+    out = ledger.reconcile(unit.closed.reservation_id, Decimal("0.75"), reason="dashboard_actual")
+    assert out.overrun and out.committed_usd == Decimal("0.75")
+    assert ledger.status(period).paused
+
+
+def test_repeat_reconcile_first_reason_wins(
+    make_unit: MakeUnit, ledger: BudgetLedger, engine: Engine
+) -> None:
+    with pytest.raises(errors.ProviderTimeout):
+        with make_unit(StubProvider([errors.ProviderTimeout("t")])) as unit:
+            unit.step([user("x")])
+    assert unit.closed is not None
+    rid = unit.closed.reservation_id
+    first = ledger.reconcile(rid, Decimal("0.002"), reason="first_reason")
+    assert ledger.reconcile(rid, Decimal("0.002"), reason="second_reason") == first
+    with engine.connect() as conn:
+        code = conn.execute(text("SELECT error_code FROM provider_attempt")).scalar_one()
+    assert code == "provider_timeout>first_reason"
+
+
+# -- repair: rate-card validation --------------------------------------------------------------
+
+_CARD = {
+    "revision": "synthetic-card-2",
+    "model": MODEL,
+    "input_usd_per_mtok": "1",
+    "output_usd_per_mtok": "4",
+}
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"input_usd_per_mtok": "0"},
+        {"output_usd_per_mtok": 0},
+        {"input_usd_per_mtok": "-1"},
+        {"output_usd_per_mtok": "NaN"},
+        {"input_usd_per_mtok": "Infinity"},
+        {"input_usd_per_mtok": "abc"},
+        {"input_usd_per_mtok": "5000"},  # per-Mtok sanity bound (unit mistake)
+        {"cached_input_usd_per_mtok": "0"},
+        {"cached_input_usd_per_mtok": "2"},  # above the input rate
+        {"revision": ""},
+        {"revision": "bad revision!"},
+        {"model": " "},
+    ],
+)
+def test_invalid_rate_card_is_not_loadable(patch: dict[str, object], tmp_path: Path) -> None:
+    card = tmp_path / "rates.json"
+    card.write_text(json.dumps({**_CARD, **patch}), encoding="utf-8")
+    with pytest.raises(errors.InvalidPricing):
+        load_pricing(card)
+
+
+def test_missing_field_and_bad_json_are_typed(tmp_path: Path) -> None:
+    card = tmp_path / "rates.json"
+    card.write_text(json.dumps({"revision": "x"}), encoding="utf-8")
+    with pytest.raises(errors.InvalidPricing):
+        load_pricing(card)
+    card.write_text("{not json", encoding="utf-8")
+    with pytest.raises(errors.InvalidPricing):
+        load_pricing(card)
+
+
+def test_zero_rate_pricing_cannot_be_registered(ledger: BudgetLedger, engine: Engine) -> None:
+    zero = Pricing(
+        revision="zero-rate",
+        model=MODEL,
+        input_usd_per_mtok=Decimal(0),
+        output_usd_per_mtok=Decimal(1),
+    )
+    with pytest.raises(errors.InvalidPricing):
+        ledger.register_pricing(zero, "test")
+    with engine.connect() as conn:
+        assert (
+            conn.execute(
+                text("SELECT count(*) FROM pricing_revision WHERE revision = 'zero-rate'")
+            ).scalar_one()
+            == 0
+        )

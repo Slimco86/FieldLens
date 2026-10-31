@@ -7,11 +7,11 @@ import re
 import threading
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Protocol
 
-from .errors import RequestCancelled
+from .errors import InvalidPricing, RequestCancelled
 from .messages import (
     ImagePart,
     ProviderRequest,
@@ -25,6 +25,8 @@ from .messages import (
 )
 
 MILLION = Decimal(1_000_000)
+MAX_RATE_USD_PER_MTOK = Decimal(1000)  # sanity bound against per-token/per-Ktok unit mistakes
+_REVISION = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 _CENT_FRACTION = Decimal("0.000001")
 
 
@@ -70,17 +72,42 @@ class Pricing:
     output_usd_per_mtok: Decimal
     cached_input_usd_per_mtok: Decimal | None = None
 
+    def validate(self) -> Pricing:
+        """Reject a rate card that could silently zero or distort cost accounting."""
+        if not _REVISION.fullmatch(self.revision):
+            raise InvalidPricing("pricing revision must be a 1-64 character slug")
+        rates = [("input", self.input_usd_per_mtok), ("output", self.output_usd_per_mtok)]
+        if self.cached_input_usd_per_mtok is not None:
+            rates.append(("cached input", self.cached_input_usd_per_mtok))
+        for label, rate in rates:
+            if not rate.is_finite() or rate <= 0:
+                raise InvalidPricing(f"{label} rate must be a finite positive USD per Mtok")
+            if rate > MAX_RATE_USD_PER_MTOK:
+                raise InvalidPricing(f"{label} rate exceeds the USD per Mtok sanity bound")
+        if (
+            self.cached_input_usd_per_mtok is not None
+            and self.cached_input_usd_per_mtok > self.input_usd_per_mtok
+        ):
+            raise InvalidPricing("cached input rate cannot exceed the input rate")
+        if not self.model.strip():
+            raise InvalidPricing("pricing model is required")
+        return self
+
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> Pricing:
         """Build from rate-card data (strings or numbers; never floats-through-code)."""
-        cached = data.get("cached_input_usd_per_mtok")
-        return cls(
-            revision=str(data["revision"]),
-            model=str(data["model"]),
-            input_usd_per_mtok=Decimal(str(data["input_usd_per_mtok"])),
-            output_usd_per_mtok=Decimal(str(data["output_usd_per_mtok"])),
-            cached_input_usd_per_mtok=None if cached is None else Decimal(str(cached)),
-        )
+        try:
+            cached = data.get("cached_input_usd_per_mtok")
+            card = cls(
+                revision=str(data["revision"]),
+                model=str(data["model"]),
+                input_usd_per_mtok=Decimal(str(data["input_usd_per_mtok"])),
+                output_usd_per_mtok=Decimal(str(data["output_usd_per_mtok"])),
+                cached_input_usd_per_mtok=None if cached is None else Decimal(str(cached)),
+            )
+        except (KeyError, InvalidOperation, ValueError, TypeError) as exc:
+            raise InvalidPricing("rate card is missing a field or has a non-numeric rate") from exc
+        return card.validate()
 
     def input_rate(self, cached: bool) -> Decimal:
         if cached and self.cached_input_usd_per_mtok is not None:
@@ -94,9 +121,12 @@ def load_pricing(path: Path) -> Pricing:
     Register the result with ``BudgetLedger.register_pricing`` under a new ``revision``; an
     existing revision with different rates is rejected, so a new rate card is a new revision.
     """
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise InvalidPricing("rate card could not be read as JSON") from exc
     if not isinstance(data, dict):
-        raise ValueError("rate card must be a JSON object")
+        raise InvalidPricing("rate card must be a JSON object")
     return Pricing.from_mapping(data)
 
 

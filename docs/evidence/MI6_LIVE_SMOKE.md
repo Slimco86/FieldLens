@@ -102,3 +102,7 @@ cancel settlement, non-billable 4xx, reconcile helpers) are described in
 `docs/specs/META_INTEGRATION.md`. They are verified with stub/fixture payloads only; the 4xx
 non-billing rests on the owner's dashboard observation (billed requests equal the successful
 responses), and none of it has been re-run live.
+
+| Assumption | Status |
+| --- | --- |
+| 4xx rejections are not billed | `[Assumed: only 404 observed live; 405 by analogy]`. Only 404 (unknown model, embeddings) was observed; the adapter treats 404/405 as non-billable and keeps 400/413/422 and other 4xx liable until observed. |

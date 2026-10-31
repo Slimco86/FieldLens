@@ -43,8 +43,9 @@ from .messages import (
 from .provider import CancelToken
 
 MAX_RETRY_AFTER_S = 30.0
-# 4xx statuses that do not show the request was refused before processing stay possibly billed.
-_NOT_REJECTED_BEFORE_PROCESSING = frozenset({408, 409})
+# [Assumed: only 404 observed live (unknown model, embeddings); 405 by analogy.] Every other 4xx
+# not handled earlier (400, 408, 409, 413, 422, ...) stays possibly billed until observed.
+_REJECTED_BEFORE_PROCESSING = frozenset({404, 405})
 
 
 def build_responses_payload(request: ProviderRequest) -> dict[str, Any]:
@@ -211,11 +212,10 @@ def map_sdk_error(exc: Exception) -> AssistantError:
     if isinstance(exc, openai.APIStatusError):
         if exc.status_code >= 500:
             return ProviderServerError(f"provider server error ({exc.status_code})")
-        if exc.status_code in _NOT_REJECTED_BEFORE_PROCESSING:
-            return ProviderMalformed(f"provider rejected the request ({exc.status_code})")
-        # Other 4xx (404 unknown model, 404 embeddings in MI-6): the provider dashboard showed
-        # no billed request for them, so they are rejected before processing (non-billable).
-        return ProviderRejected(f"provider rejected the request ({exc.status_code})")
+        if exc.status_code in _REJECTED_BEFORE_PROCESSING:
+            # MI-6: the dashboard showed no billed request for the 404 probes (non-billable).
+            return ProviderRejected(f"provider rejected the request ({exc.status_code})")
+        return ProviderMalformed(f"provider rejected the request ({exc.status_code})")
     return ProviderMalformed("unexpected provider client error")
 
 

@@ -51,6 +51,13 @@ class ReservationStateError(AssistantError):
     chargeable = False
 
 
+class InvalidPricing(AssistantError):
+    """A rate card failed validation (missing/zero/negative/non-finite rate, bad revision)."""
+
+    code = "invalid_pricing"
+    chargeable = False
+
+
 class RequestLimitExceeded(AssistantError):
     """An MI-5 bound (attempts, tool calls, deadline, output tokens, reserved cost)."""
 
