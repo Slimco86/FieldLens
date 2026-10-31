@@ -210,6 +210,12 @@ calls, 90 s, 4,096 output tokens, USD 0.50 reserved, USD 150 ceiling) may only b
 which is configurable (default 6, maximum 64). Live checks (`live_meta`, MI-6/TASK-005) are
 excluded and need explicit owner authorization.
 
+**Agent activity log (`backend/fieldlens/activity/`, TASK-038, AX-10 backend).** `uv run pytest
+backend/tests/activity` covers the persisted work-unit log, its read API
+(`GET /api/v1/projects/{id}/agent-units[/{unit_id}]`), redaction/size bounds, fenced recovery and
+migration 0006 on throwaway PostgreSQL databases; offline, no provider calls. The harness writes
+through `fieldlens.activity.ActivityLog`; the log is display/audit only, not an engineering source.
+
 Opt-in local-data check (skipped when unset; read-only, nothing is copied into the repo):
 
 ```bash
