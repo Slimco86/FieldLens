@@ -74,7 +74,8 @@ def test_ready_detects_missing_pgvector(migrated_url: URL) -> None:
 
     eng = create_engine(migrated_url, isolation_level="AUTOCOMMIT")
     with eng.connect() as conn:
-        conn.execute(text("DROP EXTENSION vector"))
+        # 0007 adds a vector column that depends on the extension: CASCADE drops that column
+        conn.execute(text("DROP EXTENSION vector CASCADE"))
     eng.dispose()
     r = client(url=migrated_url).get("/ready")
     assert r.status_code == 503

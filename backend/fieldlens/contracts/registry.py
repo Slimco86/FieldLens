@@ -28,6 +28,7 @@ from . import (
     imports,
     projects,
     quality,
+    retrieval,
     system,
 )
 from .base import ContractModel
@@ -45,6 +46,7 @@ _MODULES = (
     imports,
     extraction,
     activity,
+    retrieval,
 )
 
 

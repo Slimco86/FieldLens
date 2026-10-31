@@ -207,6 +207,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/retrieval/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Source Coverage */
+        get: operations["source_coverage_api_v1_projects__project_id__retrieval_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/retrieval/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Evidence */
+        get: operations["search_evidence_api_v1_projects__project_id__retrieval_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/source-revisions": {
         parameters: {
             query?: never;
@@ -467,6 +501,17 @@ export interface components {
             /** Output Tokens */
             output_tokens: number;
         };
+        /** AmbiguityCandidate */
+        AmbiguityCandidate: {
+            /** Canonical */
+            canonical: string;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Document Ids */
+            document_ids: string[];
+            /** Kinds */
+            kinds: string[];
+        };
         /**
          * AsOf
          * @description Discriminated historical query time.
@@ -628,6 +673,11 @@ export interface components {
              */
             timezone: string;
         };
+        /**
+         * DegradedReason
+         * @enum {string}
+         */
+        DegradedReason: "embedder_disabled" | "model_missing" | "model_load_failed" | "embedder_busy" | "embedding_failed" | "vector_index_incomplete" | "vector_index_partial" | "no_indexed_documents";
         /** DerivationLocator */
         DerivationLocator: {
             /** Input Claim Ids */
@@ -704,6 +754,38 @@ export interface components {
             updated_at: string;
             /** User Categories */
             user_categories: components["schemas"]["DocumentCategory"][];
+        };
+        /** DocumentCoverage */
+        DocumentCoverage: {
+            /** Chunk Count */
+            chunk_count: number;
+            /**
+             * Coverage Notes
+             * @description Explicit extraction gaps for this document.
+             */
+            coverage_notes?: string[];
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Embedded Count */
+            embedded_count: number;
+            /** @default null */
+            extraction_coverage: components["schemas"]["Coverage"] | null;
+            /** Extraction Status */
+            extraction_status: string;
+            /** Filename */
+            filename: string;
+            /** Format Family */
+            format_family: string;
+            /**
+             * Not Indexed
+             * @description What is not searchable and why.
+             */
+            not_indexed?: string[];
+            text_index: components["schemas"]["IndexedState"];
+            vector_index: components["schemas"]["IndexedState"];
         };
         /**
          * DocumentListParams
@@ -785,6 +867,44 @@ export interface components {
              */
             source_revision_id: string;
         };
+        /** EmbeddingState */
+        EmbeddingState: {
+            /**
+             * Code
+             * @default null
+             */
+            code: string | null;
+            /**
+             * Dimension
+             * @default null
+             */
+            dimension: number | null;
+            /**
+             * Fingerprint
+             * @default null
+             */
+            fingerprint: string | null;
+            /**
+             * Message
+             * @default null
+             */
+            message: string | null;
+            /**
+             * Model Id
+             * @default null
+             */
+            model_id: string | null;
+            /**
+             * Model Revision
+             * @default null
+             */
+            model_revision: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ready" | "unavailable" | "disabled";
+        };
         /** ErrorBody */
         ErrorBody: {
             code: components["schemas"]["ErrorCode"];
@@ -825,6 +945,61 @@ export interface components {
          * @description Union of source, draft and model contexts. Endpoints declare the kinds they allow.
          */
         EvidenceContext: components["schemas"]["SourceContext"] | components["schemas"]["DraftContext"] | components["schemas"]["QueryContext"];
+        /** EvidenceHit */
+        EvidenceHit: {
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /** Claim Ids */
+            claim_ids?: string[];
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Evidence
+             * @description Locators of the records, first five.
+             */
+            evidence: components["schemas"]["EvidenceLink"][];
+            extraction_quality: components["schemas"]["ExtractionQuality"];
+            /** First Record Ordinal */
+            first_record_ordinal: number;
+            /** Kind */
+            kind: string;
+            /**
+             * Label
+             * @default source_observation
+             * @constant
+             */
+            label: "source_observation";
+            /** Last Record Ordinal */
+            last_record_ordinal: number;
+            /** Rank */
+            rank: number;
+            /** Record Ids */
+            record_ids: string[];
+            /**
+             * Resolved Entity Id
+             * @default null
+             */
+            resolved_entity_id: string | null;
+            /** Rrf Score */
+            rrf_score: number;
+            signals: components["schemas"]["HitSignals"];
+            /**
+             * Source Revision Id
+             * Format: uuid
+             * @description Revision the extraction run was made for.
+             */
+            source_revision_id: string;
+            /** Text */
+            text: string;
+            /** Token Count */
+            token_count: number;
+        };
         /**
          * EvidenceLink
          * @description A typed link to the exact evidence location; no free-form paths or URLs.
@@ -846,6 +1021,82 @@ export interface components {
              * @default null
              */
             source_revision_id: string | null;
+        };
+        /**
+         * EvidenceSearchQuery
+         * @description Typed arguments of the ``search_evidence`` tool and of the read endpoint.
+         */
+        EvidenceSearchQuery: {
+            /** Document Id */
+            document_id?: string[];
+            /**
+             * Limit
+             * @default 10
+             */
+            limit: number;
+            /** Q */
+            q: string;
+            /**
+             * Source Revision Id
+             * @description Defaults to the project's latest source revision.
+             * @default null
+             */
+            source_revision_id: string | null;
+        };
+        /** EvidenceSearchResult */
+        EvidenceSearchResult: {
+            /** Ambiguities */
+            ambiguities?: components["schemas"]["IdentifierAmbiguity"][];
+            /** Cache Key */
+            cache_key: string;
+            /** Degraded Reasons */
+            degraded_reasons?: components["schemas"]["DegradedReason"][];
+            /** Exact Matches */
+            exact_matches?: components["schemas"]["ExactMatch"][];
+            /** Hits */
+            hits: components["schemas"]["EvidenceHit"][];
+            index: components["schemas"]["IndexState"];
+            /**
+             * Max Chunks
+             * @default 10
+             */
+            max_chunks: number;
+            /**
+             * Max Tokens
+             * @default 12000
+             */
+            max_tokens: number;
+            mode: components["schemas"]["RetrievalMode"];
+            /** Notes */
+            notes?: string[];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Query */
+            query: string;
+            /** Returned Tokens */
+            returned_tokens: number;
+            /** Source Revision Id */
+            source_revision_id: string | null;
+            status: components["schemas"]["SearchStatus"];
+            /**
+             * Unmatched Identifiers
+             * @description Identifier-shaped query tokens found in no source.
+             */
+            unmatched_identifiers?: string[];
+        };
+        /** ExactMatch */
+        ExactMatch: {
+            /** Canonical */
+            canonical: string;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Identifier */
+            identifier: string;
+            /** Kinds */
+            kinds: string[];
         };
         /** ExtractedAttribute */
         ExtractedAttribute: {
@@ -933,6 +1184,33 @@ export interface components {
             code: string;
             /** Message */
             message: string;
+        };
+        /** ExtractionQuality */
+        ExtractionQuality: {
+            /**
+             * Coverage Status
+             * @description complete, partial or unknown extraction coverage.
+             */
+            coverage_status: string;
+            /**
+             * Profile Name
+             * @default null
+             */
+            profile_name: string | null;
+            /**
+             * Profile Version
+             * @default null
+             */
+            profile_version: string | null;
+            /** Run Status */
+            run_status: string;
+            /**
+             * Validation States
+             * @description Record validation states in this chunk (unreviewed...).
+             */
+            validation_states?: {
+                [key: string]: number;
+            };
         };
         /**
          * ExtractionReport
@@ -1059,10 +1337,37 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** HitSignals */
+        HitSignals: {
+            /** Exact */
+            exact: boolean;
+            /**
+             * Lexical Rank
+             * @default null
+             */
+            lexical_rank: number | null;
+            /**
+             * Vector Rank
+             * @default null
+             */
+            vector_rank: number | null;
+            /**
+             * Vector Similarity
+             * @default null
+             */
+            vector_similarity: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** IdentifierAmbiguity */
+        IdentifierAmbiguity: {
+            /** Candidates */
+            candidates: components["schemas"]["AmbiguityCandidate"][];
+            /** Identifier */
+            identifier: string;
         };
         /**
          * ImportAccepted
@@ -1129,6 +1434,32 @@ export interface components {
              * @default null
              */
             idempotency_key: string | null;
+        };
+        /**
+         * IndexedState
+         * @enum {string}
+         */
+        IndexedState: "not_indexable" | "not_started" | "queued" | "running" | "complete" | "partial" | "failed" | "interrupted" | "disabled" | "unavailable";
+        /** IndexState */
+        IndexState: {
+            /** Eligible Documents */
+            eligible_documents: number;
+            /**
+             * Embedding Fingerprint
+             * @default null
+             */
+            embedding_fingerprint: string | null;
+            /**
+             * Index Epoch
+             * @description Changes whenever indexed content in scope changes.
+             */
+            index_epoch: string;
+            /** Pending Documents */
+            pending_documents: number;
+            /** Text Indexed Documents */
+            text_indexed_documents: number;
+            /** Vector Indexed Documents */
+            vector_indexed_documents: number;
         };
         /** InstantAsOf */
         InstantAsOf: {
@@ -1661,6 +1992,16 @@ export interface components {
          */
         RequeueOutcome: "queued" | "unchanged";
         /**
+         * RetrievalMode
+         * @enum {string}
+         */
+        RetrievalMode: "hybrid" | "degraded";
+        /**
+         * SearchStatus
+         * @enum {string}
+         */
+        SearchStatus: "ok" | "no_results" | "ambiguous" | "unavailable";
+        /**
          * SelectedEntityType
          * @enum {string}
          */
@@ -1693,6 +2034,24 @@ export interface components {
              * Format: uuid
              */
             source_revision_id: string;
+        };
+        /** SourceCoverage */
+        SourceCoverage: {
+            /** Chunker Version */
+            chunker_version: string;
+            /** Documents */
+            documents: components["schemas"]["DocumentCoverage"][];
+            embedding: components["schemas"]["EmbeddingState"];
+            index: components["schemas"]["IndexState"];
+            /** Notes */
+            notes?: string[];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Source Revision Id */
+            source_revision_id: string | null;
         };
         /**
          * SourceDocument
@@ -3019,6 +3378,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    source_coverage_api_v1_projects__project_id__retrieval_coverage_get: {
+        parameters: {
+            query?: {
+                source_revision_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceCoverage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    search_evidence_api_v1_projects__project_id__retrieval_search_get: {
+        parameters: {
+            query: {
+                document_id?: string[];
+                limit?: number;
+                q: string;
+                /** @description Defaults to the project's latest source revision. */
+                source_revision_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceSearchResult"];
                 };
             };
             /** @description Not Found */
