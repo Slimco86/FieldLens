@@ -39,7 +39,7 @@ pattern = '(?P<version>[0-9]+\.[0-9]+\.[0-9]+)'
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 pythonpath = ["backend"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not live_meta'"
 markers = [
   "live_meta: opt-in live provider test; excluded from ordinary runs",
   "local_data: opt-in run against the local Volve subset (needs FIELDLENS_LOCAL_DATA_ROOT)",

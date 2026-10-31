@@ -127,7 +127,7 @@ Split FL-003-A (MI-1..5) from FL-003-B (MI-6). Planned commands:
 `uv run pytest backend/tests/assistant -m "not live_meta"` and explicitly
 `uv run pytest backend/tests/assistant -m live_meta` only after authorization.
 Use harmless synthetic inputs for live smoke; persist a sanitized protocol result.
-No calls/tests have run for this specification. Implementation proposes minor;
+MI-6 ran live on October 31 (see evidence file); MI-1..5 remain offline. Implementation proposes minor;
 the main agent assigns final version and records live/stub evidence.
 
 ## Open Tensions
@@ -156,8 +156,14 @@ byte; `provider_image_token_bound` per image) until MI-6 compares them with prov
 
 ## Assumption Registry
 
-Responses tool replay is entitled (M; MI-6 validates). Published rates bound the
-chosen mode (M; pricing/usage reconciliation validates). USD 150 is the original
+MI-6 live results (October 31, `docs/evidence/MI6_LIVE_SMOKE.md`): `muse-spark-1.3` Responses
+text, tool round trip with opaque reasoning replay and image input are entitled and work
+(Validated, live). No embeddings endpoint exists for this key (404; local embeddings stand).
+Corrections: default reasoning effort is `high` and consumes output tokens (adapter has no
+effort control; `low`/`minimal` are accepted); the 1-token-per-byte input bound underestimates
+tool requests (about 2.3x); in-flight cancel does not stop billing. Provider rates are still
+unknown (spend estimated at placeholder rates; owner must reconcile the balance).
+Published rates bound the chosen mode (M; unresolved: no rate source). USD 150 is the original
 allowance, not current balance (H; owner must supply current credit).
 
 ## Adversarial Self-Critique
