@@ -18,6 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import RequestResponseEndpoint
 
 from fieldlens import __version__, security
+from fieldlens.activity import build_activity_router
 from fieldlens.config import Settings, get_settings
 from fieldlens.contracts.errors import ContractError, ErrorBody, ErrorCode, ErrorEnvelope
 from fieldlens.contracts.registry import export_component_schemas
@@ -238,6 +239,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_ingestion_router())
     app.include_router(build_jobs_router())
     app.include_router(build_extraction_router())
+    app.include_router(build_activity_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:

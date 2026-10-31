@@ -1274,21 +1274,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
 | Depends on | TASK-004 |
 | Assignee | agent:fieldlens-ingestion |
-| Due | 2026-11-01 |
+| Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/AGENTIC_EXTRACTION.md |
-| Version | none |
+| Version | 0.15.0 |
 | Parent | FL-022 |
 | Slice | FL-022-B |
 
 **Outcome.** Ingestion owner implements the persisted, project-scoped agent activity log (question, ordered steps, tool-call summaries, candidates, validator outcomes, usage, stop reason; no hidden reasoning) with a read API, migration and offline fixtures. One shared-contract change with a single writer (coordinated with TASK-036). The Reconstruction tab view is TASK-040.
-**Next action.** Dispatched October 31 (TASK-004 is integrated) with a fresh preflight, branch `feature/task-038-agent-activity-log`, worktree `/home/slimco/code/FieldLens-worktrees/task-038-agent-activity-log`; independent QA follows. This task owns the Alembic head and the single shared-contract change among the parallel lanes.
-**Evidence.** none yet
+**Next action.** None. Deferred to TASK-036 (QA-reviewed): wire `recover_interrupted` into harness startup with a test, link `cost_usd` to the BudgetLedger reservation, own the `step_key` scheme (replay ignores content), add cancel/retry endpoints only if needed, and decide whether cross-revision evidence is required.
+**Evidence.** Integrated October 31 as 0.15.0 (branch `feature/task-038-agent-activity-log`, head `6f4515d`, migration `0006_agent_activity_log`). Independent QA returned the first candidate for one medium defect (evidence locator text bypassed redaction and bounds); repaired and re-verified (709 backend tests passed, 1 skipped; ruff, mypy, frontend lint/typecheck/45 tests/contracts/build; single head). Offline persistence only, no model calls and no real-data coverage claimed.
 
 ### TASK-040 · Reconstruction tab: agent activity log view (AX-10 UI)
 

@@ -171,7 +171,9 @@ check in the TASK-005 live smoke (within its USD 1 allowance).
 Smallest approach: (1) define the candidate schema/states/reason codes and a migration; (2) the extraction work unit
 and cache keys over the TASK-004 adapter with a fixture-driven stub provider; (3) the validators (locator/quote match,
 unit/dimension, range, identity, conflict-with-parsed); (4) the read-only tool allowlist and page-image access, with
-scope checks; (5) recovery/budget behavior; (6) the evidence/issue view. TASK-038 adds the activity log and view.
+scope checks; (5) recovery/budget behavior; (6) the evidence/issue view. TASK-038 adds the activity log (backend: `backend/fieldlens/activity/`, migration 0006, read API
+`/api/v1/projects/{project_id}/agent-units`; tests `backend/tests/activity`, named `*_ax10`) and TASK-040 its view. The step_key convention belongs to the TASK-036 harness; replaying a key returns the stored
+step without comparing content, so a reused key with different content is ignored.
 Start with one ambiguity class end to end (table/unit interpretation on a TASK-009 fixture), then add classes in order.
 Do not claim proposed commands exist; record actual test commands and results at handoff.
 

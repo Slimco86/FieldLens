@@ -8,6 +8,17 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.15.0 - 2026-10-31
+
+- **TASK-038 (FL-022-B):** Added the persisted, project-scoped agent activity log (AX-10 backend):
+  migration `0006_agent_activity_log` (`agent_work_unit`, `agent_step`), a fenced write service for the
+  extraction harness (start/append/finalize, restart-safe interruption and resume without duplicate steps),
+  conservative secret redaction and size bounds including evidence locator text, and read endpoints
+  `GET /api/v1/projects/{id}/agent-units[/{unit_id}]` with generated client types. No hidden reasoning is stored
+  and the log is never an engineering source. Independent QA found one medium defect (locator text not
+  redacted or bounded), repaired and re-verified. Deferred to TASK-036: startup recovery wiring, budget
+  reservation link, cancel/retry endpoints. Offline only; no UI (TASK-040).
+
 ## 0.14.1 - 2026-10-31
 
 - **TASK-005 (FL-003-B):** Added the opt-in live Meta smoke (MI-6): `test_meta_live_smoke` behind the
