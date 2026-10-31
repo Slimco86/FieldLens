@@ -1350,7 +1350,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-E |
 
 **Outcome.** A bounded, read-only experiment (no product code, no persistence) that sends page images and text of the seven local completion documents (PV-11..14, 17, 18, 21 for F-12, F-14 and F-5) to the model through the TASK-004 adapter and records, against a human reading of the same pages, which production/completion equipment (tubing, casing/liners, packers, pumps, bearings, depths, dimensions) it finds, cost per page, failure modes and what the validators would reject. The result decides the TASK-041 approach before any build.
-**Next action.** Needs the TASK-005 result (image input and tool protocol) and an owner-approved allowance (proposed USD 3 inside the USD 150 total, with per-document selection and page caps). The owner said on October 30 that all documents may be shared with the provider; confirm this covers these PDFs before dispatch. Not dispatchable until then.
+**Next action.** Owner approved on October 31: allowance USD 3 inside the USD 150 total (per-document selection and page caps still required in the brief) and sending the seven completion PDFs to the provider (all documents are shareable, per the October 30 decision). Dispatch as soon as TASK-005 is integrated and its image-input and protocol result is recorded; independent QA follows.
 **Evidence.** none yet
 
 ### TASK-041 · Production/completion equipment candidates from completion documents
