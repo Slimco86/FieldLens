@@ -87,6 +87,13 @@ The main agent allocates a committed base, worktree and isolated resources;
 there is no current implementation assignment. Owner approves publication policy,
 gold cases and spend. Development subagents are not application-runtime agents.
 
+### Preconditions from the staged processing flow
+
+A reconstruction run starts only after the stages in [PROCESSING_FLOW.md](PROCESSING_FLOW.md): native parsing and
+(optional, user-started) document processing, preliminary per-wellbore data exposure, and reviewed AI identity-merge
+proposals. The hard minimum is at least one identified well and wellbore with a validated trajectory (D4); a missing
+surface location is a warning and uses a labelled, ungeoreferenced local origin (0, 0) that no georeferenced result may use (D5).
+
 ### Output model and authority
 
 A project owns a graph, with a containment tree as one view:
