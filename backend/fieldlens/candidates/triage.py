@@ -81,10 +81,12 @@ def keyword_score(text: str) -> tuple[float, list[str]]:
     return score, hits
 
 
-def toc_pages(texts: list[str]) -> list[int]:
-    """Printed page numbers named by keyword-matching table-of-contents lines."""
+def toc_pages(texts: list[str]) -> tuple[list[int], set[int]]:
+    """Printed page numbers named by keyword-matching table-of-contents lines, and the 0-based
+    indexes of the pages that are themselves contents pages (two or more such lines)."""
     named: list[int] = []
-    for text in texts[:TOC_SCAN_PAGES]:
+    toc_like: set[int] = set()
+    for index, text in enumerate(texts[:TOC_SCAN_PAGES]):
         entries = 0
         for line in text.splitlines():
             m = _TOC_LINE.match(line)
@@ -95,7 +97,9 @@ def toc_pages(texts: list[str]) -> list[int]:
                 break
             if keyword_score(m.group("title"))[0] > 0:
                 named.append(int(m.group("page")))
-    return named
+        if entries >= 2:
+            toc_like.add(index)
+    return named, toc_like
 
 
 def triage(
@@ -128,9 +132,12 @@ def triage(
             (time.perf_counter() - started) * 1000,
             notes,
         )
-    named = set(toc_pages(texts))
+    named_list, toc_like = toc_pages(texts)
+    named = set(named_list)
     scored: list[PageScore] = []
     for index in layered:
+        if index in toc_like:  # a contents page names topics; it is not a page to read
+            continue
         score, hits = keyword_score(texts[index])
         reasons = list(hits)
         if (index + 1) in named:

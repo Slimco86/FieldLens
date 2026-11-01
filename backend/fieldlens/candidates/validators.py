@@ -303,7 +303,13 @@ def _decide(
 
     if failed:
         add(failed)
-        return CandidateState.REJECTED, ValidationState.INVALID, reasons
+        # a rejected model-read value is still unverified evidence, never "invalid source"
+        vstate = (
+            ValidationState.UNVERIFIED
+            if method is ExtractionMethod.MODEL_READ
+            else ValidationState.INVALID
+        )
+        return CandidateState.REJECTED, vstate, reasons
     if method is ExtractionMethod.MODEL_READ:
         add(flagged)
         if ReasonCode.MODEL_READ_UNVERIFIED not in reasons:
