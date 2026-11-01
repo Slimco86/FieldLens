@@ -102,14 +102,17 @@
   overflow-wrap: anywhere;
 }
 /* Fixed column layout for the Files table: long names and hashes are cut, never widen a column. */
-.colFile { width: 17%; }
-.colStorage { width: 10%; }
-.colExtraction { width: 14%; }
-.colSize { width: 7%; }
-.colFormat { width: 14%; }
-.colSha { width: 11%; }
-.colLabels { width: 18%; }
-.colActions { width: 9%; }
+.colSelect { width: 4%; }
+.colFile { width: 16%; }
+.colStorage { width: 11%; }
+.colExtraction { width: 15%; }
+.colLabels { width: 14%; }
+.colSuggested { width: 15%; }
+.colTags { width: 9%; }
+.colActions { width: 16%; }
+.bulkBar {
+  background: var(--fl-color-surface-sunken);
+}
 /* Source revisions table: fixed columns with sensible minimums; headers never break inside a word. */
 .revisionsTable {
   min-width: calc(var(--fl-layout-table-min) * 1.5);

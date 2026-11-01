@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Button, NativeSelect, Title } from "@mantine/core";
+import { Button, Checkbox, NativeSelect, Title } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
-import { CloudUpload, Upload, X } from "lucide-react";
+import { CircleAlert, CloudUpload, Upload, X } from "lucide-react";
 import { ApiError } from "../../api/client";
 import { Callout, TruncatedText } from "../../design";
 import {
@@ -18,6 +18,7 @@ import {
   type UploadProgress,
 } from "./api";
 import { categoryLabel, formatBytes } from "./format";
+import { matchRefusals, parseImportRefusal, type ParsedRefusal } from "./refusal";
 import styles from "./shared.module.css";
 import zone from "./UploadForm.module.css";
 
@@ -25,12 +26,16 @@ interface Entry {
   id: number;
   file: File;
   category: DocumentCategory | "";
+  /** Part of the checked subset that a bulk category assignment targets. */
+  checked: boolean;
 }
 
 interface FailureView {
   message: string;
   requestId: string | null;
   detail: string | null;
+  /** Per-file refusal (IN-10) when the server's details were well-formed; null otherwise. */
+  refusal?: ParsedRefusal | null;
 }
 
 type Phase =
@@ -112,6 +117,10 @@ export function describeUploadFailure(err: unknown, names: readonly string[] = [
     const reason = reasonOf(err);
     const detail = reason === null ? null : `Reason: ${reason}`;
     const requestId = err.requestId;
+    const refusal = parseImportRefusal(err.details);
+    if (refusal !== null) {
+      return { message: `Upload refused. Nothing was stored. ${sentence(err.message)}`, requestId, detail, refusal };
+    }
     switch (err.status) {
       case 409:
         if (reason === "import_in_progress") {
@@ -203,15 +212,31 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
   const problems = validateSelection(entries.map((e) => e.file));
   const uploading = phase.kind === "uploading";
 
-  function changed(next: Entry[]) {
+  function changed(next: Entry[], keepFailure = false) {
     idemKey.current = null; // a different selection is a different request
     setEntries(next);
-    if (phase.kind !== "uploading") setPhase({ kind: "idle" });
+    if (phase.kind !== "uploading" && !(keepFailure && phase.kind === "failed")) setPhase({ kind: "idle" });
+  }
+
+  const checkedCount = entries.filter((e) => e.checked).length;
+  const allChecked = entries.length > 0 && checkedCount === entries.length;
+  const [bulkCategory, setBulkCategory] = useState<DocumentCategory | "">("");
+  const [bulkNote, setBulkNote] = useState("");
+  const targets = checkedCount > 0 ? entries.filter((e) => e.checked) : entries;
+
+  function applyBulk() {
+    const ids = new Set(targets.map((e) => e.id));
+    changed(entries.map((e) => (ids.has(e.id) ? { ...e, category: bulkCategory } : e)), true);
+    setBulkNote(
+      bulkCategory === ""
+        ? `Cleared the category hint on ${ids.size} file(s).`
+        : `Set the category hint “${categoryLabel(bulkCategory)}” on ${ids.size} file(s).`,
+    );
   }
 
   function addFiles(list: ArrayLike<File> | null) {
     if (list === null || list.length === 0) return;
-    const added = Array.from(list).map((file): Entry => ({ id: nextEntryId++, file, category: "" }));
+    const added = Array.from(list).map((file): Entry => ({ id: nextEntryId++, file, category: "", checked: false }));
     changed([...entries, ...added]);
   }
 
@@ -228,14 +253,24 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
     event.target.value = "";
   }
 
-  async function onSubmit(event: FormEvent) {
+  function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (entries.length === 0 || problems.length > 0 || uploading) return;
+    void send(entries);
+  }
+
+  function removeRefusedAndRetry(refusedIds: ReadonlySet<number>) {
+    const kept = entries.filter((e) => !refusedIds.has(e.id));
+    changed(kept);
+    if (kept.length > 0) void send(kept);
+  }
+
+  async function send(list: Entry[]) {
+    if (list.length === 0 || validateSelection(list.map((e) => e.file)).length > 0 || uploading) return;
     idemKey.current ??= newIdempotencyKey();
     const metadata: ImportMetadata = {
       expected_parent_source_revision_id: expectedParentId,
       idempotency_key: idemKey.current,
-      files: entries.map((e) => ({ categories: e.category === "" ? [] : [e.category],
+      files: list.map((e) => ({ categories: e.category === "" ? [] : [e.category],
         tags: [],
         replaces_document_id: null, // replacement is explicit only; never inferred from names
       })),
@@ -247,7 +282,7 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
       const result = await uploadImport(
         projectId,
         metadata,
-        entries.map((e) => e.file),
+        list.map((e) => e.file),
         {
           signal: ctl.signal,
           onProgress: (progress) => {
@@ -265,12 +300,16 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
         idemKey.current = null;
         if (reason === "stale_parent") onStale();
       }
-      setPhase({ kind: "failed", ...describeUploadFailure(err, entries.map((e) => e.file.name)) });
+      setPhase({ kind: "failed", ...describeUploadFailure(err, list.map((e) => e.file.name)) });
     } finally {
       if (controller.current === ctl) controller.current = null;
     }
   }
 
+  const refusal = phase.kind === "failed" ? (phase.refusal ?? null) : null;
+  const matches = refusal === null ? null : matchRefusals(entries.map((e) => e.file.name), refusal.files);
+  const refusedIds = new Set<number>();
+  if (matches !== null) entries.forEach((e, i) => matches.byIndex.has(i) && refusedIds.add(e.id));
   const progress = phase.kind === "uploading" ? phase.progress : null;
   const percent =
     progress !== null && progress.total !== null && progress.total > 0
@@ -330,13 +369,56 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
             <p aria-live="polite" className={styles.note}>
               {entries.length} file(s) selected, {formatBytes(entries.reduce((s, e) => s + e.file.size, 0))} total.
             </p>
+            <fieldset className={zone.bulk} disabled={uploading}>
+              <legend>Category hint for several files</legend>
+              <Checkbox
+                label="Select all files"
+                checked={allChecked}
+                indeterminate={checkedCount > 0 && !allChecked}
+                onChange={(ev) => {
+                  const on = ev.currentTarget.checked;
+                  setEntries(entries.map((e) => ({ ...e, checked: on })));
+                }}
+              />
+              <NativeSelect
+                size="xs"
+                aria-label="Category hint to apply"
+                value={bulkCategory}
+                data={[{ value: "", label: "No hint" }, ...CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))]}
+                onChange={(ev) => setBulkCategory(ev.currentTarget.value as DocumentCategory | "")}
+              />
+              <Button type="button" size="compact-sm" variant="default" onClick={applyBulk}>
+                {checkedCount > 0 ? `Apply to ${checkedCount} checked file(s)` : `Apply to all ${entries.length} file(s)`}
+              </Button>
+              <span className={styles.note} role="status">
+                {bulkNote}
+              </span>
+            </fieldset>
             <ul className={zone.files} aria-label="Selected files">
-              {entries.map((e) => (
-                <li key={e.id} className={zone.file}>
+              {entries.map((e, index) => {
+                const hit = matches?.byIndex.get(index);
+                return (
+                <li key={e.id} className={hit === undefined ? zone.file : `${zone.file} ${zone.refused}`} data-refused={hit === undefined ? undefined : "true"}>
+                  <Checkbox
+                    aria-label={`Select ${e.file.name} for a bulk category hint`}
+                    checked={e.checked}
+                    disabled={uploading}
+                    onChange={(ev) => {
+                      const on = ev.currentTarget.checked;
+                      setEntries(entries.map((x) => (x.id === e.id ? { ...x, checked: on } : x)));
+                    }}
+                  />
                   <span className={zone.fileName}>
                     <TruncatedText value={e.file.name} label="file name" maxCh={60} />
                   </span>
                   <span className={zone.fileSize}>({formatBytes(e.file.size)})</span>
+                  {hit !== undefined && (
+                    <span className={zone.refusedText}>
+                      <CircleAlert size={14} aria-hidden="true" /> Refused: {hit.refusal.message} ({hit.refusal.reason}
+                      {hit.refusal.statusCode !== null ? `, HTTP ${hit.refusal.statusCode}` : ""}).
+                      {hit.byNameOnly && ` The server's position (file ${hit.refusal.position + 1}) differs from this file's; matched by file name.`}
+                    </span>
+                  )}
                   <NativeSelect
                     size="xs"
                     aria-label={`Category hint for ${e.file.name}`}
@@ -348,6 +430,7 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
                         entries.map((x) =>
                           x.id === e.id ? { ...x, category: ev.currentTarget.value as DocumentCategory | "" } : x,
                         ),
+                        true,
                       )
                     }
                   />
@@ -367,7 +450,8 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
                     Remove
                   </Button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </>
         )}
@@ -423,8 +507,62 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
         </Callout>
       )}
       {phase.kind === "failed" && (
-        <Callout tone="danger" role="alert" tabIndex={-1} elementRef={failedRegion}>
+        <Callout
+          tone="danger"
+          role="alert"
+          tabIndex={-1}
+          elementRef={failedRegion}
+          actions={
+            refusal === null ? undefined : (
+              <>
+                {refusedIds.size > 0 && refusedIds.size < entries.length && (
+                  <Button type="button" size="compact-sm" onClick={() => removeRefusedAndRetry(refusedIds)}>
+                    Remove refused files and retry
+                  </Button>
+                )}
+                {refusedIds.size > 0 && refusedIds.size === entries.length && (
+                  <Button type="button" size="compact-sm" onClick={() => changed(entries.filter((e) => !refusedIds.has(e.id)))}>
+                    Remove refused files
+                  </Button>
+                )}
+                <Button type="button" size="compact-sm" variant="default" disabled={uploading} onClick={() => void send(entries)}>
+                  Retry upload
+                </Button>
+              </>
+            )
+          }
+        >
           <p>{phase.message}</p>
+          {refusal !== null && (
+            <>
+              <p>
+                {refusal.scope === "files"
+                  ? `The server refused ${refusal.files.length} of ${refusal.fileCount ?? entries.length} file(s) and stored none of this batch.`
+                  : "The whole batch was refused by a batch-level rule and none of it was stored."}{" "}
+                {refusedIds.size > 0 && entries.length > refusedIds.size
+                  ? "Every other selected file is still selected."
+                  : ""}
+              </p>
+              {!refusal.complete && (
+                <p>
+                  This list may be incomplete: {refusal.scope === "batch" ? "intake stopped at a batch-level check" : "some refusals could not be read"},
+                  so more files may be refused on retry.
+                </p>
+              )}
+              {matches !== null && matches.unmatched.length > 0 && (
+                <>
+                  <p>The server also named files that are not in the current selection:</p>
+                  <ul className={styles.plainList}>
+                    {matches.unmatched.map((r) => (
+                      <li key={`${r.position}-${r.filename}`}>
+                        “{r.filename}” (position {r.position + 1}): {r.message} ({r.reason})
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
           {phase.detail !== null && <p>{phase.detail}</p>}
           {phase.requestId !== null && <p>Request ID: {phase.requestId}</p>}
         </Callout>

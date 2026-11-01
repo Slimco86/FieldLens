@@ -8,7 +8,6 @@ parsed. Failures are explicit ``ContractError``s (413 size, 415 signature, 422 s
 
 from __future__ import annotations
 
-import codecs
 import re
 import stat
 import zipfile
@@ -19,6 +18,7 @@ from pathlib import Path
 from pypdf import PdfReader
 
 from fieldlens.contracts.errors import ContractError, ErrorCode
+from fieldlens.textenc import decode_head, detect_encoding, refine_encoding
 
 HEAD_BYTES = 64 * 1024
 SCAN_CHUNK = 1024 * 1024
@@ -42,7 +42,7 @@ _EXECUTABLE_MAGICS = (
 _NESTED_EXTENSIONS = (".zip", ".jar", ".war", ".7z", ".rar", ".gz", ".tgz", ".tar", ".bz2", ".xz")
 _ZIP_MAGICS = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
 _DTD_MARKERS = (b"<!doctype", b"<!entity")
-_LAS_HEADER = re.compile(rb"^[ \t]*~[Vv]", re.MULTILINE)
+_LAS_HEADER = re.compile(r"^[ \t]*~[Vv]", re.MULTILINE)
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 _MAX_MARKER = max(len(m) for m in _DTD_MARKERS) * 2
 
@@ -56,6 +56,8 @@ class Detected:
     extraction_state: str  # pending_extraction | unsupported
     suggested_categories: tuple[str, ...] = ()
     expanded_bytes: int = 0
+    encoding: str | None = None
+    """Content-detected text codec (IN-11); ``None`` for binary formats."""
 
 
 def reject(
@@ -108,38 +110,32 @@ def inspect_file(
             "executable_content",
             "executable or script content is not accepted",
         )
-    text_kind = _text_kind(head)
-    if text_kind is None:
+    encoding = refine_encoding(path, detect_encoding(head))
+    if encoding is None:
         raise reject(
             415,
             ErrorCode.UNSUPPORTED_MEDIA_TYPE,
             "unsupported_signature",
             "file signature is not a supported source format",
         )
-    stripped = head
-    for bom in (codecs.BOM_UTF8, codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE):
-        if stripped.startswith(bom):
-            stripped = stripped[len(bom) :]
-            break
-    stripped = stripped.lstrip()
-    if text_kind == "utf16":
-        stripped = _ascii_of_utf16(head).lstrip().encode()
-    if stripped.startswith(b"<"):
+    stripped = decode_head(head, encoding).lstrip()
+    if stripped.startswith("<"):
         _reject_dtd(path)
-        return Detected("xml", "application/xml", "pending_extraction")
-    if _LAS_HEADER.search(stripped[:HEAD_BYTES]):
-        return Detected("las", "text/x-las", "pending_extraction", ("well_logs",))
+        return Detected("xml", "application/xml", "pending_extraction", encoding=encoding)
+    if _LAS_HEADER.search(stripped):
+        return Detected(
+            "las", "text/x-las", "pending_extraction", ("well_logs",), encoding=encoding
+        )
     sniffed = _fixed_width_table(stripped)
     if sniffed is not None:
-        return Detected("csv", "text/plain", "pending_extraction", sniffed)
+        return Detected("csv", "text/plain", "pending_extraction", sniffed, encoding=encoding)
     if filename.lower().endswith((".csv", ".dat")):
-        return Detected("csv", "text/csv", "pending_extraction")
-    return Detected("text", "text/plain", "unsupported")
+        return Detected("csv", "text/csv", "pending_extraction", encoding=encoding)
+    return Detected("text", "text/plain", "unsupported", encoding=encoding)
 
 
-def _fixed_width_table(head: bytes) -> tuple[str, ...] | None:
+def _fixed_width_table(text: str) -> tuple[str, ...] | None:
     """Content (not file name) recognizes the perforation / well-pick fixed-width tables."""
-    text = head.decode("latin-1", "replace")
     first = text.splitlines()[0] if text else ""
     if all(t in first for t in ("Well name", "Top MD", "Base MD", "Perf obs#")):
         return ("perforation_history",)
@@ -163,26 +159,6 @@ def _check_pdf_pages(path: Path) -> None:
             "PDF has more pages than the 500-page limit",
             limit_pages=MAX_PDF_PAGES,
         )
-
-
-def _text_kind(head: bytes) -> str | None:
-    if head.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
-        return "utf16"
-    if b"\x00" in head:
-        return None
-    decoder = codecs.getincrementaldecoder("utf-8")()
-    try:
-        decoder.decode(head, final=False)  # a multibyte character may be cut at the 64 KiB edge
-    except UnicodeDecodeError:
-        return None
-    return "utf8"
-
-
-def _ascii_of_utf16(head: bytes) -> str:
-    try:
-        return head.decode("utf-16", errors="ignore")
-    except UnicodeDecodeError:  # pragma: no cover - errors='ignore' never raises
-        return ""
 
 
 def _reject_dtd(path: Path) -> None:

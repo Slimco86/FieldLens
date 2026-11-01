@@ -400,8 +400,8 @@ describe("source list", () => {
     expect(screen.getByText("Unsupported (no reader; not extracted)")).toBeInTheDocument();
     expect(screen.getAllByText("Stored (hash-verified)")).toHaveLength(2);
     expect(screen.getByText("no reader for plain text")).toBeInTheDocument();
-    expect(screen.getAllByText(SHA)).toHaveLength(2);
-    expect(screen.getAllByText(/suggestion only, not confirmed/)).toHaveLength(2);
+    expect(screen.queryByText(SHA)).not.toBeInTheDocument(); // identifiers live in the row details (UI-14)
+    expect(screen.getAllByText(/Suggestion only, not confirmed/)).toHaveLength(2);
     expect(screen.getByText("Ready (files stored; not extracted)")).toBeInTheDocument();
     expect(screen.getByText(/Attempt 1: failed, stage hashing, error code io_error/)).toBeInTheDocument();
     expect(screen.getByText(/Attempt 2: succeeded/)).toBeInTheDocument();

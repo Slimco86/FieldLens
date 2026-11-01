@@ -62,7 +62,12 @@ test("UP-1: upload a CSV and an unknown text file, see honest statuses, dedupe, 
   const txt = files(page).filter({ hasText: "notes.txt" });
   await expect(csv.getByText("Stored (hash-verified)")).toBeVisible();
   await expect(csv.getByText("Unsupported (no reader; not extracted)")).toBeVisible(); // settled text; the stale one-shot "Pending extraction" check raced the extraction worker (authorized correction)
-  await expect(csv.locator("code")).toHaveText(/^[0-9a-f]{64}$/);
+  // UI-14: the SHA-256 lives in the collapsed row detail, not in a column.
+  await expect(filesTable(page).locator("code")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show details for wells.csv" }).click();
+  await expect(page.getByRole("button", { name: "Hide details for wells.csv" })).toHaveAttribute("aria-expanded", "true");
+  await expect(filesTable(page).locator("code")).toHaveText(/^[0-9a-f]{64}$/);
+  await page.getByRole("button", { name: "Hide details for wells.csv" }).click();
   await expect(csv.getByText("Trajectory", { exact: false }).first()).toBeVisible();
   await expect(txt.getByText("Unsupported (no reader; not extracted)")).toBeVisible();
   await expect(page.getByText(/Extraction performed: no/)).toBeVisible();
@@ -84,7 +89,9 @@ test("UP-1: upload a CSV and an unknown text file, see honest statuses, dedupe, 
     { name: "tool.bin", mimeType: "application/octet-stream", buffer: Buffer.concat([Buffer.from([0x7f, 0x45, 0x4c, 0x46]), Buffer.alloc(64)]) },
   ]);
   await page.getByRole("button", { name: "Upload 1 file(s)" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: /unsupported file type/i })).toBeVisible();
+  // IN-10: the refusal names the file (red row with text) and says nothing was stored.
+  await expect(page.getByRole("alert").filter({ hasText: /nothing was stored/i })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Selected files" }).getByText(/Refused:/)).toBeVisible();
   await page.getByRole("button", { name: "Remove tool.bin" }).click();
 
   // 5. Abort: hold the request in the browser, abort, and confirm the server saw no new revision.
