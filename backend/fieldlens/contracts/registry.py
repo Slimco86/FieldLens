@@ -30,6 +30,7 @@ from . import (
     quality,
     retrieval,
     system,
+    well_identity,
 )
 from .base import ContractModel
 
@@ -47,6 +48,7 @@ _MODULES = (
     extraction,
     activity,
     retrieval,
+    well_identity,
 )
 
 

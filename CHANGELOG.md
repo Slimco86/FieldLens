@@ -8,6 +8,21 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.18.0 - 2026-10-31
+
+- **TASK-046 (FL-005-E):** Depth values in the perforation and formation-pick tables that carry no documented unit now
+  default to meters (measured depth) with one non-blocking `MISSING_UNIT` warning per file, and missing depth
+  references warn instead of blocking (profile versions 3; stated units always win; TWT, azimuth, coordinates, blanks and
+  flagged picks are untouched); a defaulted depth beyond 105% of the known trajectory/log MD range emits
+  `SUSPICIOUS_VALUE`. Added deterministic well/wellbore identity: one label rule shared with retrieval
+  (`fieldlens.identity.labels`, retrieval behaviour unchanged), migration `0008_identity_links`
+  (`well.well_key`, `wellbore.wellbore_key/suffix`, `record_wellbore_link`), post-extraction resolution with
+  `IDENTITY_MISMATCH` findings for ambiguity, production-workbook `H`/`AH` bores aliased to the observed base wellbore
+  with one warning, and `GET /api/v1/projects/{id}/identity`, `.../identity/wellbores/{id}/evidence` and
+  `POST .../identity/resolve`. On the approved real subset: 19 wells, 35 wellbores, 17,136 records linked, none
+  unresolved. Parent links are naming-based, not a drilling relationship. Independent QA passed with low notes
+  (follow-ups in TASK-045).
+
 ## 0.17.0 - 2026-10-31
 
 - **TASK-011 (FL-011-A):** Added project- and source-scoped retrieval over the extracted source observations:

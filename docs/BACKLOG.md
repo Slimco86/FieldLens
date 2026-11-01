@@ -659,6 +659,7 @@ the slice letter and `Slice` keeps the plan's original string.
 **Outcome.** Ingestion owner implements selected qualified native source profiles and the evidence UI: IN-2/6 for this subset, exact record/page coverage and the wrong-folder fixture. This is a small approved subset, not full IN-8/G1 acceptance.
 **Next action.** None. Follow-ups: owner decided October 31 that production/completion equipment is the target and drilling-side assemblies are not needed, so the completion-PDF work is TASK-030, TASK-042 and TASK-041 (completion string, packers and tubing are not extracted for any wellbore; the F-14 RKB-MSL 53.870 vs 54.90 DQ-3 conflict can only appear from the completion schematic); owner confirmation of units/datum for the perforation and pick tables (the Wells README states none, so depths stay `unsupported`); a vitest for the evidence panel's null-status polling. Approved subset (October 30): WITSML tubular/BHA/bore geometry (PV-25..33), LAS (PV-15/19/22), production workbook (PV-01), perforation table (PV-03), picks (PV-04), three survey PDFs (PV-10/16/20), mirrored F-5 trajectory XML. Deferred: EDM export (PV-24), grids (PV-07..09), large completion PDFs/plots, OCR (TASK-030).
 **Evidence.** Integrated October 30 as version 0.14.0 (merge of `feature/task-009-native-profiles`, head `1df81f7`, migration `0005_native_profiles`). Independent QA (`fieldlens-qa`) returned the first candidate for a report-endpoint 500 on real perforation/production files plus nine further findings; all repaired and re-verified on the real subset (all 18 real files build a report; 677 backend tests, ruff, mypy, frontend gates, and the Playwright evidence spec on a lane port). Real coverage (trajectory stations / production days / perforation intervals / drilling-assembly and casing-point records): F-12 211/3056/5/14, F-14 93/3056/6/9, F-5 97/3306/5/6. The owner's two-of-three requirement is met for trajectories, production and perforation history; equipment is drilling-side only. Offline parsing, no model calls.
+(Update October 31, 0.18.0: the perforation and pick depths are no longer `unsupported`; they default to meters (MD) with a warning, see TASK-046.)
 
 ### TASK-032 · Source-first issue inspector API and UI (DQ-1/2/3/4/7, DTO-negative DQ-5/6)
 
@@ -1433,7 +1434,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-011 |
 | Slice | FL-011-F |
 
-**Outcome.** Small retrieval improvements deferred by QA: an id-only query (for example `F-11`) returns only the vector-ranked chunk while 1,400+ numeric-table chunks carry the identifier, with no note saying so; numeric-only well names (such as 15/9-19) are not detected as sidetracks by `_SIDETRACK`; a query with an unmatched parent id (`15/9-19`) returns sidetrack rows as ok/strong; a literal `wellbore_suffix` of "None"/"null" becomes a suffix; lowercase `f-12 a` reads as the English article; production-workbook flooding for `tubing size F-12`/`F-14 tubing` (ties above 20 candidates defeat the diversity guard); production vocabulary map and slot reservation; search notes during a partially rebuilt index; failed index jobs after exhausted attempts need a visible requeue.
+**Outcome.** Small retrieval improvements deferred by QA: an id-only query (for example `F-11`) returns only the vector-ranked chunk while 1,400+ numeric-table chunks carry the identifier, with no note saying so; numeric-only well names (such as 15/9-19) are not detected as sidetracks by `_SIDETRACK`; a query with an unmatched parent id (`15/9-19`) returns sidetrack rows as ok/strong; a literal `wellbore_suffix` of "None"/"null" becomes a suffix; lowercase `f-12 a` reads as the English article; production-workbook flooding for `tubing size F-12`/`F-14 tubing` (ties above 20 candidates defeat the diversity guard); production vocabulary map and slot reservation; search notes during a partially rebuilt index; failed index jobs after exhausted attempts need a visible requeue; identity: `parse_bore_label` accepts free-text trailing words as a suffix (`F-12 well` becomes a bore `15/9-F-12 WELL`), a glued form such as `15/9-F-12A` is not parsed as a well, and the perforation MISSING_UNIT message mentions only MD while TVD/TVDSS are counted.
 **Next action.** Dispatch only after the owner confirms the priority; the assistant/exploration tasks (TASK-019/031) must not use `evidence_strength` as a citation gate until this is done or the calibration gold set exists.
 **Evidence.** none yet
 
@@ -1442,21 +1443,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | ingestion, backend |
 | Depends on | TASK-009, TASK-011 |
 | Assignee | agent:fieldlens-ingestion |
-| Due | 2026-11-01 |
+| Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/DATA_COMPLETENESS.md |
-| Version | none |
+| Version | 0.18.0 |
 | Parent | FL-005 |
 | Slice | FL-005-E |
 
 **Outcome.** Perforation, formation-pick and similar depths without a documented unit default to meters (MD) as a warning (DC-1..3), and `well`/`wellbore` rows are created deterministically from the extracted record subjects with sidetrack distinctness, parent links and evidence counts, sharing one naming rule with retrieval (DC-4..6).
-**Next action.** Dispatched October 31 on branch `feature/task-046-units-identity`, worktree `/home/slimco/code/FieldLens-worktrees/task-046-units-identity` (owns migration 0008 if one is needed and the DTO additions for the identity API); independent QA follows.
-**Evidence.** none yet
+**Next action.** None. Follow-ups: free-text suffix parsing (a label such as `F-12 well` must stay unresolved, filed under TASK-045), re-resolution after source removal (TASK-039), and the documented naming-based parent links (not a drilling relationship).
+**Evidence.** Integrated October 31 as 0.18.0 (branch `feature/task-046-units-identity`, head `4c298b8`, migration `0008_identity_links`). Perforation and pick depths without a unit default to meters (MD) with one MISSING_UNIT warning per file (profile versions 3; 287 perforation and 964 pick attributes on the approved subset; TWT, azimuth, coordinates, blanks and flagged picks untouched; reference gaps warn without blocking); deterministic well/wellbore identity with one label rule shared with retrieval (retrieval byte-identical on the QA sample); production-workbook H/AH bores alias to the observed base wellbore with one warning; on the real subset 19 wells and 35 wellbores, 17,136 records linked, none unresolved, F-12/F-14/F-5 each one base wellbore carrying trajectory, logs, bore/equipment records, perforations, picks and production. Independent QA passed (889 passed, 4 skipped, 1 deselected; frontend clean) with low notes. Real-data results are from the opt-in run on the approved subset only.
 
 ### TASK-047 · Time-series storage and window API for logs and production
 

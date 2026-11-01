@@ -3,7 +3,7 @@
 > **Spec type:** Product/feature. **Backlog:** TASK-046 (units/datum defaults and deterministic identity),
 > TASK-047 (time-series storage and window API); equipment policy for TASK-036/TASK-041.
 > **Date:** 2026-10-31. **Decision owner:** project owner.
-> **Status:** Approved by the owner on 2026-10-31 (decisions in section 6); implementation not started.
+> **Status:** Approved by the owner on 2026-10-31 (decisions in section 6). TASK-046 (DC-1..DC-6) integrated in 0.18.0; TASK-047 (DC-7..DC-11) pending.
 > **Zero-Question Score:** 0 blocking.
 
 ## How to Read This Spec
@@ -69,3 +69,16 @@ head. Shared-contract edits are additive and serialized by the orchestrator.
 - OCR is dropped. Completion-equipment extraction (TASK-036/TASK-041) reads page images directly with a superficial,
   visual-level goal (type, material, sizes, structure); values are labelled model-read and unverified, never used in
   calculations; speed and performance take priority over detail; missed details are acceptable.
+
+## 7. Implementation notes (TASK-046, 0.18.0)
+
+- Defaults: perforation/pick depths get `normalized_unit` `m` and the reference text `assumed MD/TVD/TVDSS (default)`; one
+  `MISSING_UNIT` warning per file; `MISSING_REFERENCE` is non-blocking when defaults apply (blocking only when no usable
+  depth exists); easting/northing without a CRS is a separate `*_crs_missing` finding that blocks only placement; TWT,
+  dip, azimuth, blanks and ER/FP-flagged picks are not defaulted.
+- DC-3: the range is the maximum MD across survey and log records of the same wellbore; only the deep end is checked
+  (105%), TVD is not checked, and a wellbore without its own range (for example a pilot or sidetrack with no survey) is
+  never checked.
+- Identity: parent links are naming-based (`parent_basis` `name_suffix`), not a verified drilling relationship;
+  production-workbook `H`/`AH` suffixes alias to the observed base wellbore (owner demo policy), other suffixes stay
+  distinct; unqualified labels with no qualified source stay unresolved.

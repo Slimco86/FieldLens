@@ -81,7 +81,7 @@ def test_profiles_cover_at_least_two_wellbores_and_report_gaps() -> None:
     print("\n".join(results))
     print(
         "columns: trajectory stations | production days | perforation intervals "
-        "(depths unsupported) | drilling-assembly/casing-point records"
+        "(depths default to m, warned) | drilling-assembly/casing-point records"
     )
     print("wellbore  trajectory production completion equipment")
     for w in WELLS:
