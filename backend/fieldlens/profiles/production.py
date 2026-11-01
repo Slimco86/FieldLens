@@ -9,8 +9,11 @@ no unit is assumed (units on the monthly sheet are not copied across)."""
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from .common import event_time, parse_number, quantity_attr, text_attr, well_key
 from .types import (
@@ -19,7 +22,9 @@ from .types import (
     SUSPICIOUS_VALUE,
     UNKNOWN_CODE,
     Attr,
+    AxisOut,
     CoverageOut,
+    CurveOut,
     Finding,
     Locator,
     ParseContext,
@@ -29,6 +34,7 @@ from .types import (
 )
 from .xlsx import Cell, Workbook
 
+_EPOCH = date(1970, 1, 1)
 DAILY = "Daily Production Data"
 MONTHLY = "Monthly Production Data"
 DAILY_REQUIRED = {"DATEPRD", "WELL_BORE_CODE", "BORE_OIL_VOL", "ON_STREAM_HRS"}
@@ -91,9 +97,114 @@ def _q(
     return attr
 
 
+def _epoch_day(iso: str) -> int | None:
+    try:
+        return (date.fromisoformat(iso[:10]) - _EPOCH).days
+    except ValueError:
+        return None
+
+
+class _Group:
+    """Daily rows of one (wellbore, well) in source order; becomes one series axis."""
+
+    def __init__(self, subject: dict[str, Any], header: dict[str, str]) -> None:
+        self.subject = subject
+        self.header = header
+        self.days: list[int] = []
+        self.rows: list[int] = []
+        self.ordinals: list[int] = []
+        self.values: dict[str, list[float]] = defaultdict(list)
+        self.units: dict[str, set[str | None]] = defaultdict(set)
+
+    def add(self, day: int, row: int, ordinal: int, attrs: list[Attr]) -> None:
+        self.days.append(day)
+        self.rows.append(row)
+        self.ordinals.append(ordinal)
+        by_key = {a.key: a for a in attrs}
+        for col_name, key in DAILY_QUANTITIES.items():
+            if col_name not in self.header:
+                continue
+            a = by_key.get(f"production_day.{key}")
+            number = None if a is None else a.number
+            self.values[col_name].append(float("nan") if number is None else number)
+            if number is not None:  # the unit is judged from rows that carry a value
+                self.units[col_name].add(
+                    a.unit if a is not None and a.unit_status == "stated" else None
+                )
+
+
+def _production_axes(groups: dict[tuple[str, str | None], _Group]) -> list[AxisOut]:
+    """One axis per wellbore (day index, source row order kept for equal days) with one curve
+    per measure column present in the sheet. Missing days stay absent and blank/NULL cells stay
+    NaN (never zero); no unit is assumed when the source states none."""
+    axes: list[AxisOut] = []
+    for (wellbore, _well), g in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1] or "")):
+        order = np.argsort(np.array(g.days, dtype=np.int64), kind="stable")
+        index = np.array(g.days, dtype=np.float64)[order]
+        rows = np.array(g.rows, dtype=np.int32)[order]
+        ordinals = np.array(g.ordinals, dtype=np.int64)[order]
+        axis = AxisOut(
+            kind="production",
+            index_type="time",
+            index_encoding="epoch_days",
+            index_name="DATEPRD",
+            index_unit="days since 1970-01-01",
+            index=index,
+            positions=rows,
+            position_kind="row",
+            subject=dict(g.subject),
+            evidence={
+                "kind": "xlsx",
+                "sheet": DAILY,
+                "first_record_ordinal": int(ordinals.min()),
+                "last_record_ordinal": int(ordinals.max()),
+                "record_count": int(index.size),
+                "wellbore": wellbore,
+            },
+        )
+        for col_name, key in DAILY_QUANTITIES.items():
+            if col_name not in g.header:
+                continue
+            values = np.array(g.values[col_name], dtype=np.float64)[order]
+            units = g.units[col_name]
+            stated = {u for u in units if u}
+            if len(stated) == 1 and None not in units:
+                unit, status = next(iter(stated)), "stated"
+            elif stated:
+                unit, status = None, "mixed"
+            else:
+                unit, status = None, "missing"
+            column = g.header[col_name]
+            axis.curves.append(
+                CurveOut(
+                    measure=key,
+                    column_ordinal=len(axis.curves),
+                    values=values,
+                    unit=unit,
+                    unit_status=status,  # type: ignore[arg-type]
+                    description=col_name,
+                    null_sentinel=None,
+                    record_ordinal=int(ordinals.min()),
+                    evidence={
+                        "kind": "xlsx",
+                        "sheet": DAILY,
+                        "column": column,
+                        "column_header": col_name,
+                        "first_row": int(rows.min()),
+                        "last_row": int(rows.max()),
+                        "cell_range": f"{column}{int(rows.min())}:{column}{int(rows.max())}",
+                        "first_record_ordinal": int(ordinals.min()),
+                        "last_record_ordinal": int(ordinals.max()),
+                    },
+                )
+            )
+        axes.append(axis)
+    return axes
+
+
 class ProductionWorkbookProfile:
     name = "production_workbook_volve"
-    version = "1"
+    version = "2"
     method = "native_xlsx_stdlib"
     families = ("xlsx",)
 
@@ -124,7 +235,7 @@ class ProductionWorkbookProfile:
             sums: dict[tuple[str, str], dict[str, list[float | None]]] = defaultdict(
                 lambda: defaultdict(list)
             )
-            self._daily(wb, records, findings, counts, sums)
+            groups = self._daily(wb, records, findings, counts, sums)
             self._monthly(wb, records, findings, counts, sums)
         finally:
             wb.close()
@@ -137,6 +248,7 @@ class ProductionWorkbookProfile:
             CoverageOut("record", total_rows, total_rows),
             "succeeded",
             {"counts": counts, "wellbores": sorted({r.subject["wellbore_label"] for r in records})},
+            _production_axes(groups),
         )
         return out
 
@@ -148,7 +260,8 @@ class ProductionWorkbookProfile:
         findings: list[Finding],
         counts: dict[str, int],
         sums: dict[tuple[str, str], dict[str, list[float | None]]],
-    ) -> None:
+    ) -> dict[tuple[str, str | None], _Group]:
+        groups: dict[tuple[str, str | None], _Group] = {}
         member = wb.sheet_member(DAILY)
         if member is None:
             raise ProfileError("profile_mismatch", f"sheet '{DAILY}' missing")
@@ -159,6 +272,7 @@ class ProductionWorkbookProfile:
         hours: list[int] = []
         unknown_codes: dict[str, int] = defaultdict(int)
         n = 0
+        n_dated = 0
         for rown, cells in wb.rows(member):
             by_col = {c.column: c for c in cells}
             if not header:
@@ -255,6 +369,13 @@ class ProductionWorkbookProfile:
             )
             records.append(rec)
             ordinal = len(records) - 1
+            if date_cell.is_date and date_cell.iso:
+                day = _epoch_day(date_cell.iso)
+                if day is not None:
+                    groups.setdefault((wellbore, well_name), _Group(subject, header)).add(
+                        day, rown, ordinal, attrs
+                    )
+                    n_dated += 1
             key2 = (wellbore, date_cell.iso or date_cell.text or "")
             if key2 in seen:
                 dups.append(ordinal)
@@ -277,6 +398,7 @@ class ProductionWorkbookProfile:
                         None if qa is None else qa.number
                     )
         counts["daily_rows"] = n
+        counts["daily_rows_without_date"] = n - n_dated
         _unit_missing(findings, "daily", records)
         _aggregate(
             findings,
@@ -321,6 +443,7 @@ class ProductionWorkbookProfile:
                     ["production_day.flow_kind"],
                 )
             )
+        return groups
 
     # -- monthly -------------------------------------------------------------------------
     def _monthly(

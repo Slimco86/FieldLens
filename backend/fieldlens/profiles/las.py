@@ -1,20 +1,27 @@
 """LAS 2.0 well-log profile (small, safe, line-oriented reader; no third-party dependency).
 
 Stores the header claims, the curve inventory and a per-curve summary (valid/null counts,
-min/max, data line range) instead of every sample; every claim points at its LAS section and
-line. Declared header values (STRT/STOP/STEP/NULL) are compared with the data and conflicts
-are reported, never reconciled silently."""
+min/max, data line range) in ``extracted_record``; every claim points at its LAS section and
+line. The full-resolution samples travel beside the records (``ProfileOutput.series``, one
+``AxisOut`` per data block, NULL sentinels converted to NaN) and are persisted by the runner in
+the run-finalizing transaction. Data lines are parsed once into compact float64 arrays (no
+per-token strings are kept). Declared header values (STRT/STOP/STEP/NULL) are compared with the
+data and conflicts are reported, never reconciled silently."""
 
 from __future__ import annotations
 
 import re
+from array import array
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from .common import event_time, parse_number, quantity_attr, text_attr, well_key
 from .types import (
     IDENTITY_MISMATCH,
+    MAX_SERIES_CELLS,
     MAX_TEXT_LINES,
     MISSING_REFERENCE,
     MISSING_UNIT,
@@ -22,7 +29,9 @@ from .types import (
     SUSPICIOUS_VALUE,
     TEMPORAL_AMBIGUITY,
     Attr,
+    AxisOut,
     CoverageOut,
+    CurveOut,
     Finding,
     Locator,
     ParseContext,
@@ -33,6 +42,11 @@ from .types import (
 )
 
 _HEADER = re.compile(r"^\s*([^\s.:]*)\s*\.([^\s:]*)\s+(.*?)\s*:(.*)$")
+MAX_PARSE_CELLS = 100_000_000  # parsed index+value cells held at once (about 800 MB of float64)
+_DEPTH_NAMES = frozenset({"DEPT", "DEPTH", "MD", "TVD", "TVDSS", "MDEPTH"})
+_DEPTH_UNITS = frozenset({"m", "ft", "f", "feet", "foot", "meter", "meters", "metre", "metres"})
+_TIME_NAMES = frozenset({"TIME", "ETIM", "TIMEMS", "TIME_UTC", "DATETIME"})
+_TIME_UNITS = frozenset({"s", "sec", "secs", "ms", "min", "hr", "h", "hhmmss", "d", "day", "days"})
 _SECTIONS = {
     "V": "version",
     "W": "well",
@@ -58,6 +72,42 @@ def _loc(
     return loc
 
 
+MAX_SKIPPED_LINE_RATIO = 0.10
+
+
+def _series_refusal(
+    curve_names: list[str], data_header: list[str], a_marker: str, skipped: int, n_data: int
+) -> str | None:
+    """Why the samples are not a trustworthy series (None = store them). The data marker must be
+    exactly ``~A`` (``~Ascii Log Data`` style text makes the header tokens free text, so words
+    would become curve names and data the index), the ~A header must name as many columns as the
+    ~C block declares curves (a WRAP YES layout breaks this), and at most 10% of the data lines
+    may have been skipped as unparseable. Differing names with the same count (truncated
+    fixed-width ~A headers) stay a REFERENCE_CONFLICT finding and the ~A names are kept."""
+    if a_marker != "~A":
+        return f"the data section header '{a_marker}' is free text, not a column header"
+    if curve_names and len(curve_names) != len(data_header):
+        return (
+            f"the ~A header names {len(data_header)} column(s) but the ~C block declares "
+            f"{len(curve_names)} curve(s), so the data layout is not established"
+        )
+    if n_data and skipped / n_data > MAX_SKIPPED_LINE_RATIO:
+        return (
+            f"{skipped} of {n_data} data lines were skipped as unparseable "
+            f"(more than {MAX_SKIPPED_LINE_RATIO:.0%})"
+        )
+    return None
+
+
+def classify_index(name: str, unit: str) -> str:
+    """depth | time | unknown from the index mnemonic and stated unit (a hint, not a datum)."""
+    if name.strip().upper() in _DEPTH_NAMES or unit.strip().lower() in _DEPTH_UNITS:
+        return "depth"
+    if name.strip().upper() in _TIME_NAMES or unit.strip().lower() in _TIME_UNITS:
+        return "time"
+    return "unknown"
+
+
 def looks_like_las(path: Path) -> bool:
     with path.open("rb") as h:
         head = h.read(4096).decode("latin-1", "replace")
@@ -76,7 +126,7 @@ def _parse_date(text: str) -> str | None:
 
 class LasProfile:
     name = "las_2_0"
-    version = "1"
+    version = "2"
     method = "native_text_las"
     families = ("las",)
 
@@ -89,8 +139,32 @@ class LasProfile:
         findings: list[Finding] = []
         data_header: list[str] = []
         data_start = 0
-        rows: list[tuple[int, list[str]]] = []
         n_lines = 0
+        a_marker = "~A"
+        # data lines are parsed into compact arrays as they are read (see ingest below)
+        cols: list[array[float]] = []
+        lines: array[int] = array("i")
+        ncols = 0
+        n_data = 0
+        first_data_line = last_data_line = 0
+        pending: list[tuple[int, list[str]]] = []
+        bad_width: list[int] = []
+        bad_token: list[int] = []
+
+        def ingest(ln: int, toks: list[str]) -> None:
+            if len(toks) != ncols:
+                bad_width.append(ln)
+                return
+            vals = [parse_number(t) for t in toks]
+            if None in vals:
+                bad_token.append(ln)
+                return
+            lines.append(ln)
+            for col, v in zip(cols, vals, strict=True):
+                col.append(v)  # type: ignore[arg-type]
+            if len(lines) * ncols > MAX_PARSE_CELLS:
+                raise ProfileError("too_many_samples", "LAS data exceeds the sample limit")
+
         with path.open("r", encoding="latin-1", errors="replace") as handle:
             for n_lines, raw in enumerate(handle, 1):
                 if n_lines > MAX_TEXT_LINES:
@@ -104,9 +178,21 @@ class LasProfile:
                     if section == "data":
                         data_header = s[2:].split()
                         data_start = n_lines
+                        a_marker = s.split()[0].upper()
                     continue
                 if section == "data":
-                    rows.append((n_lines, s.split()))
+                    n_data += 1
+                    first_data_line = first_data_line or n_lines
+                    last_data_line = n_lines
+                    if not ncols:
+                        names = data_header or [c[0] for c in items.get("curve", [])]
+                        if names:
+                            ncols = len(names)
+                            cols = [array("d") for _ in names]
+                    if ncols:
+                        ingest(n_lines, s.split())
+                    else:
+                        pending.append((n_lines, s.split()))
                 elif section:
                     m = _HEADER.match(line)
                     if m:
@@ -134,6 +220,12 @@ class LasProfile:
             data_header = [c[0] for c in items["curve"]]
         if not data_header or "version" not in items:
             raise ProfileError("profile_mismatch", "LAS lacks ~V or ~A section")
+        if pending:  # data lines that preceded any column names (non-standard order)
+            ncols = len(data_header)
+            cols = [array("d") for _ in data_header]
+            for ln, toks in pending:
+                ingest(ln, toks)
+            pending = []
         records: list[Rec] = []
         wellkv: dict[str, tuple[str, str, str, int]] = {}
         header_attrs: list[Attr] = []
@@ -276,53 +368,46 @@ class LasProfile:
             )
         cinfo = {c[0]: c for c in curves}
         ncols = len(data_header)
-        stats: list[dict[str, Any]] = [
-            {"valid": 0, "null": 0, "min": None, "max": None, "first": None, "last": None}
-            for _ in data_header
-        ]
         null_value = parse_number(wellkv.get("NULL", ("", "", "", 0))[1])
-        bad_width: list[int] = []
-        bad_token: list[int] = []
+        ok_rows = len(lines)
+        line_np = np.frombuffer(lines, dtype=np.int32) if ok_rows else np.zeros(0, np.int32)
+        col_np = [np.frombuffer(c, dtype=np.float64) for c in cols] if ok_rows else []
+        stats: list[dict[str, Any]] = []
+        for i in range(ncols):
+            st: dict[str, Any] = {
+                "valid": 0,
+                "null": 0,
+                "min": None,
+                "max": None,
+                "first": None,
+                "last": None,
+            }
+            if ok_rows:
+                arr = col_np[i]
+                nulls = (
+                    arr == null_value if null_value is not None else np.zeros(ok_rows, dtype=bool)
+                )
+                good = np.flatnonzero(~nulls)
+                st["null"] = int(ok_rows - good.size)
+                st["valid"] = int(good.size)
+                if good.size:
+                    vals_ok = arr[good]
+                    st["min"] = float(vals_ok.min())
+                    st["max"] = float(vals_ok.max())
+                    st["first"] = int(line_np[good[0]])
+                    st["last"] = int(line_np[good[-1]])
+            stats.append(st)
         index_back: list[int] = []
-        prev_index: float | None = None
         steps: set[float] = set()
         first_idx = last_idx = None
-        ok_rows = 0
-        for ln, toks in rows:
-            if len(toks) != ncols:
-                bad_width.append(ln)
-                continue
-            vals = [parse_number(t) for t in toks]
-            if any(v is None for v in vals):
-                bad_token.append(ln)
-                continue
-            ok_rows += 1
-            idx = vals[0]
-            assert idx is not None
-            if first_idx is None:
-                first_idx = idx
-            last_idx = idx
-            if prev_index is not None:
-                if idx <= prev_index:
-                    index_back.append(ln)
-                else:
-                    steps.add(round(idx - prev_index, 6))
-            prev_index = idx
-            for i, v in enumerate(vals):
-                st = stats[i]
-                if v is None:
-                    continue
-                if null_value is not None and v == null_value:
-                    st["null"] += 1
-                    continue
-                st["valid"] += 1
-                st["min"] = v if st["min"] is None else min(st["min"], v)
-                st["max"] = v if st["max"] is None else max(st["max"], v)
-                if st["first"] is None:
-                    st["first"] = ln
-                st["last"] = ln
-        first_line = rows[0][0] if rows else data_start
-        last_line = rows[-1][0] if rows else data_start
+        if ok_rows:
+            idx_np = col_np[0]
+            first_idx, last_idx = float(idx_np[0]), float(idx_np[-1])
+            diffs = np.diff(idx_np)
+            index_back = [int(x) for x in line_np[1:][diffs <= 0]]
+            steps = {round(float(x), 6) for x in np.unique(diffs[diffs > 0])}
+        first_line = first_data_line or data_start
+        last_line = last_data_line or data_start
         # index unit/reference
         idx_unit = cinfo.get(data_header[0], ("", "", "", "", 0))[1] if data_header else ""
         index_desc = cinfo.get(data_header[0], ("", "", "", "", 0))[3] if data_header else ""
@@ -330,7 +415,7 @@ class LasProfile:
             Attr(
                 "las_header.data_rows",
                 _loc("data", first_line, last_line),
-                original_text=str(len(rows)),
+                original_text=str(n_data),
                 number=float(ok_rows),
                 unit_status="not_applicable",
             )
@@ -447,6 +532,7 @@ class LasProfile:
             )
         # curve records ---------------------------------------------------------------------
         no_unit: list[int] = []
+        curve_meta: dict[int, tuple[str | None, str | None, int, Locator, Locator]] = {}
         for i, name in enumerate(data_header):
             info = cinfo.get(name)
             unit = info[1] if info else ""
@@ -497,6 +583,13 @@ class LasProfile:
                     a.unknown_reason = "no valid samples"
                 attrs.append(a)
             records.append(Rec("las_curve", subject, loc, attrs, eff, None))
+            curve_meta[i] = (
+                unit if usable else None,
+                info[3] if info and info[3] else None,
+                len(records) - 1,
+                loc,
+                drange,
+            )
             if not usable and i > 0:
                 no_unit.append(len(records) - 1)
             if st["valid"] == 0 and i > 0:
@@ -545,8 +638,116 @@ class LasProfile:
                     ["calculation"],
                 )
             )
-        cov = CoverageOut("line", ok_rows, len(rows), missing, reasons)
+        series: list[AxisOut] = []
+        if ok_rows and ok_rows * ncols > MAX_SERIES_CELLS:
+            reasons.append(
+                f"full-resolution samples were not stored: {ok_rows} rows x {ncols} columns "
+                f"exceeds the {MAX_SERIES_CELLS} cell limit (per-curve summaries are kept)"
+            )
+            findings.append(
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "warning",
+                    reasons[-1] + ".",
+                    "las_series_too_large",
+                    ["las_curve.valid_count"],
+                    [],
+                    [_loc("data", first_line, last_line)],
+                    ["calculation"],
+                )
+            )
+        elif (
+            ok_rows
+            and ncols
+            and (
+                refusal := _series_refusal(
+                    info_names, data_header, a_marker, len(bad_width) + len(bad_token), n_data
+                )
+            )
+        ):
+            findings.append(
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "warning",
+                    f"full-resolution samples were not stored: {refusal}. The per-curve "
+                    "summaries are kept.",
+                    "las_series_refused",
+                    ["las_curve.valid_count"],
+                    [],
+                    [_loc("data", first_line, last_line)],
+                    ["calculation"],
+                )
+            )
+        elif ok_rows and ncols:
+            series.append(
+                self._axis(
+                    data_header,
+                    subject,
+                    idx_unit,
+                    col_np,
+                    line_np,
+                    null_value,
+                    curve_meta,
+                    (first_line, last_line),
+                )
+            )
+        cov = CoverageOut("line", ok_rows, n_data, missing, reasons)
         status: ProfileStatus = "succeeded" if cov.complete else "partial"
         return ProfileOutput(
-            records, findings, cov, status, {"curves": data_header, "lines": n_lines}
+            records,
+            findings,
+            cov,
+            status,
+            {"curves": data_header, "lines": n_lines, "series_samples": ok_rows if series else 0},
+            series,
         )
+
+    @staticmethod
+    def _axis(
+        data_header: list[str],
+        subject: dict[str, Any],
+        idx_unit: str,
+        col_np: list[Any],
+        line_np: Any,
+        null_value: float | None,
+        curve_meta: dict[int, tuple[str | None, str | None, int, Locator, Locator]],
+        data_lines: tuple[int, int],
+    ) -> AxisOut:
+        name = data_header[0]
+        usable_idx = bool(re.search(r"[A-Za-z0-9%]", idx_unit))
+        axis = AxisOut(
+            kind="log",
+            index_type=classify_index(name, idx_unit),  # type: ignore[arg-type]
+            index_encoding="numeric",
+            index_name=name,
+            index_unit=idx_unit if usable_idx else None,
+            index=np.array(col_np[0], dtype=np.float64),
+            positions=np.array(line_np, dtype=np.int32),
+            position_kind="line",
+            subject=dict(subject),
+            evidence={"data_lines": {"first": data_lines[0], "last": data_lines[1]}},
+        )
+        for i in range(1, len(data_header)):
+            unit, desc, record_ordinal, loc, drange = curve_meta[i]
+            values = np.array(col_np[i], dtype=np.float64)
+            if null_value is not None:
+                values[values == null_value] = np.nan
+            axis.curves.append(
+                CurveOut(
+                    measure=data_header[i],
+                    column_ordinal=i,
+                    values=values,
+                    unit=unit,
+                    unit_status="stated" if unit else "missing",
+                    description=desc,
+                    null_sentinel=null_value,
+                    record_ordinal=record_ordinal,
+                    evidence={
+                        "curve_locator": loc,
+                        "data_locator": drange,
+                        "index_curve": name,
+                        "header_record_ordinal": 0,
+                    },
+                )
+            )
+        return axis

@@ -1434,7 +1434,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-011 |
 | Slice | FL-011-F |
 
-**Outcome.** Small retrieval improvements deferred by QA: an id-only query (for example `F-11`) returns only the vector-ranked chunk while 1,400+ numeric-table chunks carry the identifier, with no note saying so; numeric-only well names (such as 15/9-19) are not detected as sidetracks by `_SIDETRACK`; a query with an unmatched parent id (`15/9-19`) returns sidetrack rows as ok/strong; a literal `wellbore_suffix` of "None"/"null" becomes a suffix; lowercase `f-12 a` reads as the English article; production-workbook flooding for `tubing size F-12`/`F-14 tubing` (ties above 20 candidates defeat the diversity guard); production vocabulary map and slot reservation; search notes during a partially rebuilt index; failed index jobs after exhausted attempts need a visible requeue; identity: `parse_bore_label` accepts free-text trailing words as a suffix (`F-12 well` becomes a bore `15/9-F-12 WELL`), a glued form such as `15/9-F-12A` is not parsed as a well, and the perforation MISSING_UNIT message mentions only MD while TVD/TVDSS are counted.
+**Outcome.** Small retrieval improvements deferred by QA: an id-only query (for example `F-11`) returns only the vector-ranked chunk while 1,400+ numeric-table chunks carry the identifier, with no note saying so; numeric-only well names (such as 15/9-19) are not detected as sidetracks by `_SIDETRACK`; a query with an unmatched parent id (`15/9-19`) returns sidetrack rows as ok/strong; a literal `wellbore_suffix` of "None"/"null" becomes a suffix; lowercase `f-12 a` reads as the English article; production-workbook flooding for `tubing size F-12`/`F-14 tubing` (ties above 20 candidates defeat the diversity guard); production vocabulary map and slot reservation; search notes during a partially rebuilt index; failed index jobs after exhausted attempts need a visible requeue; identity: `parse_bore_label` accepts free-text trailing words as a suffix (`F-12 well` becomes a bore `15/9-F-12 WELL`), a glued form such as `15/9-F-12A` is not parsed as a well, and the perforation MISSING_UNIT message mentions only MD while TVD/TVDSS are counted; series (TASK-047): time-formatted or wrapped LAS files (drilling time logs, two small F-5 `sig1` depth logs) store no series, no monthly production series, `series_curve` accepts `min_value` NULL with `max_value` set and `series_axis.index_max` NaN, and the CPI file keeps `las_curve` summaries named after header words.
 **Next action.** Dispatch only after the owner confirms the priority; the assistant/exploration tasks (TASK-019/031) must not use `evidence_strength` as a citation gate until this is done or the calibration gold set exists.
 **Evidence.** none yet
 
@@ -1464,21 +1464,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, ingestion, charts |
 | Depends on | TASK-009, TASK-011 |
 | Assignee | agent:fieldlens-backend |
-| Due | 2026-11-01 |
+| Due | 2026-10-31 |
 | Sprint | Hackathon |
 | Spec | specs/DATA_COMPLETENESS.md |
-| Version | none |
+| Version | 0.19.0 |
 | Parent | FL-005 |
 | Slice | FL-005-F |
 
 **Outcome.** LAS curve samples and production series are stored at full resolution (not only the per-curve summary), written atomically with the extraction run, and served through a windowed, min/max-preserving downsampled API and a typed service for later chart and agent tools (DC-7..11).
-**Next action.** Dispatched October 31 on branch `feature/task-047-series-storage`, worktree `/home/slimco/code/FieldLens-worktrees/task-047-series-storage`; migrations are serialized with TASK-046 (the second to merge renumbers onto the new head); independent QA follows.
-**Evidence.** none yet
+**Next action.** None. Charts (TASK-016/TASK-017) read through `SeriesService.get_window` / the window API. Follow-ups are filed under TASK-045: LAS files with a time-formatted index (drilling time logs such as TIME_MWD) or wrapped rows store no series (two small F-5 `sig1` depth logs are the only depth-log gap in the cohort), monthly production series are not built (daily only), and low DB-hardening residuals (`min_value` NULL with `max_value` set, `index_max` NaN pass the CHECKs).
+**Evidence.** Integrated October 31 as 0.19.0 (branch `feature/task-047-series-storage`, head `c46ed0a`; migration renumbered to `0009_series_storage` on top of `0008_identity_links`). LAS samples and daily production stored at full resolution (`series_axis`/`series_curve`, float64 arrays, NaN = missing), written atomically with the extraction run and superseded/cascade-deleted with it; read-only `/series`, `/series/{id}`, `/series/{id}/window` with deterministic min/max- and gap-preserving downsampling (10,000-point window p95 about 9 ms in the service, about 27 ms over HTTP on a 100,000-sample series) and a typed `SeriesService`. Real subset: 172 of 301 LAS files store series (970,241 samples; 67 refused by the upload inspector, the rest time-indexed, wrapped or empty), independent re-read matched exactly (index and every curve, about 2.6M cells), production 7 wellbores / 15,634 days / 203,242 values exact; parse-only memory over 234 LAS files 792 MB -> 146 MB, extraction overhead under 0.5 s. Independent QA returned the first candidate for a bogus series from a wrapped-row file (repaired, scan found no other) plus low items; re-check passed (909 passed, 4 skipped, 1 deselected). Results are for the approved real files only.
 
 ## Journal
 

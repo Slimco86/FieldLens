@@ -3,7 +3,7 @@
 > **Spec type:** Product/feature. **Backlog:** TASK-046 (units/datum defaults and deterministic identity),
 > TASK-047 (time-series storage and window API); equipment policy for TASK-036/TASK-041.
 > **Date:** 2026-10-31. **Decision owner:** project owner.
-> **Status:** Approved by the owner on 2026-10-31 (decisions in section 6). TASK-046 (DC-1..DC-6) integrated in 0.18.0; TASK-047 (DC-7..DC-11) pending.
+> **Status:** Approved by the owner on 2026-10-31 (decisions in section 6). TASK-046 (DC-1..DC-6) integrated in 0.18.0; TASK-047 (DC-7..DC-11) integrated in 0.19.0.
 > **Zero-Question Score:** 0 blocking.
 
 ## How to Read This Spec
@@ -82,3 +82,35 @@ head. Shared-contract edits are additive and serialized by the orchestrator.
 - Identity: parent links are naming-based (`parent_basis` `name_suffix`), not a verified drilling relationship;
   production-workbook `H`/`AH` suffixes alias to the observed base wellbore (owner demo policy), other suffixes stay
   distinct; unqualified labels with no qualified source stay unresolved.
+
+## 8. Implementation notes: series storage (TASK-047, DC-7..DC-11, 0.19.0)
+
+- **Tables (migration `0009_series_storage`).** `series_axis` = one shared index per data block (a LAS
+  `~A` section or one wellbore's production days; float64 `bytea`, production days are epoch days) plus the
+  source line/row of every sample; `series_curve` = one float64 `bytea` value array per curve/measure with
+  counts, first/last valid index, min/max, stated unit (`stated|missing|mixed`), NULL sentinel, SHA-256 of
+  the stored bytes (the series revision) and evidence (anchor record ordinal, curve/data locators). NaN
+  encodes a missing sample (parsers never emit NaN). Arrays are `STORAGE EXTERNAL`, so a window is a
+  `substring`. Composite FKs scope everything to the project; rows cascade with the run, the document
+  (`DELETE FROM series_axis WHERE project_id=.. AND document_id=..` is the source-removal hook) and the
+  anchoring `extracted_record`.
+- **Ingestion.** Profiles return samples in `ProfileOutput.series` (never in `extracted_record`); the runner
+  writes them in the run-finalizing transaction (`series/builder.py`), after the fenced update, so an
+  interrupted, killed, failed or fence-lost run leaves none. A new run of a document drops the series of its
+  superseded runs; visibility also requires `superseded = false` and status `succeeded|partial`. LAS data
+  lines are parsed once into float64 arrays (no per-token strings); a block above 30,000,000 cells is not
+  stored and the run is `partial` with an explicit finding. LAS profile and production profile are v2.
+- **Production.** One axis per wellbore label (never pooled), one curve per measure column of the daily
+  sheet; days sorted stably by date (source row kept per sample, duplicates kept), absent days stay absent,
+  blank/NULL cells are NaN, no unit is assumed (`missing`) except where the sheet states one.
+- **API.** `GET /api/v1/projects/{id}/series` (filters `wellbore_label`, `kind`, `mnemonic`, `document_id`;
+  `limit` 1..500 default 100, `offset`), `GET .../series/{series_id}`, `GET .../series/{series_id}/window`
+  (`from`/`to` inclusive: numbers, or `YYYY-MM-DD` for date indexes; `max_points` 10..10,000 default 2,000;
+  `resolution=downsampled|full`, full capped at 50,000 samples with a 422 above it). `no-store`, 404 across
+  projects, 422 for malformed input. Downsampling `minmax-gap-v1` (see `series/downsample.py`) keeps each
+  bucket's min and max, every null run's extent and the window endpoints, deterministically, and reports
+  `gaps_omitted` when a fragmented window cannot represent every gap. `cache_key` = SHA-256 of series id,
+  run id, series revision, window, `max_points`, resolution and algorithm.
+- **Known limit.** Files the existing LAS profile cannot read as numeric rows (time-formatted TIME index,
+  `WRAP YES`) yield no samples (`data_rows` = 0, explicit partial run); extending the profile is a parser
+  decision outside this slice.

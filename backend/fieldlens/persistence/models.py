@@ -655,3 +655,6 @@ agent_step = Table(
 # they reference are defined.
 from fieldlens.identity import tables as _identity_tables  # noqa: E402,F401
 from fieldlens.retrieval import tables as _retrieval_tables  # noqa: E402,F401
+
+# Series storage tables (TASK-047, migration 0008).
+from fieldlens.series import tables as _series_tables  # noqa: E402,F401

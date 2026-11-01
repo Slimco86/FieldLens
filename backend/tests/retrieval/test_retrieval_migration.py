@@ -28,7 +28,7 @@ def downgrade(url: URL, revision: str) -> None:
 
 
 def test_single_head_is_current() -> None:
-    assert expected_head() == "0008_identity_links"
+    assert expected_head() == "0009_series_storage"
 
 
 def test_upgrade_from_0006_with_data_round_trips_and_enforces_scope(empty_database: URL) -> None:

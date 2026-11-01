@@ -8,6 +8,21 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.19.0 - 2026-10-31
+
+- **TASK-047 (FL-005-F):** Added full-resolution time-series storage for LAS curves and daily production:
+  migration `0009_series_storage` (`series_axis` with one shared index per data block, `series_curve` with float64
+  value arrays, NaN for missing samples, per-curve counts/min/max/unit/NULL sentinel, evidence and a series revision hash),
+  written atomically with the extraction run and superseded or cascade-deleted with it; read-only
+  `GET /api/v1/projects/{id}/series`, `.../series/{series_id}` and `.../series/{series_id}/window` (deterministic
+  min/max- and gap-preserving downsampling `minmax-gap-v1`, bounded full-resolution mode, stable cache key, ASCII-only
+  bounds, `decreasing`/`non_increasing` index orders) and the typed `SeriesService` for charts and agent tools. LAS and
+  production profiles are v2 (existing runs re-derive; LAS parsing uses compact arrays: 792 MB -> 146 MB peak on 234 real
+  files). A LAS file with a free-text data header (for example `15_9-19_A_CPI.las`) or a column-count mismatch stores no
+  series. On the real subset 172 LAS files store series (970,241 samples) and production stores 7 wellbores / 15,634 days;
+  the independent re-read matched exactly. Time-indexed or wrapped LAS files store no series (follow-ups in TASK-045).
+  Migration renumbered from 0008 to 0009 at integration (after TASK-046).
+
 ## 0.18.0 - 2026-10-31
 
 - **TASK-046 (FL-005-E):** Depth values in the perforation and formation-pick tables that carry no documented unit now

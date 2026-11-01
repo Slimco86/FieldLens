@@ -29,6 +29,7 @@ from . import (
     projects,
     quality,
     retrieval,
+    series,
     system,
     well_identity,
 )
@@ -48,6 +49,7 @@ _MODULES = (
     extraction,
     activity,
     retrieval,
+    series,
     well_identity,
 )
 

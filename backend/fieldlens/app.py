@@ -34,6 +34,8 @@ from fieldlens.projects import build_projects_router
 from fieldlens.retrieval.embedder import EmbedderProvider
 from fieldlens.retrieval.routes import build_retrieval_router
 from fieldlens.retrieval.search import RetrievalService
+from fieldlens.series.routes import build_series_router
+from fieldlens.series.service import SeriesService
 
 _STATUS_CODES: dict[int, ErrorCode] = {
     403: ErrorCode.FORBIDDEN,
@@ -240,6 +242,10 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         else None
     )
 
+    app.state.series = (
+        SeriesService(app.state.session_factory) if app.state.session_factory is not None else None
+    )
+
     @app.middleware("http")
     async def boundary(request: Request, call_next: RequestResponseEndpoint) -> Response:
         request.state.request_id = uuid.uuid4().hex
@@ -262,6 +268,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_activity_router())
     app.include_router(build_retrieval_router())
     app.include_router(build_identity_router())
+    app.include_router(build_series_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
