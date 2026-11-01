@@ -1485,7 +1485,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | frontend |
 | Depends on | TASK-034, TASK-046, TASK-047 |
@@ -1498,7 +1498,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-021-C |
 
 **Outcome.** Frontend owner adds the project Overview (UI-13) as the first view of the Sources tab from existing APIs only: documents by processing state/format, extraction coverage per kind, issues by severity with locators, resolved wells/wellbores with record counts, available log and production series per wellbore with units and ranges, depth-default warnings, and the honest list of what is not available yet. No new backend or contract.
-**Next action.** Dispatch after TASK-034 is integrated (same frontend owner, new branch); independent QA with the seeded real subset, then the owner checkpoint.
+**Next action.** Lane `task-048-project-overview` (agent:fieldlens-frontend), started November 1; independent QA with the seeded real subset, then the owner checkpoint. The pipeline panel (TASK-053) follows once the TASK-054/056 contracts merge.
 **Evidence.** none yet
 
 ### TASK-049 · Source remove/replace and project-delete controls (IN-9, IN-5, PW-9)
@@ -1603,7 +1603,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-016-F |
 
 **Outcome.** The user can see what the system already did after upload (automatic verification, parsing, indexing), what is ready, what is a gap, the minimum conditions to start, and can explicitly start reconstruction, with any model-spending step shown and confirmed separately. There is currently no UI for this and no start contract.
-**Next action.** Owner decisions D1..D6 are recorded in specs/PROCESSING_FLOW.md (start gate = validated trajectory, location warns); implement the panel after TASK-054 and TASK-056 provide the contracts.
+**Next action.** Spec approved by the owner (PROCESSING_FLOW D1..D8); implement the panel after the TASK-054 and TASK-056 contracts merge.
 **Evidence.** none yet
 
 ### TASK-054 · Processing-run contract: estimate, confirm, start, state (PF-1..PF-3, PF-10)
@@ -1611,7 +1611,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | backend, agent |
 | Depends on | TASK-036, TASK-050 |
@@ -1624,7 +1624,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-I |
 
 **Outcome.** A persistent, project-scoped processing run for selected documents with or without labels: estimate (pages, route, tokens, USD, remaining budget) then separate confirmation, 500-page bound, cancellation, retryable failure states and honest "no native parser, processing available" document state.
-**Next action.** Approve PROCESSING_FLOW.md with the owner; then backend contract plus regenerated contracts, stub-provider tests, independent QA.
+**Next action.** Lane `task-054-processing-runs` (agent:fieldlens-backend), started November 1: contracts, migration, stub-provider tests, independent QA. Live spend only under PROCESSING_FLOW D7 (USD 5 total, orchestrator-authorized).
 **Evidence.** none yet
 
 ### TASK-055 · Document classification, label proposal and label-driven extraction for non-native PDFs (PF-4, PF-5)
@@ -1644,8 +1644,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-022 |
 | Slice | FL-022-E |
 
-**Outcome.** Documents without identity or label are classified (model route by default); the label is proposed with evidence, user labels win, and extraction runs through the label's agent step on the existing harness. Includes the OCR benchmark (cost, time, classification agreement against the model route); OCR is enabled only if it is demonstrably cheaper and faster.
-**Next action.** Spec the classification schema and benchmark protocol; one bounded live run on the F-14/F-5 pages within the remaining USD 2.32 period cap, owner-confirmed.
+**Outcome.** Documents without identity or label are classified (model route only; OCR deferred to TASK-060); the label is proposed with evidence, user labels win, and extraction runs through the label's agent step on the existing harness.
+**Next action.** After TASK-054 merges: classification schema, stub-provider tests, then one minimal live check inside the USD 5 total (PROCESSING_FLOW D7).
 **Evidence.** none yet
 
 ### TASK-056 · Per-wellbore, per-category data exposure API and readiness gate (PF-6, PF-8)
@@ -1653,7 +1653,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-046, TASK-047 |
@@ -1666,7 +1666,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-016-G |
 
 **Outcome.** Read-only API grouping records per wellbore and category with locators, validation state, gaps and conflicts, plus the deterministic start gate (validated trajectory present; surface location only warns).
-**Next action.** Extend the identity evidence endpoint rather than adding a parallel store; contracts first.
+**Next action.** Lane `task-056-wellbore-exposure` (agent:fieldlens-backend), started November 1: extend the identity evidence endpoint rather than adding a parallel store; contracts first; independent QA.
 **Evidence.** none yet
 
 ### TASK-057 · AI identity-merge proposals and review (PF-7)
@@ -1674,10 +1674,10 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | backend, frontend, agent |
-| Depends on | TASK-056, TASK-055 |
+| Depends on | TASK-046 |
 | Assignee | agent:fieldlens-rag |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
@@ -1687,7 +1687,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-016-H |
 
 **Outcome.** A model step proposes that differently named or spelled sources are the same well/wellbore with alias evidence quotes; deterministic guards block impossible merges; the user accepts or rejects each; nothing merges silently.
-**Next action.** Write the proposal contract and guard rules into the spec first; stub-provider tests before any live run.
+**Next action.** Lane `task-057-merge-proposals` (agent:fieldlens-rag), started November 1: proposal contract and guard rules into the spec, deterministic candidate blocking on the existing resolver, persistence and review API, stub-provider model step. Review UI follows after TASK-053. No live run without orchestrator authorization (D7).
 **Evidence.** none yet
 
 ### TASK-058 · Unlocated local display origin (0, 0) and its exclusion from georeferenced results (PF-9)
@@ -1730,6 +1730,27 @@ the slice letter and `Slice` keeps the plan's original string.
 
 **Outcome.** When a Compass PDF and its text export describe the same wellbore, the text export is preferred and per-attribute disagreements beyond tolerance are reported as a conflict.
 **Next action.** Needs cross-document matching on well key plus wellbore name, a precedence flag on the extraction run and locator pairing.
+**Evidence.** none yet
+
+### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P2 |
+| Tags | agent, ingestion |
+| Depends on | TASK-055 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-F |
+
+**Outcome.** Measure cost, time and classification agreement of OCR against the model page read on the same pages, and enable OCR as the classification first pass only if it is demonstrably cheaper and faster (PROCESSING_FLOW D2, D8).
+**Next action.** Deferred by the owner on November 1; do not start before TASK-055 and without separate authorization.
 **Evidence.** none yet
 
 ## Journal

@@ -8,6 +8,15 @@ for configuration versus runtime verification. The same policy applies when the
 work is driven from Claude Code; see [section 9](#9-claude-code-harness) for its
 agent, model and activation equivalents (registry: [.claude/agents](../.claude/agents/README.md)).
 
+**Owner amendment, 2026-11-01 at 14:26 EST (supersedes the two-task cap and the 2026-10-28 serial rule):** run
+as many independent tasks in parallel as their file ownership allows, each in its own linked worktree under
+`/home/slimco/code/FieldLens-worktrees/<lane>` on its own `feature/*` branch with a dedicated agent and its own `./dev`
+lane (database, storage, ports). The orchestrator creates the worktrees, assigns non-overlapping file ownership, keeps
+`VERSION`, `CHANGELOG`, the contract registry/generated client and the Alembic head serialized (the next branch to merge
+rebases onto the new head and re-runs checks), runs independent QA per lane, and **reports every transition to the owner
+by Telegram** (`scripts/notify.py`: started, handoff, qa_pass/qa_fail, repair, merged, blocked, with a periodic progress
+message while lanes run). Total live-model development/test spend is capped at USD 5 (PROCESSING_FLOW D7).
+
 **Owner amendment, 2026-10-30 at 13:10 EDT (supersedes the 2026-10-28 14:47 serial rule for
 this phase):** each feature/task is implemented in its own linked Git worktree under
 `/home/slimco/code/FieldLens-worktrees/<name>` on its own `feature/*` branch, by a dedicated

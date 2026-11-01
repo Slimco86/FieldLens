@@ -8,6 +8,12 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.24.1 - 2026-11-01
+
+- **Planning/process:** the owner approved the staged processing flow (`docs/specs/PROCESSING_FLOW.md`), set total live
+  development/test spend to USD 5 (D7) and deferred OCR to a separate benchmark (D8, TASK-060). The workflow now runs
+  independent tasks in parallel lanes (own worktree, branch, agent and `./dev` lane) with Telegram progress reporting.
+
 ## 0.24.0 - 2026-11-01
 
 - **TASK-051 (IN-11) native Compass text survey profile, and a Latin-1 fix:** Added the `text_compass_survey_report`

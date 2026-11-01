@@ -4,7 +4,7 @@
 > **Load-bearing frameworks:** outcome, acceptance, scope.
 > **Supporting:** failure conditions, ambiguity audit.
 > **Date:** 2026-11-01. **Author:** orchestrator. **Decision owner:** owner.
-> **Status:** Draft (owner decisions of November 1 recorded; not implementation approval).
+> **Status:** Approved by the owner, November 1 2026 14:26 EST (TASK-054, 056, 057, 058 authorized; TASK-055 after TASK-054).
 > **Backlog ID:** FL-005 / FL-016 / FL-022 (TASK-053..TASK-059). **Delivery state:** specifying.
 > **Approved spec revision/date:** decisions D1..D6 below, owner, November 1. **Integration version:** pending.
 > **Zero-Question Score:** 0 unowned; open items listed in "Open Scope Tensions".
@@ -56,6 +56,12 @@ Labels and tags are hints for stages 2 and 4, never a precondition and never evi
   marked "unlocated, assumed", no CRS or datum, excluded from any georeferenced calculation (cross-well distance,
   terrain/formation alignment, closest approach), replaced as soon as a sourced location exists. This is the unlocated
   representation required by the project rules, not an invented well position.
+- **D7 [Validated, 2026-11-01 14:26]** The owner approved this spec. Total live-model spend for developing and testing
+  everything in this spec is capped at **USD 5** (aggregate across all lanes and runs, including retries; minimize it).
+  Default tests use the stub provider and never spend. Any live run needs an explicit orchestrator authorization with a
+  per-run cap and is recorded in the budget ledger; the pre-run estimate must fit the remaining USD 5 less recorded spend.
+- **D8 [Validated, 2026-11-01 14:26]** OCR is out of the first implementation. The OCR-versus-model comparison from D2 is
+  a separate benchmark task (TASK-060); stage 2 is model-only until it proves OCR cheaper and faster.
 - **D6 [Validated]** Sources that name the same entity differently are reconciled by an AI refinement step (stage 4)
   whose proposals the user reviews. Hard guards stay deterministic (well and wellbore are distinct; no merge across
   different wellbore designators without source support); nothing merges silently.
@@ -91,8 +97,8 @@ Labels and tags are hints for stages 2 and 4, never a precondition and never evi
   fails, stage 2 is model-only.
 - PDF-versus-text duplicate sources (for example the Compass PDF and its text export) have no precedence mechanism yet
   (TASK-059).
-- Per-project budget cap for stage 2 and 4: proposed as the remaining Meta development budget shown in the estimate
-  `[Assumed: verify]`; no per-project number was set.
+- Budget: settled by D7 (USD 5 total for development testing).
+- OCR: settled by D8 (deferred to TASK-060).
 
 ## 7. Failure conditions
 
