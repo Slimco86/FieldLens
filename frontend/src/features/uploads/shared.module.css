@@ -110,3 +110,32 @@
 .colSha { width: 11%; }
 .colLabels { width: 18%; }
 .colActions { width: 9%; }
+/* Source revisions table: fixed columns with sensible minimums; headers never break inside a word. */
+.revisionsTable {
+  min-width: calc(var(--fl-layout-table-min) * 1.5);
+}
+.revisionsTable thead th {
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+.revisionsTable td {
+  overflow-wrap: normal;
+}
+.colRevision { width: 9%; }
+.colRevStatus { width: 13%; }
+.colCreated { width: 9%; }
+.colCount { width: 5%; }
+.colCountWide { width: 7%; }
+.colJob { width: 12%; }
+.colParent { width: 7%; }
+.colManifest { width: 8%; }
+.colView { width: 11%; }
+.wrapButton {
+  height: auto;
+  padding-block: var(--fl-space-xs);
+}
+.wrapButtonLabel {
+  white-space: normal;
+  text-align: left;
+}

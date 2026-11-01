@@ -152,22 +152,22 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
           // Scrollable region must be keyboard focusable so keyboard users can scroll it.
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           <div role="region" aria-label="Source revisions table" tabIndex={0} className={styles.scroll}>
-            <Table captionSide="top">
+            <Table captionSide="top" layout="fixed" className={styles.revisionsTable}>
               <Table.Caption className={styles.caption}>Source revisions, newest first</Table.Caption>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th scope="col">Revision</Table.Th>
-                  <Table.Th scope="col">Status</Table.Th>
-                  <Table.Th scope="col">Created</Table.Th>
-                  <Table.Th scope="col" className={styles.num}>Files</Table.Th>
-                  <Table.Th scope="col" className={styles.num}>Stored</Table.Th>
-                  <Table.Th scope="col" className={styles.num}>Quarantined</Table.Th>
-                  <Table.Th scope="col" className={styles.num}>Pending extraction</Table.Th>
-                  <Table.Th scope="col" className={styles.num}>Unsupported</Table.Th>
-                  <Table.Th scope="col">Job</Table.Th>
-                  <Table.Th scope="col">Parent revision</Table.Th>
-                  <Table.Th scope="col">Manifest hash</Table.Th>
-                  <Table.Th scope="col">Files view</Table.Th>
+                  <Table.Th scope="col" className={styles.colRevision}>Revision</Table.Th>
+                  <Table.Th scope="col" className={styles.colRevStatus}>Status</Table.Th>
+                  <Table.Th scope="col" className={styles.colCreated}>Created</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCount}`}>Files</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCount}`}>Stored</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Quarantined</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Pending extraction</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Unsupported</Table.Th>
+                  <Table.Th scope="col" className={styles.colJob}>Job</Table.Th>
+                  <Table.Th scope="col" className={styles.colParent}>Parent revision</Table.Th>
+                  <Table.Th scope="col" className={styles.colManifest}>Manifest hash</Table.Th>
+                  <Table.Th scope="col" className={styles.colView}>Files view</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -210,6 +210,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
                     <Table.Td>
                       <Button
                         size="compact-sm"
+                        classNames={{ root: styles.wrapButton, label: styles.wrapButtonLabel }}
                         variant={selected?.source_revision_id === r.source_revision_id ? "light" : "default"}
                         aria-pressed={selected?.source_revision_id === r.source_revision_id}
                         onClick={() => setPicked(r.source_revision_id)}

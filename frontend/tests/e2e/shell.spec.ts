@@ -429,8 +429,12 @@ test("D2: a 240-character file name keeps the Files table, selection list and in
 
   // The full name is reachable from the keyboard: a button with the full value and a tooltip.
   const nameButton = row.getByRole("button", { name: `Copy file name: ${longName}` });
+  // Even while the mouse rests on another truncated name, the focused button shows its own tooltip.
+  await table.getByRole("button", { name: "Copy file name: short.csv" }).hover();
   await nameButton.focus();
+  await expect(page.getByRole("tooltip")).toHaveCount(1);
   await expect(page.getByRole("tooltip")).toContainText(longName);
+  await page.mouse.move(0, 0);
 
   // Inspection and editor panels stay inside the table width too.
   await page.getByRole("button", { name: `Inspect extraction for ${longName}` }).click();
@@ -464,3 +468,72 @@ test("D5: an unknown tab in the address is normalized to Sources", async ({ page
   );
   await expect(page).toHaveURL(new RegExp(`#/projects/${id}/sources$`));
 });
+
+for (const size of [
+  { width: 1920, height: 1080 },
+  { width: 2560, height: 1440 },
+]) {
+  test(`R1: revisions, files, job and inspection tables are not squeezed at ${size.width}x${size.height}`, async ({ page }) => {
+    test.setTimeout(120_000);
+    await blockExternal(page);
+    await page.setViewportSize(size);
+    const id = await apiProject(page, unique(`Squeeze ${size.width}`), "table geometry");
+    await page.goto(`/#/projects/${id}/sources`);
+    await page.getByLabel("Choose files").setInputFiles([
+      { name: "synthetic.las", mimeType: "text/plain", buffer: Buffer.from(LAS) },
+      { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Field notes\nNothing structured.\n") },
+    ]);
+    await page.getByRole("button", { name: "Upload 2 file(s)" }).click();
+    await expect(page.getByText("Ready (files stored; not extracted)")).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: /Inspect extraction for synthetic\.las/ }).click();
+    await expect(page.getByText(/las_2_0 v/).first()).toBeVisible({ timeout: 60_000 });
+
+    const revisions = page.getByRole("region", { name: "Source revisions table" }).locator("table");
+    const metrics = await revisions.evaluate((table) => {
+      const h = (el: Element) => Math.round(el.getBoundingClientRect().height);
+      const w = (el: Element) => Math.round(el.getBoundingClientRect().width);
+      const headers = [...table.querySelectorAll("thead th")];
+      const body = table.querySelector("tbody tr");
+      const cells = body ? [...body.children] : [];
+      return {
+        headers: headers.map((el) => ({ text: el.textContent ?? "", h: h(el), w: w(el), sw: (el as HTMLElement).scrollWidth })),
+        cells: cells.map((el) => ({ h: h(el), w: w(el) })),
+        chips: [...table.querySelectorAll("[data-tone]")].map((el) => h(el)),
+        rowH: body ? h(body) : 0,
+        tableW: w(table),
+      };
+    });
+    for (const header of metrics.headers) {
+      expect(header.h, `header "${header.text}" is not broken mid-word`).toBeLessThanOrEqual(60);
+      expect(header.sw, `header "${header.text}" fits its column`).toBeLessThanOrEqual(header.w + 1);
+    }
+    expect(metrics.headers.map((x) => x.text)).toContain("Quarantined");
+    for (const chip of metrics.chips) expect(chip, "status chip height bounded").toBeLessThanOrEqual(64);
+    expect(metrics.rowH, "revision row height (Created, status, parent cells) bounded").toBeLessThanOrEqual(96);
+    const minimums = [["Files", 36], ["Stored", 36], ["Quarantined", 70], ["Status", 150], ["Created", 120]] as const;
+    for (const [name, min] of minimums) {
+      const header = metrics.headers.find((x) => x.text.startsWith(name));
+      expect(header?.w, `${name} column width`).toBeGreaterThanOrEqual(min);
+    }
+    expect(metrics.tableW).toBeLessThanOrEqual(size.width);
+
+    // Every other table, definition list and chip in Sources (files table, job panel, inspection).
+    const others = await page.getByRole("main").evaluate((main) => {
+      const h = (el: Element) => Math.round(el.getBoundingClientRect().height);
+      return {
+        dt: [...main.querySelectorAll("dt")].map((el) => ({ t: el.textContent ?? "", h: h(el) })),
+        th: [...main.querySelectorAll("th")].map((el) => ({ t: el.textContent ?? "", h: h(el) })),
+        chips: [...main.querySelectorAll("[data-tone]")].map((el) => ({ t: el.textContent ?? "", h: h(el) })),
+        // the full-width expansion row (inspection/editor) is legitimately tall; data rows are not
+        rows: [...main.querySelectorAll("tbody tr")].filter((el) => !el.querySelector("td[colspan]")).map((el) => h(el)),
+      };
+    });
+    expect(others.dt.length).toBeGreaterThan(5);
+    for (const d of others.dt) expect(d.h, `term "${d.t}"`).toBeLessThanOrEqual(40);
+    for (const t of others.th) expect(t.h, `header/row header "${t.t.slice(0, 20)}"`).toBeLessThanOrEqual(90);
+    for (const c of others.chips) expect(c.h, `chip "${c.t.slice(0, 25)}"`).toBeLessThanOrEqual(64);
+    for (const r of others.rows) expect(r, "table data row height").toBeLessThanOrEqual(160);
+    await noPageOverflow(page);
+    await page.screenshot({ path: `${SHOTS}/revisions-table-${size.width}x${size.height}.png`, fullPage: true });
+  });
+}
