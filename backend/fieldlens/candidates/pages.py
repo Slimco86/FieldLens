@@ -179,7 +179,9 @@ class PageRenderer:
     ) -> None:
         self._store = store
         self.long_side = clamp_long_side(long_side)
-        self._cache: OrderedDict[tuple[str, int, int, int | None, bool], RenderedPage] = OrderedDict()
+        self._cache: OrderedDict[tuple[str, int, int, int | None, bool], RenderedPage] = (
+            OrderedDict()
+        )
         self._cache_bytes = cache_bytes
         self._cached_total = 0
         self._cache_lock = threading.Lock()
