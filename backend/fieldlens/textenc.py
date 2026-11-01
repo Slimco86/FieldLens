@@ -27,6 +27,8 @@ _ASCII_CONTROLS = frozenset(
 )
 _CP1252_UNDEFINED = frozenset((0x81, 0x8D, 0x8F, 0x90, 0x9D))
 _BAD_8BIT = _ASCII_CONTROLS | _CP1252_UNDEFINED
+_ASCII_CONTROL_BYTES = bytes(sorted(_ASCII_CONTROLS))
+_BAD_8BIT_BYTES = bytes(sorted(_BAD_8BIT))
 _NUL_PATTERN_SHARE = 0.3
 MAX_HIGH_SHARE = 0.25
 SCAN_CHUNK = 1024 * 1024
@@ -98,7 +100,7 @@ def refine_encoding(path: Path, encoding: str | None) -> str | None:
     if encoding not in ("utf-8", "utf-8-sig"):
         return encoding
     decoder = codecs.getincrementaldecoder("utf-8")()  # carries cut multibyte sequences
-    total = bad = high = 0
+    total = bad = ctrl = nul = high = 0
     valid = True
     with path.open("rb") as handle:
         while chunk := handle.read(SCAN_CHUNK):
@@ -108,11 +110,15 @@ def refine_encoding(path: Path, encoding: str | None) -> str | None:
                     decoder.decode(chunk, final=False)
                 except UnicodeDecodeError:
                     valid = False
-            if chunk.isascii():
-                bad += sum(1 for b in chunk if b in _ASCII_CONTROLS)
-            else:
-                bad += sum(1 for b in chunk if b in _BAD_8BIT)
+            nul += chunk.count(0)
+            ctrl += len(chunk) - len(chunk.translate(None, _ASCII_CONTROL_BYTES))
+            bad += len(chunk) - len(chunk.translate(None, _BAD_8BIT_BYTES))
+            if not chunk.isascii():
                 high += sum(1 for b in chunk if b >= 0x80)
+    if nul:
+        return None  # NUL bytes anywhere: not text (UTF-16 never reaches this check)
+    if valid and total and ctrl / total > MAX_CONTROL_SHARE:
+        return None
     if valid:
         try:
             decoder.decode(b"", final=True)

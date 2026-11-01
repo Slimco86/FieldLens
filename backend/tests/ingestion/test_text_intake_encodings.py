@@ -47,6 +47,34 @@ def test_late_non_utf8_byte_is_cp1252(tmp_path: Path) -> None:
     assert sniff_path(binary) is None
 
 
+def test_late_nuls_and_controls_are_refused(tmp_path: Path) -> None:
+    clean = b"MD 1000.0\n" * 7000  # > 64 KiB of clean text before the tail
+    late_utf8 = tmp_path / "late_nul_utf8.dat"
+    late_utf8.write_bytes(clean + b"\x00" * 50000)
+    assert sniff_path(late_utf8) is None
+    late_cp = tmp_path / "late_nul_cp.dat"
+    late_cp.write_bytes(clean + b"deg \xb0\n" + b"\x00" * 50000)
+    assert sniff_path(late_cp) is None
+    one_nul = tmp_path / "one_nul.dat"
+    one_nul.write_bytes(clean + b"\x00" + clean)
+    assert sniff_path(one_nul) is None
+    ctrl = tmp_path / "late_ctrl.dat"
+    ctrl.write_bytes(clean + b"\x01\x02" * 20000)
+    assert sniff_path(ctrl) is None
+    stray = tmp_path / "stray.dat"  # a few stray controls stay accepted
+    stray.write_bytes(clean + b"\x01\x02\x1a" + clean)
+    assert sniff_path(stray) == "utf-8"
+
+
+def test_utf16_with_nuls_is_still_accepted(tmp_path: Path) -> None:
+    bom = tmp_path / "bom16.dat"
+    bom.write_bytes(b"\xff\xfe" + ("MD 1000.0\n" * 9000).encode("utf-16-le"))
+    assert sniff_path(bom) == "utf-16"
+    bomless = tmp_path / "nobom16.dat"
+    bomless.write_bytes(("MD 1000.0\n" * 9000).encode("utf-16-le"))
+    assert sniff_path(bomless) == "utf-16-le"
+
+
 def test_bomless_utf16_cjk_is_refused() -> None:
     for codec in ("utf-16-le", "utf-16-be"):
         assert detect_encoding("\u6df1\u5ea6\u6d4b\u91cf".encode(codec) * 20) is None
