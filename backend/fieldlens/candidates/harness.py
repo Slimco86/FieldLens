@@ -487,6 +487,13 @@ class ExtractionHarness:
                 if req.rotation is not None:
                     image_args["rotation"] = req.rotation
                 image = self._run_tool(toolbox, handle, key, "get_page_image", image_args)
+                if image.image is None:
+                    # a visual-level read never goes to the model without its image
+                    raise _Stop(
+                        "failed",
+                        "image_unavailable",
+                        f"page image refused: {image.reason or image.outcome}"[:200],
+                    )
                 if image.image is not None:
                     parts.append(ImagePart.from_bytes(image.image.media_type, image.image.data))
         elif doc.kind == "text" and req.line_range is not None:

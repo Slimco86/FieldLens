@@ -1,21 +1,42 @@
 """EQ-11 live runbook: equipment candidates on the approved F-14/F-5 pages (opt-in, spends credit).
 
-NOT run by the TASK-041 implementer. The owner authorizes a run separately; it needs ALL of:
+NOT run by the TASK-041 implementer. Three steps; only the last one spends credit.
 
-    FIELDLENS_LIVE_META=1 uv run python scripts/run_equipment_live.py \
-        --allow-live --spend-cap-usd 1.00 --project-id <uuid> \
-        --document <document_uuid>:15/9-F-14 --document <document_uuid>:15/9-F-5 \
-        [--include-controls] [--report docs/evidence/TASK041_EQUIPMENT_LIVE_RUN.md]
+1. Put the two PDFs into a throwaway LANE project (read-only local files, nothing leaves the
+   machine; no provider is constructed; the lane database must already be migrated):
 
-Refuses to run unless ``--allow-live``, a positive ``--spend-cap-usd`` and ``FIELDLENS_LIVE_META=1``
-are all present. The provider key is read only through the existing adapter configuration
-(``Settings`` -> ``MetaProvider``); it is never printed, logged or written. The run uses the
-existing budget ledger (a new period capped at the given amount), the harness limits (effort
-``low``, page concurrency 3) and records per-page latency, tokens and cost. Each ``--document`` must
-be a document of the project whose content hash matches a configured page plan (nothing else is
-sent). The comparison against ``scripts/spikes/spike042_gold.py`` is against an AGENT-READ reference
-that is NOT human verified; model-read results are never described as verified. The report is
-written only after a run, never by a refused run or by ``--dry-run``.
+       uv run python scripts/run_equipment_live.py --bootstrap-project "task-041 live" \
+           --pdf <root>/Well_logs_pr_WELL/15_9-F-14/14.DIV.REPORTS/FWR_Completion_F14.pdf \
+           --pdf <root>/Well_logs_pr_WELL/15_9-F-5/14.DIV.REPORTS/COMPLETION_REPORT_1.PDF
+
+   It runs the application in-process against the configured lane database and storage, uploads,
+   drives the ingestion jobs, and prints the project id plus one ``--document`` line per document
+   (the well label after the colon is YOUR statement of which well the file is about).
+
+2. Dry run (the default whenever ``--allow-live`` is absent; no provider, no network). It prints the
+   exact plan: documents by content hash, pages, rotations, effort, concurrency, image size, the
+   number of provider calls and the worst-case reservation total at the placeholder rates versus
+   the cap, and refuses when the worst case exceeds the cap:
+
+       uv run python scripts/run_equipment_live.py --project-id <uuid> --spend-cap-usd 3 \
+           --document <doc_uuid>:15/9-F-14 --document <doc_uuid>:15/9-F-5 [--include-controls]
+
+3. The live run needs ALL of ``--allow-live``, a positive ``--spend-cap-usd`` and the owner's
+   ``FIELDLENS_LIVE_META=1``. The provider key reaches the process ONLY through the environment as
+   ``MODEL_API_KEY``, injected by the owner/orchestrator at invocation, e.g.
+
+       MODEL_API_KEY=... FIELDLENS_LIVE_META=1 uv run python scripts/run_equipment_live.py \
+           --allow-live --spend-cap-usd 3 --project-id <uuid> --document ... [--report PATH]
+
+   It is read only through the existing adapter configuration (``Settings`` -> ``MetaProvider``) and
+   is never printed, logged or written. The budget period is named after the cap
+   (``task-041-live-cap-<cap>``) and the run refuses if a period of that name has another cap; the
+   report states the cap actually enforced. Harness limits: effort ``low``, page concurrency 3,
+   image 1600 px. Each ``--document`` must be a document of the project whose content hash matches
+   a configured page plan (nothing else is sent). The comparison against
+   ``scripts/spikes/spike042_gold.py`` is against an AGENT-READ reference that is NOT human
+   verified; model-read results are never described as verified. The report is written only after
+   a live run, never by a refused run or a dry run.
 """
 
 from __future__ import annotations
@@ -29,7 +50,7 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -62,7 +83,10 @@ from fieldlens.persistence import models as m  # noqa: E402
 from fieldlens.persistence.session import create_session_factory  # noqa: E402
 
 OPT_IN_VAR = "FIELDLENS_LIVE_META"
-PERIOD = "task-041-live"
+PERIOD_PREFIX = "task-041-live-cap-"
+PAGE_RESERVE_USD = Decimal("0.25")  # per page unit, the harness default
+LONG_SIDE = 1600
+CONCURRENCY = 3
 MAX_CAP_USD = Decimal("25")
 RATES = (Decimal("5.00"), Decimal("25.00"))  # conservative placeholder, not provider rates
 PRICING_REVISION = "mi6-conservative-placeholder-1"
@@ -85,11 +109,23 @@ def category_of(group: str) -> str:
     return CATEGORY_OF_GROUP.get(group, "completion_accessory")
 
 
+class RunbookRefusal(Exception):
+    """A clean refusal (printed, exit 2); never a stack trace."""
+
+
+def _decimal(value: str) -> Decimal:
+    try:
+        return Decimal(value)
+    except InvalidOperation:
+        raise argparse.ArgumentTypeError(f"not a number: {value[:20]!r}") from None
+
+
 def refusal(args: argparse.Namespace, env: dict[str, str]) -> str | None:
-    """Why the run must not start (None when every explicit gate is present)."""
+    """Why a LIVE run must not start (None when every explicit gate is present)."""
     if not args.allow_live:
         return "refusing: --allow-live is required (this run spends credit)"
-    if args.spend_cap_usd is None or args.spend_cap_usd <= 0:
+    cap = args.spend_cap_usd
+    if cap is None or not cap.is_finite() or cap <= 0:
         return "refusing: --spend-cap-usd must be a positive amount"
     if args.spend_cap_usd > MAX_CAP_USD:
         return f"refusing: --spend-cap-usd above the runbook bound of {MAX_CAP_USD}"
@@ -277,14 +313,22 @@ def run(
     effort: str = "low",
     plans: tuple[PagePlan, ...] = DEFAULT_PLANS,
 ) -> tuple[str, list[PageRecord], list[dict[str, Any]]]:
+    if not cap.is_finite() or cap <= 0:
+        raise RunbookRefusal("the cap must be a positive amount")
     ledger = BudgetLedger(factory)
     period = ledger.ensure_period(
-        PERIOD, ledger_cap_usd=cap, warn_usd=cap, unattended_block_usd=cap
+        f"{PERIOD_PREFIX}{cap.normalize():f}",
+        ledger_cap_usd=cap,
+        warn_usd=cap,
+        unattended_block_usd=cap,
     )
     try:
         ledger.confirm_balance(period, cap, "TASK-041 owner allowance (runbook argument)")
     except ReservationStateError:
         pass  # already confirmed on an earlier run of this period
+    enforced = ledger.status(period).cap_usd
+    if enforced != cap:  # an old period of this name keeps its old cap: never silently reuse it
+        raise RunbookRefusal(f"budget period cap is USD {enforced}, not the requested USD {cap}")
     pricing = Pricing(PRICING_REVISION, model, RATES[0], RATES[1])
     pricing_id = ledger.register_pricing(pricing, "MI-6 conservative placeholder, not rates")
     reader = SourceReader(factory, store, PageRenderer(store))
@@ -300,6 +344,9 @@ def run(
             period_id=period,
             limits=RequestLimits(retry_backoff_s=2.0),
             effort="low",
+            page_reserve_usd=PAGE_RESERVE_USD,
+            long_side=LONG_SIDE,
+            read_concurrency=CONCURRENCY,
         ),
     )
     extractor = EquipmentExtractor(harness, plans=plans)
@@ -350,7 +397,7 @@ def run(
     report = render_report(
         records,
         comparisons,
-        cap=cap,
+        cap=status.cap_usd,
         committed=status.committed_usd,
         model=model,
         effort=effort,
@@ -364,12 +411,167 @@ def run(
     return report, records, comparisons
 
 
+@dataclass
+class PlanEntry:
+    document_id: UUID
+    filename: str | None
+    sha256: str | None
+    plan_label: str | None
+    pages: list[int]
+    rotations: dict[int, int]
+    note: str
+
+
+@dataclass
+class Plan:
+    entries: list[PlanEntry]
+    pages: int
+    provider_calls_expected: int
+    provider_calls_max: int
+    worst_case_usd: Decimal
+    cap: Decimal | None
+    text: str
+
+    @property
+    def over_cap(self) -> bool:
+        return self.cap is not None and self.worst_case_usd > self.cap
+
+
+def build_plan(
+    factory: sessionmaker[Session],
+    project_id: UUID,
+    revision_id: UUID | None,
+    documents: list[tuple[UUID, str]],
+    *,
+    include_controls: bool,
+    cap: Decimal | None,
+    plans: tuple[PagePlan, ...] = DEFAULT_PLANS,
+    effort: str = "low",
+) -> Plan:
+    """The exact plan, from the database and the page plans only (no provider, no network)."""
+    limits = RequestLimits()
+    entries: list[PlanEntry] = []
+    with factory() as s:
+        rev = (
+            revision_id
+            or s.execute(
+                select(m.project.c.latest_source_revision_id).where(
+                    m.project.c.project_id == project_id
+                )
+            ).scalar_one()
+        )
+        for document_id, label in documents:
+            row = s.execute(
+                select(m.source_document.c.sha256, m.source_document.c.original_filename)
+                .join(
+                    m.source_revision_document,
+                    (m.source_revision_document.c.project_id == m.source_document.c.project_id)
+                    & (m.source_revision_document.c.document_id == m.source_document.c.document_id),
+                )
+                .where(
+                    m.source_document.c.project_id == project_id,
+                    m.source_document.c.document_id == document_id,
+                    m.source_revision_document.c.source_revision_id == rev,
+                )
+            ).first()
+            if row is None:
+                entries.append(PlanEntry(document_id, None, None, None, [], {}, "not in project"))
+                continue
+            match = next((p for p in plans if p.sha256 == row.sha256), None)
+            if match is None or not (match.pages or include_controls and match.controls):
+                entries.append(
+                    PlanEntry(
+                        document_id,
+                        row.original_filename,
+                        row.sha256,
+                        None,
+                        [],
+                        {},
+                        "no configured page plan: skipped, nothing is sent",
+                    )
+                )
+                continue
+            pages = list(
+                dict.fromkeys([*match.pages, *(match.controls if include_controls else ())])
+            )
+            entries.append(
+                PlanEntry(
+                    document_id,
+                    row.original_filename,
+                    row.sha256,
+                    match.label,
+                    pages,
+                    {p: r for p, r in match.rotations if p in pages},
+                    f"subject label given by the caller: {label or '(none)'}",
+                )
+            )
+    total = sum(len(e.pages) for e in entries)
+    worst = PAGE_RESERVE_USD * total
+    lines = [
+        f"DRY RUN plan (no provider constructed, no network). effort={effort} "
+        f"concurrency={CONCURRENCY} image_long_side={LONG_SIDE}px",
+    ]
+    for e in entries:
+        lines.append(
+            f"- document {e.document_id} file={e.filename} sha256={e.sha256} plan={e.plan_label} "
+            f"pages={e.pages} rotations={e.rotations or '{}'} ({e.note})"
+        )
+    lines += [
+        f"pages: {total}; provider calls: {total} expected (1 per page; up to "
+        f"{limits.max_attempts} attempts and {limits.max_tool_calls} tool calls each, hard max "
+        f"{total * limits.max_attempts})",
+        f"worst-case reservation total: {total} x USD {PAGE_RESERVE_USD} = USD {worst} "
+        f"at placeholder rates {RATES[0]}/{RATES[1]} USD per Mtok (not provider rates)",
+        f"cap: {('USD ' + str(cap)) if cap is not None else 'none given'}"
+        + (
+            " -> EXCEEDS THE CAP, refusing"
+            if cap is not None and worst > cap
+            else " -> within the cap"
+        ),
+    ]
+    return Plan(entries, total, total, total * limits.max_attempts, worst, cap, "\n".join(lines))
+
+
+def bootstrap_project(
+    client: Any, headers: dict[str, str], worker: Any, name: str, pdfs: list[Path]
+) -> tuple[str, str, dict[str, str]]:
+    """Create a project, upload local PDFs (read-only), drive the ingestion jobs to idle.
+    Returns (project_id, revision_id, {document_id: filename}). No provider is involved."""
+    created = client.post("/api/v1/projects", json={"name": name}, headers=headers)
+    created.raise_for_status()
+    pid = str(created.json()["project_id"])
+    import json as _json
+
+    meta: dict[str, Any] = {"expected_parent_source_revision_id": None, "files": [{} for _ in pdfs]}
+    parts: list[Any] = [("metadata", (None, _json.dumps(meta).encode(), "application/json"))]
+    parts += [("files", (p.name, p.read_bytes(), "application/pdf")) for p in pdfs]
+    up = client.post(f"/api/v1/projects/{pid}/imports", files=parts, headers=headers)
+    up.raise_for_status()
+    for _ in range(3):
+        while worker.run_once():
+            pass
+        while worker.extraction.run_once():
+            pass
+    rev = client.get(f"/api/v1/projects/{pid}").json()["latest_source_revision_id"]
+    docs = client.get(f"/api/v1/projects/{pid}/documents?source_revision_id={rev}").json()["items"]
+    return pid, str(rev), {str(d["document_id"]): str(d["original_filename"]) for d in docs}
+
+
 def parse_documents(values: list[str]) -> list[tuple[UUID, str]]:
     out = []
     for value in values:
         ident, _, label = value.partition(":")
         out.append((UUID(ident), label.strip()))
     return out
+
+
+def _lane_engine(settings: Settings) -> Any:
+    if settings.database_url is None:
+        raise RunbookRefusal("no database configured")
+    engine = create_engine(settings.database_url.get_secret_value())
+    if (engine.url.database or "") in ("", "fieldlens_app"):
+        raise RunbookRefusal("this run must use a lane database, not the application database")
+    return engine
 
 
 def main(
@@ -379,43 +581,91 @@ def main(
 ) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--allow-live", action="store_true", help="explicit opt-in: spends credit")
-    ap.add_argument("--spend-cap-usd", type=Decimal, default=None)
-    ap.add_argument("--project-id", type=UUID, required=True)
+    ap.add_argument(
+        "--dry-run", action="store_true", help="plan only (default without --allow-live)"
+    )
+    ap.add_argument("--spend-cap-usd", type=_decimal, default=None)
+    ap.add_argument("--project-id", type=UUID, default=None)
     ap.add_argument("--revision-id", type=UUID, default=None)
     ap.add_argument("--document", action="append", default=[], help="<document uuid>:<well label>")
     ap.add_argument("--include-controls", action="store_true")
     ap.add_argument("--report", type=Path, default=DEFAULT_REPORT)
+    ap.add_argument("--bootstrap-project", default=None, metavar="NAME")
+    ap.add_argument("--pdf", action="append", default=[], type=Path)
     args = ap.parse_args(argv)
-    problem = refusal(args, dict(os.environ) if env is None else env)
-    if problem:
-        print(problem)
+    environ = dict(os.environ) if env is None else env
+    try:
+        if args.bootstrap_project:
+            return _bootstrap(args)
+        if args.project_id is None:
+            ap.error("--project-id is required")
+        dry = args.dry_run or not args.allow_live
+        cap = args.spend_cap_usd
+        if cap is not None and (not cap.is_finite() or cap <= 0):
+            raise RunbookRefusal("--spend-cap-usd must be a positive amount")
+        if not dry:
+            problem = refusal(args, environ)
+            if problem:
+                raise RunbookRefusal(problem.removeprefix("refusing: "))
+        settings = Settings()
+        if not dry and (
+            settings.meta_api_key is None or not settings.meta_api_key.get_secret_value().strip()
+        ):
+            raise RunbookRefusal("the provider key is not configured")
+        factory = create_session_factory(_lane_engine(settings))
+        plan = build_plan(
+            factory,
+            args.project_id,
+            args.revision_id,
+            parse_documents(args.document),
+            include_controls=args.include_controls,
+            cap=cap,
+        )
+        print(plan.text)
+        if plan.over_cap:
+            raise RunbookRefusal("the worst-case reservation total exceeds the cap")
+        if dry:
+            print("dry run only: nothing was sent and nothing was written")
+            return 0
+        provider = (provider_factory or MetaProvider)(settings)
+        assert cap is not None
+        report, records, _ = run(
+            factory=factory,
+            provider=provider,
+            store=BlobStore(settings.storage_root),
+            project_id=args.project_id,
+            documents=parse_documents(args.document),
+            cap=cap,
+            include_controls=args.include_controls,
+            model=settings.meta_model,
+            report_path=args.report,
+            revision_id=args.revision_id,
+        )
+        print(f"{len(records)} page(s) read; report written to {args.report}")
+        return 0
+    except RunbookRefusal as exc:
+        print(f"refusing: {exc}")
         return 2
+
+
+def _bootstrap(args: argparse.Namespace) -> int:
+    from fastapi.testclient import TestClient
+
+    from fieldlens.app import create_app
+
+    if not args.pdf:
+        raise RunbookRefusal("--bootstrap-project needs at least one --pdf")
     settings = Settings()
-    if settings.meta_api_key is None or not settings.meta_api_key.get_secret_value().strip():
-        print("refusing: the provider key is not configured")
-        return 2
-    if settings.database_url is None:
-        print("refusing: no database configured")
-        return 2
-    engine = create_engine(settings.database_url.get_secret_value())
-    if (engine.url.database or "") in ("", "fieldlens_app"):
-        print("refusing: this run must use a lane database, not the application database")
-        return 2
-    factory = create_session_factory(engine)
-    provider = (provider_factory or MetaProvider)(settings)
-    report, records, _ = run(
-        factory=factory,
-        provider=provider,
-        store=BlobStore(settings.storage_root),
-        project_id=args.project_id,
-        documents=parse_documents(args.document),
-        cap=args.spend_cap_usd,
-        include_controls=args.include_controls,
-        model=settings.meta_model,
-        report_path=args.report,
-        revision_id=args.revision_id,
+    _lane_engine(settings)  # refuses the application database
+    app = create_app(settings.model_copy(update={"job_worker_enabled": False}))
+    client = TestClient(app, base_url="http://127.0.0.1:8101")
+    token = client.get("/api/v1/session").json()["csrf_token"]
+    pid, rev, docs = bootstrap_project(
+        client, {"X-FieldLens-Token": token}, app.state.job_worker, args.bootstrap_project, args.pdf
     )
-    print(f"{len(records)} page(s) read; report written to {args.report}")
+    print(f"project {pid} revision {rev}")
+    for doc_id, name in docs.items():
+        print(f"--document {doc_id}:<well label>   # {name}")
     return 0
 
 

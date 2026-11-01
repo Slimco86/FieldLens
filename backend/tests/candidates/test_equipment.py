@@ -472,3 +472,25 @@ def test_equipment_rows_are_listed_with_filters(world: World) -> None:
     assert c.get(f"{base}?category=notacategory").status_code == 422
     unattached = ask("category=tubing")
     assert unattached[0]["wellbore_id"] is None
+
+
+@pytest.mark.parametrize(
+    ("rotation", "page"), [(45, 1), (-90, 1), (10**9, 1), (360, 1), (None, 99), (90, 99)]
+)
+def test_no_model_call_without_the_page_image(
+    world: World, rotation: int | None, page: int
+) -> None:
+    out, provider = run_equip(
+        world, [equip(world.scan_doc, 1)], doc=world.scan_doc, page=page, rotation=rotation
+    )
+    assert out.state == "failed" and out.stop_reason == "image_unavailable"
+    assert provider.calls == [] and out.provider_calls == 0
+    assert world.scalar("select count(*) from extraction_candidate") == 0
+    refused = [s for s in _steps(world) if s[0] == "get_page_image" and s[1] == "refused"]
+    assert refused  # the activity log records the refusal
+    # the reservation is settled at zero, never left open
+    assert world.scalar("select coalesce(sum(committed_usd), 0) from spend_reservation") == 0
+    assert world.scalar("select count(*) from spend_reservation where state = 'open'") == 0
+    # a good page still works
+    ok, p2 = run_equip(world, [equip(world.scan_doc, 1)], doc=world.scan_doc, question="good")
+    assert ok.state == "succeeded" and len(p2.calls) == 1

@@ -203,3 +203,37 @@ def test_stub_end_to_end_on_the_real_page_lists(
                 }
             )
         )
+
+
+def test_dry_run_plan_on_the_real_documents(
+    world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Bootstrap the two real PDFs into a throwaway project and print the runbook's dry-run plan
+    (no provider, no network, nothing written)."""
+    import importlib.util
+    import sys
+    from decimal import Decimal
+
+    script = Path(__file__).resolve().parents[3] / "scripts" / "run_equipment_live.py"
+    spec = importlib.util.spec_from_file_location("run_equipment_live_local", script)
+    assert spec and spec.loader
+    runbook = importlib.util.module_from_spec(spec)
+    sys.modules["run_equipment_live_local"] = runbook
+    spec.loader.exec_module(runbook)
+    pid, rev, docs = runbook.bootstrap_project(
+        world.api.client, world.api.headers, world.api.worker, "dry-run", [PV17, PV21]
+    )
+    by_name = {name: doc for doc, name in docs.items()}
+    from uuid import UUID
+
+    plan = runbook.build_plan(
+        world.factory,
+        UUID(pid),
+        UUID(rev),
+        [(UUID(by_name[PV17.name]), "15/9-F-14"), (UUID(by_name[PV21.name]), "15/9-F-5")],
+        include_controls=False,
+        cap=Decimal("3"),
+    )
+    assert plan.pages == 7 and plan.worst_case_usd == Decimal("1.75") and not plan.over_cap
+    with capsys.disabled():
+        print("\n" + plan.text)
