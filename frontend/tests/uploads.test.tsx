@@ -1,7 +1,8 @@
 // Component tests with a stubbed fetch and a fake XMLHttpRequest. They prove client behavior
 // (request shape, limits, error surfacing, status wording, polling cleanup). Storage, hashing and
 // restart behavior are proven by the backend tests and tests/e2e/uploads.spec.ts, not here.
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
+import { render } from "./render";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SourcesPanel } from "../src/features/uploads/SourcesPanel";
@@ -430,7 +431,9 @@ describe("source list", () => {
     expect(within(warnings).getByText(/Partial revision: 1 file\(s\) were quarantined.*displaced a previously good version/)).toBeInTheDocument();
     expect(within(warnings).getByText(new RegExp(`parent revision ${R1}`))).toBeInTheDocument();
     expect(screen.getByText("Partial: ready with issues")).toBeInTheDocument();
-    expect(await screen.findByText("Quarantined", { selector: "dd" })).toBeInTheDocument();
+    const files = within(await screen.findByRole("table", { name: "Files in this source revision" }));
+    const row = files.getByRole("row", { name: /wells\.csv/ });
+    expect(within(row).getByRole("cell", { name: "Quarantined" })).toBeInTheDocument();
     expect(screen.getByText(D2, { selector: "code" })).toBeInTheDocument();
     expect(screen.getByText("(superseded)", { exact: false })).toBeInTheDocument();
   });
@@ -466,7 +469,7 @@ describe("source list", () => {
     });
     const { unmount } = render(<SourcesPanel projectId={P} latestRevisionId={R1} onProjectChanged={vi.fn()} />);
     await screen.findByText(/An import is in progress/);
-    expect(screen.getByRole("button", { name: "Cancel import" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Cancel import" })).toBeInTheDocument();
     const polls = () => count(fetchFn, "/source-revisions");
     const first = polls();
     await act(async () => {
@@ -581,5 +584,87 @@ describe("classification edit", () => {
     await user.click(screen.getByRole("button", { name: "Save labels" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("At most 20 tags");
     expect(fetchFn.mock.calls.some(([, i]) => i?.method === "PATCH")).toBe(false);
+  });
+});
+
+describe("job panel wording (repair D3)", () => {
+  const withJob = (over: Record<string, unknown>) => {
+    install((url) => {
+      if (url.includes("/source-revisions")) return json(page(revision()));
+      if (url.includes("/documents?")) return json(page(document()));
+      if (url.includes(`/jobs/${J1}`)) return json(job(over));
+    });
+    panel(R1);
+  };
+
+  it("pluralizes the progress unit and labels the counts as job-completion values", async () => {
+    withJob({ progress: { processed: 4, total: 4, unit: "document" } });
+    expect(await screen.findByText("4 of 4 documents")).toBeInTheDocument();
+    expect(screen.getByText(/Result at job completion \(the table below is live and may be newer\)/)).toBeInTheDocument();
+  });
+
+  it("shows the stage of the last attempt when the job reports none, and omits the row when nothing names one", async () => {
+    withJob({
+      stage: null,
+      attempts: [{ attempt_no: 1, status: "succeeded", stage: "verify_blobs", fencing_token: 1, started_at: "2026-10-29T12:00:00Z", heartbeat_at: "2026-10-29T12:00:00Z", ended_at: "2026-10-29T12:00:01Z", error_code: null }],
+    });
+    expect(await screen.findByText("verify_blobs", { selector: "dd" })).toBeInTheDocument();
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.stubGlobal("XMLHttpRequest", FakeXhr);
+    withJob({ stage: null, attempts: [] });
+    await screen.findByText(/Storage verification job/);
+    expect(screen.queryByText("Stage")).not.toBeInTheDocument();
+  });
+});
+
+describe("upload failure wording (repair D4)", () => {
+  it("makes a proper sentence, names the only selected file and keeps the Request ID", async () => {
+    install(emptyHandler);
+    panel(null);
+    const user = userEvent.setup();
+    await screen.findByText(/no source files yet/i);
+    await selectAndSubmit(user, [csv()]);
+    act(() => lastXhr().respond(415, envelope("UNSUPPORTED_MEDIA_TYPE", "file signature is not a supported source format", { reason: "unsupported_signature" })));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("source format. The only selected file is “wells.csv”. Remove the refused file and try again.");
+    expect(alert).toHaveTextContent("Request ID: req-7");
+  });
+
+  it("says honestly that the server did not identify the file when several were selected", async () => {
+    install(emptyHandler);
+    panel(null);
+    const user = userEvent.setup();
+    await screen.findByText(/no source files yet/i);
+    await selectAndSubmit(user, [csv(), txt()]);
+    act(() => lastXhr().respond(415, envelope("UNSUPPORTED_MEDIA_TYPE", "unsafe filename", { reason: "bad_filename" })));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/does not say which of the selected files was refused/);
+  });
+
+  it("uses the file the server names when it names one", async () => {
+    install(emptyHandler);
+    panel(null);
+    const user = userEvent.setup();
+    await screen.findByText(/no source files yet/i);
+    await selectAndSubmit(user, [csv(), txt()]);
+    act(() => lastXhr().respond(415, envelope("UNSUPPORTED_MEDIA_TYPE", "empty file", { reason: "empty_file", filename: "notes.txt" })));
+    expect(await screen.findByRole("alert")).toHaveTextContent("The server named the file: “notes.txt”.");
+  });
+});
+
+describe("transient status (repair D5)", () => {
+  it("clears the import confirmation after it was shown", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    install(emptyHandler);
+    panel(null);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await screen.findByText(/no source files yet/i);
+    await selectAndSubmit(user, [csv()]);
+    act(() => lastXhr().respond(202, { source_revision_id: R1, job_id: J1, status: "staging", deduplicated: false, replayed: false, document_ids: [D1], created_document_ids: [D1] }));
+    expect(await screen.findByText(/Import accepted: 1 new file/)).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_500);
+    });
+    expect(screen.queryByText(/Import accepted: 1 new file/)).not.toBeInTheDocument();
   });
 });

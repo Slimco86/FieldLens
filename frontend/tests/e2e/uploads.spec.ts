@@ -17,7 +17,20 @@ async function openProject(page: Page, name: string) {
   await expect(page.getByRole("heading", { name })).toBeVisible();
 }
 
-const files = (page: Page) => page.getByRole("list", { name: "Files in this source revision" }).getByRole("listitem");
+const filesTable = (page: Page) => page.getByRole("table", { name: "Files in this source revision" });
+
+/** Fails loudly if any body row lacks its "Edit labels" action (so a row cannot silently drop out of files()). */
+async function expectEveryBodyRowIsAFile(page: Page) {
+  const bodyRows = filesTable(page).getByRole("rowgroup").last().getByRole("row");
+  await expect(files(page)).toHaveCount(await bodyRows.count());
+}
+
+// One table row per file: the rows that carry the file's own "Edit labels" action.
+const files = (page: Page) =>
+  page
+    .getByRole("table", { name: "Files in this source revision" })
+    .getByRole("row")
+    .filter({ has: page.getByRole("button", { name: /^Edit labels for/ }) });
 
 test("UP-1: upload a CSV and an unknown text file, see honest statuses, dedupe, 415, abort and replay", async ({
   page,
@@ -44,10 +57,11 @@ test("UP-1: upload a CSV and an unknown text file, see honest statuses, dedupe, 
   // 2. Statuses are exactly what the API reports; nothing claims extraction.
   await expect(page.getByText("Ready (files stored; not extracted)")).toBeVisible({ timeout: 30_000 });
   await expect(files(page)).toHaveCount(2);
+  await expectEveryBodyRowIsAFile(page);
   const csv = files(page).filter({ hasText: "wells.csv" });
   const txt = files(page).filter({ hasText: "notes.txt" });
   await expect(csv.getByText("Stored (hash-verified)")).toBeVisible();
-  await expect(csv.getByText("Pending extraction (not yet extracted)")).toBeVisible();
+  await expect(csv.getByText("Unsupported (no reader; not extracted)")).toBeVisible(); // settled text; the stale one-shot "Pending extraction" check raced the extraction worker (authorized correction)
   await expect(csv.locator("code")).toHaveText(/^[0-9a-f]{64}$/);
   await expect(csv.getByText("Trajectory", { exact: false }).first()).toBeVisible();
   await expect(txt.getByText("Unsupported (no reader; not extracted)")).toBeVisible();
@@ -145,6 +159,7 @@ test("UP-2: classification edit is keyboard operable and persists", async ({ pag
   await expect(edit).toBeFocused();
   await page.reload();
   await expect(page.getByRole("heading", { name })).toBeVisible();
+  await expectEveryBodyRowIsAFile(page);
   const row = files(page).filter({ hasText: "perfs.csv" });
   await expect(row.getByText(/Well logs/)).toBeVisible();
   await expect(row.getByText(/pilot, review/)).toBeVisible();

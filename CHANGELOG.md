@@ -8,6 +8,18 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.21.0 - 2026-11-01
+
+- **TASK-034 (FL-021-A):** Replaced the unstyled prototype with a designed application shell: Mantine light theme
+  (cobalt brand, self-hosted Inter, lucide icons) built from one token set with a style-scan and contrast checks, a left
+  sidebar for project list/create/edit/switch, URL-routed Sources / Reconstruction / Explore tabs with honest
+  prerequisites, the Explore region layout (tree, stage, inspector, dock), status/evidence chips with text and icon,
+  and redesigned Sources screens (upload dropzone, files table, job and revision panels, inspection and evidence
+  views) with truncated long names and IDs that stay keyboard-reachable and copyable. Evidence records re-read until
+  they match the report. No API change; no remove/replace/delete controls (their backend is not built). Initial JS
+  163 kB gzip, zero external requests, axe clean on the tested states. The one stale e2e assertion (UP-1) was updated
+  to the settled "Unsupported" state. Independent UI reviewer score 4/5; owner sign-off pending.
+
 ## 0.20.0 - 2026-11-01
 
 - **TASK-036 (FL-022-A):** Added model-proposed extraction candidates with deterministic validation (offline stub

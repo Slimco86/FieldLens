@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Table, Title } from "@mantine/core";
+import { Callout, Chip, EmptyState, ErrorState, LoadingState, StatusChip } from "../../design";
+import { TruncatedText, chipVocabulary } from "../../design";
+import { FileUp } from "lucide-react";
 import { DocumentList } from "./DocumentList";
 import { JobStatus, isJobActive, jobStatusLabel } from "./JobStatus";
 import { UploadForm } from "./UploadForm";
 import { listRevisions, type SourceRevisionPage, type SourceRevisionSummary } from "./api";
 import { formatTime } from "./format";
 import { usePolled } from "./usePolled";
+import styles from "./shared.module.css";
 
 const REVISION_STATUS_LABEL: Record<SourceRevisionSummary["status"], string> = {
   staging: "Staging (import in progress, not final)",
@@ -62,6 +67,15 @@ interface Props {
   onProjectChanged: () => void;
 }
 
+function RevisionStatus({ r }: { r: SourceRevisionSummary }) {
+  const cancelled = r.status === "failed" && r.job_status === "cancelled";
+  return cancelled ? (
+    <Chip spec={chipVocabulary.job.cancelled} label={revisionStatusLabel(r)} />
+  ) : (
+    <StatusChip kind="revision" value={r.status} label={revisionStatusLabel(r)} />
+  );
+}
+
 export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: Props) {
   const { state, reload } = usePolled<SourceRevisionPage>(
     `revisions/${projectId}`,
@@ -90,7 +104,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
   }, [onProjectChanged, reload]);
 
   return (
-    <div>
+    <div className={styles.stack}>
       <UploadForm
         projectId={projectId}
         expectedParentId={latestRevisionId}
@@ -100,99 +114,123 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
         }}
         onStale={stale}
       />
-      <section aria-labelledby={`sources-heading-${projectId}`}>
-        <h5 id={`sources-heading-${projectId}`}>Source revisions</h5>
-        <p>
+      <section aria-labelledby={`sources-heading-${projectId}`} className={styles.card}>
+        <div className={styles.cardHead}>
+          <Title order={5} id={`sources-heading-${projectId}`}>
+            Source revisions
+          </Title>
+        </div>
+        <p className={styles.note}>
           Statuses below are exactly what the API reports. “Stored” means the bytes were saved and hash-verified;
           nothing here has been extracted, parsed or engineering-validated.
         </p>
-        {state.kind === "loading" && <p role="status">Loading source revisions…</p>}
+        {state.kind === "loading" && <LoadingState label="Loading source revisions…" status />}
         {state.kind === "error" && (
-          <div role="alert">
-            <p>Source revisions could not be loaded: {state.error.message}</p>
-            {state.error.requestId !== null && <p>Request ID: {state.error.requestId}</p>}
-            <button type="button" onClick={reload}>
-              Retry loading source revisions
-            </button>
-          </div>
+          <ErrorState
+            message={`Source revisions could not be loaded: ${state.error.message}`}
+            requestId={state.error.requestId}
+            onRetry={reload}
+            retryLabel="Retry loading source revisions"
+          />
         )}
         {state.kind === "ready" && state.refreshError !== null && (
-          <p role="alert">Refreshing source revisions failed: {state.refreshError.message}</p>
+          <Callout tone="warning" role="alert">
+            <p>Refreshing source revisions failed: {state.refreshError.message}</p>
+          </Callout>
         )}
         {state.kind === "ready" && items.length === 0 && (
-          <p>This project has no source files yet. Use the form above to upload the first import.</p>
+          <EmptyState title="Nothing uploaded" icon={<FileUp size={28} />}>
+            <p>This project has no source files yet. Use the form above to upload the first import.</p>
+          </EmptyState>
         )}
         {state.kind === "ready" && items.some(isRevisionActive) && (
-          <p role="status">An import is in progress; this list refreshes automatically.</p>
+          <Callout tone="info" role="status">
+            <p>An import is in progress; this list refreshes automatically.</p>
+          </Callout>
         )}
         {items.length > 0 && (
           // Scrollable region must be keyboard focusable so keyboard users can scroll it.
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-          <div role="region" aria-label="Source revisions table" tabIndex={0} className="table-scroll">
-          <table>
-            <caption>Source revisions, newest first</caption>
-            <thead>
-              <tr>
-                <th scope="col">Revision</th>
-                <th scope="col">Status</th>
-                <th scope="col">Created</th>
-                <th scope="col">Files</th>
-                <th scope="col">Stored</th>
-                <th scope="col">Quarantined</th>
-                <th scope="col">Pending extraction</th>
-                <th scope="col">Unsupported</th>
-                <th scope="col">Job</th>
-                <th scope="col">Parent revision</th>
-                <th scope="col">Manifest hash</th>
-                <th scope="col">Files view</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((r) => (
-                <tr key={r.source_revision_id}>
-                  <th scope="row">
-                    <code>{r.source_revision_id}</code> {revisionMarker(r, items)}
-                  </th>
-                  <td>{revisionStatusLabel(r)}</td>
-                  <td>{formatTime(r.created_at)}</td>
-                  <td>{r.member_count}</td>
-                  <td>{r.stored_count}</td>
-                  <td>{r.quarantined_count}</td>
-                  <td>{r.pending_extraction_count}</td>
-                  <td>{r.unsupported_count}</td>
-                  <td>{r.job_status === null || r.job_status === undefined ? "No job" : jobStatusLabel(r.job_status)}</td>
-                  <td>
-                    {r.parent_source_revision_id === null || r.parent_source_revision_id === undefined ? (
-                      "None (first revision)"
-                    ) : (
-                      <code>{r.parent_source_revision_id}</code>
-                    )}
-                  </td>
-                  <td>
-                    <code>{r.manifest_hash}</code>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      aria-pressed={selected?.source_revision_id === r.source_revision_id}
-                      onClick={() => setPicked(r.source_revision_id)}
-                    >
-                      Show files of revision {r.source_revision_id.slice(0, 8)}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div role="region" aria-label="Source revisions table" tabIndex={0} className={styles.scroll}>
+            <Table captionSide="top" layout="fixed" className={styles.revisionsTable}>
+              <Table.Caption className={styles.caption}>Source revisions, newest first</Table.Caption>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th scope="col" className={styles.colRevision}>Revision</Table.Th>
+                  <Table.Th scope="col" className={styles.colRevStatus}>Status</Table.Th>
+                  <Table.Th scope="col" className={styles.colCreated}>Created</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCount}`}>Files</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCount}`}>Stored</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Quarantined</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Pending extraction</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Unsupported</Table.Th>
+                  <Table.Th scope="col" className={styles.colJob}>Job</Table.Th>
+                  <Table.Th scope="col" className={styles.colParent}>Parent revision</Table.Th>
+                  <Table.Th scope="col" className={styles.colManifest}>Manifest hash</Table.Th>
+                  <Table.Th scope="col" className={styles.colView}>Files view</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {items.map((r) => (
+                  <Table.Tr key={r.source_revision_id} className={selected?.source_revision_id === r.source_revision_id ? styles.selected : undefined}>
+                    <Table.Th scope="row">
+                      <TruncatedText value={r.source_revision_id} label="revision ID" maxCh={14}>
+                        <code>{r.source_revision_id}</code>
+                      </TruncatedText>{" "}
+                      {revisionMarker(r, items)}
+                    </Table.Th>
+                    <Table.Td><RevisionStatus r={r} /></Table.Td>
+                    <Table.Td>{formatTime(r.created_at)}</Table.Td>
+                    <Table.Td className={styles.num}>{r.member_count}</Table.Td>
+                    <Table.Td className={styles.num}>{r.stored_count}</Table.Td>
+                    <Table.Td className={styles.num}>{r.quarantined_count}</Table.Td>
+                    <Table.Td className={styles.num}>{r.pending_extraction_count}</Table.Td>
+                    <Table.Td className={styles.num}>{r.unsupported_count}</Table.Td>
+                    <Table.Td>
+                      {r.job_status === null || r.job_status === undefined ? (
+                        "No job"
+                      ) : (
+                        <StatusChip kind="job" value={r.job_status} label={jobStatusLabel(r.job_status)} />
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      {r.parent_source_revision_id === null || r.parent_source_revision_id === undefined ? (
+                        "None (first revision)"
+                      ) : (
+                        <TruncatedText value={r.parent_source_revision_id} label="parent revision ID" maxCh={14}>
+                          <code>{r.parent_source_revision_id}</code>
+                        </TruncatedText>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      <TruncatedText value={r.manifest_hash} label="manifest hash" maxCh={16}>
+                        <code>{r.manifest_hash}</code>
+                      </TruncatedText>
+                    </Table.Td>
+                    <Table.Td>
+                      <Button
+                        size="compact-sm"
+                        classNames={{ root: styles.wrapButton, label: styles.wrapButtonLabel }}
+                        variant={selected?.source_revision_id === r.source_revision_id ? "light" : "default"}
+                        aria-pressed={selected?.source_revision_id === r.source_revision_id}
+                        onClick={() => setPicked(r.source_revision_id)}
+                      >
+                        Show files of revision {r.source_revision_id.slice(0, 8)}
+                      </Button>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
           </div>
         )}
         {state.kind === "ready" && state.data.page.next_cursor !== null && state.data.page.next_cursor !== undefined && (
-          <p>Only the {items.length} newest revisions are shown.</p>
+          <p className={styles.note}>Only the {items.length} newest revisions are shown.</p>
         )}
         {items.some((r) => revisionWarnings(r).length > 0) && (
-          <div aria-label="Revision warnings" className="warnings">
-            <h6>Revision warnings</h6>
-            <ul>
+          <Callout tone="warning" label="Revision warnings">
+            <Title order={6}>Revision warnings</Title>
+            <ul className={styles.plainList}>
               {items.flatMap((r) =>
                 revisionWarnings(r).map((w) => (
                   <li key={`${r.source_revision_id}:${w}`}>
@@ -201,12 +239,14 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
                 )),
               )}
             </ul>
-          </div>
+          </Callout>
         )}
       </section>
       {selected !== null && (
-        <section aria-label={`Files of revision ${selected.source_revision_id}`}>
-          <h5>Files of revision {selected.source_revision_id.slice(0, 8)}</h5>
+        <section aria-label={`Files of revision ${selected.source_revision_id}`} className={styles.card}>
+          <div className={styles.cardHead}>
+            <Title order={5}>Files of revision {selected.source_revision_id.slice(0, 8)}</Title>
+          </div>
           {selected.job_id !== null && selected.job_id !== undefined && (
             <JobStatus projectId={projectId} jobId={selected.job_id} onChanged={reload} />
           )}

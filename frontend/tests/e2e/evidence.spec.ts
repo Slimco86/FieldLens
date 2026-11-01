@@ -58,7 +58,7 @@ test("TASK-009: evidence panel shows profile, status, records with locators, fin
   await expect(findings).toBeVisible();
   await expect(findings.getByText(/MISSING_UNIT|MISSING_REFERENCE/).first()).toBeVisible();
   const records = page.getByRole("list", { name: /Extracted records for synthetic\.las/ });
-  await expect(records).toBeVisible();
+  await expect(records).toBeVisible({ timeout: 30_000 }); // the records request follows the report
   await expect(records.getByText(/line \d+/).first()).toBeVisible();
   await expect(page.getByText(/completion string, packers and tubing are not extracted/)).toHaveCount(0);
 

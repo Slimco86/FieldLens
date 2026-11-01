@@ -1,0 +1,27 @@
+.button {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: copy;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  border-radius: var(--fl-radius-xs);
+}
+.button:hover {
+  background: var(--fl-color-surface-hover);
+}
+.mono {
+  font-family: var(--fl-font-mono);
+  font-size: var(--fl-font-size-sm);
+}
+.tip {
+  max-width: 40ch;
+  overflow-wrap: anywhere;
+}

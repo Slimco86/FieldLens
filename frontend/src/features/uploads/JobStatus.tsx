@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { Button, Title } from "@mantine/core";
+import { Callout, KeyValue, KeyValueList, LoadingState, StatusChip, TruncatedText } from "../../design";
 import { cancelJob, getJob, type Job } from "./api";
 import { formatTime } from "./format";
 import { usePolled } from "./usePolled";
+import styles from "./shared.module.css";
 import { toFailure, type Failure } from "../projects/scope";
 
 const ACTIVE: ReadonlySet<string> = new Set(["queued", "running"]);
@@ -23,6 +26,14 @@ interface Props {
   jobId: string;
   /** Called when this job's status changes so the revision list can refresh. */
   onChanged: () => void;
+}
+
+/** "4 of 4 documents": the unit is pluralized unless it already is (or the count is 1). */
+function progressText(processed: number, total: number | null | undefined, unit: string | null | undefined): string {
+  const count = total === null || total === undefined ? `${processed}` : `${processed} of ${total}`;
+  if (unit === null || unit === undefined || unit === "") return count;
+  const n = total ?? processed;
+  return `${count} ${n === 1 || unit.endsWith("s") ? unit : `${unit}s`}`;
 }
 
 export function JobStatus({ projectId, jobId, onChanged }: Props) {
@@ -65,49 +76,52 @@ export function JobStatus({ projectId, jobId, onChanged }: Props) {
     }
   }
 
-  if (state.kind === "loading") return <p role="status">Loading job status…</p>;
+  if (state.kind === "loading") return <LoadingState label="Loading job status…" status />;
   if (state.kind === "error") {
     return (
-      <p role="alert">
-        Job status could not be loaded: {state.error.message}
-        {state.error.requestId !== null && <> (Request ID: {state.error.requestId})</>}
-      </p>
+      <Callout tone="danger" role="alert">
+        <p>
+          Job status could not be loaded: {state.error.message}
+          {state.error.requestId !== null && <> (Request ID: {state.error.requestId})</>}
+        </p>
+      </Callout>
     );
   }
   const job = state.data;
   const active = isJobActive(job.status);
+  // The job's own stage while it runs; once finished, the stage of its last attempt. Otherwise omitted.
+  const lastAttempt = job.attempts[job.attempts.length - 1];
+  const stage = job.stage ?? lastAttempt?.stage ?? null;
   return (
-    <div className="job">
-      <h6>Storage verification job</h6>
-      <dl>
-        <dt>Job</dt>
-        <dd>{job.job_id}</dd>
-        <dt>Job status</dt>
-        <dd>
-          {jobStatusLabel(job.status)} ({job.status}){job.cancel_requested && " — cancellation requested"}
-        </dd>
-        <dt>Stage</dt>
-        <dd>{job.stage ?? "Not reported"}</dd>
-        <dt>Progress</dt>
-        <dd>
+    <div className={`${styles.stack} ${styles.job}`}>
+      <Title order={6}>Storage verification job</Title>
+      <KeyValueList compact>
+        <KeyValue term="Job">
+          <TruncatedText value={job.job_id} label="job ID" maxCh={20}>
+            <code>{job.job_id}</code>
+          </TruncatedText>
+        </KeyValue>
+        <KeyValue term="Job status">
+          <StatusChip kind="job" value={job.status} label={jobStatusLabel(job.status)} />{" "}
+          <span className={styles.muted}>({job.status})</span>
+          {job.cancel_requested && " — cancellation requested"}
+        </KeyValue>
+        {stage !== null && <KeyValue term="Stage">{stage}</KeyValue>}
+        <KeyValue term="Progress">
           {job.progress.processed === null || job.progress.processed === undefined
             ? "Not reported"
-            : `${job.progress.processed}${job.progress.total === null || job.progress.total === undefined ? "" : ` of ${job.progress.total}`} ${job.progress.unit ?? ""}`.trim()}
-        </dd>
-        <dt>Updated</dt>
-        <dd>{formatTime(job.updated_at)}</dd>
+            : progressText(job.progress.processed, job.progress.total, job.progress.unit)}
+        </KeyValue>
+        <KeyValue term="Updated">{formatTime(job.updated_at)}</KeyValue>
         {job.finished_at !== null && job.finished_at !== undefined && (
-          <>
-            <dt>Finished</dt>
-            <dd>{formatTime(job.finished_at)}</dd>
-          </>
+          <KeyValue term="Finished">{formatTime(job.finished_at)}</KeyValue>
         )}
-      </dl>
-      <h6>Attempts ({job.attempts.length}; a failed job is retried once automatically by the server)</h6>
+      </KeyValueList>
+      <Title order={6}>Attempts ({job.attempts.length}; a failed job is retried once automatically by the server)</Title>
       {job.attempts.length === 0 ? (
         <p>No attempt has started yet.</p>
       ) : (
-        <ol>
+        <ol className={styles.plainList}>
           {job.attempts.map((a) => (
             <li key={a.attempt_no}>
               Attempt {a.attempt_no}: {a.status}
@@ -120,27 +134,41 @@ export function JobStatus({ projectId, jobId, onChanged }: Props) {
         </ol>
       )}
       {job.error !== null && job.error !== undefined && (
-        <p role="alert">
-          Job error {job.error.code}: {job.error.message}
-        </p>
+        <Callout tone="danger" role="alert">
+          <p>
+            Job error {job.error.code}: {job.error.message}
+          </p>
+        </Callout>
       )}
       {job.result !== null && job.result !== undefined && (
         <p>
-          Result: {job.result.documents} file(s): {job.result.stored} stored, {job.result.quarantined} quarantined,{" "}
+          Result at job completion (the table below is live and may be newer): {job.result.documents} file(s): {job.result.stored} stored, {job.result.quarantined} quarantined,{" "}
           {job.result.pending_extraction} pending extraction, {job.result.unsupported} unsupported. Extraction performed:
           no (storage verification only).
         </p>
       )}
-      {state.refreshError !== null && <p role="alert">Refreshing job status failed: {state.refreshError.message}</p>}
-      {active && (
-        <p>
-          <button type="button" disabled={cancelling || job.cancel_requested} onClick={() => void onCancel()}>
-            Cancel import
-          </button>
-        </p>
+      {state.refreshError !== null && (
+        <Callout tone="warning" role="alert">
+          <p>Refreshing job status failed: {state.refreshError.message}</p>
+        </Callout>
       )}
-      {cancelNote !== null && <p role="status">{cancelNote}</p>}
-      {cancelError !== null && <p role="alert">Cancel failed: {cancelError.message}</p>}
+      {active && (
+        <div>
+          <Button variant="default" size="xs" disabled={cancelling || job.cancel_requested} onClick={() => void onCancel()}>
+            Cancel import
+          </Button>
+        </div>
+      )}
+      {cancelNote !== null && (
+        <Callout tone="info" role="status">
+          <p>{cancelNote}</p>
+        </Callout>
+      )}
+      {cancelError !== null && (
+        <Callout tone="danger" role="alert">
+          <p>Cancel failed: {cancelError.message}</p>
+        </Callout>
+      )}
     </div>
   );
 }

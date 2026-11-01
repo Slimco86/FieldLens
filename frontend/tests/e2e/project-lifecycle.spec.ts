@@ -17,6 +17,7 @@ test("PW-1: two empty projects persist across reload and a real API restart", as
   // Edit A, then verify that the stored value (not browser state) changed.
   await page.getByRole("button", { name: `Open project ${a}` }).click();
   await expect(page.getByRole("heading", { name: a })).toBeVisible();
+  await page.getByRole("button", { name: "Edit project details" }).click();
   const editedA = `${descA} (edited)`;
   await page.getByLabel("Description (optional)").fill(editedA);
   await page.getByRole("button", { name: "Save changes" }).click();
@@ -51,6 +52,7 @@ test("a restarted API refuses the old session token; retry succeeds and nothing 
   await page.goto("/");
   await createProject(page, name, "before");
   await page.getByRole("button", { name: `Open project ${name}` }).click();
+  await page.getByRole("button", { name: "Edit project details" }).click();
   await restartApi();
   await page.getByLabel("Description (optional)").fill("after");
   await page.getByRole("button", { name: "Save changes" }).click();
@@ -100,9 +102,11 @@ test("PW-8: switching during a delayed A response shows no A content or A action
   await page.waitForTimeout(300);
 
   await expect(page.getByRole("heading", { name: b })).toBeVisible();
+  await page.getByRole("button", { name: "Edit project details" }).click();
   await expect(page.getByLabel("Name")).toHaveValue(b);
   await expect(page.getByText(descA)).toHaveCount(0);
-  await expect(page.getByText(a)).toHaveCount(0);
+  // The sidebar lists every project by name; A must not appear anywhere in the project region.
+  await expect(page.getByRole("main").getByText(a)).toHaveCount(0);
   expect(await page.evaluate(`window.localStorage.getItem("fieldlens.selectedProjectId")`)).not.toBe(idA);
   await page.reload();
   await expect(page.getByRole("heading", { name: b })).toBeVisible();
@@ -123,6 +127,7 @@ test("PW-8: a delayed save acknowledgement for A is rejected after switching to 
   });
   await page.getByRole("button", { name: `Open project ${a}` }).click();
   await expect(page.getByRole("heading", { name: a })).toBeVisible();
+  await page.getByRole("button", { name: "Edit project details" }).click();
   await page.getByLabel("Description (optional)").fill("changed in A");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("button", { name: "Saving…" })).toBeVisible();
@@ -132,6 +137,7 @@ test("PW-8: a delayed save acknowledgement for A is rejected after switching to 
   release();
   await page.waitForTimeout(300);
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toHaveCount(0);
-  await expect(page.getByText(a)).toHaveCount(0);
+  await expect(page.getByRole("main").getByText(a)).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit project details" }).click(); // editor state was reset by the switch
   await expect(page.getByLabel("Name")).toHaveValue(b);
 });

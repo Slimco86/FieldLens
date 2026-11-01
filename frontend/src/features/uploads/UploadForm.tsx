@@ -1,5 +1,9 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Button, NativeSelect, Title } from "@mantine/core";
+import { Dropzone } from "@mantine/dropzone";
+import { CloudUpload, Upload, X } from "lucide-react";
 import { ApiError } from "../../api/client";
+import { Callout, TruncatedText } from "../../design";
 import {
   CATEGORIES,
   MAX_BATCH_BYTES,
@@ -14,6 +18,8 @@ import {
   type UploadProgress,
 } from "./api";
 import { categoryLabel, formatBytes } from "./format";
+import styles from "./shared.module.css";
+import zone from "./UploadForm.module.css";
 
 interface Entry {
   id: number;
@@ -73,7 +79,19 @@ function reasonOf(err: ApiError): string | null {
 
 const RETRY_SAFE = "Submitting the same selection again is safe: it reuses the same idempotency key.";
 
-export function describeUploadFailure(err: unknown): FailureView {
+/** Which file the server refused: only what the response or the selection really tells us. */
+function offenderNote(err: ApiError, names: readonly string[]): string {
+  const named = err.details?.["filename"] ?? err.details?.["file"];
+  if (typeof named === "string") return ` The server named the file: “${named}”.`;
+  const index = err.details?.["index"] ?? err.details?.["file_index"];
+  if (typeof index === "number" && names[index] !== undefined) return ` The server pointed at file ${index + 1}: “${names[index]}”.`;
+  if (names.length === 1) return ` The only selected file is “${names[0]}”.`;
+  return " The server response does not say which of the selected files was refused; check each file's name, size and type.";
+}
+
+const sentence = (text: string): string => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+
+export function describeUploadFailure(err: unknown, names: readonly string[] = []): FailureView {
   if (err instanceof UploadAbortedError) {
     return {
       message: err.fullySent
@@ -111,12 +129,12 @@ export function describeUploadFailure(err: unknown): FailureView {
             detail,
           };
         }
-        return { message: `Conflict: ${err.message}`, requestId, detail };
+        return { message: `Conflict: ${sentence(err.message)}`, requestId, detail };
       case 413:
-        return { message: `The server rejected the upload as too large: ${err.message}`, requestId, detail };
+        return { message: `The server rejected the upload as too large: ${sentence(err.message)}${offenderNote(err, names)}`, requestId, detail };
       case 415:
         return {
-          message: `The server rejected an unsupported file type (for example a binary or executable): ${err.message} Remove it and try again.`,
+          message: `The server rejected an unsupported file type (for example a binary or executable): ${sentence(err.message)}${offenderNote(err, names)} Remove the refused file and try again.`,
           requestId,
           detail,
         };
@@ -145,13 +163,14 @@ function successText(httpStatus: number, a: ImportAccepted): string {
     : "Import accepted.";
 }
 
+const DONE_VISIBLE_MS = 10_000;
+
 let nextEntryId = 1;
 
 export function UploadForm({ projectId, expectedParentId, onImported, onStale }: Props) {
   const ids = useId();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
-  const [dragging, setDragging] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const idemKey = useRef<string | null>(null);
   const failedRegion = useRef<HTMLDivElement | null>(null);
@@ -174,6 +193,13 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
     if (phase.kind === "failed") failedRegion.current?.focus();
   }, [phase.kind]);
 
+  // The "accepted" confirmation is transient; it clears itself (still announced while shown).
+  useEffect(() => {
+    if (phase.kind !== "done") return;
+    const timer = window.setTimeout(() => setPhase((p) => (p.kind === "done" ? { kind: "idle" } : p)), DONE_VISIBLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
   const problems = validateSelection(entries.map((e) => e.file));
   const uploading = phase.kind === "uploading";
 
@@ -183,7 +209,7 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
     if (phase.kind !== "uploading") setPhase({ kind: "idle" });
   }
 
-  function addFiles(list: FileList | null) {
+  function addFiles(list: ArrayLike<File> | null) {
     if (list === null || list.length === 0) return;
     const added = Array.from(list).map((file): Entry => ({ id: nextEntryId++, file, category: "" }));
     changed([...entries, ...added]);
@@ -200,12 +226,6 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
   function onPick(event: ChangeEvent<HTMLInputElement>) {
     addFiles(event.target.files);
     event.target.value = "";
-  }
-
-  function onDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setDragging(false);
-    if (!uploading) addFiles(event.dataTransfer.files);
   }
 
   async function onSubmit(event: FormEvent) {
@@ -245,7 +265,7 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
         idemKey.current = null;
         if (reason === "stale_parent") onStale();
       }
-      setPhase({ kind: "failed", ...describeUploadFailure(err) });
+      setPhase({ kind: "failed", ...describeUploadFailure(err, entries.map((e) => e.file.name)) });
     } finally {
       if (controller.current === ctl) controller.current = null;
     }
@@ -258,71 +278,94 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
       : null;
 
   return (
-    <section aria-labelledby={`${ids}-title`} className="upload">
-      <h5 id={`${ids}-title`}>Upload source files</h5>
-      <p id={`${ids}-note`}>
+    <section aria-labelledby={`${ids}-title`} className={styles.card}>
+      <div className={styles.cardHead}>
+        <Title order={5} id={`${ids}-title`}>
+          Upload source files
+        </Title>
+      </div>
+      <p id={`${ids}-note`} className={styles.note}>
         Files are stored and hash-verified only. Filenames and category hints are your labels, not engineering evidence,
         and nothing is extracted or validated in this step. Limits: {MAX_FILES} files, {formatBytes(MAX_FILE_BYTES)} per
         file, {formatBytes(MAX_BATCH_BYTES)} per import (the server is authoritative).
       </p>
-      <form onSubmit={onSubmit} aria-describedby={`${ids}-note`}>
-        <div
-          className={dragging ? "dropzone dragging" : "dropzone"}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
+      <form onSubmit={onSubmit} aria-describedby={`${ids}-note`} className={styles.stack}>
+        <Dropzone
+          onDrop={(files) => {
+            if (!uploading) addFiles(files);
           }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
+          disabled={uploading}
+          activateOnClick={false}
+          activateOnKeyboard={false}
+          multiple
+          unstyled
+          inputProps={{ "aria-hidden": true }}
+          className={zone.zone}
         >
-          <p>Drop files here, or choose them with the file picker.</p>
-          <label htmlFor={`${ids}-files`}>Choose files</label>{" "}
-          <input ref={pickerRef} id={`${ids}-files`} type="file" multiple disabled={uploading} onChange={onPick} />
-        </div>
+          <Dropzone.Accept>
+            <Upload size={28} aria-hidden="true" />
+          </Dropzone.Accept>
+          <Dropzone.Idle>
+            <CloudUpload size={28} aria-hidden="true" />
+          </Dropzone.Idle>
+          <p className={zone.zoneText}>Drop files here, or choose them with the file picker.</p>
+          <div className={zone.pickerWrap}>
+            <input
+              ref={pickerRef}
+              id={`${ids}-files`}
+              className={zone.picker}
+              type="file"
+              multiple
+              disabled={uploading}
+              onChange={onPick}
+            />
+            <label htmlFor={`${ids}-files`} className={zone.pickerLabel}>
+              Choose files
+            </label>
+          </div>
+        </Dropzone>
 
         {entries.length > 0 && (
           <>
-            <p aria-live="polite">
+            <p aria-live="polite" className={styles.note}>
               {entries.length} file(s) selected, {formatBytes(entries.reduce((s, e) => s + e.file.size, 0))} total.
             </p>
-            <ul className="selected-files" aria-label="Selected files">
+            <ul className={zone.files} aria-label="Selected files">
               {entries.map((e) => (
-                <li key={e.id}>
-                  <span>
-                    {e.file.name} ({formatBytes(e.file.size)})
-                  </span>{" "}
-                  <label>
-                    Category hint for {e.file.name}{" "}
-                    <select
-                      value={e.category}
-                      disabled={uploading}
-                      onChange={(ev) =>
-                        changed(
-                          entries.map((x) =>
-                            x.id === e.id ? { ...x, category: ev.target.value as DocumentCategory | "" } : x,
-                          ),
-                        )
-                      }
-                    >
-                      <option value="">No hint</option>
-                      {CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {categoryLabel(c)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>{" "}
-                  <button
-                    type="button"
+                <li key={e.id} className={zone.file}>
+                  <span className={zone.fileName}>
+                    <TruncatedText value={e.file.name} label="file name" maxCh={60} />
+                  </span>
+                  <span className={zone.fileSize}>({formatBytes(e.file.size)})</span>
+                  <NativeSelect
+                    size="xs"
+                    aria-label={`Category hint for ${e.file.name}`}
+                    value={e.category}
                     disabled={uploading}
+                    data={[{ value: "", label: "No hint" }, ...CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))]}
+                    onChange={(ev) =>
+                      changed(
+                        entries.map((x) =>
+                          x.id === e.id ? { ...x, category: ev.currentTarget.value as DocumentCategory | "" } : x,
+                        ),
+                      )
+                    }
+                  />
+                  <Button
+                    size="compact-sm"
+                    variant="subtle"
+                    color="gray"
+                    disabled={uploading}
+                    leftSection={<X size={14} aria-hidden="true" />}
+                    aria-label={`Remove ${e.file.name}`}
                     ref={(el) => {
                       if (el === null) removeButtons.current.delete(e.id);
                       else removeButtons.current.set(e.id, el);
                     }}
                     onClick={() => removeEntry(e.id)}
                   >
-                    Remove {e.file.name}
-                  </button>
+                    Remove
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -330,37 +373,37 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
         )}
 
         {problems.length > 0 && (
-          <div role="alert">
+          <Callout tone="danger" role="alert">
             <p>This selection cannot be uploaded:</p>
-            <ul>
+            <ul className={styles.plainList}>
               {problems.map((p) => (
                 <li key={p}>{p}</li>
               ))}
             </ul>
-          </div>
+          </Callout>
         )}
 
-        <p>
-          <button type="submit" disabled={entries.length === 0 || problems.length > 0 || uploading}>
+        <div className={styles.row}>
+          <Button type="submit" disabled={entries.length === 0 || problems.length > 0 || uploading}>
             Upload {entries.length > 0 ? `${entries.length} file(s)` : "files"}
-          </button>{" "}
+          </Button>
           {uploading && (
-            <button type="button" onClick={() => controller.current?.abort()}>
+            <Button type="button" variant="default" onClick={() => controller.current?.abort()}>
               Abort upload
-            </button>
+            </Button>
           )}
-        </p>
+        </div>
       </form>
 
       {phase.kind === "uploading" && (
-        <div role="status">
-          <label htmlFor={`${ids}-progress`}>Upload progress</label>{" "}
+        <div role="status" className={zone.progress}>
+          <label htmlFor={`${ids}-progress`}>Upload progress</label>
           <progress
             id={`${ids}-progress`}
             max={100}
             value={percent ?? undefined}
             aria-valuetext={percent === null ? "Starting upload" : `${percent} percent sent`}
-          />{" "}
+          />
           <span>
             {percent === null
               ? "Starting upload…"
@@ -371,20 +414,20 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
         </div>
       )}
       {phase.kind === "done" && (
-        <div role="status">
+        <Callout tone={phase.accepted.replayed || phase.accepted.deduplicated ? "info" : "success"} role="status">
           <p>{successText(phase.httpStatus, phase.accepted)}</p>
           <p>
             Source revision {phase.accepted.source_revision_id}
             {phase.accepted.job_id !== null && <>, job {phase.accepted.job_id}</>}.
           </p>
-        </div>
+        </Callout>
       )}
       {phase.kind === "failed" && (
-        <div role="alert" tabIndex={-1} ref={failedRegion}>
+        <Callout tone="danger" role="alert" tabIndex={-1} elementRef={failedRegion}>
           <p>{phase.message}</p>
           {phase.detail !== null && <p>{phase.detail}</p>}
           {phase.requestId !== null && <p>Request ID: {phase.requestId}</p>}
-        </div>
+        </Callout>
       )}
     </section>
   );

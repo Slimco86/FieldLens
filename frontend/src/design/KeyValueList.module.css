@@ -1,0 +1,21 @@
+.list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--fl-space-xs) var(--fl-space-md);
+  margin: 0;
+}
+.list dt {
+  color: var(--fl-color-text-muted);
+}
+.list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.compact {
+  gap: 2px var(--fl-space-sm);
+  font-size: var(--fl-font-size-sm);
+}
+.list dd code {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}

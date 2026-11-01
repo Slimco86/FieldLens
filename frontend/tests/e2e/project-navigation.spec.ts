@@ -39,16 +39,25 @@ test("PW-8: keyboard-only create, open and Sources/Reconstruction/Explore naviga
   await expect(page.getByText(/no source files/i)).toBeVisible();
 
   // No fake feature controls: only the real upload form (its submit stays disabled with no
-  // selection) exists besides navigation and project editing. <button> elements only; the native
-  // file input is a separate control.
-  await expect(page.locator("button")).toHaveText([
-    "Back to all projects",
-    "Save changes",
+  // selection) exists besides navigation and project editing. The project region (<main>) and the
+  // sidebar are checked separately because project management now lives in the sidebar.
+  // <button> elements only; the native file input is a separate control.
+  await expect(page.getByRole("main").locator("button")).toHaveText([
+    "All projects",
+    "Edit project details",
     "Sources",
     "Reconstruction",
     "Explore",
     "Upload files",
   ]);
+  const sidebarButtons = await page
+    .getByRole("complementary", { name: "Project sidebar" })
+    .locator("button")
+    .evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? el.textContent ?? ""));
+  expect(sidebarButtons.length).toBeGreaterThan(1);
+  for (const label of sidebarButtons) {
+    expect(label, "unexpected sidebar control").toMatch(/^(Open project |New project$|Close form$|Load more projects$)/);
+  }
   await expect(page.getByRole("button", { name: "Upload files" })).toBeDisabled();
 
   await tabTo(page, page.getByRole("button", { name: "Back to all projects" }));

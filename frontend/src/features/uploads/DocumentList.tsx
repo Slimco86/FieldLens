@@ -1,4 +1,7 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Button, Checkbox, Fieldset, Table, TextInput } from "@mantine/core";
+import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import { Callout, ErrorState, LoadingState, StatusChip, EmptyState, TruncatedText } from "../../design";
 import {
   CATEGORIES,
   MAX_TAGS,
@@ -10,7 +13,8 @@ import {
   type SourceDocumentItem,
 } from "./api";
 import { categoryLabel, formatBytes } from "./format";
-import { EvidencePanel } from "./EvidencePanel";
+import { EvidenceToggle, Inspection } from "./EvidencePanel";
+import styles from "./shared.module.css";
 import { usePolled } from "./usePolled";
 import { toFailure, type Failure } from "../projects/scope";
 
@@ -58,7 +62,6 @@ interface EditorProps {
 }
 
 function ClassificationEditor({ projectId, doc, onSaved, onClose }: EditorProps) {
-  const ids = useId();
   const [selected, setSelected] = useState<ReadonlySet<DocumentCategory>>(new Set(doc.classification.user_categories));
   const [tagText, setTagText] = useState(doc.classification.tags.join(", "));
   const [problem, setProblem] = useState<string | null>(null);
@@ -104,48 +107,54 @@ function ClassificationEditor({ projectId, doc, onSaved, onClose }: EditorProps)
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} aria-label={`Edit labels for ${doc.original_filename}`}>
-      <p>Labels are your hints; they are never engineering evidence.</p>
-      <fieldset>
-        <legend>Categories for {doc.original_filename}</legend>
-        {CATEGORIES.map((c, i) => (
-          <label key={c} className="check">
-            <input
+    <form
+      onSubmit={(e) => void onSubmit(e)}
+      aria-label={`Edit labels for ${doc.original_filename}`}
+      className={styles.stack}
+    >
+      <p className={styles.note}>Labels are your hints; they are never engineering evidence.</p>
+      <Fieldset legend={`Categories for ${doc.original_filename}`}>
+        <div className={styles.row}>
+          {CATEGORIES.map((c, i) => (
+            <Checkbox
+              key={c}
               ref={i === 0 ? firstControl : undefined}
-              type="checkbox"
+              label={categoryLabel(c)}
               checked={selected.has(c)}
               onChange={(e) => {
                 const next = new Set(selected);
-                if (e.target.checked) next.add(c);
+                if (e.currentTarget.checked) next.add(c);
                 else next.delete(c);
                 setSelected(next);
               }}
-            />{" "}
-            {categoryLabel(c)}
-          </label>
-        ))}
-      </fieldset>
-      <p>
-        <label htmlFor={`${ids}-tags`}>Tags (comma separated)</label>{" "}
-        <input id={`${ids}-tags`} value={tagText} onChange={(e) => setTagText(e.target.value)} />
-      </p>
-      {problem !== null && <p role="alert">{problem}</p>}
+            />
+          ))}
+        </div>
+      </Fieldset>
+      <TextInput label="Tags (comma separated)" value={tagText} onChange={(e) => setTagText(e.currentTarget.value)} />
+      {problem !== null && (
+        <Callout tone="danger" role="alert">
+          <p>{problem}</p>
+        </Callout>
+      )}
       {failure !== null && (
-        <div role="alert">
+        <Callout tone="danger" role="alert">
           <p>
             {failure.status === 409
               ? "These labels were changed elsewhere since this list loaded. Nothing was saved; reload the list and edit again."
               : `Labels were not saved: ${failure.message}`}
           </p>
           {failure.requestId !== null && <p>Request ID: {failure.requestId}</p>}
-        </div>
+        </Callout>
       )}
-      <button type="submit" disabled={saving}>
-        Save labels
-      </button>{" "}
-      <button type="button" onClick={onClose}>
-        Cancel editing
-      </button>
+      <div className={styles.row}>
+        <Button type="submit" disabled={saving}>
+          Save labels
+        </Button>
+        <Button type="button" variant="default" onClick={onClose}>
+          Cancel editing
+        </Button>
+      </div>
     </form>
   );
 }
@@ -160,6 +169,7 @@ function DocumentRow({
   onSaved: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [inspecting, setInspecting] = useState(false);
   const c = doc.classification;
   const editId = `edit-${doc.document_id}`;
   const editButton = useRef<HTMLButtonElement | null>(null);
@@ -175,66 +185,97 @@ function DocumentRow({
     setEditing(false);
   };
   return (
-    <li className="document">
-      <h6>{doc.original_filename}</h6>
-      <dl>
-        <dt>Storage</dt>
-        <dd>{STORAGE_LABEL[doc.storage_state]}</dd>
-        <dt>Extraction</dt>
-        <dd>{EXTRACTION_LABEL[doc.extraction_state]}</dd>
-        {doc.processing_detail !== null && doc.processing_detail !== undefined && (
-          <>
-            <dt>Processing detail</dt>
-            <dd>{doc.processing_detail}</dd>
-          </>
-        )}
-        <dt>Size</dt>
-        <dd>{formatBytes(doc.size_bytes)}</dd>
-        <dt>SHA-256</dt>
-        <dd>
-          <code>{doc.sha256}</code>
-        </dd>
-        <dt>Detected format</dt>
-        <dd>
-          {doc.format_family}
-          {doc.detected_media_type !== null && doc.detected_media_type !== undefined && <> ({doc.detected_media_type})</>}{" "}
-          — detected from file signature, not an engineering claim
-        </dd>
-        <dt>Your labels</dt>
-        <dd>
-          {joinCategories(c.user_categories)} ({ORIGIN_LABEL[c.categories_origin]}); tags:{" "}
-          {c.tags.length === 0 ? "none" : c.tags.join(", ")}
-        </dd>
-        <dt>Suggested labels</dt>
-        <dd>
-          {joinCategories(c.suggested_categories)} (suggestion only, not confirmed; method {c.classification_method})
-        </dd>
-        {doc.replaces_document_id !== null && doc.replaces_document_id !== undefined && (
-          <>
-            <dt>Replaces</dt>
-            <dd>
+    <>
+      <Table.Tr>
+        <Table.Td>
+          <strong>
+            <TruncatedText value={doc.original_filename} label="file name" maxCh={28} />
+          </strong>
+          {doc.replaces_document_id !== null && doc.replaces_document_id !== undefined && (
+            <div className={`${styles.small} ${styles.muted}`}>
               This file explicitly replaces document <code>{doc.replaces_document_id}</code>.
-            </dd>
-          </>
-        )}
-      </dl>
-      <EvidencePanel projectId={projectId} doc={doc} />
-      {editing ? (
-        <ClassificationEditor
-          projectId={projectId}
-          doc={doc}
-          onSaved={() => {
-            onSaved();
-            close();
-          }}
-          onClose={close}
-        />
-      ) : (
-        <button type="button" id={editId} ref={editButton} onClick={() => setEditing(true)}>
-          Edit labels for {doc.original_filename}
-        </button>
+            </div>
+          )}
+        </Table.Td>
+        <Table.Td>
+          <StatusChip kind="storage" value={doc.storage_state} label={STORAGE_LABEL[doc.storage_state]} />
+        </Table.Td>
+        <Table.Td>
+          <StatusChip kind="extraction" value={doc.extraction_state} label={EXTRACTION_LABEL[doc.extraction_state]} />
+          {doc.processing_detail !== null && doc.processing_detail !== undefined && (
+            <div className={`${styles.small} ${styles.muted}`}>{doc.processing_detail}</div>
+          )}
+        </Table.Td>
+        <Table.Td className={styles.num}>{formatBytes(doc.size_bytes)}</Table.Td>
+        <Table.Td>
+          <div>
+            {doc.format_family}
+            {doc.detected_media_type !== null && doc.detected_media_type !== undefined && <> ({doc.detected_media_type})</>}
+          </div>
+          <div className={`${styles.small} ${styles.muted}`}>Detected from file signature, not an engineering claim</div>
+        </Table.Td>
+        <Table.Td>
+          <TruncatedText value={doc.sha256} label="SHA-256" maxCh={16}>
+            <code>{doc.sha256}</code>
+          </TruncatedText>
+        </Table.Td>
+        <Table.Td>
+          <div>
+            <span className={`${styles.small} ${styles.muted}`}>Your labels </span>
+            <span>
+              {joinCategories(c.user_categories)} ({ORIGIN_LABEL[c.categories_origin]}); tags:{" "}
+              {c.tags.length === 0 ? "none" : c.tags.join(", ")}
+            </span>
+          </div>
+          <div className={`${styles.small} ${styles.muted}`}>
+            Suggested labels {joinCategories(c.suggested_categories)} (suggestion only, not confirmed; method{" "}
+            {c.classification_method})
+          </div>
+        </Table.Td>
+        <Table.Td>
+          <div className={styles.row}>
+            <Button
+              size="compact-sm"
+              variant="default"
+              id={editId}
+              ref={editButton}
+              leftSection={<Pencil size={14} aria-hidden="true" />}
+              aria-label={`Edit labels for ${doc.original_filename}`}
+              aria-expanded={editing}
+              onClick={() => (editing ? close() : setEditing(true))}
+            >
+              Edit labels
+            </Button>
+            <EvidenceToggle
+              doc={doc}
+              open={inspecting}
+              onToggle={() => setInspecting(!inspecting)}
+              icon={inspecting ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+            />
+          </div>
+        </Table.Td>
+      </Table.Tr>
+      {(editing || inspecting) && (
+        <Table.Tr>
+          <Table.Td colSpan={8} className={styles.detailCell}>
+            <div className={styles.stack}>
+              {editing && (
+                <ClassificationEditor
+                  projectId={projectId}
+                  doc={doc}
+                  onSaved={() => {
+                    onSaved();
+                    close();
+                  }}
+                  onClose={close}
+                />
+              )}
+              {inspecting && <Inspection projectId={projectId} doc={doc} />}
+            </div>
+          </Table.Td>
+        </Table.Tr>
       )}
-    </li>
+    </>
   );
 }
 
@@ -258,16 +299,15 @@ export function DocumentList({ projectId, revisionId, version, polling }: ListPr
   const [loadingMore, setLoadingMore] = useState(false);
   const ctl = useRef<AbortController | null>(null);
 
-  if (state.kind === "loading") return <p role="status">Loading files…</p>;
+  if (state.kind === "loading") return <LoadingState label="Loading files…" status />;
   if (state.kind === "error") {
     return (
-      <div role="alert">
-        <p>The file list could not be loaded: {state.error.message}</p>
-        {state.error.requestId !== null && <p>Request ID: {state.error.requestId}</p>}
-        <button type="button" onClick={reload}>
-          Retry loading files
-        </button>
-      </div>
+      <ErrorState
+        message={`The file list could not be loaded: ${state.error.message}`}
+        requestId={state.error.requestId}
+        onRetry={reload}
+        retryLabel="Retry loading files"
+      />
     );
   }
   const page = state.data;
@@ -294,24 +334,53 @@ export function DocumentList({ projectId, revisionId, version, polling }: ListPr
   }
 
   if (items.length === 0) {
-    return <p>This revision has no files{polling ? " yet; it is still being processed" : ""}.</p>;
+    return (
+      <EmptyState title="No files">
+        <p>This revision has no files{polling ? " yet; it is still being processed" : ""}.</p>
+      </EmptyState>
+    );
   }
   return (
-    <div>
-      {state.refreshError !== null && <p role="alert">Refreshing the file list failed: {state.refreshError.message}</p>}
-      <ul className="documents" aria-label="Files in this source revision">
-        {items.map((d) => (
-          <DocumentRow key={d.document_id} projectId={projectId} doc={d} onSaved={reload} />
-        ))}
-      </ul>
-      {cursor !== null && (
-        <p>
-          <button type="button" disabled={loadingMore} onClick={() => void loadMore()}>
-            Load more files
-          </button>
-        </p>
+    <div className={styles.stack}>
+      {state.refreshError !== null && (
+        <Callout tone="warning" role="alert">
+          <p>Refreshing the file list failed: {state.refreshError.message}</p>
+        </Callout>
       )}
-      {moreError !== null && <p role="alert">More files could not be loaded: {moreError.message}</p>}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard-scrollable region */}
+      <div role="region" aria-label="Files table" tabIndex={0} className={styles.scroll}>
+        <Table aria-label="Files in this source revision" layout="fixed">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th scope="col" className={styles.colFile}>File</Table.Th>
+              <Table.Th scope="col" className={styles.colStorage}>Storage</Table.Th>
+              <Table.Th scope="col" className={styles.colExtraction}>Extraction</Table.Th>
+              <Table.Th scope="col" className={`${styles.num} ${styles.colSize}`}>Size</Table.Th>
+              <Table.Th scope="col" className={styles.colFormat}>Detected format</Table.Th>
+              <Table.Th scope="col" className={styles.colSha}>SHA-256</Table.Th>
+              <Table.Th scope="col" className={styles.colLabels}>Labels</Table.Th>
+              <Table.Th scope="col" className={styles.colActions}>Actions</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {items.map((d) => (
+              <DocumentRow key={d.document_id} projectId={projectId} doc={d} onSaved={reload} />
+            ))}
+          </Table.Tbody>
+        </Table>
+      </div>
+      {cursor !== null && (
+        <div>
+          <Button variant="default" size="xs" disabled={loadingMore} onClick={() => void loadMore()}>
+            Load more files
+          </Button>
+        </div>
+      )}
+      {moreError !== null && (
+        <Callout tone="danger" role="alert">
+          <p>More files could not be loaded: {moreError.message}</p>
+        </Callout>
+      )}
     </div>
   );
 }

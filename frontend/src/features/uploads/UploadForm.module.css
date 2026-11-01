@@ -1,0 +1,92 @@
+.zone {
+  display: grid;
+  justify-items: center;
+  gap: var(--fl-space-sm);
+  padding: var(--fl-space-lg) var(--fl-space-md);
+  border: var(--fl-border-width-strong) dashed var(--fl-color-border-strong);
+  border-radius: var(--fl-radius-lg);
+  background: var(--fl-color-surface-sunken);
+  text-align: center;
+  transition: background var(--fl-motion-base), border-color var(--fl-motion-base);
+}
+.zone[data-accept] {
+  border-style: solid;
+  border-color: var(--fl-color-brand);
+  background: var(--fl-color-brand-soft);
+}
+.zoneText {
+  margin: 0 0 var(--fl-space-xs);
+  line-height: var(--fl-line-body);
+  color: var(--fl-color-text-muted);
+}
+.pickerWrap {
+  position: relative;
+  margin-top: var(--fl-space-sm);
+}
+.picker {
+  position: absolute;
+  width: var(--fl-border-width);
+  height: var(--fl-border-width);
+  opacity: 0;
+}
+.pickerLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fl-space-sm);
+  padding: var(--fl-space-sm) var(--fl-space-md);
+  border: var(--fl-border-width) solid var(--fl-color-brand);
+  border-radius: var(--fl-radius-sm);
+  background: var(--fl-color-surface);
+  color: var(--fl-color-brand-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+.pickerLabel:hover {
+  background: var(--fl-color-brand-soft);
+}
+.picker:focus-visible + .pickerLabel {
+  outline: var(--fl-focus-ring-width) solid var(--fl-color-focus-ring);
+  outline-offset: var(--fl-focus-ring-offset);
+}
+.picker:disabled + .pickerLabel {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.files {
+  grid-template-columns: minmax(0, 1fr);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-md);
+}
+.file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fl-space-sm) var(--fl-space-md);
+  padding: var(--fl-space-sm) var(--fl-space-md);
+  border-bottom: var(--fl-border-width) solid var(--fl-color-border);
+}
+.file:last-child {
+  border-bottom: 0;
+}
+.fileName {
+  flex: 1 1 16rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.fileSize {
+  color: var(--fl-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.progress {
+  display: grid;
+  gap: var(--fl-space-xs);
+}
+.progress progress {
+  width: 100%;
+  accent-color: var(--fl-color-brand);
+}

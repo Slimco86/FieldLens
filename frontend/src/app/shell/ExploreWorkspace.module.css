@@ -1,0 +1,74 @@
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fl-space-md);
+  min-width: 0;
+}
+.row {
+  display: flex;
+  gap: var(--fl-space-md);
+  min-width: 0;
+  min-height: var(--fl-layout-stage-min);
+}
+.region {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-lg);
+  background: var(--fl-color-surface);
+  overflow: hidden;
+}
+.tree {
+  flex: none;
+  width: var(--fl-layout-tree);
+}
+.inspector {
+  flex: none;
+  width: var(--fl-layout-inspector);
+}
+.stage {
+  flex: 1;
+}
+.tree.collapsed,
+.inspector.collapsed {
+  width: var(--fl-layout-rail);
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fl-space-sm);
+  padding: var(--fl-space-xs) var(--fl-space-sm);
+  border-bottom: var(--fl-border-width) solid var(--fl-color-border);
+  background: var(--fl-color-surface-sunken);
+  font-weight: 600;
+}
+.collapsed .bar {
+  border-bottom: 0;
+  flex-direction: column;
+  padding: var(--fl-space-sm) var(--fl-space-xs);
+}
+.collapsed .bar > span {
+  writing-mode: vertical-rl;
+}
+.dock.collapsed .bar {
+  flex-direction: row;
+}
+.dock.collapsed .bar > span {
+  writing-mode: horizontal-tb;
+}
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--fl-space-md);
+}
+.stage .body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--fl-space-md);
+}

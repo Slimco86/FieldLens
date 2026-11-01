@@ -1,7 +1,8 @@
 // Behavior tests for the source-inspection evidence panel with a stubbed fetch: detected profile,
 // parse status, coverage, locators, findings, and loading/error/empty states. Parser correctness
 // is proven by the backend tests, not here.
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
+import { render } from "./render";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EvidencePanel, describeLocator } from "../src/features/uploads/EvidencePanel";
@@ -105,6 +106,31 @@ async function open() {
   await user.click(screen.getByRole("button", { name: /Inspect extraction for prod\.xlsx/ }));
   return user;
 }
+
+describe("records catching up with the report", () => {
+  it("re-reads the list while it is shorter than the report says, and says so meanwhile", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let reads = 0;
+      install((u) =>
+        u.endsWith("/extraction")
+          ? json(report({ record_counts: { production_day: 1 } }))
+          : u.includes("/extraction/records")
+            ? (reads++, json(reads === 1 ? records([]) : records([record])))
+            : undefined,
+      );
+      render(<EvidencePanel projectId={P} doc={doc} />);
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(screen.getByRole("button", { name: /Inspect extraction for prod\.xlsx/ }));
+      expect(await screen.findByText(/The report lists 1 records but none are readable yet/)).toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(2500);
+      expect(await screen.findByRole("list", { name: /Extracted records for prod\.xlsx/ })).toBeInTheDocument();
+      expect(screen.queryByText(/none are readable yet/)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe("evidence panel", () => {
   it("lists wellbore labels separately from the well and shows coverage gaps", async () => {

@@ -1,0 +1,141 @@
+.card {
+  padding: var(--fl-space-md);
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-lg);
+  background: var(--fl-color-surface);
+  min-width: 0;
+}
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--fl-space-sm);
+  margin-bottom: var(--fl-space-sm);
+}
+.cardHead h5 {
+  margin: 0;
+}
+.note {
+  margin: 0 0 var(--fl-space-md);
+  color: var(--fl-color-text-muted);
+  max-width: 100ch;
+}
+.stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--fl-space-md);
+  min-width: 0;
+}
+/* Scrollable region: keyboard focusable (set in markup) so keyboard users can scroll it. */
+.scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-md);
+}
+.scroll > table {
+  min-width: var(--fl-layout-table-min);
+  width: 100%;
+}
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+.id {
+  display: inline-block;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.idLong {
+  display: inline-block;
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.muted {
+  color: var(--fl-color-text-muted);
+}
+.small {
+  font-size: var(--fl-font-size-sm);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fl-space-sm);
+}
+.plainList {
+  margin: 0;
+  padding-left: var(--fl-space-lg);
+}
+.plainList li + li {
+  margin-top: var(--fl-space-xs);
+}
+.selected {
+  background: var(--fl-color-brand-soft);
+}
+.detailCell {
+  background: var(--fl-color-surface-sunken);
+}
+.job {
+  padding: var(--fl-space-md);
+  margin-bottom: var(--fl-space-md);
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-md);
+  background: var(--fl-color-surface-sunken);
+}
+.caption {
+  padding: var(--fl-space-sm) var(--fl-space-md);
+  color: var(--fl-color-text);
+  font-size: var(--fl-font-size-md);
+  font-weight: 600;
+}
+.stack,
+.plainList li,
+.note {
+  overflow-wrap: anywhere;
+}
+/* Fixed column layout for the Files table: long names and hashes are cut, never widen a column. */
+.colFile { width: 17%; }
+.colStorage { width: 10%; }
+.colExtraction { width: 14%; }
+.colSize { width: 7%; }
+.colFormat { width: 14%; }
+.colSha { width: 11%; }
+.colLabels { width: 18%; }
+.colActions { width: 9%; }
+/* Source revisions table: fixed columns with sensible minimums; headers never break inside a word. */
+.revisionsTable {
+  min-width: calc(var(--fl-layout-table-min) * 1.5);
+}
+.revisionsTable thead th {
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+.revisionsTable td {
+  overflow-wrap: normal;
+}
+.colRevision { width: 9%; }
+.colRevStatus { width: 13%; }
+.colCreated { width: 9%; }
+.colCount { width: 5%; }
+.colCountWide { width: 7%; }
+.colJob { width: 12%; }
+.colParent { width: 7%; }
+.colManifest { width: 8%; }
+.colView { width: 11%; }
+.wrapButton {
+  height: auto;
+  padding-block: var(--fl-space-xs);
+}
+.wrapButtonLabel {
+  white-space: normal;
+  text-align: left;
+}
