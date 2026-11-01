@@ -422,3 +422,58 @@ describe("empty and honest wording", () => {
     expect(screen.getByText(/merge review is not\s+yet available/)).toBeInTheDocument();
   });
 });
+
+describe("QA repair (D1 and cosmetics)", () => {
+  it("labels the remaining budget live only while estimated, otherwise as an estimate-time snapshot", async () => {
+    install({ [RUN]: runBody() });
+    const view = render(panel());
+    const facts = await screen.findByRole("group", { name: "Estimate" });
+    expect(facts).toHaveTextContent("Remaining budget");
+    expect(facts).not.toHaveTextContent("estimate time");
+    view.unmount();
+    for (const status of ["queued", "running", "succeeded", "cancelled"] as const) {
+      install({ [RUN]: runBody({ status }) });
+      const v = render(panel());
+      const g = await screen.findByRole("group", { name: "Estimate" });
+      expect(g).toHaveTextContent("Remaining at estimate time");
+      expect(g).toHaveTextContent("not the current budget");
+      expect(g).not.toHaveTextContent(/Remaining budget/);
+      v.unmount();
+    }
+  });
+
+  it("does not repeat the failure code when the message already says it", async () => {
+    install({ [RUN]: runBody({ status: "cancelled", error_code: "cancelled", error_message: "cancelled by the user" }) });
+    render(panel());
+    const note = await screen.findByText(/did not complete successfully/);
+    expect(note.textContent).toBe("This run did not complete successfully. cancelled by the user Documents that did not finish are not processed.");
+  });
+
+  it("lists every unmet gate code", async () => {
+    install({}, {
+      "GET /identity/start-gate": () =>
+        json(GATE({
+          conditions: [
+            { code: "WELLBORE_IDENTIFIED", met: false, message: "none" },
+            { code: "VALIDATED_TRAJECTORY", met: false, message: "none" },
+          ],
+          unmet: [{ code: "NO_WELLBORE_IDENTIFIED", message: "none", wellbore_id: null }],
+        })),
+    });
+    render(panel());
+    expect(await screen.findByText(/3 condition\(s\) unmet: NO_WELLBORE_IDENTIFIED, WELLBORE_IDENTIFIED, VALIDATED_TRAJECTORY/)).toBeInTheDocument();
+  });
+
+  it("gives every input in the panel an accessible name", async () => {
+    install({ [RUN]: runBody({ status: "running", documents: [runDoc({ state: "running", pages_done: 1 })] }) }, {
+      "GET /processing/documents": () => json({ ...DOCS(), items: [...DOCS().items, docState(D2, "big.pdf", { over_page_cap: true, page_count: 900 })] }),
+    });
+    const { container } = render(panel());
+    await screen.findByLabelText("First page of big.pdf");
+    await screen.findByText("1 / 3 pages");
+    const unnamed = [...container.querySelectorAll("input, progress, select, textarea")].filter(
+      (el) => (el.getAttribute("aria-label") ?? "") === "" && (el.id === "" || container.querySelector(`label[for="${el.id}"]`) === null),
+    );
+    expect(unnamed).toEqual([]);
+  });
+});

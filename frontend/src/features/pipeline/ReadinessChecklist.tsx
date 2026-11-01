@@ -63,6 +63,12 @@ export function gateRows(gate: StartGate): CheckRow[] {
   return rows;
 }
 
+/** Every unmet code the server reported (gate reasons and unmet conditions); the checklist below has the messages. */
+export function unmetSummary(gate: StartGate): string {
+  const codes = [...new Set([...gate.unmet.map((u) => u.code), ...gate.conditions.filter((c) => !c.met).map((c) => c.code)])];
+  return codes.length === 0 ? "Conditions below are not met." : `${codes.length} condition(s) unmet: ${codes.join(", ")}. See the checklist below.`;
+}
+
 export function ReadinessChecklist({ projectId, refreshKey }: { projectId: string; refreshKey: number }) {
   const { state, reload } = useScopedResource(keyString(["pipeline", "gate", projectId, refreshKey]), (signal) =>
     getStartGate(projectId, signal),
@@ -97,9 +103,7 @@ export function ReadinessChecklist({ projectId, refreshKey }: { projectId: strin
               <strong>{valid.can_start ? "Gate open" : "Gate closed"}:</strong>{" "}
               {valid.can_start
                 ? `${valid.qualifying_wellbore_ids.length} wellbore(s) qualify.`
-                : valid.unmet.length > 0
-                  ? valid.unmet.map((u) => `${u.code}: ${u.message}`).join(" ")
-                  : "Conditions below are not met."}
+                : unmetSummary(valid)}
             </p>
           </Callout>
           <ul className={styles.list} aria-label="Readiness checks">

@@ -162,7 +162,7 @@ export function RunDetail({
             <Callout tone="warning" role="status">
               <p>
                 This run did not complete successfully.
-                {run.error_code !== null && (
+                {run.error_code !== null && !(run.error_message ?? "").toLowerCase().includes(run.error_code.toLowerCase()) && (
                   <>
                     {" "}
                     <code>{run.error_code}</code>
@@ -262,9 +262,10 @@ function EstimateFacts({ run }: { run: ProcessingRun }) {
         </dd>
       </div>
       <div className={styles.row}>
-        <dt>Remaining budget</dt>
+        <dt>{run.status === "estimated" ? "Remaining budget" : "Remaining at estimate time"}</dt>
         <dd>
           {usd(e.remaining_budget_usd)} of {usd(e.total_cap_usd)} total
+          {run.status !== "estimated" && " (snapshot taken when this run was estimated, not the current budget)"}
         </dd>
       </div>
       <div className={styles.row}>
