@@ -27,7 +27,7 @@ ExposureCategoryName = Literal[
     "perforations",
     "other",
 ]
-SurveyStatus = Literal["planned", "as_built", "unstated", "not_applicable"]
+SurveyStatus = Literal["planned", "as_built", "unstated", "conflicting", "not_applicable"]
 FindingKind = Literal["conflict", "gap", "finding"]
 
 

@@ -367,6 +367,15 @@ def wellbore_exposure(
                 wellbore_id=wellbore_id,
             )
         )
+    if any(x.validated and x.survey_status == "unstated" for x in sets):
+        warnings.append(
+            GateReason(
+                code="SURVEY_STATUS_UNSTATED",
+                message="The source does not state whether the survey is planned or as-built; "
+                "it is used as stated-unknown, never inferred from the file name.",
+                wellbore_id=wellbore_id,
+            )
+        )
     if {x.survey_status for x in sets} >= {"planned", "as_built"}:
         warnings.append(
             GateReason(

@@ -247,7 +247,7 @@ def test_reconstruction_start_gate(world: World) -> None:
     assert g["can_start"] is False and g["unmet"][0]["code"] == "NO_WELLBORE_IDENTIFIED"
     assert [c["met"] for c in g["conditions"]] == [False, False]
 
-    # F-1: identified but no trajectory; F-2: planned only; F-3: unstated; F-4: too few/invalid
+    # F-1: identified but no trajectory; F-2: planned only; F-3: conflicting statuses; F-4: too few/invalid
     world.add_doc(pid, "perf.dat", [rec("perforation_interval", _subj("15/9-F-1", "15/9-F-1"), [])])
     world.add_doc(
         pid,
@@ -255,7 +255,13 @@ def test_reconstruction_start_gate(world: World) -> None:
         [_header("15/9-F-2", "15/9-F-2", "planned"), *_stations("15/9-F-2", "15/9-F-2")],
     )
     world.add_doc(
-        pid, "unk.txt", [_header("15/9-F-3", "15/9-F-3", None), *_stations("15/9-F-3", "15/9-F-3")]
+        pid,
+        "conf.txt",
+        [
+            _header("15/9-F-3", "15/9-F-3", "planned", "PLAN"),
+            _header("15/9-F-3", "15/9-F-3", "as_built", "ACTUAL"),
+            *_stations("15/9-F-3", "15/9-F-3"),
+        ],
     )
     world.add_doc(
         pid,
@@ -278,7 +284,7 @@ def test_reconstruction_start_gate(world: World) -> None:
     codes = {n: {u["code"] for u in w["unmet"]} for n, w in by.items()}
     assert codes["15/9-F-1"] == {"NO_TRAJECTORY_RECORDS"}
     assert codes["15/9-F-2"] == {"TRAJECTORY_PLANNED_ONLY"}
-    assert codes["15/9-F-3"] == {"TRAJECTORY_STATUS_UNSTATED"}
+    assert codes["15/9-F-3"] == {"TRAJECTORY_STATUS_CONFLICTING"}
     assert codes["15/9-F-4"] == {"TRAJECTORY_TOO_FEW_STATIONS"}
     assert codes["15/9-F-5"] == {"TRAJECTORY_INVALID_STATIONS"}
     assert codes["15/9-F-6"] == {"TRAJECTORY_MD_NOT_MONOTONIC"}
@@ -344,3 +350,74 @@ def test_gate_is_read_only_and_deterministic(world: World) -> None:
     two = _get(world, f"/api/v1/projects/{pid}/identity/start-gate")
     assert one == two and one["can_start"] is True
     assert world.sql("SELECT count(*) FROM wellbore")[0][0] == before
+
+
+def _statoil_station(md: float, incl: float, azi: float, tvd: float) -> dict[str, Any]:
+    attrs = [
+        attr("trajectory_station.md", str(md), "m", number=md),
+        attr("trajectory_station.incl", str(incl), "deg", number=incl),
+        attr("trajectory_station.azi", str(azi), "deg", number=azi),
+        attr("trajectory_station.tvd", str(tvd), "m", number=tvd),
+    ]
+    return rec("trajectory_station", _subj("15/9-F-12", "15/9-F-12"), attrs)
+
+
+def _statoil_location(*, with_coordinates: bool) -> dict[str, Any]:
+    attrs = []
+    if with_coordinates:
+        for k, v in (("easting", 435000.5), ("northing", 6478000.25)):
+            attrs.append(attr(f"well_surface_location.{k}", str(v), "m", number=v))
+        for k, v, raw in (
+            ("latitude", 58.44, "58 26' 24\" N"),
+            ("longitude", 1.88, "1 52' 48\" E"),
+        ):
+            attrs.append(attr(f"well_surface_location.{k}", raw, "deg", number=v))
+    else:
+        for k in ("easting", "northing"):
+            a = attr(f"well_surface_location.{k}", None, unknown="the header does not state it")
+            attrs.append(a)
+    return rec("well_surface_location", _subj("15/9-F-12", "15/9-F-12"), attrs)
+
+
+def _statoil_header() -> dict[str, Any]:
+    # as the Statoil profile emits it when the survey name states neither plan nor actual
+    a = attr("survey_report_header.survey_status", "F-12 survey")
+    a["text"] = None
+    a["unknown_reason"] = "the file does not state whether the survey is planned or as-built"
+    return rec("survey_report_header", _subj("15/9-F-12", "15/9-F-12"), [a])
+
+
+def test_unstated_survey_status_passes_with_warning(world: World) -> None:
+    pid = world.project()
+    stations = [_statoil_station(0.0, 0.0, 0.0, 0.0), _statoil_station(500.0, 12.5, 130.0, 497.0)]
+    # file names say PLAN / ACTUAL; they must never decide the status
+    world.add_doc(pid, "Volve F_F-12_PLAN", [_statoil_header(), *stations])
+    world.add_doc(pid, "Volve F_F-12_ACTUAL_loc", [_statoil_location(with_coordinates=False)])
+    _resolve(world, pid)
+    g = _get(world, f"/api/v1/projects/{pid}/identity/start-gate")
+    assert g["can_start"] is True and g["unmet"] == []
+    w = g["wellbores"][0]
+    assert w["trajectory_validated"] is True
+    assert w["trajectory_sets"][0]["survey_status"] == "unstated"
+    codes = {x["code"] for x in w["warnings"]}
+    assert {"SURVEY_STATUS_UNSTATED", "SURFACE_LOCATION_INCOMPLETE"} <= codes
+    assert w["unlocated"] is True
+    assert {x["code"] for x in g["warnings"]} >= {"SURVEY_STATUS_UNSTATED"}
+    assert all(x["wellbore_id"] == w["wellbore_id"] for x in w["warnings"])
+
+
+def test_unstated_status_with_sourced_location_only_warns_about_status(world: World) -> None:
+    pid = world.project()
+    stations = [_statoil_station(0.0, 0.0, 0.0, 0.0), _statoil_station(500.0, 12.5, 130.0, 497.0)]
+    world.add_doc(pid, "Volve F_F-12_ACTUAL", [_statoil_header(), *stations])
+    world.add_doc(pid, "loc", [_statoil_location(with_coordinates=True)])
+    _resolve(world, pid)
+    g = _get(world, f"/api/v1/projects/{pid}/identity/start-gate")
+    assert g["can_start"] is True
+    assert [x["code"] for x in g["warnings"]] == ["SURVEY_STATUS_UNSTATED"]
+    assert g["wellbores"][0]["unlocated"] is False
+    exp = _get(world, f"/api/v1/projects/{pid}/identity/exposure")
+    bore = exp["wells"][0]["wellbores"][0]
+    loc = _cat(bore, "surface_location")
+    keys = {a["key"] for a in loc["groups"][0]["sample"][0]["attributes"]}
+    assert {"well_surface_location.latitude", "well_surface_location.easting"} <= keys

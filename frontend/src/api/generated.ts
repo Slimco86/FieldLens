@@ -1813,7 +1813,7 @@ export interface components {
              * @description Trajectory groups only: the survey status the source states. 'unstated' means the profile looked for it and the source does not say; 'not_applicable' means the format has no such statement.
              * @default null
              */
-            survey_status: ("planned" | "as_built" | "unstated" | "not_applicable") | null;
+            survey_status: ("planned" | "as_built" | "unstated" | "conflicting" | "not_applicable") | null;
             /** Validation Counts */
             validation_counts: {
                 [key: string]: number;
@@ -4245,7 +4245,7 @@ export interface components {
              * Survey Status
              * @enum {string}
              */
-            survey_status: "planned" | "as_built" | "unstated" | "not_applicable";
+            survey_status: "planned" | "as_built" | "unstated" | "conflicting" | "not_applicable";
             /** Usable Station Count */
             usable_station_count: number;
             /** Validated */

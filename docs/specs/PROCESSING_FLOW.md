@@ -129,16 +129,19 @@ actual usage (the run stops and reports; no automatic restart).
 Read-only, no migration. `GET /api/v1/projects/{id}/identity/exposure` (all wells/wellbores with categories and gate),
 `GET .../identity/start-gate` and the extended `GET .../identity/wellbores/{id}/evidence` (new `exposure` field) return
 `contracts/exposure.py` DTOs; code in `backend/fieldlens/exposure/` (`rules.py` pure, `service.py` queries). Tests:
-`backend/tests/identity/test_wellbore_exposure.py` (`test_wellbore_data_exposure`, `test_reconstruction_start_gate`).
+`backend/tests/identity/test_wellbore_exposure.py` (`test_wellbore_data_exposure`, `test_reconstruction_start_gate`, `test_unstated_survey_status_passes_with_warning`).
 
 - Categories: trajectory, surface_location, logs, production, equipment_completion, perforations, other (unknown kinds
   land in `other`). Groups are per document run and record kind with exact counts and a bounded sample whose attributes
   carry locators; proposals are listed apart and `is_accepted_fact` only for accepted+valid candidates.
 - "Validated trajectory" (native records are `unreviewed` by design, so it is rule-based): a current succeeded/partial
   run linked to the wellbore with >= 2 stations, each with finite in-range MD/inclination/azimuth and no invalid or
-  conflicting state, strictly increasing MD, survey status `as_built` or `not_applicable` (format has no such
-  statement), and no error issue blocking geometry/calculation on the trajectory. Planned-only or unstated status
-  (Statoil `survey_report_header.survey_status`) does not satisfy the gate; planned and as-built sets stay separate.
+  conflicting state, strictly increasing MD, no error issue blocking geometry/calculation on the trajectory, and a
+  status that is not explicitly `planned` and not conflicting. Owner decision (November 1): real Statoil exports state no
+  plan/actual status in content and file names never decide it, so an **unstated** status passes the condition with the
+  per-wellbore warning `SURVEY_STATUS_UNSTATED` ("plan/as-built not stated by source"). Only an explicit `planned` status
+  (`TRAJECTORY_PLANNED_ONLY`) or conflicting explicit statuses (`TRAJECTORY_STATUS_CONFLICTING`) fail it; as-built is
+  then required. Planned and as-built sets stay separate. Formats with no status concept are `not_applicable`.
 - Surface location: `well_surface_location` record (TASK-051 profile; absent kinds yield no records) with easting+northing
   or latitude+longitude. Missing/incomplete gives warning `SURFACE_LOCATION_MISSING`/`_INCOMPLETE` and `unlocated: true`;
   never a blocker. The local display origin is TASK-058.

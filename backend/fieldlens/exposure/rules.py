@@ -79,10 +79,10 @@ BAD_STATES: Final = frozenset({"invalid", "conflicting", "unsupported"})
 BLOCKING_OPERATIONS: Final = frozenset({"physical_geometry", "calculation"})
 MIN_STATIONS: Final = 2
 
-# A planned trajectory never satisfies the gate: installed equipment is placed on as-built
-# geometry and planned/as-built must not be mixed. Sources that make no such statement
-# ("not_applicable", e.g. WITSML) count; an unstated status in a profile that looks for it does not.
-GATE_STATUSES: Final[frozenset[str]] = frozenset({"as_built", "not_applicable"})
+# Owner decision (November 1): an explicit ``planned`` (or conflicting) status fails the
+# condition; an UNSTATED status (real Statoil exports state none; file names never decide it)
+# passes with the per-wellbore warning SURVEY_STATUS_UNSTATED. Planned and as-built stay separate.
+GATE_STATUSES: Final[frozenset[str]] = frozenset({"as_built", "unstated", "not_applicable"})
 
 
 def category_of_kind(kind: str) -> str:
@@ -105,13 +105,21 @@ def normalize_survey_status(header_present: bool, texts: list[str | None]) -> Su
     """``texts``: one entry per survey_status attribute found in the run's header records."""
     if not header_present:
         return "not_applicable"
-    seen = {(t or "").strip().lower() for t in texts}
-    if len(seen) == 1:
-        (only,) = seen
-        if only in ("planned", "plan", "proposed"):
-            return "planned"
-        if only in ("as_built", "as-built", "actual"):
-            return "as_built"
+    explicit: set[str] = set()
+    for t in texts:
+        v = (t or "").strip().lower()
+        if v in ("planned", "plan", "proposed"):
+            explicit.add("planned")
+        elif v in ("as_built", "as-built", "actual"):
+            explicit.add("as_built")
+        elif v:
+            explicit.add("other:" + v)
+    if len(explicit) > 1:
+        return "conflicting"
+    if explicit == {"planned"}:
+        return "planned"
+    if explicit == {"as_built"}:
+        return "as_built"
     return "unstated"
 
 
@@ -189,8 +197,8 @@ def judge_station_set(
     elif status not in GATE_STATUSES:
         reasons.append(
             GateReason(
-                code="TRAJECTORY_STATUS_UNSTATED",
-                message="The source does not state whether the survey is planned or as-built.",
+                code="TRAJECTORY_STATUS_CONFLICTING",
+                message="The source states conflicting survey statuses; as-built is required.",
             )
         )
     if blocking_issue:
