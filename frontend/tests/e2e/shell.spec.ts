@@ -370,7 +370,7 @@ for (const size of [
     expect(rowBox?.height).toBeLessThan(60);
     // The full name stays the accessible name and is shown in a tooltip on focus.
     await row.focus();
-    await expect(page.getByRole("tooltip")).toContainText(LONG_NAME);
+    await expect(page.getByRole("tooltip").filter({ hasText: LONG_NAME })).toHaveCount(1);
 
     // Main header, edit form and the page itself.
     const heading = page.getByRole("heading", { name: LONG_NAME });
@@ -432,8 +432,10 @@ test("D2: a 240-character file name keeps the Files table, selection list and in
   // Even while the mouse rests on another truncated name, the focused button shows its own tooltip.
   await table.getByRole("button", { name: "Copy file name: short.csv" }).hover();
   await nameButton.focus();
+  // The hovered tooltip fades out (it is briefly still in the DOM) while the focused one shows its value.
+  await expect(page.getByRole("tooltip").filter({ hasText: longName })).toHaveCount(1);
+  await expect(page.getByRole("tooltip").filter({ hasText: "short.csv" })).toHaveCount(0);
   await expect(page.getByRole("tooltip")).toHaveCount(1);
-  await expect(page.getByRole("tooltip")).toContainText(longName);
   await page.mouse.move(0, 0);
 
   // Inspection and editor panels stay inside the table width too.
