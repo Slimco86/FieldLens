@@ -481,6 +481,28 @@ def _norm_m(attr: dict[str, Any]) -> float | None:
     return None
 
 
+def known_md_max(session: Session, project_id: UUID, wellbore_id: UUID) -> float | None:
+    """DC-3 input as a read-only helper: the maximum MD (metres) over the wellbore's trajectory
+    stations and log headers, or None when it has no range of its own (never guessed)."""
+    er, lk = m.extracted_record, record_wellbore_link
+    rows = session.execute(
+        select(er.c.kind, er.c.attributes)
+        .join(lk, (er.c.run_id == lk.c.run_id) & (er.c.ordinal == lk.c.ordinal))
+        .where(
+            lk.c.project_id == project_id,
+            lk.c.wellbore_id == wellbore_id,
+            er.c.kind.in_(list(_RANGE_ATTRS)),
+        )
+    ).all()
+    best: float | None = None
+    for row in rows:
+        keys = _RANGE_ATTRS.get(row.kind, ())
+        for attr in row.attributes:
+            if attr.get("key") in keys and (v := _norm_m(attr)) is not None:
+                best = v if best is None or v > best else best
+    return best
+
+
 def _range_findings(session: Session, project_id: UUID, bore_ids: dict[str, UUID]) -> int:
     """DC-3: a defaulted (unit-less) MD beyond the wellbore's known MD range (trajectory stations
     or log header) by more than 5% is a SUSPICIOUS_VALUE warning; the value never changes and a

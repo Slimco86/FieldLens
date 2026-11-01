@@ -79,6 +79,8 @@ class World:
     big_doc: UUID
     hard_doc: UUID
     other_doc: UUID
+    wrong_doc: UUID
+    imageonly_doc: UUID
     factory: Any
     ledger: BudgetLedger
     period: UUID
@@ -153,6 +155,13 @@ def world(migrated_url: URL, tmp_path: Path) -> World:
         + [PdfPage(lines=FILLER)]
     )
     scan = make_pdf([PdfPage(scan_lines=EQUIPMENT_LINES), PdfPage(lines=FILLER)])
+    imageonly = make_pdf([PdfPage(scan_lines=EQUIPMENT_LINES) for _ in range(3)])
+    wrong = make_pdf(  # a report about the F-11 wells (as the F-12 folder's completion reports)
+        [
+            PdfPage(lines=["Final well report", "Wells 15/9-F-11, 15/9-F-11 A and 15/9-F-11 B"]),
+            PdfPage(lines=EQUIPMENT_LINES[1:]),
+        ]
+    )
     other = make_pdf(
         [
             PdfPage(lines=["Final report cover", "Well NO 15/9-F-99"]),
@@ -166,6 +175,8 @@ def world(migrated_url: URL, tmp_path: Path) -> World:
         ("extra.txt", EXTRA.encode()),
         ("hard.txt", HARD.encode()),
         ("other.pdf", other),
+        ("wrongfolder.pdf", wrong),
+        ("imageonly.pdf", imageonly),
         ("completion.pdf", pdf),
         ("big.pdf", big),
         ("scan.pdf", scan),
@@ -207,6 +218,8 @@ def world(migrated_url: URL, tmp_path: Path) -> World:
         big_doc=docs["big.pdf"],
         hard_doc=docs["hard.txt"],
         other_doc=docs["other.pdf"],
+        wrong_doc=docs["wrongfolder.pdf"],
+        imageonly_doc=docs["imageonly.pdf"],
         factory=factory,
         ledger=ledger,
         period=period,
