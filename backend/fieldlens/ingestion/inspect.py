@@ -18,7 +18,7 @@ from pathlib import Path
 from pypdf import PdfReader
 
 from fieldlens.contracts.errors import ContractError, ErrorCode
-from fieldlens.textenc import decode_head, detect_encoding
+from fieldlens.textenc import decode_head, detect_encoding, refine_encoding
 
 HEAD_BYTES = 64 * 1024
 SCAN_CHUNK = 1024 * 1024
@@ -110,7 +110,7 @@ def inspect_file(
             "executable_content",
             "executable or script content is not accepted",
         )
-    encoding = detect_encoding(head)
+    encoding = refine_encoding(path, detect_encoding(head))
     if encoding is None:
         raise reject(
             415,

@@ -5,7 +5,12 @@ pattern of mostly-ASCII text) and Windows-1252/Latin-1 style 8-bit text. An 8-bi
 refused when it contains NUL bytes or more than ``MAX_CONTROL_SHARE`` control bytes (anything
 below 0x20 except TAB/LF/FF/CR, DEL, and the C1 bytes cp1252 leaves undefined), so real
 binaries stay refused. BOM-less UTF-16 is only recognised for text whose code units are mostly
-below U+0100 (ASCII/Latin); other BOM-less UTF-16 scripts remain unsupported.
+below U+0100 (ASCII/Latin); other BOM-less UTF-16 scripts remain unsupported. An 8-bit stream
+is also refused when more than ``MAX_HIGH_SHARE`` of its bytes are >= 0x80: real Latin/cp1252 text
+is mostly ASCII, while BOM-less UTF-16 CJK/other scripts look like high-byte-heavy mojibake.
+
+Encoding is recorded from the whole file: a UTF-8 head is verified over the entire file in
+bounded chunks (``refine_encoding``), so a late non-UTF-8 byte yields ``cp1252``.
 """
 
 from __future__ import annotations
@@ -23,6 +28,8 @@ _ASCII_CONTROLS = frozenset(
 _CP1252_UNDEFINED = frozenset((0x81, 0x8D, 0x8F, 0x90, 0x9D))
 _BAD_8BIT = _ASCII_CONTROLS | _CP1252_UNDEFINED
 _NUL_PATTERN_SHARE = 0.3
+MAX_HIGH_SHARE = 0.25
+SCAN_CHUNK = 1024 * 1024
 
 ENCODINGS = ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "cp1252")
 
@@ -32,6 +39,12 @@ def _control_share_ok(data: bytes, bad: frozenset[int]) -> bool:
         return True
     count = sum(1 for b in data if b in bad)
     return count / len(data) <= MAX_CONTROL_SHARE
+
+
+def _high_share_ok(data: bytes) -> bool:
+    if not data:
+        return True
+    return sum(1 for b in data if b >= 0x80) / len(data) <= MAX_HIGH_SHARE
 
 
 def _utf16_ok(data: bytes, codec: str) -> bool:
@@ -65,7 +78,8 @@ def detect_encoding(head: bytes) -> str | None:
     try:
         decoder.decode(head, final=False)  # a multibyte character may be cut at the head edge
     except UnicodeDecodeError:
-        return "cp1252" if _control_share_ok(head, _BAD_8BIT) else None
+        ok = _control_share_ok(head, _BAD_8BIT) and _high_share_ok(head)
+        return "cp1252" if ok else None
     return "utf-8" if _control_share_ok(head, _ASCII_CONTROLS) else None
 
 
@@ -75,9 +89,46 @@ def decode_head(head: bytes, encoding: str) -> str:
     return text.lstrip("\ufeff")
 
 
+def refine_encoding(path: Path, encoding: str | None) -> str | None:
+    """Verify a head-detected UTF-8 over the whole file (chunked, bounded memory).
+
+    A decode error anywhere falls back to cp1252 when the whole file passes the 8-bit checks,
+    otherwise ``None``. Other encodings are returned unchanged.
+    """
+    if encoding not in ("utf-8", "utf-8-sig"):
+        return encoding
+    decoder = codecs.getincrementaldecoder("utf-8")()  # carries cut multibyte sequences
+    total = bad = high = 0
+    valid = True
+    with path.open("rb") as handle:
+        while chunk := handle.read(SCAN_CHUNK):
+            total += len(chunk)
+            if valid:
+                try:
+                    decoder.decode(chunk, final=False)
+                except UnicodeDecodeError:
+                    valid = False
+            if chunk.isascii():
+                bad += sum(1 for b in chunk if b in _ASCII_CONTROLS)
+            else:
+                bad += sum(1 for b in chunk if b in _BAD_8BIT)
+                high += sum(1 for b in chunk if b >= 0x80)
+    if valid:
+        try:
+            decoder.decode(b"", final=True)
+        except UnicodeDecodeError:
+            valid = False
+    if valid:
+        return encoding
+    if total == 0 or bad / total > MAX_CONTROL_SHARE or high / total > MAX_HIGH_SHARE:
+        return None
+    return "cp1252"
+
+
 def sniff_path(path: Path) -> str | None:
     with path.open("rb") as handle:
-        return detect_encoding(handle.read(HEAD_BYTES))
+        head = handle.read(HEAD_BYTES)
+    return refine_encoding(path, detect_encoding(head))
 
 
 def open_text(path: Path) -> TextIO:
@@ -90,5 +141,5 @@ def read_head_text(path: Path, nbytes: int = 4096) -> str:
     """The first ``nbytes`` decoded with the content-detected encoding."""
     with path.open("rb") as handle:
         raw = handle.read(max(nbytes, HEAD_BYTES))
-    encoding = detect_encoding(raw[:HEAD_BYTES]) or "latin-1"
+    encoding = refine_encoding(path, detect_encoding(raw[:HEAD_BYTES])) or "latin-1"
     return decode_head(raw, encoding)[:nbytes]

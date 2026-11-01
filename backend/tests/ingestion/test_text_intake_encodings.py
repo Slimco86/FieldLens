@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy.engine import URL
 
-from fieldlens.textenc import detect_encoding
+from fieldlens.textenc import detect_encoding, open_text, refine_encoding, sniff_path
 from tests.upload_support import LAS, TEXT, make_api
 
 LAS_TEXT = LAS.decode()
@@ -28,6 +28,36 @@ def test_text_intake_encodings() -> None:
     assert detect_encoding(b"\x7fELF\x02\x01\x01\x00" * 20) is None
     assert detect_encoding(b"\x01\x02\x03\x04\xe9\xe8" * 100) is None  # 8-bit, control-heavy
     assert detect_encoding(b"\x00\x00\x00\x00") is None
+
+
+def test_late_non_utf8_byte_is_cp1252(tmp_path: Path) -> None:
+    path = tmp_path / "late.dat"
+    path.write_bytes(b"MD 1000.0\n" * 12000 + b"deg \xb0\n")
+    assert sniff_path(path) == "cp1252"
+    with open_text(path) as fh:
+        assert fh.read().endswith("deg \u00b0\n")
+    ok = tmp_path / "ok.dat"  # valid multibyte characters straddling chunk edges stay utf-8
+    ok.write_bytes(b"a" * (1024 * 1024 - 1) + "\u00b0\u6df1".encode() * 5)
+    assert refine_encoding(ok, "utf-8") == "utf-8"
+    cut = tmp_path / "cut.dat"  # truncated multibyte sequence at EOF is not valid utf-8
+    cut.write_bytes(b"abc " * 100 + "\u6df1".encode()[:2])
+    assert refine_encoding(cut, "utf-8") == "cp1252"
+    binary = tmp_path / "bin.dat"
+    binary.write_bytes(b"a" * 70000 + b"\x01\x02\xe9" * 5000)
+    assert sniff_path(binary) is None
+
+
+def test_bomless_utf16_cjk_is_refused() -> None:
+    for codec in ("utf-16-le", "utf-16-be"):
+        assert detect_encoding("\u6df1\u5ea6\u6d4b\u91cf".encode(codec) * 20) is None
+    assert (
+        detect_encoding(
+            ("MD 1000.0 m, inclinaison 45.5 \u00b0, r\u00e9sum\u00e9 du puits\n" * 20).encode(
+                "cp1252"
+            )
+        )
+        == "cp1252"
+    )
 
 
 @pytest.mark.parametrize(
