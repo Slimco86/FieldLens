@@ -207,6 +207,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/identity/exposure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Exposure */
+        get: operations["get_exposure_api_v1_projects__project_id__identity_exposure_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/identity/resolve": {
         parameters: {
             query?: never;
@@ -218,6 +235,23 @@ export interface paths {
         put?: never;
         /** Resolve */
         post: operations["resolve_api_v1_projects__project_id__identity_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/identity/start-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Start Gate */
+        get: operations["get_start_gate_api_v1_projects__project_id__identity_start_gate_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -837,6 +871,57 @@ export interface components {
          * @enum {string}
          */
         CategoriesOrigin: "none" | "upload_hint" | "user_override";
+        /** CategoryExposure */
+        CategoryExposure: {
+            /** Accepted Proposal Count */
+            accepted_proposal_count: number;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "trajectory" | "surface_location" | "logs" | "production" | "equipment_completion" | "perforations" | "other";
+            /** Conflicting Record Count */
+            conflicting_record_count: number;
+            /** Conflicts */
+            conflicts: components["schemas"]["ExposureFinding"][];
+            /** Findings */
+            findings: components["schemas"]["ExposureFinding"][];
+            /**
+             * Findings Total
+             * @description Exact count of conflicts + gaps + findings before the per-list cap.
+             */
+            findings_total: number;
+            /**
+             * Findings Truncated
+             * @description True when findings_total exceeds the entries returned in the three lists.
+             */
+            findings_truncated: boolean;
+            /**
+             * Gap Reasons
+             * @description Machine-readable codes, e.g. NO_RECORDS, NO_VALIDATED_TRAJECTORY.
+             */
+            gap_reasons: string[];
+            /** Gaps */
+            gaps: components["schemas"]["ExposureFinding"][];
+            /** Groups */
+            groups: components["schemas"]["ExposureGroup"][];
+            /**
+             * Present
+             * @description False: no record or proposal; an explicit gap.
+             */
+            present: boolean;
+            /** Proposal Total */
+            proposal_total: number;
+            /** Proposals */
+            proposals: components["schemas"]["ExposureProposal"][];
+            /**
+             * Proposals Truncated
+             * @description True when proposal_total exceeds the entries returned in proposals; proposal_total and accepted_proposal_count are exact counts.
+             */
+            proposals_truncated: boolean;
+            /** Record Count */
+            record_count: number;
+        };
         /** Claim */
         Claim: {
             /** Attribute Key */
@@ -1617,6 +1702,201 @@ export interface components {
             /** Kinds */
             kinds: string[];
         };
+        /** ExposureAttribute */
+        ExposureAttribute: {
+            /** Key */
+            key: string;
+            /**
+             * Locator
+             * @description Attribute-level source locator (page/table/cell/line/column as stored), with the document id.
+             */
+            locator: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Number
+             * @default null
+             */
+            number: number | null;
+            /**
+             * Original Text
+             * @default null
+             */
+            original_text: string | null;
+            /**
+             * Reference
+             * @default null
+             */
+            reference: string | null;
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            /**
+             * Unknown Reason
+             * @default null
+             */
+            unknown_reason: string | null;
+            /** Validation State */
+            validation_state: string;
+        };
+        /** ExposureFinding */
+        ExposureFinding: {
+            /** Attribute Keys */
+            attribute_keys: string[];
+            /** Blocked Operations */
+            blocked_operations: string[];
+            /** Code */
+            code: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Issue Id
+             * Format: uuid
+             */
+            issue_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "conflict" | "gap" | "finding";
+            /** Locators */
+            locators: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Message */
+            message: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Scope
+             * @description 'record': the issue names records linked to this wellbore; 'document': the issue names none and applies to the document run as a whole.
+             * @enum {string}
+             */
+            scope: "record" | "document";
+            /** Severity */
+            severity: string;
+        };
+        /**
+         * ExposureGroup
+         * @description Records of one kind from one document run (bounded sample; counts are exact).
+         */
+        ExposureGroup: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Evidence Class
+             * @default source_record
+             * @constant
+             */
+            evidence_class: "source_record";
+            /** Filename */
+            filename: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Profile Name
+             * @default null
+             */
+            profile_name: string | null;
+            /** Record Count */
+            record_count: number;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Sample */
+            sample: components["schemas"]["ExposureRecord"][];
+            /**
+             * Sample Truncated
+             * @description True when record_count exceeds the sample.
+             */
+            sample_truncated: boolean;
+            /**
+             * Survey Status
+             * @description Trajectory groups only: the survey status the source states. 'unstated' means the profile looked for it and the source does not say; 'not_applicable' means the format has no such statement.
+             * @default null
+             */
+            survey_status: ("planned" | "as_built" | "unstated" | "conflicting" | "not_applicable") | null;
+            /** Validation Counts */
+            validation_counts: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * ExposureProposal
+         * @description A model-proposed candidate attached to the wellbore. Never a source record.
+         */
+        ExposureProposal: {
+            /**
+             * Attribute Kind
+             * @default null
+             */
+            attribute_kind: string | null;
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Evidence Class */
+            evidence_class: string;
+            /**
+             * Is Accepted Fact
+             * @description True only for state 'accepted' with validation 'valid'; everything else is an open or rejected proposal and must not be shown as a fact.
+             */
+            is_accepted_fact: boolean;
+            /** Label */
+            label: string;
+            /** Locator */
+            locator: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** State */
+            state: string;
+            /** Validation State */
+            validation_state: string;
+        };
+        /** ExposureRecord */
+        ExposureRecord: {
+            /** Attributes */
+            attributes: components["schemas"]["ExposureAttribute"][];
+            /**
+             * Attributes Truncated
+             * @default false
+             */
+            attributes_truncated: boolean;
+            /** Kind */
+            kind: string;
+            /** Locator */
+            locator: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Ordinal */
+            ordinal: number;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Validation State */
+            validation_state: string;
+        };
         /** ExtractedAttribute */
         ExtractedAttribute: {
             evidence: components["schemas"]["EvidenceLink"];
@@ -1933,6 +2213,28 @@ export interface components {
          * @enum {string}
          */
         ExtractionStatus: "queued" | "running" | "succeeded" | "partial" | "failed" | "interrupted" | "unsupported";
+        /** GateCondition */
+        GateCondition: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Met */
+            met: boolean;
+        };
+        /** GateReason */
+        GateReason: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /**
+             * Wellbore Id
+             * @description Set when the reason concerns one wellbore.
+             * @default null
+             */
+            wellbore_id: string | null;
+        };
         /** HealthResponse */
         HealthResponse: {
             /**
@@ -2897,6 +3199,23 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** ProjectExposure */
+        ProjectExposure: {
+            gate: components["schemas"]["StartGate"];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Resolved Current */
+            resolved_current: boolean;
+            /** Resolver Version */
+            resolver_version: string;
+            /** Unresolved Record Count */
+            unresolved_record_count: number;
+            /** Wells */
+            wells: components["schemas"]["WellExposure"][];
+        };
         /**
          * ProjectPage
          * @description One page of projects, newest first.
@@ -3816,6 +4135,31 @@ export interface components {
             /** Unsupported Count */
             unsupported_count: number;
         };
+        /** StartGate */
+        StartGate: {
+            /** Can Start */
+            can_start: boolean;
+            /** Conditions */
+            conditions: components["schemas"]["GateCondition"][];
+            /** Gate Version */
+            gate_version: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Qualifying Wellbore Ids */
+            qualifying_wellbore_ids: string[];
+            /**
+             * Unmet
+             * @description Exactly the unmet conditions, for the UI.
+             */
+            unmet: components["schemas"]["GateReason"][];
+            /** Warnings */
+            warnings: components["schemas"]["GateReason"][];
+            /** Wellbores */
+            wellbores: components["schemas"]["WellboreGate"][];
+        };
         /**
          * StorageState
          * @enum {string}
@@ -3888,6 +4232,40 @@ export interface components {
          * @enum {string}
          */
         TimePrecision: "instant" | "day" | "month" | "year" | "unknown";
+        /**
+         * TrajectorySetCheck
+         * @description Deterministic validity of one trajectory station set (one document run).
+         */
+        TrajectorySetCheck: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /**
+             * Reasons
+             * @description Why the set is not validated; empty if it is.
+             */
+            reasons: components["schemas"]["GateReason"][];
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Station Count */
+            station_count: number;
+            /**
+             * Survey Status
+             * @enum {string}
+             */
+            survey_status: "planned" | "as_built" | "unstated" | "conflicting" | "not_applicable";
+            /** Usable Station Count */
+            usable_station_count: number;
+            /** Validated */
+            validated: boolean;
+        };
         /**
          * UnitStatus
          * @enum {string}
@@ -3999,6 +4377,8 @@ export interface components {
         WellboreEvidence: {
             /** Documents */
             documents: components["schemas"]["WellboreEvidenceDocument"][];
+            /** @description Records of this wellbore grouped per category with locators, validation state, gaps/conflicts and its start-gate verdict (TASK-056). */
+            exposure: components["schemas"]["WellboreExposure"];
             /**
              * Project Id
              * Format: uuid
@@ -4041,6 +4421,68 @@ export interface components {
              */
             run_id: string;
         };
+        /** WellboreExposure */
+        WellboreExposure: {
+            /**
+             * Categories
+             * @description Always all categories, fixed order.
+             */
+            categories: components["schemas"]["CategoryExposure"][];
+            gate: components["schemas"]["WellboreGate"];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Well Id
+             * Format: uuid
+             */
+            well_id: string;
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+            /** Wellbore Name */
+            wellbore_name: string;
+        };
+        /** WellboreGate */
+        WellboreGate: {
+            /**
+             * Location State
+             * @enum {string}
+             */
+            location_state: "located" | "unlocated";
+            /** Trajectory Sets */
+            trajectory_sets: components["schemas"]["TrajectorySetCheck"][];
+            /** Trajectory Validated */
+            trajectory_validated: boolean;
+            /**
+             * Unlocated
+             * @description True when no sourced surface location exists (warning only; display origin is TASK-058).
+             */
+            unlocated: boolean;
+            /**
+             * Unmet
+             * @description Why this wellbore does not satisfy the gate.
+             */
+            unmet: components["schemas"]["GateReason"][];
+            /** Warnings */
+            warnings: components["schemas"]["GateReason"][];
+            /**
+             * Well Id
+             * Format: uuid
+             */
+            well_id: string;
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+            /** Wellbore Name */
+            wellbore_name: string;
+        };
         /**
          * WellboreIdentity
          * @description A wellbore label exactly as a source wrote it, with the parent well key kept separate.
@@ -4057,6 +4499,18 @@ export interface components {
             well_key: string | null;
             /** Wellbore Label */
             wellbore_label: string;
+        };
+        /** WellExposure */
+        WellExposure: {
+            /** Name */
+            name: string;
+            /**
+             * Well Id
+             * Format: uuid
+             */
+            well_id: string;
+            /** Wellbores */
+            wellbores: components["schemas"]["WellboreExposure"][];
         };
         /**
          * WindowResolution
@@ -4997,6 +5451,55 @@ export interface operations {
             };
         };
     };
+    get_exposure_api_v1_projects__project_id__identity_exposure_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectExposure"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     resolve_api_v1_projects__project_id__identity_resolve_post: {
         parameters: {
             query?: never;
@@ -5015,6 +5518,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IdentityResolveOutcome"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_start_gate_api_v1_projects__project_id__identity_start_gate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartGate"];
                 };
             };
             /** @description Not Found */

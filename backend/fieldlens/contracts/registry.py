@@ -24,6 +24,7 @@ from . import (
     context,
     errors,
     evidence,
+    exposure,
     extraction,
     identity,
     imports,
@@ -55,6 +56,7 @@ _MODULES = (
     retrieval,
     series,
     well_identity,
+    exposure,
 )
 
 

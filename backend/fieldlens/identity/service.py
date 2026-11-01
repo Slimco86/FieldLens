@@ -177,6 +177,8 @@ def wellbore_evidence(session: Session, project_id: UUID, wellbore_id: UUID) -> 
         key = (r.document_id, r.run_id)
         first[key] = min(first.get(key, r.first), r.first)
     docs = []
+    from fieldlens.exposure import service as exposure_service  # local: avoids an import cycle
+
     for (document_id, run_id), kinds in sorted(per_doc.items(), key=lambda kv: str(kv[0][0])):
         meta = session.execute(
             select(sd.c.original_filename, ru.c.profile_name, ru.c.profile_version)
@@ -203,4 +205,11 @@ def wellbore_evidence(session: Session, project_id: UUID, wellbore_id: UUID) -> 
                 first_record_locator=locator,
             )
         )
-    return WellboreEvidence(project_id=project_id, wellbore=bore, documents=docs)
+    return WellboreEvidence(
+        project_id=project_id,
+        wellbore=bore,
+        documents=docs,
+        exposure=exposure_service.wellbore_exposure(
+            session, project_id, bore.well_id, bore.wellbore_id, bore.name
+        ),
+    )
