@@ -1359,7 +1359,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
 | Depends on | TASK-036, TASK-042, TASK-046 |
