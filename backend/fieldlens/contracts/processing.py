@@ -104,7 +104,12 @@ class ProcessingEstimateRequest(ContractModel):
 
 class ProcessingConfirmRequest(ContractModel):
     estimated_usd: Decimal = Field(
-        ge=0, description="Echo of the estimate being confirmed; a stale value is rejected."
+        ge=0,
+        le=1_000_000,
+        max_digits=14,
+        decimal_places=6,
+        allow_inf_nan=False,
+        description="Echo of the estimate being confirmed; a stale value is rejected.",
     )
 
 

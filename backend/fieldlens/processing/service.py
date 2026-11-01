@@ -12,7 +12,7 @@ import threading
 from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
@@ -360,15 +360,23 @@ def confirm_run(
     run_id: UUID,
     estimated_usd: Decimal,
 ) -> ProcessingRun:
+    try:
+        if not estimated_usd.is_finite() or not Decimal(0) <= estimated_usd <= Decimal(1_000_000):
+            raise InvalidOperation
+        echoed = quantize(estimated_usd)
+    except InvalidOperation:
+        raise _conflict(
+            "the confirmed amount is not a valid estimate", "estimate_mismatch"
+        ) from None
     lock_budget(session)
     run = _lock_run(session, project_id, run_id)
     if run.status != "estimated":
-        if run.confirmed_usd is not None and run.confirmed_usd == quantize(estimated_usd):
+        if run.confirmed_usd is not None and run.confirmed_usd == echoed:
             return get_run(session, settings, project_id, run_id)  # idempotent replay
         raise _conflict(
             f"run is {run.status}; only an estimated run can be confirmed", "not_estimated"
         )
-    if quantize(estimated_usd) != run.estimated_usd:
+    if echoed != run.estimated_usd:
         raise _conflict(
             "the confirmed amount does not match the estimate",
             "estimate_mismatch",

@@ -7,6 +7,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy.engine import URL
 
@@ -359,3 +360,71 @@ def test_processing_document_concurrency_is_bounded(migrated_url: URL, tmp_path:
     world.drain()
     assert world.get(run["run_id"])["status"] == "succeeded"
     assert active["max"] == 2
+
+
+def test_processing_confirm_rejects_hostile_amounts(world: World) -> None:
+    run = world.estimate("scan.pdf").json()
+    url = f"{world.base}/runs/{run['run_id']}/confirm"
+    hostile = [
+        '"1e400"',
+        "1e400",
+        '"NaN"',
+        '"Infinity"',
+        '"-Infinity"',
+        '"sNaN"',
+        '"1e-400"',
+        '"' + "9" * 5000 + '"',
+        '"0.' + "0" * 5000 + '1"',
+        "0",
+        "-1",
+        '"abc"',
+        "null",
+        "[]",
+        "true",
+    ]
+    for raw in hostile:
+        r = world.api.client.post(
+            url,
+            content=f'{{"estimated_usd": {raw}}}'.encode(),
+            headers={**world.api.headers, "content-type": "application/json"},
+        )
+        assert r.status_code in (409, 422), (raw[:20], r.status_code)
+    assert world.get(run["run_id"])["status"] == "estimated"  # nothing was queued or spent
+    assert world.confirm(run).status_code == 202
+
+
+def test_processing_confirm_service_guard_rejects_non_finite(world: World) -> None:
+    from decimal import Decimal
+
+    import pytest
+
+    from fieldlens.contracts.errors import ContractError
+    from fieldlens.persistence.session import session_scope
+    from fieldlens.processing import service
+
+    run = world.estimate("scan.pdf").json()
+    app = world.api.client.app
+    for bad in (Decimal("NaN"), Decimal("Infinity"), Decimal("1e400"), Decimal("-1")):
+        with session_scope(app.state.session_factory) as s, pytest.raises(ContractError) as caught:
+            service.confirm_run(
+                s, app.state.settings, UUID(world.project_id), UUID(run["run_id"]), bad
+            )
+        assert caught.value.status_code == 409
+    assert world.get(run["run_id"])["status"] == "estimated"
+
+
+def test_processing_confirm_refuses_document_removed_after_estimate(world: World) -> None:
+    run = world.estimate("scan.pdf", "other.pdf").json()
+    gone = world.docs["scan.pdf"]
+    world.sql(
+        "UPDATE document_processing SET storage_state = 'quarantined' WHERE document_id = :d",
+        d=UUID(gone),
+    )
+    r = world.confirm(run)
+    assert r.status_code == 409, r.text
+    err = _err(r)
+    assert err["details"]["reason"] == "document_unavailable"
+    assert err["details"]["document_ids"] == [gone]
+    still = world.get(run["run_id"])
+    assert still["status"] == "estimated"  # nothing queued, nothing reserved
+    assert world.drain() == 0
