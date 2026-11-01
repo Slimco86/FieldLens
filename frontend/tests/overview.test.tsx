@@ -193,8 +193,8 @@ describe("project Overview", () => {
     expect(within(warn).getByText(/1 extraction issue\(s\) with code MISSING_UNIT/)).toBeInTheDocument();
 
     const notYet = screen.getByRole("list", { name: "Not available yet" });
-    expect(within(notYet).getAllByRole("listitem")).toHaveLength(4);
-    expect(notYet).toHaveTextContent("TASK-056");
+    expect(within(notYet).getAllByRole("listitem")).toHaveLength(2);
+    expect(notYet).toHaveTextContent("TASK-057");
   });
 
   it("shows a designed empty state and makes no data requests without a source revision", () => {

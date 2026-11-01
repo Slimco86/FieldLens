@@ -74,8 +74,6 @@ function Scroll({ label, children }: { label: string; children: React.ReactNode 
 }
 
 const NOT_YET: { name: string; why: string }[] = [
-  { name: "Data exposure per wellbore", why: "needs the wellbore exposure read model (TASK-056)." },
-  { name: "Processing runs and their steps", why: "needs the processing-run API (TASK-054)." },
   { name: "Merge proposals for duplicate wells or wellbores", why: "needs the merge-proposal API (TASK-057)." },
   { name: "Equipment, reconstruction and scene", why: "need a reconstruction run and a published model revision; this build has none." },
 ];

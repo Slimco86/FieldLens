@@ -108,6 +108,8 @@ No dependency on parsers, agents or data. Later UI tasks depend on TASK-034 (see
 > UI-13 traceability (TASK-048): `frontend/src/features/overview/` + `frontend/tests/overview.test.tsx`; Playwright/axe against a real lane is still open for independent QA. Series are grouped by the wellbore label as written (not mapped to resolved wellbores); issues are read per document because no project-wide issues API exists.
 >
 > UI-15 stage order, gates and owner decisions D1..D6 (processing without a label, OCR only if cheaper and faster, 500-page bound, trajectory as the minimum, unlocated (0, 0) display origin, AI merge review) are defined in [PROCESSING_FLOW.md](PROCESSING_FLOW.md).
+>
+> UI-15 as built (TASK-053, frontend only): the **Processing pipeline** panel sits in the Sources tab after the Overview (`features/pipeline/`). It shows the server's start-gate checklist (pass/warn/fail with the server's codes and messages; surface location is a warning, never a block), per-wellbore data exposure with truncation notices, and document processing (select, estimate, a separate "Confirm and start" step, per-document progress, cancel, retry). The Reconstruction tab still has no start action and merge-proposal review is not part of it. Confirm is the single call that starts a run (the API has no separate start endpoint); verified with mocked fetch only.
 
 Definition of done: all ACs pass with recorded commands/results; owner browser checkpoint recorded; integration
 follows the [workflow](../DEVELOPMENT_WORKFLOW.md) (independent acceptance, version/changelog, backlog reconciliation).
