@@ -18,7 +18,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import RequestResponseEndpoint
 
 from fieldlens import __version__, security
-from fieldlens.activity import build_activity_router
+from fieldlens.activity import ActivityLog, build_activity_router
+from fieldlens.assistant.budget import BudgetLedger
+from fieldlens.candidates.reconcile import settle_finished_units
+from fieldlens.candidates.routes import build_candidates_router
 from fieldlens.config import Settings, get_settings
 from fieldlens.contracts.errors import ContractError, ErrorBody, ErrorCode, ErrorEnvelope
 from fieldlens.contracts.registry import export_component_schemas
@@ -200,6 +203,15 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
             app.state.blob_store.sweep_staging(settings.staging_max_age_s)
         except OSError:
             pass
+        # AX-15: units left running by a stopped process become interrupted, never successful.
+        if app.state.activity_log is not None:
+            try:
+                app.state.activity_log.recover_interrupted()
+                settle_finished_units(
+                    app.state.session_factory, BudgetLedger(app.state.session_factory)
+                )
+            except Exception:  # noqa: BLE001 - startup must not fail on an unavailable database
+                logger.warning("activity-log recovery skipped: storage unavailable")
         if worker is not None and settings.job_worker_enabled:
             worker.start()
         yield
@@ -242,6 +254,9 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         else None
     )
 
+    app.state.activity_log = (
+        ActivityLog(app.state.session_factory) if app.state.session_factory is not None else None
+    )
     app.state.series = (
         SeriesService(app.state.session_factory) if app.state.session_factory is not None else None
     )
@@ -266,6 +281,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_jobs_router())
     app.include_router(build_extraction_router())
     app.include_router(build_activity_router())
+    app.include_router(build_candidates_router())
     app.include_router(build_retrieval_router())
     app.include_router(build_identity_router())
     app.include_router(build_series_router())

@@ -20,6 +20,7 @@ from pydantic.json_schema import models_json_schema
 
 from . import (
     activity,
+    candidates,
     context,
     errors,
     evidence,
@@ -48,6 +49,7 @@ _MODULES = (
     imports,
     extraction,
     activity,
+    candidates,
     retrieval,
     series,
     well_identity,

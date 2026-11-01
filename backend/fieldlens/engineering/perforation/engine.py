@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from fieldlens.engineering.provenance import MARKER_REASON, is_model_proposal
+
 from .models import (
     FEET_TO_METRES,
     EventKind,
@@ -71,6 +73,15 @@ class PerforationHistory:
         rejected: set[EventRejection] = set()
         by_id: dict[str, set[PerforationEvent]] = defaultdict(set)
         for raw in records:
+            if is_model_proposal(raw):  # AX-13: a model proposal never feeds a calculation
+                rejected.add(
+                    EventRejection(
+                        str(raw.get("event_id")) if raw.get("event_id") is not None else None,
+                        MARKER_REASON,
+                        "model-proposed or model-read records are not calculation inputs",
+                    )
+                )
+                continue
             parsed = parse_event(raw, wellbore_id, md_datum)
             if isinstance(parsed, EventRejection):
                 rejected.add(parsed)

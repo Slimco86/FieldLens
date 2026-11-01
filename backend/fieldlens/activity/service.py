@@ -382,6 +382,20 @@ class ActivityLog:
                 usage=usage,
             )
 
+    def link_reservation(self, handle: UnitHandle, reservation_id: UUID) -> None:
+        """Record the BudgetLedger reservation that pays for this unit (AX-15). Fenced; the link
+        is set once and a different reservation is refused."""
+        with session_scope(self._factory) as s:
+            unit = _fenced(s, handle)
+            current = unit["reservation_id"]
+            if current is not None and current != reservation_id:
+                raise ActivityLogError("unit is already linked to another reservation")
+            s.execute(
+                update(m.agent_work_unit)
+                .where(m.agent_work_unit.c.unit_id == handle.unit_id)
+                .values(reservation_id=reservation_id)
+            )
+
     def finalize(
         self,
         handle: UnitHandle,

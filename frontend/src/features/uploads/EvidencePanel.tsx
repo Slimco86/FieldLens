@@ -9,6 +9,7 @@ import {
   type ExtractionReport,
   type SourceDocumentItem,
 } from "./api";
+import { CandidateList } from "./CandidateList";
 import { usePolled } from "./usePolled";
 import { toFailure, type Failure } from "../projects/scope";
 
@@ -269,6 +270,7 @@ function Inspection({ projectId, doc }: { projectId: string; doc: SourceDocument
       )}
       <h6>Extracted records</h6>
       <Records projectId={projectId} doc={doc} />
+      <CandidateList projectId={projectId} doc={doc} describeLocator={describeLocator} />
     </div>
   );
 }

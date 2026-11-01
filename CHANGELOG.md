@@ -8,6 +8,22 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.20.0 - 2026-11-01
+
+- **TASK-036 (FL-022-A):** Added model-proposed extraction candidates with deterministic validation (offline stub
+  provider only, no live calls): migration `0010_extraction_candidates` (`extraction_candidate`, reservation link on
+  `agent_work_unit`), a closed JSON candidate schema, read-only project-scoped tools (read span, read table, project
+  search, page image), pypdfium2 page rendering (about 1600 px, cache by blob/page/scale/rotation, text-layer
+  orientation correction, explicit rotation), text-layer page triage, and validators that reject values that are only
+  part of a longer number, check units against the quote, parse fractions, Unicode minus and decimal commas strictly,
+  require the subject to be named by the source, verify page-item fields, flag parsed-value conflicts against the whole
+  parsed set and flag every coordinate or trajectory-type candidate pending AX-11. Image-only reads are `model_read`,
+  unverified and rejected by the calculation entry. Per-unit budget reservations link to the activity log, finished
+  units settle on startup recovery, `step_key` carries an ordinal, and a candidate read API and evidence-view list were
+  added. New dependencies `pypdfium2` and `Pillow`. Known limits: the image-only orientation check is opt-in (it
+  rotated upright scans), no render timeout, triage selects nothing for the scanned F-14/F-5 documents (pages are
+  supplied explicitly), and a unit written away from its value is not detected (follow-up).
+
 ## 0.19.0 - 2026-10-31
 
 - **TASK-047 (FL-005-F):** Added full-resolution time-series storage for LAS curves and daily production:

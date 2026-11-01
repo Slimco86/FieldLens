@@ -1233,7 +1233,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
 | Depends on | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038, TASK-046 |
@@ -1241,13 +1241,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-01 |
 | Sprint | Hackathon |
 | Spec | specs/AGENTIC_EXTRACTION.md |
-| Version | none |
+| Version | 0.20.0 |
 | Parent | FL-022 |
 | Slice | FL-022-A |
 
 **Outcome.** Ingestion owner implements question-driven candidate-claim proposals from the harness through the offline provider adapter, the allowlisted read-only content tools (span, table, page image, project search), deterministic validators, persisted candidate/accept/reject/flag states with source locators (including the AX-11 labeled coordinate fallback), writing to the TASK-038 activity log, and their display in the existing evidence/issue views (restyled later by TASK-034). One shared-contract change is allowed with a single writer. Offline stub provider only; no live spend is authorized by this task.
-**Next action.** Dispatched October 31 with the AX-12..15 amendment (page-image tool with pypdfium2/Pillow, model-read unverified marking, page triage and speed budget, startup recovery/budget link/step_key). Offline stub only; every command prefixed `env -u MODEL_API_KEY -u FIELDLENS_DATABASE_URL`; independent QA follows; TASK-041 builds on it.
-**Evidence.** none yet
+**Next action.** None. TASK-041 builds on it. Follow-ups (TASK-045 and TASK-041 hardening): a unit written away from its value is ignored (`15/9-F-99 Set 3000 MD ft` with claimed `m` is accepted as meters), page_read item-to-depth association, a page that names another well should override the page-1 cover rule, block-qualified well vs another block, `95/8` parsed as a fraction, glued `3000ft` over-rejected, strict JSON fence handling, no pdfium render timeout, AX-11 (coordinate fallback) deferred, image-only orientation check opt-in.
+**Evidence.** Integrated November 1 as 0.20.0 (branch `feature/task-036-extraction-harness`, head `ce0200a`; migration `0010_extraction_candidates`). Offline stub provider only: no live call, no spend; stub results do not show live extraction quality. Independent QA returned the first candidate (validators accepted a value that was only a substring of the quote, ignored the unit in the quote, mis-parsed fractions/Unicode minus/decimal comma, did not check the subject against the source, skipped parsed-conflict checks, left a reservation open after a settle failure); repaired with committed tests and re-verified (backend 1061 passed, 6 skipped, 1 deselected; ruff, mypy, frontend gates clean). Measured on this host: page render at 1600 px cold median 133 ms (max 327 ms), cached about 0.015 ms; triage compute under 80 ms; stub end-to-end 12 pages 0.95 s. Real-PDF checks (`-m local_data`) cover triage and render only.
 
 ### TASK-037 · Demo UI polish and responsive/accessibility sweep on the integrated app (UI-8, UI-10)
 
@@ -1359,7 +1359,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | ready |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
 | Depends on | TASK-036, TASK-042, TASK-046 |
@@ -1372,7 +1372,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-D |
 
 **Outcome.** Using the TASK-036 harness, read the completion pages of F-14 and F-5 (scanned page images, and the text layer where it exists) and propose a superficial, visual-level production/completion equipment structure (casing/liner strings, tubing, packers, pumps, perforations, isolations: type, material if printed, OD/ID/length, top/bottom depth) as model-read, unverified candidates for the 3D model. Owner decision October 31: no OCR gate, speed and performance first, missed details are acceptable, values are never used in calculations; F-12 uses generic assets.
-**Next action.** Acceptance written (EQ-8..11 in specs/EQUIPMENT_RECONSTRUCTION.md, owner taxonomy of October 31). Dispatch after TASK-036 is integrated; settings from the spike: upright pages about 1600 px, effort `low`, orientation fix, page triage. Live run on the approved F-14/F-5 pages needs a separate small allowance.
+**Next action.** Ready: TASK-036 is integrated (0.20.0). Acceptance written (EQ-8..11, owner taxonomy of October 31). Pass explicit page lists and rotation for the scanned F-14/F-5 documents (triage selects nothing for image-only PDFs; the F-14 PV-17 p36 schematic needs rotation), settings from the spike (upright pages about 1600 px, effort `low`), and harden the QA follow-ups first: unit written away from the value, item-to-depth association, page-1 cover rule override. Live run on the approved pages needs a separate small allowance from the owner.
 **Evidence.** none yet
 
 ### TASK-043 · Provider adapter hardening from the live findings (effort control, tool-token estimate, cancel and liable semantics)

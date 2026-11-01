@@ -19,6 +19,8 @@ class EvidenceClass(StrEnum):
     DERIVED = "derived"
     INTERPOLATED = "interpolated"
     GENERIC = "generic"
+    MODEL_PROPOSAL = "model_proposal"
+    """Proposed by a model and checked by deterministic validators (AX-2); never source truth."""
 
 
 class ValidationState(StrEnum):
@@ -27,6 +29,8 @@ class ValidationState(StrEnum):
     CONFLICTING = "conflicting"
     INVALID = "invalid"
     UNSUPPORTED = "unsupported"
+    UNVERIFIED = "unverified"
+    """Model-read from a page image with no text layer (AX-13): no quote could be checked."""
 
 
 class CoverageStatus(StrEnum):

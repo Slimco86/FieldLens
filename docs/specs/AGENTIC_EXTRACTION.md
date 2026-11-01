@@ -4,7 +4,7 @@
 > **Load-bearing frameworks:** outcome, acceptance, scope, context. **Supporting:** failure conditions, ambiguity audit.
 > **Date:** 2026-10-30. **Author:** orchestrator (draft). **Decision owner:** project owner.
 > **Status:** Approved by the owner on 2026-10-30 (section 6 records the decisions); implementation not started.
-> **Backlog ID:** FL-022 (TASK-035 approval, TASK-036 extraction, TASK-038 activity log, TASK-040 Reconstruction view). **Delivery state:** in progress (TASK-038 dispatched October 31).
+> **Backlog ID:** FL-022 (TASK-035 approval, TASK-036 extraction, TASK-038 activity log, TASK-040 Reconstruction view). **Delivery state:** TASK-036 integrated 0.20.0; TASK-041 next.
 > **Approved spec revision/date:** r1, 2026-10-30. **Integration version:** pending.
 > **Zero-Question Score:** 0 blocking. Non-blocking: multimodal entitlement is verified by the TASK-005 live smoke, and TASK-036 uses the stub until then.
 
@@ -189,6 +189,46 @@ scope checks; (5) recovery/budget behavior; (6) the evidence/issue view. TASK-03
 step without comparing content, so a reused key with different content is ignored.
 Start with one ambiguity class end to end (table/unit interpretation on a TASK-009 fixture), then add classes in order.
 Do not claim proposed commands exist; record actual test commands and results at handoff.
+
+### Implementation notes (TASK-036, stub provider only)
+
+- **Code.** `backend/fieldlens/candidates/`: `harness.py` (unit and document run), `tools.py` (read_span, read_table,
+  search_project, get_page_image), `pages.py` (pypdfium2 render, cache, orientation), `triage.py`, `validators.py`,
+  `schema.py` (closed wire schema), `repository.py`/`routes.py` (read API `GET /projects/{id}/extraction-candidates`
+  and `/documents/{id}/extraction-candidates`). Migration `0010_extraction_candidates`: `extraction_candidate`
+  (typed JSONB `attributes` with a `kind` discriminator; TASK-041 adds a variant, no migration) and
+  `agent_work_unit.reservation_id`. DB CHECKs make AX-13 structural (a `model_read` row is never `accepted`).
+- **Contracts.** `EvidenceClass.model_proposal`, `ValidationState.unverified`, `contracts/candidates.py`.
+- **Decisions.** A unit ends `failed` for refusal/malformed/oversized output, tool-allowlist violation or a hit limit
+  (nothing persisted); transient provider errors end it `interrupted` with the reservation left open so a fenced retry
+  resumes it; the unit is finalized before its reservation is settled. Warnings (a defaulted meter unit) never block.
+  Subject mismatch with the document's own records leaves the candidate unattached and flagged.
+- **Orientation.** Rotation flag, then text-layer character angles (reliable on synthetic pages). The ink-profile check
+  for image-only pages is **opt-in**: on the real scanned PV-17/PV-21 pages it rotated already-upright pages by 180/270
+  degrees, so the default sends image-only pages as pdfium renders them. A better scan orientation check is open.
+- **Calculation guard.** `engineering/provenance.py`; `PerforationHistory.build` rejects marked records. The trajectory
+  entry has no provenance input yet (open, for the reconstruction consumer).
+- **Repair round (QA RETURN).** Values must be whole tokens of the quote (`3000` is not in `13000`); the unit must
+  agree with the unit written next to the value in the quote (a conflict rejects, an absent claim uses and records the
+  quote's unit); the meters default applies only when neither the quote nor the cited context states a unit, a context
+  header such as `(ft)` supplies the unit, a claimed non-meter unit that nothing states is flagged; numbers parse
+  strictly (mixed fractions for sizes, Unicode minus, an unambiguous decimal comma, everything else flagged
+  `number_unparseable`); a subject must be supported by the document's parsed wellbore links or named in the cited
+  span (for PDFs also on page 1, the cover/header); `page_read` fields (depth, sizes, notes) are verified against the
+  text layer one by one, unsupported fields are removed and the candidate is flagged; parsed conflicts compare with
+  the records at the cited lines, else with the whole parsed set of the wellbore/attribute (records at another
+  effective time are not comparable).
+- **AX-11 deferral.** The coordinate/trajectory fallback is NOT built: every coordinate, trajectory or survey-type
+  candidate is `flagged` with `coordinate_fallback_unsupported`; there is no accept path until AX-11 exists.
+- **Finalize then settle.** A unit is finalized before its reservation is settled; a failed settle or a crash between
+  the two is repaired by the idempotent `settle_finished_units` sweep (harness `recover_interrupted` and app startup).
+- **Cache of failures.** Failed and cancelled results are cached as final under their key; only a `retry` bump
+  (`:rN`) re-runs. Identical repeated tool calls are separate steps (ordinal in `step_key`).
+- **Residual risk (pdfium).** Rendering runs in-process under one lock with bounded size and concurrency but no render
+  timeout; a pathological PDF could stall the render thread. Process isolation is a follow-up.
+- **Orientation.** The model is told about the `rotation` parameter of `get_page_image`; TASK-041 passes explicit page
+  lists and rotations for the known rotated F-14 schematic.
+- Not done here: xlsx/xml locators for candidates, live behavior.
 
 ### Implementation handoff and integration
 

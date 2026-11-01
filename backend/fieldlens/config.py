@@ -135,6 +135,16 @@ class Settings(BaseSettings):
 
     # Native-profile extraction (TASK-009).
     extraction_max_attempts: int = Field(3, ge=1, le=10)
+
+    # Model-proposed extraction harness (TASK-036, AX-12/AX-14). Offline by default.
+    page_image_long_side: int = Field(1600, ge=200, le=2400)
+    """Longest side in px of a rendered page image; 2,400 is a hard cap (AX-12)."""
+    page_image_cache_mb: int = Field(64, ge=1, le=1024)
+    page_render_concurrency: int = Field(2, ge=1, le=8)
+    extraction_max_pages: int = Field(12, ge=1, le=60)
+    """Triage cap: candidate pages read per document (AX-14)."""
+    extraction_read_concurrency: int = Field(3, ge=1, le=8)
+    extraction_page_reserve_usd: Decimal = Field(Decimal("0.25"), gt=0, le=Decimal("0.50"))
     local_data_root: Path | None = None
     """Opt-in read-only root of the local Volve subset (tests only); unset => local_data skips."""
 

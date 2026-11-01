@@ -16,6 +16,8 @@ dependencies = [
   "openai>=3.41.0",
   "pypdf>=6.21.4",
   "fastembed>=0.9.1",
+  "pypdfium2==5.14.0",
+  "pillow==13.0.0",
 ]
 
 [dependency-groups]
@@ -68,3 +70,7 @@ strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = "backend"
 packages = ["fieldlens"]
+
+[[tool.mypy.overrides]]
+module = ["pypdfium2", "pypdfium2.*"]
+ignore_missing_imports = true

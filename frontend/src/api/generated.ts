@@ -139,6 +139,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/documents/{document_id}/extraction-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Document */
+        get: operations["list_document_api_v1_projects__project_id__documents__document_id__extraction_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/documents/{document_id}/extraction/records": {
         parameters: {
             query?: never;
@@ -148,6 +165,23 @@ export interface paths {
         };
         /** Get Records */
         get: operations["get_records_api_v1_projects__project_id__documents__document_id__extraction_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/extraction-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project */
+        get: operations["list_project_api_v1_projects__project_id__extraction_candidates_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -640,6 +674,36 @@ export interface components {
             value: boolean;
         };
         /**
+         * CandidateQuery
+         * @description Listing filters; the project comes from the path.
+         */
+        CandidateQuery: {
+            /**
+             * Cursor
+             * @default null
+             */
+            cursor: string | null;
+            /**
+             * Document Id
+             * @default null
+             */
+            document_id: string | null;
+            /**
+             * Limit
+             * @default 50
+             */
+            limit: number;
+            /** @default null */
+            method: components["schemas"]["ExtractionMethod"] | null;
+            /** @default null */
+            state: components["schemas"]["CandidateState"] | null;
+        };
+        /**
+         * CandidateState
+         * @enum {string}
+         */
+        CandidateState: "candidate" | "accepted" | "rejected" | "flagged";
+        /**
          * CategoriesOrigin
          * @enum {string}
          */
@@ -1049,7 +1113,7 @@ export interface components {
          * @description Provenance class. No class implies validation.
          * @enum {string}
          */
-        EvidenceClass: "source_record" | "catalog_derived" | "derived" | "interpolated" | "generic";
+        EvidenceClass: "source_record" | "catalog_derived" | "derived" | "interpolated" | "generic" | "model_proposal";
         /**
          * EvidenceContext
          * @description Union of source, draft and model contexts. Endpoints declare the kinds they allow.
@@ -1309,6 +1373,88 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** ExtractionCandidate */
+        ExtractionCandidate: {
+            /** Attributes */
+            attributes: components["schemas"]["MeasurementAttributes"] | components["schemas"]["PageReadAttributes"];
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            /**
+             * Conflicts With Record Id
+             * @description The parsed record that disagrees; it stays authoritative.
+             * @default null
+             */
+            conflicts_with_record_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            evidence: components["schemas"]["EvidenceLink"];
+            evidence_class: components["schemas"]["EvidenceClass"];
+            /** Harness Version */
+            harness_version: string;
+            /**
+             * Label
+             * @description Human label, e.g. 'model-read, unverified'.
+             */
+            label: string;
+            method: components["schemas"]["ExtractionMethod"];
+            /** Model Id */
+            model_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Prompt Version */
+            prompt_version: string;
+            /**
+             * Quote
+             * @default null
+             */
+            quote: string | null;
+            /** Reason Codes */
+            reason_codes: components["schemas"]["ReasonCode"][];
+            /**
+             * Source Revision Id
+             * Format: uuid
+             */
+            source_revision_id: string;
+            state: components["schemas"]["CandidateState"];
+            /** Subject */
+            subject: {
+                [key: string]: string | null;
+            };
+            /**
+             * Unit Id
+             * Format: uuid
+             */
+            unit_id: string;
+            validation_state: components["schemas"]["ValidationState"];
+            /** Validator Results */
+            validator_results: components["schemas"]["ValidatorResult"][];
+            /**
+             * Wellbore Id
+             * @description Project wellbore identity; null stays unattached with a finding.
+             * @default null
+             */
+            wellbore_id: string | null;
+        };
+        /** ExtractionCandidatePage */
+        ExtractionCandidatePage: {
+            /** Items */
+            items: components["schemas"]["ExtractionCandidate"][];
+            page: components["schemas"]["PageInfo"];
+        };
         /** ExtractionError */
         ExtractionError: {
             /** Code */
@@ -1316,6 +1462,11 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * ExtractionMethod
+         * @enum {string}
+         */
+        ExtractionMethod: "model_proposal" | "model_read";
         /** ExtractionQuality */
         ExtractionQuality: {
             /**
@@ -1861,6 +2012,72 @@ export interface components {
          * @description Closed locator variants keyed by ``kind``.
          */
         Locator: components["schemas"]["PdfLocator"] | components["schemas"]["XlsxLocator"] | components["schemas"]["XmlLocator"] | components["schemas"]["TextLocator"] | components["schemas"]["ConvertedTextLocator"] | components["schemas"]["EmbeddedImageLocator"] | components["schemas"]["DerivationLocator"];
+        /**
+         * MeasurementAttributes
+         * @description Generic proof class: one measured/stated value with its unit exactly as written.
+         */
+        MeasurementAttributes: {
+            /** Attribute Key */
+            attribute_key: string;
+            /**
+             * Crs Text
+             * @default null
+             */
+            crs_text: string | null;
+            /**
+             * Depth Reference
+             * @default null
+             */
+            depth_reference: ("MD" | "TVD" | "TVDSS") | null;
+            /**
+             * Effective Time Text
+             * @description Date text exactly as written; never normalized.
+             * @default null
+             */
+            effective_time_text: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "measurement";
+            /**
+             * Normalized Number
+             * @default null
+             */
+            normalized_number: number | null;
+            /**
+             * Normalized Unit
+             * @default null
+             */
+            normalized_unit: string | null;
+            /**
+             * Number
+             * @default null
+             */
+            number: number | null;
+            /**
+             * Unit As Written
+             * @default null
+             */
+            unit_as_written: string | null;
+            /**
+             * Unit Defaulted
+             * @description True when the unit was defaulted to meters (a warning).
+             * @default false
+             */
+            unit_defaulted: boolean;
+            /**
+             * Unit Source
+             * @description Where the unit comes from: the quote (as written), a unit the cited context states (a table header), the model's claim (only when the quote states none and the context does not contradict it) or the meters default.
+             * @default null
+             */
+            unit_source: ("quote" | "context" | "claimed" | "default") | null;
+            /**
+             * Value Text
+             * @description The value exactly as written.
+             */
+            value_text: string;
+        };
         /** ModelRevision */
         ModelRevision: {
             /**
@@ -1937,6 +2154,41 @@ export interface components {
              * @default 50
              */
             limit: number;
+        };
+        /**
+         * PageReadAttributes
+         * @description Superficial, visual-level reading of a page image (AX-13); no value is trustworthy.
+         */
+        PageReadAttributes: {
+            /**
+             * Depth Text
+             * @default null
+             */
+            depth_text: string | null;
+            /**
+             * Dropped Fields
+             * @description Fields the model proposed that the text layer does not support; removed.
+             */
+            dropped_fields?: string[];
+            /** Item Type */
+            item_type: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "page_read";
+            /**
+             * Name
+             * @default null
+             */
+            name: string | null;
+            /**
+             * Notes
+             * @default null
+             */
+            notes: string | null;
+            /** Sizes Text */
+            sizes_text?: string[];
         };
         /** PdfLocator */
         PdfLocator: {
@@ -2209,6 +2461,11 @@ export interface components {
              */
             status: "ready";
         };
+        /**
+         * ReasonCode
+         * @enum {string}
+         */
+        ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified" | "unit_conflicts_with_quote" | "unit_not_in_source" | "number_unparseable" | "field_unverified" | "coordinate_fallback_unsupported";
         /**
          * RequeueOutcome
          * @enum {string}
@@ -2990,7 +3247,29 @@ export interface components {
          * ValidationState
          * @enum {string}
          */
-        ValidationState: "unreviewed" | "valid" | "conflicting" | "invalid" | "unsupported";
+        ValidationState: "unreviewed" | "valid" | "conflicting" | "invalid" | "unsupported" | "unverified";
+        /**
+         * ValidatorName
+         * @enum {string}
+         */
+        ValidatorName: "locator" | "quote" | "attribute" | "unit" | "range" | "depth_reference" | "subject" | "parsed_conflict" | "provenance";
+        /**
+         * ValidatorOutcome
+         * @enum {string}
+         */
+        ValidatorOutcome: "passed" | "failed" | "flagged" | "skipped";
+        /** ValidatorResult */
+        ValidatorResult: {
+            /**
+             * Detail
+             * @default null
+             */
+            detail: string | null;
+            outcome: components["schemas"]["ValidatorOutcome"];
+            /** @default null */
+            reason: components["schemas"]["ReasonCode"] | null;
+            validator: components["schemas"]["ValidatorName"];
+        };
         /** Well */
         Well: {
             /** Name */
@@ -3816,6 +4095,62 @@ export interface operations {
             };
         };
     };
+    list_document_api_v1_projects__project_id__documents__document_id__extraction_candidates_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                document_id?: string | null;
+                limit?: number;
+                method?: components["schemas"]["ExtractionMethod"] | null;
+                state?: components["schemas"]["CandidateState"] | null;
+            };
+            header?: never;
+            path: {
+                document_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractionCandidatePage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     get_records_api_v1_projects__project_id__documents__document_id__extraction_records_get: {
         parameters: {
             query?: {
@@ -3839,6 +4174,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExtractedRecordPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_project_api_v1_projects__project_id__extraction_candidates_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                document_id?: string | null;
+                limit?: number;
+                method?: components["schemas"]["ExtractionMethod"] | null;
+                state?: components["schemas"]["CandidateState"] | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractionCandidatePage"];
                 };
             };
             /** @description Not Found */
