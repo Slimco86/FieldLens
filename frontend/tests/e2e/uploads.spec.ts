@@ -84,7 +84,9 @@ test("UP-1: upload a CSV and an unknown text file, see honest statuses, dedupe, 
     { name: "tool.bin", mimeType: "application/octet-stream", buffer: Buffer.concat([Buffer.from([0x7f, 0x45, 0x4c, 0x46]), Buffer.alloc(64)]) },
   ]);
   await page.getByRole("button", { name: "Upload 1 file(s)" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: /unsupported file type/i })).toBeVisible();
+  // IN-10: the refusal names the file (red row with text) and says nothing was stored.
+  await expect(page.getByRole("alert").filter({ hasText: /nothing was stored/i })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Selected files" }).getByText(/Refused:/)).toBeVisible();
   await page.getByRole("button", { name: "Remove tool.bin" }).click();
 
   // 5. Abort: hold the request in the browser, abort, and confirm the server saw no new revision.

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button, Checkbox, Fieldset, Table, TextInput } from "@mantine/core";
-import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
-import { Callout, ErrorState, LoadingState, StatusChip, EmptyState, TruncatedText } from "../../design";
+import { ChevronDown, ChevronUp, Info, Lightbulb, Pencil, UserCheck } from "lucide-react";
+import { Callout, ErrorState, LoadingState, StatusChip, EmptyState, TruncatedText, KeyValueList, KeyValue } from "../../design";
+import { BulkLabels } from "./BulkLabels";
 import {
   CATEGORIES,
   MAX_TAGS,
@@ -163,12 +164,18 @@ function DocumentRow({
   projectId,
   doc,
   onSaved,
+  selected,
+  onToggle,
 }: {
   projectId: string;
   doc: SourceDocumentItem;
   onSaved: () => void;
+  selected: boolean;
+  onToggle: (on: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const detailId = `details-${doc.document_id}`;
   const [inspecting, setInspecting] = useState(false);
   const c = doc.classification;
   const editId = `edit-${doc.document_id}`;
@@ -186,7 +193,14 @@ function DocumentRow({
   };
   return (
     <>
-      <Table.Tr>
+      <Table.Tr className={selected ? styles.selected : undefined}>
+        <Table.Td>
+          <Checkbox
+            aria-label={`Select ${doc.original_filename}`}
+            checked={selected}
+            onChange={(e) => onToggle(e.currentTarget.checked)}
+          />
+        </Table.Td>
         <Table.Td>
           <strong>
             <TruncatedText value={doc.original_filename} label="file name" maxCh={28} />
@@ -206,32 +220,21 @@ function DocumentRow({
             <div className={`${styles.small} ${styles.muted}`}>{doc.processing_detail}</div>
           )}
         </Table.Td>
-        <Table.Td className={styles.num}>{formatBytes(doc.size_bytes)}</Table.Td>
         <Table.Td>
           <div>
-            {doc.format_family}
-            {doc.detected_media_type !== null && doc.detected_media_type !== undefined && <> ({doc.detected_media_type})</>}
+            <UserCheck size={14} aria-hidden="true" /> {joinCategories(c.user_categories)}
           </div>
-          <div className={`${styles.small} ${styles.muted}`}>Detected from file signature, not an engineering claim</div>
-        </Table.Td>
-        <Table.Td>
-          <TruncatedText value={doc.sha256} label="SHA-256" maxCh={16}>
-            <code>{doc.sha256}</code>
-          </TruncatedText>
+          <div className={`${styles.small} ${styles.muted}`}>Confirmed by you ({ORIGIN_LABEL[c.categories_origin]})</div>
         </Table.Td>
         <Table.Td>
           <div>
-            <span className={`${styles.small} ${styles.muted}`}>Your labels </span>
-            <span>
-              {joinCategories(c.user_categories)} ({ORIGIN_LABEL[c.categories_origin]}); tags:{" "}
-              {c.tags.length === 0 ? "none" : c.tags.join(", ")}
-            </span>
+            <Lightbulb size={14} aria-hidden="true" /> {joinCategories(c.suggested_categories)}
           </div>
           <div className={`${styles.small} ${styles.muted}`}>
-            Suggested labels {joinCategories(c.suggested_categories)} (suggestion only, not confirmed; method{" "}
-            {c.classification_method})
+            Suggestion only, not confirmed (method {c.classification_method})
           </div>
         </Table.Td>
+        <Table.Td>{c.tags.length === 0 ? <span className={styles.muted}>none</span> : c.tags.join(", ")}</Table.Td>
         <Table.Td>
           <div className={styles.row}>
             <Button
@@ -246,6 +249,17 @@ function DocumentRow({
             >
               Edit labels
             </Button>
+            <Button
+              size="compact-sm"
+              variant="default"
+              leftSection={showDetails ? <ChevronUp size={14} aria-hidden="true" /> : <Info size={14} aria-hidden="true" />}
+              aria-label={`${showDetails ? "Hide" : "Show"} details for ${doc.original_filename}`}
+              aria-expanded={showDetails}
+              aria-controls={detailId}
+              onClick={() => setShowDetails(!showDetails)}
+            >
+              Details
+            </Button>
             <EvidenceToggle
               doc={doc}
               open={inspecting}
@@ -255,10 +269,32 @@ function DocumentRow({
           </div>
         </Table.Td>
       </Table.Tr>
-      {(editing || inspecting) && (
-        <Table.Tr>
+      {(editing || inspecting || showDetails) && (
+        <Table.Tr id={detailId}>
           <Table.Td colSpan={8} className={styles.detailCell}>
             <div className={styles.stack}>
+              {showDetails && (
+                <KeyValueList compact>
+                  <KeyValue term="SHA-256">
+                    <TruncatedText value={doc.sha256} label="SHA-256" maxCh={72} mono>
+                      <code>{doc.sha256}</code>
+                    </TruncatedText>
+                  </KeyValue>
+                  <KeyValue term="Size">{formatBytes(doc.size_bytes)} ({doc.size_bytes} bytes)</KeyValue>
+                  <KeyValue term="Detected format">
+                    {doc.format_family}
+                    {doc.detected_media_type !== null && doc.detected_media_type !== undefined && <> ({doc.detected_media_type})</>}
+                    {" "}— detected from file signature, not an engineering claim
+                  </KeyValue>
+                  <KeyValue term="Document ID">
+                    <TruncatedText value={doc.document_id} label="document ID" maxCh={40} mono />
+                  </KeyValue>
+                  <KeyValue term="Source revision ID">
+                    <TruncatedText value={doc.source_revision_id} label="source revision ID" maxCh={40} mono />
+                  </KeyValue>
+                  <KeyValue term="Labels version">{c.metadata_version}</KeyValue>
+                </KeyValueList>
+              )}
               {editing && (
                 <ClassificationEditor
                   projectId={projectId}
@@ -298,6 +334,7 @@ export function DocumentList({ projectId, revisionId, version, polling }: ListPr
   const [moreError, setMoreError] = useState<Failure | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const ctl = useRef<AbortController | null>(null);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
 
   if (state.kind === "loading") return <LoadingState label="Loading files…" status />;
   if (state.kind === "error") {
@@ -333,6 +370,9 @@ export function DocumentList({ projectId, revisionId, version, polling }: ListPr
     }
   }
 
+  const selectedDocs = items.filter((d) => selectedIds.has(d.document_id));
+  const allSelected = items.length > 0 && selectedDocs.length === items.length;
+
   if (items.length === 0) {
     return (
       <EmptyState title="No files">
@@ -347,24 +387,55 @@ export function DocumentList({ projectId, revisionId, version, polling }: ListPr
           <p>Refreshing the file list failed: {state.refreshError.message}</p>
         </Callout>
       )}
+      <BulkLabels
+        projectId={projectId}
+        docs={selectedDocs}
+        onClear={() => setSelectedIds(new Set())}
+        onFinished={(failedIds, changed) => {
+          setSelectedIds(new Set(failedIds));
+          if (changed || failedIds.length > 0) reload();
+        }}
+      />
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard-scrollable region */}
       <div role="region" aria-label="Files table" tabIndex={0} className={styles.scroll}>
         <Table aria-label="Files in this source revision" layout="fixed">
           <Table.Thead>
             <Table.Tr>
+              <Table.Th scope="col" className={styles.colSelect}>
+                <Checkbox
+                  aria-label="Select all visible files"
+                  checked={allSelected}
+                  indeterminate={selectedIds.size > 0 && !allSelected}
+                  onChange={(e) => {
+                    const on = e.currentTarget.checked;
+                    setSelectedIds(on ? new Set(items.map((d) => d.document_id)) : new Set());
+                  }}
+                />
+              </Table.Th>
               <Table.Th scope="col" className={styles.colFile}>File</Table.Th>
               <Table.Th scope="col" className={styles.colStorage}>Storage</Table.Th>
               <Table.Th scope="col" className={styles.colExtraction}>Extraction</Table.Th>
-              <Table.Th scope="col" className={`${styles.num} ${styles.colSize}`}>Size</Table.Th>
-              <Table.Th scope="col" className={styles.colFormat}>Detected format</Table.Th>
-              <Table.Th scope="col" className={styles.colSha}>SHA-256</Table.Th>
-              <Table.Th scope="col" className={styles.colLabels}>Labels</Table.Th>
+              <Table.Th scope="col" className={styles.colLabels}>Your labels</Table.Th>
+              <Table.Th scope="col" className={styles.colSuggested}>Suggested labels</Table.Th>
+              <Table.Th scope="col" className={styles.colTags}>Tags</Table.Th>
               <Table.Th scope="col" className={styles.colActions}>Actions</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {items.map((d) => (
-              <DocumentRow key={d.document_id} projectId={projectId} doc={d} onSaved={reload} />
+              <DocumentRow
+                key={d.document_id}
+                projectId={projectId}
+                doc={d}
+                onSaved={reload}
+                selected={selectedIds.has(d.document_id)}
+                onToggle={(on) => {
+                  const next = new Set(selectedIds);
+                  if (on) next.add(d.document_id);
+                  else next.delete(d.document_id);
+                  setSelectedIds(next);
+                }}
+              />
             ))}
           </Table.Tbody>
         </Table>

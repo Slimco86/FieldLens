@@ -90,3 +90,37 @@
   width: 100%;
   accent-color: var(--fl-color-brand);
 }
+.bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fl-space-sm) var(--fl-space-md);
+  margin: 0;
+  padding: var(--fl-space-sm) var(--fl-space-md);
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-md);
+}
+.bulk legend {
+  padding: 0 var(--fl-space-xs);
+  font-size: var(--fl-font-size-sm);
+  color: var(--fl-color-text-muted);
+}
+.bulk .note {
+  margin: 0;
+}
+.refused {
+  background: var(--fl-tone-danger-bg);
+  color: var(--fl-tone-danger-fg);
+  box-shadow: inset var(--fl-space-xs) 0 0 var(--fl-tone-danger-border);
+}
+.refused .fileSize {
+  color: inherit;
+}
+.refusedText {
+  display: inline-flex;
+  flex: 1 1 100%;
+  align-items: flex-start;
+  gap: var(--fl-space-xs);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
