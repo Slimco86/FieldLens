@@ -666,6 +666,7 @@ from fieldlens.identity import tables as _identity_tables  # noqa: E402,F401
 
 # Processing runs (TASK-054, migration 0011).
 from fieldlens.processing import tables as _processing_tables  # noqa: E402,F401
+from fieldlens.merge_proposals import tables as _merge_proposal_tables  # noqa: E402,F401
 from fieldlens.retrieval import tables as _retrieval_tables  # noqa: E402,F401
 
 # Series storage tables (TASK-047, migration 0008).

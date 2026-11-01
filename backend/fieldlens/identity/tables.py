@@ -8,6 +8,7 @@ and its subject stay the evidence authority."""
 from __future__ import annotations
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKeyConstraint,
@@ -40,6 +41,15 @@ identity_merge = Table(
     Column("decided_by", String(80), nullable=False),
     Column("reverted_at", DateTime(timezone=True), nullable=True),
     Column("reverted_by", String(80), nullable=True),
+    ForeignKeyConstraint(
+        ["project_id", "proposal_id"],
+        ["merge_proposal.project_id", "merge_proposal.proposal_id"],
+        name="fk_identity_merge_proposal_scope",
+    ),
+    CheckConstraint("source_kind IN ('wellbore', 'label')", name="source_kind_known"),
+    CheckConstraint("source_key <> target_key", name="source_is_not_target"),
+    CheckConstraint("(reverted_at IS NULL) = (reverted_by IS NULL)", name="revert_recorded"),
+    Index("ix_identity_merge_proposal", "project_id", "proposal_id"),
     Index(
         "uq_identity_merge_active_source",
         "project_id",

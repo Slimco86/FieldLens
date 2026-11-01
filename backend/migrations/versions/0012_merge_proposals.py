@@ -1,7 +1,7 @@
 """AI identity-merge proposals, their review and the durable merge records (TASK-057, PF-7).
 
 Revision ID: 0012_merge_proposals
-Revises: 0010_extraction_candidates
+Revises: 0011_processing_runs
 
 ``merge_proposal_run`` records one bounded model step (state, reason, usage). ``merge_proposal``
 holds each proposal with its guard result and the user's decision (who/when); members carry the
@@ -18,7 +18,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0012_merge_proposals"
-down_revision: str | None = "0010_extraction_candidates"
+down_revision: str | None = "0011_processing_runs"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
