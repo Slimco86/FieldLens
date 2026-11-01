@@ -6,8 +6,14 @@ refused when it contains NUL bytes or more than ``MAX_CONTROL_SHARE`` control by
 below 0x20 except TAB/LF/FF/CR, DEL, and the C1 bytes cp1252 leaves undefined), so real
 binaries stay refused. BOM-less UTF-16 is only recognised for text whose code units are mostly
 below U+0100 (ASCII/Latin); other BOM-less UTF-16 scripts remain unsupported. An 8-bit stream
-is also refused when more than ``MAX_HIGH_SHARE`` of its bytes are >= 0x80: real Latin/cp1252 text
-is mostly ASCII, while BOM-less UTF-16 CJK/other scripts look like high-byte-heavy mojibake.
+is also screened for high-byte-heavy UTF-16 mojibake (BOM-less CJK/other scripts decode "cleanly"
+under cp1252): up to ``LOW_HIGH_SHARE`` (25%) high bytes is accepted as before; between that and
+``MAX_HIGH_SHARE`` (60%) it is accepted only when the high bytes are isolated, i.e. at most
+``MAX_CLUSTERED_HIGH`` (45%) of them sit next to another high byte (accents sit between ASCII
+letters in Spanish/French/Portuguese Latin-1 text, while UTF-16 CJK code units put high bytes
+side by side: measured ~0.3 for very accent-dense Spanish, ~0.7 for UTF-16 CJK/Hangul);
+above 60% it is always refused. Run detection is per bounded chunk, so memory stays
+bounded and a run cut at a chunk edge is under-counted by at most one byte.
 
 Encoding is recorded from the whole file: a UTF-8 head is verified over the entire file in
 bounded chunks (``refine_encoding``), so a late non-UTF-8 byte yields ``cp1252``.
@@ -16,6 +22,7 @@ bounded chunks (``refine_encoding``), so a late non-UTF-8 byte yields ``cp1252``
 from __future__ import annotations
 
 import codecs
+import re
 from pathlib import Path
 from typing import TextIO
 
@@ -30,7 +37,10 @@ _BAD_8BIT = _ASCII_CONTROLS | _CP1252_UNDEFINED
 _ASCII_CONTROL_BYTES = bytes(sorted(_ASCII_CONTROLS))
 _BAD_8BIT_BYTES = bytes(sorted(_BAD_8BIT))
 _NUL_PATTERN_SHARE = 0.3
-MAX_HIGH_SHARE = 0.25
+LOW_HIGH_SHARE = 0.25
+MAX_HIGH_SHARE = 0.60
+MAX_CLUSTERED_HIGH = 0.45
+_HIGH_RUN = re.compile(rb"[\x80-\xff]{2,}")
 SCAN_CHUNK = 1024 * 1024
 
 ENCODINGS = ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "cp1252")
@@ -43,10 +53,21 @@ def _control_share_ok(data: bytes, bad: frozenset[int]) -> bool:
     return count / len(data) <= MAX_CONTROL_SHARE
 
 
-def _high_share_ok(data: bytes) -> bool:
-    if not data:
+def _clustered_high_bytes(data: bytes) -> int:
+    """High bytes that sit in a run of two or more high bytes."""
+    return sum(len(m) for m in _HIGH_RUN.findall(data))
+
+
+def _latin_share_ok(total: int, high: int, clustered: int) -> bool:
+    """8-bit text is plausible Latin/cp1252 (not UTF-16 mojibake) - see the module docstring."""
+    if total == 0 or high / total <= LOW_HIGH_SHARE:
         return True
-    return sum(1 for b in data if b >= 0x80) / len(data) <= MAX_HIGH_SHARE
+    return high / total <= MAX_HIGH_SHARE and clustered / high <= MAX_CLUSTERED_HIGH
+
+
+def _high_share_ok(data: bytes) -> bool:
+    high = sum(1 for b in data if b >= 0x80)
+    return _latin_share_ok(len(data), high, _clustered_high_bytes(data) if high else 0)
 
 
 def _utf16_ok(data: bytes, codec: str) -> bool:
@@ -100,7 +121,7 @@ def refine_encoding(path: Path, encoding: str | None) -> str | None:
     if encoding not in ("utf-8", "utf-8-sig"):
         return encoding
     decoder = codecs.getincrementaldecoder("utf-8")()  # carries cut multibyte sequences
-    total = bad = ctrl = nul = high = 0
+    total = bad = ctrl = nul = high = clustered = 0
     valid = True
     with path.open("rb") as handle:
         while chunk := handle.read(SCAN_CHUNK):
@@ -115,6 +136,7 @@ def refine_encoding(path: Path, encoding: str | None) -> str | None:
             bad += len(chunk) - len(chunk.translate(None, _BAD_8BIT_BYTES))
             if not chunk.isascii():
                 high += sum(1 for b in chunk if b >= 0x80)
+            clustered += _clustered_high_bytes(chunk)
     if nul:
         return None  # NUL bytes anywhere: not text (UTF-16 never reaches this check)
     if valid and total and ctrl / total > MAX_CONTROL_SHARE:
@@ -126,7 +148,7 @@ def refine_encoding(path: Path, encoding: str | None) -> str | None:
             valid = False
     if valid:
         return encoding
-    if total == 0 or bad / total > MAX_CONTROL_SHARE or high / total > MAX_HIGH_SHARE:
+    if total == 0 or bad / total > MAX_CONTROL_SHARE or not _latin_share_ok(total, high, clustered):
         return None
     return "cp1252"
 

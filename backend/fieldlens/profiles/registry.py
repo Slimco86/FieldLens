@@ -1,13 +1,14 @@
 """Profile registry: content-based selection and versions.
 
 Selection looks only at content (XML root + namespace, workbook sheets/headers, LAS ``~V``/``~A``,
-table headers, PDF text); filename and upload category are passed through as hints and ignored.
+table headers, PDF text, Compass survey-report text); filename and upload category are passed through as hints and ignored.
 A profile version bump makes every run of that profile stale (derived records are re-derived)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
+from .compass_text import CompassTextProfile
 from .dat_tables import PerforationTableProfile, PickTableProfile
 from .las import LasProfile
 from .pdf_survey import SurveyReportProfile
@@ -25,6 +26,7 @@ PROFILES: tuple[Profile, ...] = (  # type: ignore[assignment]
     PerforationTableProfile(),
     PickTableProfile(),
     SurveyReportProfile(),
+    CompassTextProfile(),
 )
 _BY_NAME = {p.name: p for p in PROFILES}
 

@@ -88,6 +88,46 @@ def test_bomless_utf16_cjk_is_refused() -> None:
     )
 
 
+SPANISH = (
+    "\u00bf\u00e9l, m\u00e1s, est\u00e1, aqu\u00ed, all\u00e1, s\u00ed, \u00f1and\u00fa, "
+    "a\u00f1o, d\u00eda, ca\u00f1\u00f3n, pi\u00f1\u00f3n, \u00e1, \u00e9, \u00ed, "
+    "\u00f3, \u00fa, \u00f1?\n"
+)
+FRENCH = (
+    "\u00c9t\u00e9 d\u00e9j\u00e0 \u00e9tudi\u00e9, \u00e9valu\u00e9, \u00e9lev\u00e9, "
+    "\u00e9cras\u00e9, r\u00e9g\u00e9n\u00e9r\u00e9, d\u00e9pr\u00e9ci\u00e9, "
+    "\u00e0 l'\u00e9t\u00e9, c'est d\u00e9\u00e7u, fa\u00e7on, \u00ea\u00eatre, "
+    "m\u00e9t\u00e9o, g\u00e9n\u00e9r\u00e9\n"
+)
+
+
+@pytest.mark.parametrize("sample", [SPANISH, FRENCH])
+def test_heavily_accented_latin1_text_is_accepted(sample: str, tmp_path: Path) -> None:
+    """Regression (QA): short heavily accented Latin-1 lines exceed 25% high bytes."""
+    data = (sample * 3).encode("cp1252")
+    high = sum(b >= 0x80 for b in data) / len(data)
+    assert 0.25 < high < 0.6, high
+    assert detect_encoding(data) == "cp1252"
+    assert detect_encoding(sample.encode("latin-1")) == "cp1252"
+    path = tmp_path / "accented"
+    path.write_bytes(data)
+    assert sniff_path(path) == "cp1252"
+    with open_text(path) as fh:
+        assert fh.read() == sample * 3
+    path.write_bytes(b"MD 1000.0 m\n" * 8000 + data)  # late accents: streaming whole-file check
+    assert sniff_path(path) == "cp1252"
+
+
+def test_high_byte_heavy_streams_clustered_are_refused(tmp_path: Path) -> None:
+    for codec in ("utf-16-le", "utf-16-be"):
+        cjk = ("\u6df1\u5ea6\u6d4b\u91cf\u4e95\u7b52\u8f68\u8ff9" * 40).encode(codec)
+        assert detect_encoding(cjk) is None
+        path = tmp_path / codec
+        path.write_bytes(cjk)
+        assert sniff_path(path) is None
+    assert detect_encoding(b"\xe9\xe8\xe0\xf1" * 100) is None  # > 60% high
+
+
 @pytest.mark.parametrize(
     ("name", "data", "encoding"),
     [

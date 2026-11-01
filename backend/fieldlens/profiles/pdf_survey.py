@@ -15,6 +15,19 @@ from pathlib import Path
 from typing import Any
 
 from .common import event_time, parse_number, text_attr
+from .survey_lines import (
+    CASING_ROW as _CASING_ROW,
+)
+from .survey_lines import (
+    ELEVATION,
+    SURVEY_COLUMNS,
+)
+from .survey_lines import NUM as _NUM
+from .survey_lines import PROGRAM_ROW as _PROGRAM_ROW
+from .survey_lines import SURVEY_ROW as _SURVEY_ROW
+from .survey_lines import after as _after
+from .survey_lines import collapse as _collapse
+from .survey_lines import well_key as _well_key
 from .types import (
     MAX_PDF_PAGES,
     MISSING_REFERENCE,
@@ -31,27 +44,6 @@ from .types import (
     Rec,
 )
 
-_NUM = r"-?\d[\d,]*\.\d+|-?\.\d+"
-_SURVEY_ROW = re.compile(rf"^\s*((?:{_NUM})(?:\s+(?:{_NUM})){{9}})\s*$")
-_PROGRAM_ROW = re.compile(rf"^\s*({_NUM})\s+({_NUM})\s{{2,}}(.+?)\s{{2,}}(.+?)\s{{2,}}(.+?)\s*$")
-_CASING_ROW = re.compile(
-    rf'^(?P<name>[\d /]+")(?P<md>{_NUM})\s+(?P<tvd>{_NUM})\s+(?P<csg>{_NUM})\s+(?P<hole>{_NUM})$'
-)
-SURVEY_COLUMNS = (
-    ("md", "m"),
-    ("incl", "deg"),
-    ("azi", "deg"),
-    ("tvd", "m"),
-    ("dispNs", "m"),
-    ("dispEw", "m"),
-    ("vertSect", "m"),
-    ("dls", "deg/30m"),
-    ("build_rate", "deg/30m"),
-    ("turn_rate", "deg/30m"),
-)
-EXPECTED_HEADER_UNITS = "(m)", "(°)", "(°/30m)"
-ELEVATION = re.compile(r"@\s*(\d+(?:\.\d+)?)\s*m")
-
 
 def _casing_loc(page: int, casing: int, c: object) -> dict[str, Any]:
     return _pdf_loc(page, "casing_points", f"r{casing}c{c}")
@@ -66,17 +58,8 @@ def _pdf_loc(page: int, table: str | None = None, cell: str | None = None) -> Lo
     return loc
 
 
-def _collapse(line: str) -> str:
-    return re.sub(r" {3,}", "   ", line.strip())
-
-
 def _num(token: str) -> float | None:
     return parse_number(token)
-
-
-def _after(pattern: str, text: str, flags: int = 0) -> str | None:
-    m = re.search(pattern, text, flags)
-    return m.group(1).strip() if m else None
 
 
 class SurveyReportProfile:
@@ -715,12 +698,6 @@ def _q(
     from .common import quantity_attr
 
     return quantity_attr(key, _pdf_loc(page, table, cell), text, unit, reference=ref)
-
-
-def _well_key(wellbore: str | None, text: str) -> str | None:
-    quad = _after(r"Site\s+[^\n]*?,\s*(\d{1,2}/\d{1,2})\s*$", text, re.M)
-    m = re.fullmatch(r"([A-Z])-?(\d{1,3})", (wellbore or "").strip().upper())
-    return f"{quad}-{m.group(1)}-{m.group(2)}" if quad and m else None
 
 
 def _pypdf_version() -> str:
