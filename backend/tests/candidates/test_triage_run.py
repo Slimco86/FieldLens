@@ -93,7 +93,9 @@ def test_run_timing_recorded(world: World) -> None:
     details = [json.loads(s[1]) for s in steps]
     pages = [d for d in details if "latency_ms" in d and "page" in d]
     assert sorted(d["page"] for d in pages) == sorted(summary.triage.selected)  # type: ignore[union-attr]
-    assert all(d["latency_ms"] >= 200 and d["in_tok"] == 1200 and d["out_tok"] == 300 for d in pages)
+    assert all(
+        d["latency_ms"] >= 200 and d["in_tok"] == 1200 and d["out_tok"] == 300 for d in pages
+    )
     assert all(d["cost_usd"] > 0 for d in pages)
     triage_step = details[0]
     assert triage_step["strategy"] == "toc+keyword" and len(triage_step["selected"]) == 12

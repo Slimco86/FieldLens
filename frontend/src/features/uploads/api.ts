@@ -15,6 +15,8 @@ export type ExtractedRecord = components["schemas"]["ExtractedRecord"];
 export type ExtractedRecordPage = components["schemas"]["ExtractedRecordPage"];
 export type ExtractionRequeue = components["schemas"]["ExtractionRequeue"];
 export type EvidenceLink = components["schemas"]["EvidenceLink"];
+export type ExtractionCandidate = components["schemas"]["ExtractionCandidate"];
+export type ExtractionCandidatePage = components["schemas"]["ExtractionCandidatePage"];
 
 export const MAX_FILE_BYTES = 128 * 1024 * 1024;
 export const MAX_BATCH_BYTES = 512 * 1024 * 1024;
@@ -70,6 +72,22 @@ export function listExtractedRecords(
   const q = new URLSearchParams({ limit: String(RECORD_PAGE_LIMIT) });
   if (cursor !== undefined) q.set("cursor", cursor);
   return getJson<ExtractedRecordPage>(`${extractionUrl(projectId, documentId)}/records?${q.toString()}`, signal);
+}
+
+export const CANDIDATE_PAGE_LIMIT = 25;
+
+export function listCandidates(
+  projectId: string,
+  documentId: string,
+  signal: AbortSignal,
+  cursor?: string,
+): Promise<ExtractionCandidatePage> {
+  const q = new URLSearchParams({ limit: String(CANDIDATE_PAGE_LIMIT) });
+  if (cursor !== undefined) q.set("cursor", cursor);
+  return getJson<ExtractionCandidatePage>(
+    `${base(projectId)}/documents/${documentId}/extraction-candidates?${q.toString()}`,
+    signal,
+  );
 }
 
 export async function requeueExtraction(

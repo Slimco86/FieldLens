@@ -121,7 +121,10 @@ def world(migrated_url: URL, tmp_path: Path) -> World:
     )
     big = make_pdf(
         [PdfPage(lines=BIG_TOC)]
-        + [PdfPage(lines=[f"Completion string section {i}", *EQUIPMENT_LINES]) for i in range(2, 14)]
+        + [
+            PdfPage(lines=[f"Completion string section {i}", *EQUIPMENT_LINES])
+            for i in range(2, 14)
+        ]
         + [PdfPage(lines=FILLER)]
     )
     scan = make_pdf([PdfPage(scan_lines=EQUIPMENT_LINES), PdfPage(lines=FILLER)])

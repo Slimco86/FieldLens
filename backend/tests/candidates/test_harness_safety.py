@@ -31,10 +31,13 @@ from tests.candidates.support import (
 from tests.support import ExternalNetworkBlocked
 from tests.upload_support import BASE
 
+
 def _unit_steps(world: World) -> list[tuple[str, str | None, str | None, str]]:
     return [
         (r[0], r[1], r[2], r[3])
-        for r in world.rows("select kind, tool_name, outcome, summary from agent_step order by step_no")
+        for r in world.rows(
+            "select kind, tool_name, outcome, summary from agent_step order by step_no"
+        )
     ]
 
 
@@ -62,7 +65,10 @@ def test_hostile_source_text(world: World) -> None:
     )
     assert out.state == "failed" and out.stop_reason == "tool_not_allowed"
     assert world.scalar("select count(*) from extraction_candidate") == 0
-    assert (world.scalar("select count(*) from source_document"), world.scalar("select count(*) from project")) == (
+    assert (
+        world.scalar("select count(*) from source_document"),
+        world.scalar("select count(*) from project"),
+    ) == (
         docs_before,
         projects_before,
     )
@@ -97,8 +103,16 @@ def test_hostile_source_text(world: World) -> None:
 MALFORMED: list[tuple[str, Any, str]] = [
     ("prose", lambda r, n: text_response("Sure! 4160 m.", usage=usage()), "malformed_output"),
     ("array", lambda r, n: text_response("[]", usage=usage()), "malformed_output"),
-    ("fenced", lambda r, n: text_response('```json\n{"candidates":[]}\n```', usage=usage()), "malformed_output"),
-    ("extra_field", lambda r, n: text_response('{"candidates":[],"run":"rm -rf"}', usage=usage()), "schema_invalid"),
+    (
+        "fenced",
+        lambda r, n: text_response('```json\n{"candidates":[]}\n```', usage=usage()),
+        "malformed_output",
+    ),
+    (
+        "extra_field",
+        lambda r, n: text_response('{"candidates":[],"run":"rm -rf"}', usage=usage()),
+        "schema_invalid",
+    ),
     (
         "bad_candidate_among_good",
         lambda r, n: text_response(
@@ -106,7 +120,11 @@ MALFORMED: list[tuple[str, Any, str]] = [
         ),
         "schema_invalid",
     ),
-    ("oversized", lambda r, n: text_response('{"candidates":[],"pad":"' + "x" * 70000 + '"}', usage=usage()), "output_oversized"),
+    (
+        "oversized",
+        lambda r, n: text_response('{"candidates":[],"pad":"' + "x" * 70000 + '"}', usage=usage()),
+        "output_oversized",
+    ),
     ("refusal", lambda r, n: refusal_response(usage()), "provider_refused"),
     ("truncated", lambda r, n: truncated_response('{"candidates":[', usage()), "output_truncated"),
     ("empty", lambda r, n: text_response("", usage=usage()), "malformed_output"),
@@ -143,7 +161,9 @@ def test_extraction_recovery(world: World) -> None:
         lambda r, n: ProviderServerError() if n <= 2 else json_response([meas(world)])
     )
     h = world.harness(flaky)
-    req = UnitRequest(world.project_id, world.revision_id, world.perf_doc, "q", "measurement", line_range=(1, 3))
+    req = UnitRequest(
+        world.project_id, world.revision_id, world.perf_doc, "q", "measurement", line_range=(1, 3)
+    )
     first = h.run_unit(req)
     assert first.state == "interrupted" and first.stop_reason == "provider_server_error"
     assert world.scalar("select count(*) from extraction_candidate") == 0
@@ -170,7 +190,9 @@ def test_extraction_recovery_after_kill_has_no_duplicates(world: World) -> None:
         return original(*a, **k)
 
     h.log.finalize = die_once  # type: ignore[method-assign]
-    req = UnitRequest(world.project_id, world.revision_id, world.perf_doc, "q", "measurement", line_range=(1, 3))
+    req = UnitRequest(
+        world.project_id, world.revision_id, world.perf_doc, "q", "measurement", line_range=(1, 3)
+    )
     with pytest.raises(_Killed):
         h.run_unit(req)
     # candidates were written, the unit is still "running": it must not look successful
@@ -191,7 +213,9 @@ def test_cancel_stops_provider_calls(world: World) -> None:
     token.cancel()
     provider = FixtureProvider(lambda r, n: json_response([meas(world)]))
     h = world.harness(provider)
-    req = UnitRequest(world.project_id, world.revision_id, world.perf_doc, "q", "measurement", line_range=(1, 3))
+    req = UnitRequest(
+        world.project_id, world.revision_id, world.perf_doc, "q", "measurement", line_range=(1, 3)
+    )
     out = h.run_unit(req, cancel=token)
     assert out.state == "cancelled" and provider.calls == []
 
@@ -200,7 +224,9 @@ def test_cancel_stops_provider_calls(world: World) -> None:
 
     def respond(r: Any, n: int) -> Any:
         live.cancel()
-        return call_response("read_span", {"document_id": str(world.perf_doc), "line_start": 1, "line_end": 2})
+        return call_response(
+            "read_span", {"document_id": str(world.perf_doc), "line_start": 1, "line_end": 2}
+        )
 
     p2 = FixtureProvider(respond)
     h2 = world.harness(p2)
@@ -220,7 +246,10 @@ def test_budget_stop(world: World) -> None:
 
     # an exhausted period refuses the reservation itself
     tiny = world.ledger.ensure_period(
-        "tiny", ledger_cap_usd=Decimal("0.01"), warn_usd=Decimal("0.005"), unattended_block_usd=Decimal("0.01")
+        "tiny",
+        ledger_cap_usd=Decimal("0.01"),
+        warn_usd=Decimal("0.005"),
+        unattended_block_usd=Decimal("0.01"),
     )
     world.ledger.confirm_balance(tiny, Decimal("0.01"), "test")
     p2 = FixtureProvider(lambda r, n: json_response([meas(world)]))
@@ -254,7 +283,14 @@ def test_no_network(world: World) -> None:
 def test_extraction_cache_keys(world: World) -> None:
     provider = FixtureProvider(lambda r, n: json_response([meas(world)]))
     h = world.harness(provider)
-    base = UnitRequest(world.project_id, world.revision_id, world.perf_doc, "Q one", "measurement", line_range=(1, 3))
+    base = UnitRequest(
+        world.project_id,
+        world.revision_id,
+        world.perf_doc,
+        "Q one",
+        "measurement",
+        line_range=(1, 3),
+    )
     first = h.run_unit(base)
     again = h.run_unit(base)
     assert not first.cache_hit and again.cache_hit and again.unit_id == first.unit_id
@@ -267,7 +303,10 @@ def test_extraction_cache_keys(world: World) -> None:
         dataclasses.replace(base, as_of="2010-05-03"),
         dataclasses.replace(base, kind="page_read"),
     ]
-    keys = {h.unit_key(r, world.reader.require(world.project_id, world.revision_id, r.document_id)) for r in changed}
+    keys = {
+        h.unit_key(r, world.reader.require(world.project_id, world.revision_id, r.document_id))
+        for r in changed
+    }
     assert len(keys) == 4
     for r in changed[:2]:
         assert not h.run_unit(r).cache_hit
@@ -287,13 +326,18 @@ def test_extraction_cache_keys(world: World) -> None:
 
 def test_tool_allowlist_and_scope(world: World) -> None:
     other = world.api.project("Other")
-    assert world.api.upload(other, [("other.txt", b"SECRET-OTHER-PROJECT-MARKER 123\n")]).status_code in (200, 201, 202)
+    assert world.api.upload(
+        other, [("other.txt", b"SECRET-OTHER-PROJECT-MARKER 123\n")]
+    ).status_code in (200, 201, 202)
     while world.api.worker.run_once():
         pass
     foreign = UUID(world.api.documents(other)[0]["document_id"])
     me = str(world.perf_doc)
     calls = [
-        ("read_span", {"document_id": str(foreign), "line_start": 1, "line_end": 1}),  # other project
+        (
+            "read_span",
+            {"document_id": str(foreign), "line_start": 1, "line_end": 1},
+        ),  # other project
         ("read_span", {"document_id": me, "line_start": 1, "line_end": 5000}),  # unbounded
         ("read_span", {"document_id": "not-a-uuid", "line_start": 1, "line_end": 1}),
         ("read_table", {"document_id": me, "start": 0, "count": 1000}),
@@ -349,11 +393,31 @@ def test_allowed_tools_return_only_content_with_locators(world: World) -> None:
         if n == 1:
             return ProviderResponse(
                 parts=(
-                    ToolCallPart(call_id="a", name="read_span", arguments={"document_id": pdf, "page": 1}),
-                    ToolCallPart(call_id="b", name="read_span", arguments={"document_id": str(world.perf_doc), "line_start": 2, "line_end": 2}),
-                    ToolCallPart(call_id="c", name="read_table", arguments={"document_id": str(world.perf_doc), "start": 0, "count": 2}),
-                    ToolCallPart(call_id="d", name="get_page_image", arguments={"document_id": pdf, "page": 2}),
-                    ToolCallPart(call_id="e", name="search_project", arguments={"query": "perforation"}),
+                    ToolCallPart(
+                        call_id="a", name="read_span", arguments={"document_id": pdf, "page": 1}
+                    ),
+                    ToolCallPart(
+                        call_id="b",
+                        name="read_span",
+                        arguments={
+                            "document_id": str(world.perf_doc),
+                            "line_start": 2,
+                            "line_end": 2,
+                        },
+                    ),
+                    ToolCallPart(
+                        call_id="c",
+                        name="read_table",
+                        arguments={"document_id": str(world.perf_doc), "start": 0, "count": 2},
+                    ),
+                    ToolCallPart(
+                        call_id="d",
+                        name="get_page_image",
+                        arguments={"document_id": pdf, "page": 2},
+                    ),
+                    ToolCallPart(
+                        call_id="e", name="search_project", arguments={"query": "perforation"}
+                    ),
                 ),
                 usage=usage(),
             )
@@ -417,7 +481,11 @@ def test_tool_call_bound(world: World) -> None:
         limits=RequestLimits(retry_backoff_s=0.0, max_tool_calls=2),
     )
     assert out.state == "failed" and out.stop_reason == "limit_tool_calls"
-    executed = [s for s in _unit_steps(world) if s[0] == "tool_call" and s[2] == "ok" and "harness" not in s[3]]
+    executed = [
+        s
+        for s in _unit_steps(world)
+        if s[0] == "tool_call" and s[2] == "ok" and "harness" not in s[3]
+    ]
     model_calls = [
         r
         for r in world.rows("select detail->>'by', outcome from agent_step where kind='tool_call'")
@@ -433,11 +501,15 @@ def test_tool_call_bound(world: World) -> None:
 
 def test_startup_recovery(world: World) -> None:
     handle = world.log.start_unit(world.project_id, world.revision_id, "stale-unit", "q")
-    assert world.scalar("select state from agent_work_unit where unit_key='stale-unit'") == "running"
+    assert (
+        world.scalar("select state from agent_work_unit where unit_key='stale-unit'") == "running"
+    )
     app = world.api.client.app
     with TestClient(app, base_url=BASE):  # lifespan runs the startup hook
         pass
-    row = world.rows("select state, stop_reason from agent_work_unit where unit_key='stale-unit'")[0]
+    row = world.rows("select state, stop_reason from agent_work_unit where unit_key='stale-unit'")[
+        0
+    ]
     assert row == ("interrupted", "process_interrupted")  # never successful
     assert handle.unit_id is not None
 
@@ -453,7 +525,10 @@ def test_step_key_scheme(world: World) -> None:
     keys = {r[0] for r in world.rows("select step_key from agent_step")}
     unit_key = world.scalar("select unit_key from agent_work_unit")
     me = str(world.perf_doc)
-    assert step_key(unit_key, "tool:read_span", {"document_id": me, "line_start": 1, "line_end": 3}) in keys
+    assert (
+        step_key(unit_key, "tool:read_span", {"document_id": me, "line_start": 1, "line_end": 3})
+        in keys
+    )
     assert out.state == "succeeded"
 
 
@@ -472,7 +547,9 @@ def test_cost_reservation_link(world: World) -> None:
         "select sum((detail->>'x')::numeric) from agent_step where unit_id=:u", u=unit_id
     )
     assert steps is None  # no stray cost fields; cost lives in the unit counters
-    turn_ids = world.rows("select detail->>'reservation_id' from agent_step where kind='model_turn'")
+    turn_ids = world.rows(
+        "select detail->>'reservation_id' from agent_step where kind='model_turn'"
+    )
     assert turn_ids == [(str(reservation_id),)]
     assert world.scalar(
         "select request_key from spend_reservation where reservation_id=:r", r=reservation_id

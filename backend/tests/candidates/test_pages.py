@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import io
 import threading
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from PIL import Image
@@ -13,8 +15,6 @@ from PIL import Image
 from fieldlens.candidates import pages as pg
 from fieldlens.evidence.storage import BlobStore, blob_key
 from tests.candidates.pdfs import EQUIPMENT_LINES, PdfPage, make_pdf
-import io
-from uuid import uuid4
 
 
 def _store(tmp_path: Path, data: bytes) -> tuple[pg.PageRenderer, str, str]:

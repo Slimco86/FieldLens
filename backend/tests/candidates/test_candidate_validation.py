@@ -59,7 +59,17 @@ def test_candidates_persisted(world: World) -> None:
 
 
 BAD: list[tuple[str, dict[str, Any], str]] = [
-    ("locator_doc", {"locator": {"document_id": "00000000-0000-0000-0000-00000000dead", "line_start": 2, "line_end": 2}}, "locator_not_found"),
+    (
+        "locator_doc",
+        {
+            "locator": {
+                "document_id": "00000000-0000-0000-0000-00000000dead",
+                "line_start": 2,
+                "line_end": 2,
+            }
+        },
+        "locator_not_found",
+    ),
     ("locator_range", {"locator": {"line_start": 900, "line_end": 901}}, "locator_not_found"),
     ("quote_not_in_span", {"quote": "9999.99"}, "quote_not_in_span"),
     ("quote_missing", {"quote": None}, "quote_missing"),
@@ -145,7 +155,13 @@ def test_identity_and_reference_rules(world: World) -> None:
         world,
         [
             meas(world, subject={"wellbore_label": "15/9-F-77"}),
-            meas(world, subject={}, attribute_key="perforation.base_md", value_text="4165.00", quote="4165.00"),
+            meas(
+                world,
+                subject={},
+                attribute_key="perforation.base_md",
+                value_text="4165.00",
+                quote="4165.00",
+            ),
         ],
     )
     assert out.state == "succeeded"
@@ -231,8 +247,14 @@ def test_unit_request_ignores_filename_and_category_hints(world: World) -> None:
     provider = FixtureProvider(lambda req, n: json_response([]))
     h = world.harness(provider)
     h.run_unit(
-        UnitRequest(world.project_id, world.revision_id, world.perf_doc, "q", "measurement",
-                    line_range=(1, 2))
+        UnitRequest(
+            world.project_id,
+            world.revision_id,
+            world.perf_doc,
+            "q",
+            "measurement",
+            line_range=(1, 2),
+        )
     )
     text = json.dumps(
         [p.model_dump(mode="json") for m in provider.calls[0].messages for p in m.parts],

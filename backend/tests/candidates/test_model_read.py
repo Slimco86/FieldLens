@@ -13,7 +13,7 @@ from fieldlens.assistant.messages import ImagePart
 from fieldlens.engineering.perforation.engine import PerforationHistory
 from fieldlens.engineering.provenance import MARKER_REASON, is_model_proposal
 from tests.candidates.conftest import SUBJECT, World
-from tests.candidates.helpers import loc, meas, page_item, rows, run_cands
+from tests.candidates.helpers import loc, page_item, rows, run_cands
 from tests.candidates.support import FixtureProvider, json_response
 
 
@@ -51,9 +51,7 @@ def test_model_read_measurement_is_never_accepted(world: World) -> None:
         "locator": loc(world.scan_doc, page=1),
         "subject": SUBJECT,
     }
-    out, _ = run_cands(
-        world, [item], doc=world.scan_doc, kind="page_read", page=1, line_range=None
-    )
+    out, _ = run_cands(world, [item], doc=world.scan_doc, kind="page_read", page=1, line_range=None)
     assert out.state == "succeeded"
     (row,) = rows(world)
     assert row["method"] == "model_read" and row["state"] in ("candidate", "flagged")
@@ -128,4 +126,9 @@ def test_model_read_not_in_calculations(world: World) -> None:
     row = world.rows("select evidence_class, method, validation_state from extraction_candidate")[0]
     marker = {"evidence_class": row[0], "extraction_method": row[1], "validation_state": row[2]}
     assert is_model_proposal(marker)
-    assert PerforationHistory.build([{"event_id": "x", **marker}], wellbore_id="w", md_datum="RKB").events == ()
+    assert (
+        PerforationHistory.build(
+            [{"event_id": "x", **marker}], wellbore_id="w", md_datum="RKB"
+        ).events
+        == ()
+    )

@@ -6,7 +6,7 @@ import json
 from uuid import uuid4
 
 from tests.candidates.conftest import World
-from tests.candidates.helpers import loc, meas, page_item, run_cands
+from tests.candidates.helpers import meas, page_item, run_cands
 from tests.candidates.support import FixtureProvider, call_response, json_response
 
 
@@ -48,14 +48,16 @@ def test_candidates_read_api(world: World) -> None:
     assert by_state["accepted"]["label"] == "model-proposed, rule-validated"
     read = by_state["candidate"]
     assert read["label"] == "model-read, unverified" and read["method"] == "model_read"
-    assert read["evidence"]["locator"]["kind"] == "pdf" and read["evidence_class"] == "model_proposal"
+    assert (
+        read["evidence"]["locator"]["kind"] == "pdf" and read["evidence_class"] == "model_proposal"
+    )
     assert read["validation_state"] == "unverified"
     # filters and per-document listing
     only = c.get(f"/api/v1/projects/{pid}/extraction-candidates?state=accepted").json()["items"]
     assert [i["state"] for i in only] == ["accepted"]
-    doc = c.get(
-        f"/api/v1/projects/{pid}/documents/{world.scan_doc}/extraction-candidates"
-    ).json()["items"]
+    doc = c.get(f"/api/v1/projects/{pid}/documents/{world.scan_doc}/extraction-candidates").json()[
+        "items"
+    ]
     assert [i["state"] for i in doc] == ["candidate"]
     by_method = c.get(f"/api/v1/projects/{pid}/extraction-candidates?method=model_read").json()
     assert len(by_method["items"]) == 1
@@ -77,8 +79,14 @@ def test_candidates_are_project_scoped(world: World) -> None:
     miss = c.get(f"/api/v1/projects/{other}/documents/{world.perf_doc}/extraction-candidates")
     assert miss.status_code == 404  # a document of another project does not exist here
     assert c.get(f"/api/v1/projects/{uuid4()}/extraction-candidates").status_code == 404
-    assert c.get(f"/api/v1/projects/{world.project_id}/extraction-candidates?state=bogus").status_code == 422
-    assert c.get(f"/api/v1/projects/{world.project_id}/extraction-candidates?limit=0").status_code == 422
+    assert (
+        c.get(f"/api/v1/projects/{world.project_id}/extraction-candidates?state=bogus").status_code
+        == 422
+    )
+    assert (
+        c.get(f"/api/v1/projects/{world.project_id}/extraction-candidates?limit=0").status_code
+        == 422
+    )
 
 
 def test_activity_log_persisted(world: World) -> None:

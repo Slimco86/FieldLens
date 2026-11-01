@@ -11,7 +11,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
 
 from fieldlens.assistant.errors import AssistantError
 from fieldlens.assistant.messages import (
