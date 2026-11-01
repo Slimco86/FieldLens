@@ -1527,7 +1527,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, frontend, ingestion |
 | Depends on | TASK-006, TASK-034 |
@@ -1535,20 +1535,20 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
 | Spec | specs/INGESTION.md |
-| Version | none |
+| Version | 0.23.0 |
 | Parent | FL-005 |
 | Slice | FL-005-G |
 
 **Outcome.** The upload error names every refused file with its reason and the batch outcome is explicit; the UI marks refused files red (text and icon) and lets the user retry without them. Found in the owner's first manual test (November 1): a generic "unsupported file type" message gave no file name.
-**Next action.** Owner decides all-or-nothing versus accepting the valid remainder (default proposal: preflight every file, store nothing if any is refused, report all of them); then backend contract change, regenerate contracts and a frontend row state, with independent QA.
-**Evidence.** none yet
+**Next action.** none
+**Evidence.** Per-file refusal reporting (batch rejected, every refused file named) and red refused rows. Independent QA on `9e490f0`: backend 1194 passed/7 skipped, ruff, mypy strict, frontend 143 tests, contracts, build, e2e 29/29.
 
 ### TASK-051 · Extensionless and legacy-encoded text intake and Compass survey text profile (IN-11)
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, backend |
 | Depends on | TASK-009 |
@@ -1561,15 +1561,15 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-H |
 
 **Outcome.** Text files without an extension or in UTF-16/Windows-1252 are inspected as text with a recorded encoding, and the Volve Compass survey text export (for example `Volve F_F-12_F-12_F-12_ACTUAL`) gets a native trajectory profile preferred over the PDF text layer. The owner's first upload refused that file as an unsupported signature; the cause (likely non-UTF-8 bytes or NULs in the first 64 KiB) is unconfirmed until the file is inspected.
-**Next action.** Inspect the real file read-only (encoding, header, columns, units, reference), record the layout in the spec, then implement; the shell could not read the data folder, so grant `/add-dir` or paste the first 40 lines.
-**Evidence.** none yet
+**Next action.** Compass survey text profile still open: inspect the real extensionless file (paste the first 40 lines or grant `/add-dir`), record the layout in specs/INGESTION.md, then implement.
+**Evidence.** Encoding-tolerant intake (UTF-8/UTF-16/Windows-1252, extensionless, NUL and high-byte refusal) shipped in 0.23.0; the Compass profile is not done. Independent QA on `9e490f0`: backend 1194 passed/7 skipped, ruff, mypy strict, frontend 143 tests, contracts, build, e2e 29/29.
 
 ### TASK-052 · Files table columns, expandable details and bulk labelling (UI-14)
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend |
 | Depends on | TASK-034 |
@@ -1577,13 +1577,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
 | Spec | specs/UI_DESIGN_SYSTEM.md |
-| Version | none |
+| Version | 0.23.0 |
 | Parent | FL-021 |
 | Slice | FL-021-E |
 
 **Outcome.** Separate Your labels, Suggested labels and Tags columns, SHA-256 and identifiers in an expandable detail row, multi-select rows with a bulk category action, and batch assignment at upload time.
-**Next action.** Dispatch with TASK-050 in the same frontend branch only if the owner agrees; confirm whether a batch backend endpoint is wanted or per-document calls suffice.
-**Evidence.** none yet
+**Next action.** none
+**Evidence.** Your/Suggested labels and Tags columns, expandable details, bulk labels at upload and in the table (per-document calls). Independent QA on `9e490f0`: backend 1194 passed/7 skipped, ruff, mypy strict, frontend 143 tests, contracts, build, e2e 29/29.
 
 ### TASK-053 · Reconstruction pipeline panel, readiness checklist and explicit start (UI-15)
 

@@ -8,6 +8,19 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.23.0 - 2026-11-01
+
+- **TASK-050 (IN-10), TASK-052 (UI-14), TASK-051 partial (IN-11):** Found in the owner's first manual test. An upload
+  with unsupported files is now preflighted as a whole: nothing is stored and the error lists every refused file with its
+  position, reason and limit (`ImportRefusal.refused_files`, additive contract); the UI marks those rows red with an icon
+  and text and offers "Remove refused files and retry". Text intake is encoding tolerant: extensionless and legacy-encoded
+  files (UTF-8, UTF-16, Windows-1252) are accepted when the whole file is text, the detected encoding is recorded in
+  `origin_metadata.text_encoding`, and LAS/`.dat` profiles decode with it; files with NUL bytes or too many control or
+  high bytes stay refused. The files table has separate Your labels, Suggested labels and Tags columns, an expandable
+  Details row (SHA-256, identifiers) and bulk label assignment at upload time and for selected rows. The Compass survey text
+  profile (IN-11) is still open pending a readable sample. Verified by independent QA: backend 1194 passed, frontend 143
+  tests, e2e 29/29, strict typing and contract drift checks clean.
+
 ## 0.22.1 - 2026-11-01
 
 - **TASK-041 live run and repairs:** One authorized live run (cap USD 3, USD 0.68 at placeholder rates; real cost unknown)
