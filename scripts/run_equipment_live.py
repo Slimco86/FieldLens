@@ -658,7 +658,7 @@ def _bootstrap(args: argparse.Namespace) -> int:
     settings = Settings()
     _lane_engine(settings)  # refuses the application database
     app = create_app(settings.model_copy(update={"job_worker_enabled": False}))
-    client = TestClient(app, base_url="http://127.0.0.1:8101")
+    client = TestClient(app, base_url=f"http://127.0.0.1:{settings.port}")
     token = client.get("/api/v1/session").json()["csrf_token"]
     pid, rev, docs = bootstrap_project(
         client, {"X-FieldLens-Token": token}, app.state.job_worker, args.bootstrap_project, args.pdf
