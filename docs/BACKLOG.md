@@ -1562,7 +1562,7 @@ the slice letter and `Slice` keeps the plan's original string.
 
 **Outcome.** Text files without an extension or in UTF-16/Windows-1252 are inspected as text with a recorded encoding, and the Volve Compass survey text export (for example `Volve F_F-12_F-12_F-12_ACTUAL`) gets a native trajectory profile preferred over the PDF text layer. The owner's first upload refused that file as an unsupported signature; the cause (likely non-UTF-8 bytes or NULs in the first 64 KiB) is unconfirmed until the file is inspected.
 **Next action.** Validate the profile against the real extensionless F-12 export (paste the first 40 lines or `/add-dir` the folder) and adjust; then mark done. Duplicate-source precedence is TASK-059.
-**Evidence.** Intake shipped in 0.23.0; `text_compass_survey_report` profile and Latin-1 acceptance fix in 0.24.0 (synthetic fixtures only; real file not yet read). Independent QA pending/recorded in the changelog.
+**Evidence.** Intake shipped in 0.23.0; `text_compass_survey_report` profile and Latin-1 acceptance fix in 0.24.0 (synthetic fixtures only; real file not yet read). Independent QA on `da43a87`: backend 1217 passed/7 skipped, ruff, mypy strict, contracts clean; adversarial profile and encoding checks passed after one repair (kana UTF-16, late-byte whole-file check).
 
 ### TASK-052 · Files table columns, expandable details and bulk labelling (UI-14)
 
