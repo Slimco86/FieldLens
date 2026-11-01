@@ -148,6 +148,25 @@ test("UI-12/UI-6: URL selects project and tab; prerequisites come from revision 
   expect(seen.some((u) => u.includes("not-a-uuid"))).toBe(false);
 });
 
+test("dropzone: files dropped on the zone are added to the selection like picked files", async ({ page }) => {
+  await blockExternal(page);
+  const name = unique("Drop");
+  const id = await apiProject(page, name);
+  await page.goto(`/#/projects/${id}/sources`);
+  await expect(page.getByText(/no source files yet/i)).toBeVisible();
+  const zone = page.getByText("Drop files here, or choose them with the file picker.").locator("..");
+  const transfer = await page.evaluateHandle(() => {
+    const dt = new DataTransfer();
+    dt.items.add(new File(["a,b\n1,2\n"], "dropped.csv", { type: "text/csv" }));
+    return dt;
+  });
+  await zone.dispatchEvent("dragenter", { dataTransfer: transfer });
+  await zone.dispatchEvent("dragover", { dataTransfer: transfer });
+  await zone.dispatchEvent("drop", { dataTransfer: transfer });
+  await expect(page.getByLabel(/Category hint for dropped\.csv/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upload 1 file(s)" })).toBeEnabled();
+});
+
 test("UI-9: skip link, landmarks, visible focus ring and reduced motion", async ({ page }) => {
   await blockExternal(page);
   const name = unique("Keys");
