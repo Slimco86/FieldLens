@@ -70,3 +70,7 @@ strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = "backend"
 packages = ["fieldlens"]
+
+[[tool.mypy.overrides]]
+module = ["pypdfium2", "pypdfium2.*"]
+ignore_missing_imports = true

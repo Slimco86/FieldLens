@@ -660,11 +660,10 @@ agent_step = Table(
 
 # Retrieval index tables (TASK-011, migration 0007) register on this metadata after the tables
 # they reference are defined.
+# Model-proposed extraction candidates (TASK-036, migration 0010).
+from fieldlens.candidates import tables as _candidate_tables  # noqa: E402,F401
 from fieldlens.identity import tables as _identity_tables  # noqa: E402,F401
 from fieldlens.retrieval import tables as _retrieval_tables  # noqa: E402,F401
 
 # Series storage tables (TASK-047, migration 0008).
 from fieldlens.series import tables as _series_tables  # noqa: E402,F401
-
-# Model-proposed extraction candidates (TASK-036, migration 0010).
-from fieldlens.candidates import tables as _candidate_tables  # noqa: E402,F401
