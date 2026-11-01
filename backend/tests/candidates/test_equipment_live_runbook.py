@@ -346,3 +346,143 @@ def test_bootstrap_helper_uploads_local_pdfs_without_a_provider(
         world.api.client, world.api.headers, world.api.worker, "throwaway", [pdf]
     )
     assert list(docs.values()) == ["x.pdf"] and pid and rev
+
+
+def test_bootstrap_cli_uses_the_lane_port_and_uploads_native_files(
+    runbook: ModuleType,
+    migrated_url: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The c041b45 regression: the helper must talk to the lane port (not a fixed 8101) and, with
+    --file, upload native files so deterministic wellbore identities exist."""
+    from tests.candidates.conftest import PERF_TEXT
+    from tests.candidates.pdfs import EQUIPMENT_LINES, PdfPage, make_pdf
+    from tests.conftest import settings_for
+
+    settings = settings_for(
+        migrated_url,
+        storage_root=tmp_path / "store",
+        port=8199,
+        allowed_hosts=["127.0.0.1:8199", "testserver"],
+    )
+    monkeypatch.setattr(runbook, "Settings", lambda: settings)
+    monkeypatch.setattr(runbook, "_lane_engine", lambda s: None)
+    pdf = tmp_path / "x.pdf"
+    pdf.write_bytes(make_pdf([PdfPage(lines=EQUIPMENT_LINES)]))
+    perf = tmp_path / "Well_perforations_Volve.dat"
+    perf.write_text(PERF_TEXT)
+    code = runbook.main(["--bootstrap-project", "t", "--pdf", str(pdf), "--file", str(perf)], {})
+    out = capsys.readouterr().out
+    assert code == 0 and "project " in out
+    assert "wellbore identities resolved: 15/9-F-99" in out
+    assert "# x.pdf" in out and "# Well_perforations_Volve.dat" in out
+
+
+def test_with_identities_the_bound_label_attaches_and_scans_say_unchecked(
+    runbook: ModuleType, world: World, tmp_path: Path
+) -> None:
+    """Text-layer page: the label resolves through identity AND the page names the well, so the
+    candidate attaches. Image-only page: it attaches but records that nothing could be checked."""
+    shas = {
+        d: str(world.scalar("select sha256 from source_document where document_id=:d", d=d))
+        for d in (world.pdf_doc, world.scan_doc)
+    }
+    plans = (
+        PagePlan("text doc (PV-17)", shas[world.pdf_doc], None, (1,)),
+        PagePlan("scan doc (PV-21)", shas[world.scan_doc], None, (1,)),
+    )
+
+    def answer(request: Any, n: int) -> Any:
+        text = first_user_text(request)
+        doc = world.pdf_doc if str(world.pdf_doc) in text else world.scan_doc
+        return json_response([equip(doc, 1)])
+
+    provider = FixtureProvider(answer)
+    runbook.run(
+        factory=world.factory,
+        provider=provider,
+        store=world.api.client.app.state.blob_store,
+        project_id=world.project_id,
+        documents=[(world.pdf_doc, "15/9-F-99"), (world.scan_doc, "15/9-F-99")],
+        cap=Decimal("3"),
+        include_controls=False,
+        model="stub-model-1",
+        report_path=None,
+        revision_id=world.revision_id,
+        plans=plans,
+    )
+    rows = world.rows(
+        "select document_id, wellbore_id is not null, validator_results::text "
+        "from extraction_candidate where attributes->>'kind'='equipment'"
+    )
+    by_doc = {r[0]: r for r in rows}
+    assert by_doc[world.pdf_doc][1] and "caller-bound" in by_doc[world.pdf_doc][2]
+    assert "not checkable" not in by_doc[world.pdf_doc][2]
+    assert (
+        by_doc[world.scan_doc][1]
+        and "not checkable on an image-only page" in by_doc[world.scan_doc][2]
+    )
+
+
+def test_plan_subsets_only_failed_and_remaining_budget(runbook: ModuleType, world: World) -> None:
+    sha = str(
+        world.scalar("select sha256 from source_document where document_id=:d", d=world.scan_doc)
+    )
+    plan = PagePlan("scan (PV-17)", sha, None, (1, 2))
+    from fieldlens.assistant.messages import ProviderResponse, TextPart
+
+    def answer(request: Any, n: int) -> Any:
+        if '"page":1' in first_user_text(request).replace(" ", ""):
+            return ProviderResponse(
+                status="truncated", parts=(TextPart(text='{"candidates":[{"kind"'),), usage=None
+            )
+        return json_response([])
+
+    runbook.run(
+        factory=world.factory,
+        provider=FixtureProvider(answer),
+        store=world.api.client.app.state.blob_store,
+        project_id=world.project_id,
+        documents=[(world.scan_doc, "15/9-F-99")],
+        cap=Decimal("3"),
+        include_controls=False,
+        model="stub-model-1",
+        report_path=None,
+        revision_id=world.revision_id,
+        plans=(plan,),
+    )
+    docs = [(world.scan_doc, "15/9-F-99")]
+    common: dict[str, Any] = {"include_controls": False, "plans": (plan,)}
+    full = runbook.build_plan(
+        world.factory, world.project_id, world.revision_id, docs, cap=Decimal("3"), **common
+    )
+    failed = runbook.build_plan(
+        world.factory,
+        world.project_id,
+        world.revision_id,
+        docs,
+        cap=Decimal("3"),
+        only_failed=True,
+        **common,
+    )
+    explicit = runbook.build_plan(
+        world.factory,
+        world.project_id,
+        world.revision_id,
+        docs,
+        cap=Decimal("3"),
+        only_pages={world.scan_doc: [2, 7]},
+        **common,
+    )
+    assert full.pages == 2 and failed.pages == 1 and failed.entries[0].pages == [1]
+    assert explicit.entries[0].pages == [2]  # page 7 is not in the plan: never added
+    assert "only pages whose last read failed: [1]" in failed.text
+    # what the cap's period already committed is stated and counted
+    assert full.available_usd is not None and full.available_usd < Decimal("3")
+    assert "still available in this cap's budget period" in full.text
+    tight = runbook.build_plan(
+        world.factory, world.project_id, world.revision_id, docs, cap=Decimal("0.4"), **common
+    )
+    assert tight.over_cap and "EXCEEDS THE CAP" in tight.text

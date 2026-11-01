@@ -24,6 +24,7 @@ from fieldlens.contracts.candidates import (
     MeasurementAttributes,
     PageReadAttributes,
     ReasonCode,
+    RejectedItemAttributes,
     ValidatorName,
     ValidatorOutcome,
     ValidatorResult,
@@ -77,7 +78,9 @@ class Decision:
     results: list[ValidatorResult]
     wellbore_id: UUID | None
     subject: dict[str, str | None]
-    attributes: MeasurementAttributes | PageReadAttributes | EquipmentAttributes
+    attributes: (
+        MeasurementAttributes | PageReadAttributes | EquipmentAttributes | RejectedItemAttributes
+    )
     quote: str | None
     locator: dict[str, Any] | None  # evidence locator (pdf/text) when it resolved
     document_id: UUID

@@ -66,6 +66,7 @@ class ReasonCode(StrEnum):
     DEPTH_ORDER_INVALID = "depth_order_invalid"
     LABEL_NOT_IN_TEXT_LAYER = "label_not_in_text_layer"
     EQUIPMENT_NOT_ON_PAGE = "equipment_not_on_page"
+    SCHEMA_INVALID_ITEM = "schema_invalid_item"
 
 
 class ValidatorName(StrEnum):
@@ -196,8 +197,17 @@ class EquipmentAttributes(ContractModel):
     dropped_fields: list[str] = Field(default_factory=list)
 
 
+class RejectedItemAttributes(ContractModel):
+    """One item of a model answer that failed the closed item schema (never a valid candidate).
+    The printed text is kept, bounded, so the reader can see what the model wrote."""
+
+    kind: Literal["rejected_item"] = "rejected_item"
+    raw_text: str = Field(max_length=400, description="The item as the model wrote it, truncated.")
+    problems: list[str] = Field(default_factory=list, max_length=6)
+
+
 CandidateAttributes = Annotated[
-    MeasurementAttributes | PageReadAttributes | EquipmentAttributes,
+    MeasurementAttributes | PageReadAttributes | EquipmentAttributes | RejectedItemAttributes,
     Field(discriminator="kind"),
 ]
 

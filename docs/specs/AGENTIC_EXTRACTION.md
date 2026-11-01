@@ -232,7 +232,7 @@ Do not claim proposed commands exist; record actual test commands and results at
 
 ### Implementation notes (TASK-041, equipment candidates, stub provider only)
 
-- **Code.** `candidates/equipment_prompt.py` (versioned prompt `eq-prompt-1`, effort `low`, closed schema, `rotation`
+- **Code.** `candidates/equipment_prompt.py` (versioned prompt `eq-prompt-2`, effort `low`, closed schema, `rotation`
   hint, zero items on pages without equipment), `schema.py` (`WireEquipment`, closed EQ-8 taxonomy, no wellbore field),
   `equipment_validators.py`, `equipment.py` (page plans `eq-pages-1`, scope check, `EquipmentExtractor`), harness kind
   `equipment` (rotation and bound subject are part of the cache key; a unit accepts only its own candidate class),
@@ -262,6 +262,35 @@ Do not claim proposed commands exist; record actual test commands and results at
   is `size_ambiguous`. Cache versions `validators-2`, `wire-2`.
 - **Live (EQ-11).** `scripts/run_equipment_live.py` is the guarded runbook (`--allow-live`, `--spend-cap-usd`,
   `FIELDLENS_LIVE_META=1`); not run. Its code paths are tested offline.
+
+### TASK-041 repair round after the first live run (offline)
+
+First live result (USD 0.68 at placeholder rates): 4 of 9 pages read; failures were `budget_exhausted` (2: the model made a
+tool call on a prefetched page and the next request's worst-case bound exceeded the USD 0.25 page reservation),
+`output_truncated` (1, a 22-item table at the 4,096-token cap), `malformed_output` (1) and `schema_invalid` (1).
+Repairs:
+
+- **One turn, no tools.** Equipment units are a single turn with no tools (the plan supplies rotation); a tool call is a refused,
+  failed unit (`tool_not_allowed`). The rotation-request prompt and the `get_page_image` tool exist only in the opt-in
+  two-pass mode (`HarnessConfig.allow_rotation_requests`, off; pages without a configured rotation only; reservation USD 0.50).
+  Prompt `eq-prompt-2` lists the enum verbatim, says "other when unsure", asks for the number only in `value_text`, and no
+  longer asks for `description`/`region`.
+- **Output cap and reservation.** Equipment units use 8,192 output tokens (MI-5 amendment in META_INTEGRATION), an image bound of
+  3,000 tokens (a 1600 px page measured about 3.9k input tokens in total) and a USD 0.25 reservation that bounds one attempt
+  (about USD 0.24 at 5/25 placeholder rates). Truncation still ends the unit `failed: output_truncated`, never partial.
+- **Per-item validation.** The envelope stays strict (one JSON object with only a `candidates` list, at most 40 items); an invalid
+  item (bad category, unknown or smuggled field such as a wellbore or state, bad region, oversize string) is stored `rejected`
+  with `schema_invalid_item` and its printed text (400 characters) as `RejectedItemAttributes`, while valid items persist.
+  A malformed envelope fails the unit and its stop detail names the SHAPE (`text_before_json`, `trailing_data@N`,
+  `invalid_json@N`, `envelope_shape`, ...), never content. The raw failed outputs of the live run were not stored, so the exact
+  p4/p48 shapes are unknown; the fixes target the plausible ones (tool turn before the answer, item drift) and the shape is now recorded.
+- **Printed quantities.** The three `number_unparseable` live values were `7"` (twice: the inch mark inside `value_text`) and
+  `2615,4 m MD` (unit and reference inside `value_text`). `parse_printed_quantity` now takes the number and the unit/reference words
+  printed with it (inch marks, `ft`, `m`, `MD`...), `1,234 m` as a thousands separator for depths and lengths, a one or two digit
+  decimal comma; ranges, `x`-separated pairs, other text, `95/8` and thousands separators in sizes stay flagged. A printed unit
+  that contradicts the claimed one is `unit_conflicts_with_quote`.
+- **Runbook.** `--file` uploads native files (perforation table) so identities exist; `--pages DOC=P,P` and `--only-failed` retry a
+  subset of the planned pages; the plan shows what the cap's period already committed and refuses beyond what remains.
 
 ### Implementation handoff and integration
 

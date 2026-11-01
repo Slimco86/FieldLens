@@ -213,7 +213,7 @@ def test_prompt_id_and_inputs_feed_the_cache_key(
     assert h.cache_key(req(rotation=90), doc) != base
     assert h.cache_key(req(document_subject="15/9-F-99"), doc) != base
     assert h.cache_key(req(page=2), doc) != base
-    monkeypatch.setattr(harness_module, "EQUIPMENT_PROMPT_VERSION", "eq-prompt-2")
+    monkeypatch.setattr(harness_module, "EQUIPMENT_PROMPT_VERSION", "eq-prompt-3")
     assert h.cache_key(req(), doc) != base  # a new prompt never reuses a stored result
     monkeypatch.undo()
     # unchanged inputs reuse the stored result: no second provider call
@@ -225,9 +225,14 @@ def test_prompt_id_and_inputs_feed_the_cache_key(
 
 
 def test_prompt_content() -> None:
+    from fieldlens.candidates.equipment_prompt import EQUIPMENT_SYSTEM_PROMPT_TWO_PASS
+
     p = EQUIPMENT_SYSTEM_PROMPT
-    for needle in ("rotation", "90, 180 or 270", "never invent", '{"candidates":[]}', "untrusted"):
+    for needle in ("never invent", '{"candidates":[]}', "untrusted"):
         assert needle in p, needle
+    assert "rotation" not in p  # the plan supplies rotation; no invitation by default
+    for needle in ("rotation", "90, 180 or 270"):  # the opt-in two-pass prompt keeps it
+        assert needle in EQUIPMENT_SYSTEM_PROMPT_TWO_PASS, needle
     for category in EQUIPMENT_CATEGORIES:
         assert category in p
     assert "drill_bit" not in p and len(EQUIPMENT_CATEGORIES) == 10

@@ -4,6 +4,8 @@
 > **Load-bearing frameworks:** F2, F4, F5. **Supporting:** F1, F3, F6.
 > **Date:** 2026-10-28. **Decision owner:** project owner.
 > **Status:** Design complete; live entitlement/balance and spending approval unverified.
+> **Amendment, November 1 (TASK-041 live evidence):** the per-request output bound is raised to 8,192 tokens as a hard maximum (default stays 4,096); only equipment page units use it, with a matching reservation (one attempt at the placeholder rates bounds to about USD 0.24 against a USD 0.25 reservation). A 25-item completion table needs more than 4,096 output tokens (measured: 16 items used 2,682 tokens, a 22-item table was truncated).
+
 > **Amendment, October 30:** the adapter message model must represent image content parts and tool-call round trips (FL-022 page images and read-only content tools); the MI-5 tool-call bound (default 6) is configurable; MI-6 gains a harmless image-input check.
 > **Zero-Question Score:** 0 unowned design questions; live calls remain opt-in.
 

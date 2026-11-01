@@ -52,6 +52,7 @@ const REASON: Record<string, string> = {
   depth_order_invalid: "the top depth is below the bottom depth",
   label_not_in_text_layer: "the printed label is not in the page text layer",
   equipment_not_on_page: "no equipment vocabulary on this page; rejected",
+  schema_invalid_item: "this item broke the closed item schema; kept as printed, not used",
 };
 
 function describe(link: EvidenceLink): string {
@@ -72,6 +73,7 @@ function valueText(c: ExtractionCandidate): string {
       .filter((p): p is string => Boolean(p))
       .join(" - ");
   }
+  if (a.kind === "rejected_item") return `invalid item: ${a.raw_text.slice(0, 80)}`;
   return [a.item_type, a.name, a.depth_text].filter((p): p is string => Boolean(p)).join(" - ");
 }
 

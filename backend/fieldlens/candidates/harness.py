@@ -75,15 +75,21 @@ from fieldlens.persistence.session import session_scope
 from fieldlens.retrieval.search import RetrievalService
 
 from . import repository
-from .equipment_prompt import EQUIPMENT_PROMPT_VERSION, EQUIPMENT_SYSTEM_PROMPT
-from .equipment_validators import EQUIPMENT_VALIDATORS_VERSION, validate_equipment
+from .equipment_prompt import EQUIPMENT_PROMPT_VERSION, equipment_system_prompt
+from .equipment_validators import (
+    EQUIPMENT_VALIDATORS_VERSION,
+    invalid_item_decision,
+    validate_equipment,
+)
 from .reconcile import settle_finished_units
 from .schema import (
+    InvalidItem,
     OutputRejected,
     WireEquipment,
     WireMeasurement,
     WirePageItem,
     candidate_key,
+    parse_equipment_output,
     parse_output,
 )
 from .sources import DocInfo, SourceError, SourceReader
@@ -118,6 +124,10 @@ SYSTEM_PROMPT = (
 )
 
 
+EQUIPMENT_UNIT_RESERVE_USD = Decimal("0.25")  # one attempt at 8,192 output tokens bounds to ~0.24
+EQUIPMENT_TWO_PASS_RESERVE_USD = Decimal("0.50")  # two attempts (a rotation request, then the read)
+
+
 def step_key(unit_key: str, name: str, args: object, ordinal: int = 0) -> str:
     """AX-15: derived from (unit, tool/step name, canonical argument hash, ordinal); <= 120 chars.
     The ordinal makes identical repeated calls separate, charged-and-logged steps; a resumed
@@ -140,6 +150,13 @@ class HarnessConfig:
     long_side: int = 1600
     prompt_version: str = PROMPT_VERSION
     harness_version: str = HARNESS_VERSION
+    # Equipment units (MI-5 amendment, TASK-041 live evidence): one turn, no tools, an output
+    # cap sized to the measured need (about 25 items), and an image bound sized to a 1600 px page
+    # (measured ~3.9k input tokens in total). ``allow_rotation_requests`` is the opt-in two-pass
+    # mode for pages of unknown orientation (tools offered, a second attempt reserved).
+    equipment_max_output_tokens: int = 8192
+    equipment_image_token_bound: int = 3000
+    allow_rotation_requests: bool = False
 
 
 @dataclass(frozen=True)
@@ -241,6 +258,13 @@ class ExtractionHarness:
     def factory(self) -> sessionmaker[Session]:
         return self._factory
 
+    def _two_pass(self, req: UnitRequest) -> bool:
+        """Tools are offered only to an equipment page of unknown orientation, and only when the
+        two-pass mode is switched on; every other equipment unit is one turn with no tools."""
+        return (
+            req.kind == "equipment" and self.config.allow_rotation_requests and req.rotation is None
+        )
+
     def prompt_id(self, kind: UnitKind) -> str:
         """The prompt id that feeds the cache key and is stored with each candidate."""
         return EQUIPMENT_PROMPT_VERSION if kind == "equipment" else self.config.prompt_version
@@ -279,6 +303,8 @@ class ExtractionHarness:
             else f"{VALIDATORS_VERSION}+{EQUIPMENT_VALIDATORS_VERSION}",
             "rotation": req.rotation,
             "subject": req.document_subject,
+            "two_pass": self._two_pass(req),
+            "max_out": self._unit_limits(req.kind).max_output_tokens,
             "schema": SCHEMA_VERSION,
             "effort": self.config.effort,
             "doc_id": str(doc.document_id),
@@ -325,7 +351,7 @@ class ExtractionHarness:
         started: float,
     ) -> UnitOutcome:
         spy = _Spy(self._provider)
-        limits = self._unit_limits()
+        limits = self._unit_limits(req.kind, self._two_pass(req))
         toolbox = Toolbox(
             factory=self._factory,
             reader=self._reader,
@@ -334,6 +360,7 @@ class ExtractionHarness:
             revision_id=req.revision_id,
             long_side=self.config.long_side,
         )
+        unit_tools = self._tools_for(req, toolbox)
         unit = WorkUnit(
             provider=spy,
             ledger=self._ledger,
@@ -345,7 +372,7 @@ class ExtractionHarness:
             work_unit=key[:120],
             limits=limits,
             cancel=cancel,
-            tools=toolbox.specs,
+            tools=unit_tools,
             effort=self.config.effort,
         )
         settle = True
@@ -356,9 +383,14 @@ class ExtractionHarness:
             assert unit.reservation is not None
             self.log.link_reservation(handle, unit.reservation.reservation_id)
             history = self._prefetch(req, doc, key, handle, toolbox)
-            text, calls = self._converse(unit, toolbox, history, key, handle, spy)
-            wire = parse_output(text)
-            self._persist(req, doc, key, handle, wire.candidates)
+            tools_on = req.kind != "equipment" or self._two_pass(req)
+            text, calls = self._converse(unit, toolbox, history, key, handle, spy, tools_on)
+            wires: list[Any] = (
+                parse_equipment_output(text)
+                if req.kind == "equipment"
+                else list(parse_output(text).candidates)
+            )
+            self._persist(req, doc, key, handle, wires)
             counts = self._counts(req.project_id, handle.unit_id)
             # finalize first: a kill between the two leaves the reservation open (conservative
             # liability, reconciled by the ledger) and the unit resumable, never half-settled
@@ -373,7 +405,8 @@ class ExtractionHarness:
             self._end(unit, handle, key, stop.state, stop.reason, stop.detail, settle)
         except OutputRejected as exc:
             state, reason = "failed", exc.code
-            self._end(unit, handle, key, "failed", exc.code, "model output rejected", True)
+            detail = "model output rejected" + (f": {exc.shape}" if exc.shape else "")
+            self._end(unit, handle, key, "failed", exc.code, detail, True)
         except RequestCancelled:
             state, reason = "cancelled", "cancelled"
             self._end(unit, handle, key, "cancelled", "cancelled", None, True)
@@ -400,7 +433,10 @@ class ExtractionHarness:
             state, reason = "interrupted", exc.code
             self._end(unit, handle, key, "interrupted", exc.code, "retry resumes this unit", False)
         except ProviderMalformed:
-            state, reason = "failed", self._malformed_reason(spy, handle, key)
+            state, reason = (
+                "failed",
+                self._malformed_reason(spy, handle, key, {t.name for t in unit_tools}),
+            )
             self._end(unit, handle, key, "failed", reason, None, True)
         except AssistantError as exc:
             state, reason = "failed", exc.code
@@ -409,16 +445,31 @@ class ExtractionHarness:
             raise
         return self._outcome_for(handle, key, state, reason, started, req.page, calls)
 
-    def _unit_limits(self) -> RequestLimits:
+    def _tools_for(self, req: UnitRequest, toolbox: Toolbox) -> tuple[Any, ...]:
+        if req.kind != "equipment":
+            return tuple(toolbox.specs)
+        if not self._two_pass(req):
+            return ()
+        return tuple(t for t in toolbox.specs if t.name == "get_page_image")
+
+    def _unit_limits(self, kind: UnitKind = "measurement", two_pass: bool = False) -> RequestLimits:
         base = self.config.limits
         reserved = min(base.max_reserved_usd, self.config.page_reserve_usd)
+        max_out, image_bound = base.max_output_tokens, base.image_token_bound
+        if kind == "equipment":
+            max_out = self.config.equipment_max_output_tokens
+            image_bound = self.config.equipment_image_token_bound
+            reserved = min(
+                base.max_reserved_usd,
+                EQUIPMENT_TWO_PASS_RESERVE_USD if two_pass else EQUIPMENT_UNIT_RESERVE_USD,
+            )
         return RequestLimits(
             max_attempts=base.max_attempts,
             max_tool_calls=base.max_tool_calls,
             deadline_s=base.deadline_s,
-            max_output_tokens=base.max_output_tokens,
+            max_output_tokens=max_out,
             max_reserved_usd=reserved,
-            image_token_bound=base.image_token_bound,
+            image_token_bound=image_bound,
             retry_backoff_s=base.retry_backoff_s,
             default_effort=self.config.effort,
         )
@@ -447,10 +498,16 @@ class ExtractionHarness:
         except Exception:  # noqa: BLE001 - settlement trouble must not hide the unit's outcome
             logger.warning("reservation settle failed for %s", key[:16])
 
-    def _malformed_reason(self, spy: _Spy, handle: UnitHandle, key: str) -> str:
+    def _malformed_reason(
+        self, spy: _Spy, handle: UnitHandle, key: str, offered: set[str] | None = None
+    ) -> str:
         """Record a refused tool request by name (never executed) and return the stop reason."""
         calls = spy.last.tool_calls() if spy.last is not None else []
-        bad = [c for c in calls if c.name not in ALLOWED_TOOLS]
+        bad = [
+            c
+            for c in calls
+            if c.name not in ALLOWED_TOOLS or (offered is not None and c.name not in offered)
+        ]
         for index, call in enumerate(bad):
             self.log.append_step(
                 handle,
@@ -526,7 +583,9 @@ class ExtractionHarness:
                 role="system",
                 parts=(
                     TextPart(
-                        text=EQUIPMENT_SYSTEM_PROMPT if req.kind == "equipment" else SYSTEM_PROMPT
+                        text=equipment_system_prompt(self._two_pass(req))
+                        if req.kind == "equipment"
+                        else SYSTEM_PROMPT
                     ),
                 ),
             ),
@@ -595,6 +654,7 @@ class ExtractionHarness:
         key: str,
         handle: UnitHandle,
         spy: _Spy,  # noqa: ARG002
+        tools_on: bool = True,
     ) -> tuple[str, int]:
         assert unit.reservation is not None
         rid = unit.reservation.reservation_id
@@ -632,6 +692,18 @@ class ExtractionHarness:
             history.append(Message(role="assistant", parts=response.parts))
             if not calls:
                 return response.text(), provider_calls
+            if not tools_on:  # no tool was offered: a tool call is a refused, failed attempt
+                for index, call in enumerate(calls):
+                    self.log.append_step(
+                        handle,
+                        "tool_call",
+                        "refused: tool_not_allowed",
+                        step_key=step_key(key, f"tool:{call.name}", call.arguments, index),
+                        tool_name=call.name,
+                        outcome=AgentStepOutcome.REFUSED,
+                        detail={"reason": "tool_not_allowed", "by": "model"},
+                    )
+                raise _Stop("failed", "tool_not_allowed", "no tools are offered to this unit")
             if unit.tool_calls + len(calls) > unit.limits.max_tool_calls:
                 for index, call in enumerate(calls):
                     self.log.append_step(
@@ -689,7 +761,7 @@ class ExtractionHarness:
         doc: DocInfo,
         key: str,
         handle: UnitHandle,
-        wires: Sequence[WireMeasurement | WirePageItem | WireEquipment],
+        wires: Sequence[WireMeasurement | WirePageItem | WireEquipment | InvalidItem],
     ) -> None:
         ctx = ValidationContext(
             req.project_id,
@@ -702,15 +774,19 @@ class ExtractionHarness:
         rows: list[dict[str, Any]] = []
         decisions: list[tuple[str, Decision]] = []
         for wire in wires:  # a unit takes exactly the candidate class it asked for
-            if isinstance(wire, WireEquipment) != (req.kind == "equipment"):
+            if isinstance(wire, WireEquipment) and req.kind != "equipment":
                 raise OutputRejected("wrong_candidate_kind")
         for ordinal, wire in enumerate(wires):
-            ckey = candidate_key(wire)
-            decision = (
-                validate_equipment(ctx, wire)
-                if isinstance(wire, WireEquipment)
-                else validate(ctx, wire)
-            )
+            if isinstance(wire, InvalidItem):
+                ckey = hashlib.sha256(wire.raw_text.encode()).hexdigest()[:32]
+                decision = invalid_item_decision(ctx, wire, req.page, req.line_range)
+            else:
+                ckey = candidate_key(wire)
+                decision = (
+                    validate_equipment(ctx, wire)
+                    if isinstance(wire, WireEquipment)
+                    else validate(ctx, wire)
+                )
             decisions.append((ckey, decision))
             rows.append({**self._row(req, handle, ckey, decision), "ordinal": ordinal})
         repository.insert_candidates(self._factory, handle, rows)

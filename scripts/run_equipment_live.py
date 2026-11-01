@@ -9,9 +9,14 @@ NOT run by the TASK-041 implementer. Three steps; only the last one spends credi
            --pdf <root>/Well_logs_pr_WELL/15_9-F-14/14.DIV.REPORTS/FWR_Completion_F14.pdf \
            --pdf <root>/Well_logs_pr_WELL/15_9-F-5/14.DIV.REPORTS/COMPLETION_REPORT_1.PDF
 
-   It runs the application in-process against the configured lane database and storage, uploads,
-   drives the ingestion jobs, and prints the project id plus one ``--document`` line per document
-   (the well label after the colon is YOUR statement of which well the file is about).
+   Add ``--file PATH`` (repeatable) to upload native files too, so that deterministic wellbore
+   identities exist and candidates can attach: the Volve perforation table
+   ``Geophysical_Interpretations/Wells/Well_perforations_Volve.dat`` names 15/9-F-14 and 15/9-F-5
+   (add ``Well_picks_Volve_v1.dat`` for more records). The helper runs the application in-process
+   against the configured lane database and storage, uploads, drives the ingestion jobs (identity
+   resolves after extraction), and prints the project id, the resolved wellbore identities and one
+   ``--document`` line per document (the well label after the colon is YOUR statement of which
+   well the file is about; it must resolve to one of those identities).
 
 2. Dry run (the default whenever ``--allow-live`` is absent; no provider, no network). It prints the
    exact plan: documents by content hash, pages, rotations, effort, concurrency, image size, the
@@ -20,6 +25,11 @@ NOT run by the TASK-041 implementer. Three steps; only the last one spends credi
 
        uv run python scripts/run_equipment_live.py --project-id <uuid> --spend-cap-usd 3 \
            --document <doc_uuid>:15/9-F-14 --document <doc_uuid>:15/9-F-5 [--include-controls]
+
+   A retry of only some pages: ``--only-failed`` (planned pages whose last read in this project did
+   not succeed) or ``--pages <doc_uuid>=30,36`` (a subset of the planned pages; nothing outside the
+   plan can be added). The plan also shows what the cap's budget period has already committed and
+   refuses when the worst case exceeds what remains.
 
 3. The live run needs ALL of ``--allow-live``, a positive ``--spend-cap-usd`` and the owner's
    ``FIELDLENS_LIVE_META=1``. The provider key reaches the process ONLY through the environment as
@@ -74,7 +84,11 @@ from fieldlens.candidates.equipment import (  # noqa: E402
     PagePlan,
     find_plan,
 )
-from fieldlens.candidates.harness import ExtractionHarness, HarnessConfig  # noqa: E402
+from fieldlens.candidates.harness import (  # noqa: E402
+    EQUIPMENT_UNIT_RESERVE_USD,
+    ExtractionHarness,
+    HarnessConfig,
+)  # noqa: E402
 from fieldlens.candidates.pages import PageRenderer  # noqa: E402
 from fieldlens.candidates.sources import SourceReader  # noqa: E402
 from fieldlens.config import Settings  # noqa: E402
@@ -84,7 +98,7 @@ from fieldlens.persistence.session import create_session_factory  # noqa: E402
 
 OPT_IN_VAR = "FIELDLENS_LIVE_META"
 PERIOD_PREFIX = "task-041-live-cap-"
-PAGE_RESERVE_USD = Decimal("0.25")  # per page unit, the harness default
+PAGE_RESERVE_USD = EQUIPMENT_UNIT_RESERVE_USD  # one 8,192-token attempt bounds to ~USD 0.24
 LONG_SIDE = 1600
 CONCURRENCY = 3
 MAX_CAP_USD = Decimal("25")
@@ -312,6 +326,7 @@ def run(
     revision_id: UUID | None = None,
     effort: str = "low",
     plans: tuple[PagePlan, ...] = DEFAULT_PLANS,
+    only_pages: dict[UUID, list[int]] | None = None,
 ) -> tuple[str, list[PageRecord], list[dict[str, Any]]]:
     if not cap.is_finite() or cap <= 0:
         raise RunbookRefusal("the cap must be a positive amount")
@@ -380,6 +395,7 @@ def run(
             document_id,
             subject_label=label,
             include_controls=include_controls,
+            only_pages=(only_pages or {}).get(document_id),
         )
         if result.excluded:
             notes.append(f"{plan.label}: excluded ({result.exclusion_code})")
@@ -431,10 +447,12 @@ class Plan:
     worst_case_usd: Decimal
     cap: Decimal | None
     text: str
+    available_usd: Decimal | None = None  # the cap less what the period already committed
 
     @property
     def over_cap(self) -> bool:
-        return self.cap is not None and self.worst_case_usd > self.cap
+        limit = self.available_usd if self.available_usd is not None else self.cap
+        return limit is not None and self.worst_case_usd > limit
 
 
 def build_plan(
@@ -447,6 +465,8 @@ def build_plan(
     cap: Decimal | None,
     plans: tuple[PagePlan, ...] = DEFAULT_PLANS,
     effort: str = "low",
+    only_pages: dict[UUID, list[int]] | None = None,
+    only_failed: bool = False,
 ) -> Plan:
     """The exact plan, from the database and the page plans only (no provider, no network)."""
     limits = RequestLimits()
@@ -494,6 +514,14 @@ def build_plan(
             pages = list(
                 dict.fromkeys([*match.pages, *(match.controls if include_controls else ())])
             )
+            note_extra = ""
+            if only_failed:
+                bad = failed_pages(s, project_id, document_id)
+                pages = [p for p in pages if p in bad]
+                note_extra = f"; only pages whose last read failed: {sorted(bad)}"
+            if only_pages is not None and document_id in only_pages:
+                pages = [p for p in pages if p in set(only_pages[document_id])]
+                note_extra += f"; restricted to {only_pages[document_id]}"
             entries.append(
                 PlanEntry(
                     document_id,
@@ -502,11 +530,17 @@ def build_plan(
                     match.label,
                     pages,
                     {p: r for p, r in match.rotations if p in pages},
-                    f"subject label given by the caller: {label or '(none)'}",
+                    f"subject label given by the caller: {label or '(none)'}{note_extra}",
                 )
             )
     total = sum(len(e.pages) for e in entries)
     worst = PAGE_RESERVE_USD * total
+    available = _available(factory, cap)
+    attempt_bound = (
+        Decimal(HarnessConfig.equipment_image_token_bound + 2000) * RATES[0]
+        + Decimal(HarnessConfig.equipment_max_output_tokens) * RATES[1]
+    ) / Decimal(1_000_000)
+    limit = available if available is not None else cap
     lines = [
         f"DRY RUN plan (no provider constructed, no network). effort={effort} "
         f"concurrency={CONCURRENCY} image_long_side={LONG_SIDE}px",
@@ -517,23 +551,69 @@ def build_plan(
             f"pages={e.pages} rotations={e.rotations or '{}'} ({e.note})"
         )
     lines += [
-        f"pages: {total}; provider calls: {total} expected (1 per page; up to "
-        f"{limits.max_attempts} attempts and {limits.max_tool_calls} tool calls each, hard max "
+        f"pages: {total}; provider calls: {total} expected (1 per page, no tools; a retry only "
+        f"after a transient provider error, at most {limits.max_attempts} attempts each, hard max "
         f"{total * limits.max_attempts})",
+        f"per page: one turn, max {HarnessConfig.equipment_max_output_tokens} output tokens; "
+        f"one-attempt upper bound ~USD {attempt_bound:.3f} <= reservation USD {PAGE_RESERVE_USD}",
         f"worst-case reservation total: {total} x USD {PAGE_RESERVE_USD} = USD {worst} "
         f"at placeholder rates {RATES[0]}/{RATES[1]} USD per Mtok (not provider rates)",
         f"cap: {('USD ' + str(cap)) if cap is not None else 'none given'}"
         + (
-            " -> EXCEEDS THE CAP, refusing"
-            if cap is not None and worst > cap
-            else " -> within the cap"
+            f"; still available in this cap's budget period: USD {available}"
+            if available is not None and available != cap
+            else ""
+        ),
+        (
+            "verdict: EXCEEDS THE CAP (or what remains of it), refusing"
+            if limit is not None and worst > limit
+            else "verdict: within the cap"
         ),
     ]
-    return Plan(entries, total, total, total * limits.max_attempts, worst, cap, "\n".join(lines))
+    return Plan(
+        entries, total, total, total * limits.max_attempts, worst, cap, "\n".join(lines), available
+    )
+
+
+def _available(factory: sessionmaker[Session], cap: Decimal | None) -> Decimal | None:
+    """The cap less what this cap's budget period has already committed (None without a cap)."""
+    if cap is None or not cap.is_finite() or cap <= 0:
+        return None
+    with factory() as s:
+        row = s.execute(
+            text("select period_id from budget_period where name = :n"),
+            {"n": f"{PERIOD_PREFIX}{cap.normalize():f}"},
+        ).first()
+    if row is None:
+        return cap
+    return min(cap, BudgetLedger(factory).status(row[0]).available_usd)
+
+
+def failed_pages(s: Session, project_id: UUID, document_id: UUID) -> set[int]:
+    """Pages whose last equipment read did not succeed (a unit that fetched the page image and
+    ended failed/interrupted, with no later succeeded unit for the same page)."""
+    rows = s.execute(
+        text(
+            "select (g.detail->>'page')::int as page, u.state from agent_work_unit u "
+            "join agent_step g on g.unit_id = u.unit_id and g.tool_name = 'get_page_image' "
+            "where u.project_id = :p and u.unit_key like 'extract:%' "
+            "and g.detail->'args'->>'document_id' = :d order by u.created_at"
+        ),
+        {"p": project_id, "d": str(document_id)},
+    ).all()
+    last: dict[int, str] = {}
+    for page, state in rows:
+        last[page] = state
+    return {p for p, st in last.items() if st != "succeeded"}
 
 
 def bootstrap_project(
-    client: Any, headers: dict[str, str], worker: Any, name: str, pdfs: list[Path]
+    client: Any,
+    headers: dict[str, str],
+    worker: Any,
+    name: str,
+    pdfs: list[Path],
+    files: list[Path] | None = None,
 ) -> tuple[str, str, dict[str, str]]:
     """Create a project, upload local PDFs (read-only), drive the ingestion jobs to idle.
     Returns (project_id, revision_id, {document_id: filename}). No provider is involved."""
@@ -542,9 +622,14 @@ def bootstrap_project(
     pid = str(created.json()["project_id"])
     import json as _json
 
-    meta: dict[str, Any] = {"expected_parent_source_revision_id": None, "files": [{} for _ in pdfs]}
+    natives = files or []
+    meta: dict[str, Any] = {
+        "expected_parent_source_revision_id": None,
+        "files": [{} for _ in [*pdfs, *natives]],
+    }
     parts: list[Any] = [("metadata", (None, _json.dumps(meta).encode(), "application/json"))]
     parts += [("files", (p.name, p.read_bytes(), "application/pdf")) for p in pdfs]
+    parts += [("files", (p.name, p.read_bytes(), "application/octet-stream")) for p in natives]
     up = client.post(f"/api/v1/projects/{pid}/imports", files=parts, headers=headers)
     up.raise_for_status()
     for _ in range(3):
@@ -555,6 +640,14 @@ def bootstrap_project(
     rev = client.get(f"/api/v1/projects/{pid}").json()["latest_source_revision_id"]
     docs = client.get(f"/api/v1/projects/{pid}/documents?source_revision_id={rev}").json()["items"]
     return pid, str(rev), {str(d["document_id"]): str(d["original_filename"]) for d in docs}
+
+
+def parse_pages(values: list[str]) -> dict[UUID, list[int]]:
+    out: dict[UUID, list[int]] = {}
+    for value in values:
+        ident, _, pages = value.partition("=")
+        out[UUID(ident)] = [int(p) for p in pages.split(",") if p.strip()]
+    return out
 
 
 def parse_documents(values: list[str]) -> list[tuple[UUID, str]]:
@@ -589,6 +682,19 @@ def main(
     ap.add_argument("--revision-id", type=UUID, default=None)
     ap.add_argument("--document", action="append", default=[], help="<document uuid>:<well label>")
     ap.add_argument("--include-controls", action="store_true")
+    ap.add_argument(
+        "--pages",
+        action="append",
+        default=[],
+        metavar="DOC=P,P",
+        help="retry only these planned pages of a document, e.g. <doc uuid>=30,36",
+    )
+    ap.add_argument(
+        "--only-failed",
+        action="store_true",
+        help="plan/read only the planned pages whose last read in this project did not succeed",
+    )
+    ap.add_argument("--file", action="append", default=[], type=Path, help="native file to upload")
     ap.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     ap.add_argument("--bootstrap-project", default=None, metavar="NAME")
     ap.add_argument("--pdf", action="append", default=[], type=Path)
@@ -620,6 +726,8 @@ def main(
             parse_documents(args.document),
             include_controls=args.include_controls,
             cap=cap,
+            only_pages=parse_pages(args.pages),
+            only_failed=args.only_failed,
         )
         print(plan.text)
         if plan.over_cap:
@@ -640,6 +748,7 @@ def main(
             model=settings.meta_model,
             report_path=args.report,
             revision_id=args.revision_id,
+            only_pages={e.document_id: e.pages for e in plan.entries},
         )
         print(f"{len(records)} page(s) read; report written to {args.report}")
         return 0
@@ -661,9 +770,17 @@ def _bootstrap(args: argparse.Namespace) -> int:
     client = TestClient(app, base_url=f"http://127.0.0.1:{settings.port}")
     token = client.get("/api/v1/session").json()["csrf_token"]
     pid, rev, docs = bootstrap_project(
-        client, {"X-FieldLens-Token": token}, app.state.job_worker, args.bootstrap_project, args.pdf
+        client,
+        {"X-FieldLens-Token": token},
+        app.state.job_worker,
+        args.bootstrap_project,
+        args.pdf,
+        args.file,
     )
     print(f"project {pid} revision {rev}")
+    identity = client.get(f"/api/v1/projects/{pid}/identity").json()
+    names = sorted(b["name"] for w in identity.get("wells", []) for b in w.get("wellbores", []))
+    print(f"wellbore identities resolved: {', '.join(names) or 'none'}")
     for doc_id, name in docs.items():
         print(f"--document {doc_id}:<well label>   # {name}")
     return 0

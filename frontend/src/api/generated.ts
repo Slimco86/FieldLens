@@ -1502,7 +1502,7 @@ export interface components {
         /** ExtractionCandidate */
         ExtractionCandidate: {
             /** Attributes */
-            attributes: components["schemas"]["MeasurementAttributes"] | components["schemas"]["PageReadAttributes"] | components["schemas"]["EquipmentAttributes"];
+            attributes: components["schemas"]["MeasurementAttributes"] | components["schemas"]["PageReadAttributes"] | components["schemas"]["EquipmentAttributes"] | components["schemas"]["RejectedItemAttributes"];
             /**
              * Candidate Id
              * Format: uuid
@@ -2591,7 +2591,26 @@ export interface components {
          * ReasonCode
          * @enum {string}
          */
-        ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified" | "unit_conflicts_with_quote" | "unit_not_in_source" | "number_unparseable" | "field_unverified" | "coordinate_fallback_unsupported" | "unit_away_from_value" | "size_ambiguous" | "subject_page_names_other_well" | "field_not_associated" | "id_exceeds_od" | "depth_order_invalid" | "label_not_in_text_layer" | "equipment_not_on_page";
+        ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified" | "unit_conflicts_with_quote" | "unit_not_in_source" | "number_unparseable" | "field_unverified" | "coordinate_fallback_unsupported" | "unit_away_from_value" | "size_ambiguous" | "subject_page_names_other_well" | "field_not_associated" | "id_exceeds_od" | "depth_order_invalid" | "label_not_in_text_layer" | "equipment_not_on_page" | "schema_invalid_item";
+        /**
+         * RejectedItemAttributes
+         * @description One item of a model answer that failed the closed item schema (never a valid candidate).
+         *     The printed text is kept, bounded, so the reader can see what the model wrote.
+         */
+        RejectedItemAttributes: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "rejected_item";
+            /** Problems */
+            problems?: string[];
+            /**
+             * Raw Text
+             * @description The item as the model wrote it, truncated.
+             */
+            raw_text: string;
+        };
         /**
          * RequeueOutcome
          * @enum {string}
