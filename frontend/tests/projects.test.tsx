@@ -1,7 +1,7 @@
 // Interaction tests with a stubbed fetch. They prove client logic (stale rejection, retained
 // values, saved-ID handling). Persistence/restart acceptance lives in tests/e2e against the
 // real API and PostgreSQL; nothing here counts as persistence evidence.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { render } from "./render";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -259,5 +259,52 @@ describe("saved selection", () => {
     render(<App />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/different project/i);
     expect(screen.queryByText("beta notes")).not.toBeInTheDocument();
+  });
+});
+
+describe("addresses (repair D5)", () => {
+  it("normalizes an unknown tab segment to Sources in the address", async () => {
+    window.location.hash = `#/projects/${A}/bogus`;
+    install((url) => {
+      if (url.startsWith("/api/v1/projects?")) return page(pa);
+      if (url === `/api/v1/projects/${A}`) return json(pa);
+      if (url.startsWith(`/api/v1/projects/${A}/source-revisions`)) return page();
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Alpha" });
+    await waitFor(() => expect(window.location.hash).toBe(`#/projects/${A}/sources`));
+  });
+
+  it("a typed address for a missing project does not claim a previously open project", async () => {
+    window.location.hash = `#/projects/${A}/sources`;
+    install((url) => {
+      if (url === `/api/v1/projects/${A}`) return json(envelope("NOT_FOUND", "project not found"), 404);
+      if (url.startsWith("/api/v1/projects?")) return page(pb);
+    });
+    render(<App />);
+    expect(await screen.findByText(new RegExp(`No project with ID ${A} was found`))).toBeInTheDocument();
+    expect(screen.queryByText(/previously open/i)).not.toBeInTheDocument();
+  });
+
+  it("the Saved confirmation clears itself", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      install((url) => {
+        if (url.startsWith("/api/v1/projects?")) return page();
+        if (url.endsWith("/api/v1/projects")) return json(pa, 201);
+      });
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(<App />);
+      await screen.findByText(/no projects yet/i);
+      await user.type(screen.getByLabelText("Name"), "Alpha");
+      await user.click(screen.getByRole("button", { name: "Create project" }));
+      expect(await screen.findByText(/Saved “Alpha”/)).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8500);
+      });
+      expect(screen.queryByText(/Saved “Alpha”/)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

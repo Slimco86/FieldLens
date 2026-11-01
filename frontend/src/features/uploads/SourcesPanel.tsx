@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Table, Title } from "@mantine/core";
 import { Callout, Chip, EmptyState, ErrorState, LoadingState, StatusChip } from "../../design";
-import { chipVocabulary } from "../../design";
+import { TruncatedText, chipVocabulary } from "../../design";
 import { FileUp } from "lucide-react";
 import { DocumentList } from "./DocumentList";
 import { JobStatus, isJobActive, jobStatusLabel } from "./JobStatus";
@@ -153,7 +153,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           <div role="region" aria-label="Source revisions table" tabIndex={0} className={styles.scroll}>
             <Table captionSide="top">
-              <Table.Caption>Source revisions, newest first</Table.Caption>
+              <Table.Caption className={styles.caption}>Source revisions, newest first</Table.Caption>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th scope="col">Revision</Table.Th>
@@ -174,7 +174,10 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
                 {items.map((r) => (
                   <Table.Tr key={r.source_revision_id} className={selected?.source_revision_id === r.source_revision_id ? styles.selected : undefined}>
                     <Table.Th scope="row">
-                      <code className={styles.idLong} title={r.source_revision_id}>{r.source_revision_id}</code> {revisionMarker(r, items)}
+                      <TruncatedText value={r.source_revision_id} label="revision ID" maxCh={14}>
+                        <code>{r.source_revision_id}</code>
+                      </TruncatedText>{" "}
+                      {revisionMarker(r, items)}
                     </Table.Th>
                     <Table.Td><RevisionStatus r={r} /></Table.Td>
                     <Table.Td>{formatTime(r.created_at)}</Table.Td>
@@ -194,11 +197,15 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
                       {r.parent_source_revision_id === null || r.parent_source_revision_id === undefined ? (
                         "None (first revision)"
                       ) : (
-                        <code className={styles.idLong} title={r.parent_source_revision_id}>{r.parent_source_revision_id}</code>
+                        <TruncatedText value={r.parent_source_revision_id} label="parent revision ID" maxCh={14}>
+                          <code>{r.parent_source_revision_id}</code>
+                        </TruncatedText>
                       )}
                     </Table.Td>
                     <Table.Td>
-                      <code className={styles.idLong} title={r.manifest_hash}>{r.manifest_hash}</code>
+                      <TruncatedText value={r.manifest_hash} label="manifest hash" maxCh={16}>
+                        <code>{r.manifest_hash}</code>
+                      </TruncatedText>
                     </Table.Td>
                     <Table.Td>
                       <Button

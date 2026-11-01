@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button, Checkbox, Fieldset, Table, TextInput } from "@mantine/core";
 import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
-import { Callout, ErrorState, LoadingState, StatusChip, EmptyState } from "../../design";
+import { Callout, ErrorState, LoadingState, StatusChip, EmptyState, TruncatedText } from "../../design";
 import {
   CATEGORIES,
   MAX_TAGS,
@@ -188,7 +188,9 @@ function DocumentRow({
     <>
       <Table.Tr>
         <Table.Td>
-          <strong>{doc.original_filename}</strong>
+          <strong>
+            <TruncatedText value={doc.original_filename} label="file name" maxCh={28} />
+          </strong>
           {doc.replaces_document_id !== null && doc.replaces_document_id !== undefined && (
             <div className={`${styles.small} ${styles.muted}`}>
               This file explicitly replaces document <code>{doc.replaces_document_id}</code>.
@@ -213,9 +215,9 @@ function DocumentRow({
           <div className={`${styles.small} ${styles.muted}`}>Detected from file signature, not an engineering claim</div>
         </Table.Td>
         <Table.Td>
-          <code className={styles.idLong} title={doc.sha256}>
-            {doc.sha256}
-          </code>
+          <TruncatedText value={doc.sha256} label="SHA-256" maxCh={16}>
+            <code>{doc.sha256}</code>
+          </TruncatedText>
         </Table.Td>
         <Table.Td>
           <div>
@@ -347,17 +349,17 @@ export function DocumentList({ projectId, revisionId, version, polling }: ListPr
       )}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard-scrollable region */}
       <div role="region" aria-label="Files table" tabIndex={0} className={styles.scroll}>
-        <Table aria-label="Files in this source revision">
+        <Table aria-label="Files in this source revision" layout="fixed">
           <Table.Thead>
             <Table.Tr>
-              <Table.Th scope="col">File</Table.Th>
-              <Table.Th scope="col">Storage</Table.Th>
-              <Table.Th scope="col">Extraction</Table.Th>
-              <Table.Th scope="col" className={styles.num}>Size</Table.Th>
-              <Table.Th scope="col">Detected format</Table.Th>
-              <Table.Th scope="col">SHA-256</Table.Th>
-              <Table.Th scope="col">Labels</Table.Th>
-              <Table.Th scope="col">Actions</Table.Th>
+              <Table.Th scope="col" className={styles.colFile}>File</Table.Th>
+              <Table.Th scope="col" className={styles.colStorage}>Storage</Table.Th>
+              <Table.Th scope="col" className={styles.colExtraction}>Extraction</Table.Th>
+              <Table.Th scope="col" className={`${styles.num} ${styles.colSize}`}>Size</Table.Th>
+              <Table.Th scope="col" className={styles.colFormat}>Detected format</Table.Th>
+              <Table.Th scope="col" className={styles.colSha}>SHA-256</Table.Th>
+              <Table.Th scope="col" className={styles.colLabels}>Labels</Table.Th>
+              <Table.Th scope="col" className={styles.colActions}>Actions</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>

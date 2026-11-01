@@ -23,6 +23,7 @@
 }
 .stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--fl-space-md);
   min-width: 0;
 }
@@ -89,3 +90,23 @@
   border-radius: var(--fl-radius-md);
   background: var(--fl-color-surface-sunken);
 }
+.caption {
+  padding: var(--fl-space-sm) var(--fl-space-md);
+  color: var(--fl-color-text);
+  font-size: var(--fl-font-size-md);
+  font-weight: 600;
+}
+.stack,
+.plainList li,
+.note {
+  overflow-wrap: anywhere;
+}
+/* Fixed column layout for the Files table: long names and hashes are cut, never widen a column. */
+.colFile { width: 17%; }
+.colStorage { width: 10%; }
+.colExtraction { width: 14%; }
+.colSize { width: 7%; }
+.colFormat { width: 14%; }
+.colSha { width: 11%; }
+.colLabels { width: 18%; }
+.colActions { width: 9%; }

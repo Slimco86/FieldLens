@@ -4,3 +4,4 @@ export { Callout } from "./Callout";
 export { LoadingState, EmptyState, ErrorState } from "./states";
 export { KeyValueList, KeyValue } from "./KeyValueList";
 export { DesignProvider } from "./DesignProvider";
+export { TruncatedText } from "./TruncatedText";

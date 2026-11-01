@@ -3,7 +3,7 @@ import { Button, NativeSelect, Title } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
 import { CloudUpload, Upload, X } from "lucide-react";
 import { ApiError } from "../../api/client";
-import { Callout } from "../../design";
+import { Callout, TruncatedText } from "../../design";
 import {
   CATEGORIES,
   MAX_BATCH_BYTES,
@@ -79,7 +79,19 @@ function reasonOf(err: ApiError): string | null {
 
 const RETRY_SAFE = "Submitting the same selection again is safe: it reuses the same idempotency key.";
 
-export function describeUploadFailure(err: unknown): FailureView {
+/** Which file the server refused: only what the response or the selection really tells us. */
+function offenderNote(err: ApiError, names: readonly string[]): string {
+  const named = err.details?.["filename"] ?? err.details?.["file"];
+  if (typeof named === "string") return ` The server named the file: “${named}”.`;
+  const index = err.details?.["index"] ?? err.details?.["file_index"];
+  if (typeof index === "number" && names[index] !== undefined) return ` The server pointed at file ${index + 1}: “${names[index]}”.`;
+  if (names.length === 1) return ` The only selected file is “${names[0]}”.`;
+  return " The server response does not say which of the selected files was refused; check each file's name, size and type.";
+}
+
+const sentence = (text: string): string => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+
+export function describeUploadFailure(err: unknown, names: readonly string[] = []): FailureView {
   if (err instanceof UploadAbortedError) {
     return {
       message: err.fullySent
@@ -117,12 +129,12 @@ export function describeUploadFailure(err: unknown): FailureView {
             detail,
           };
         }
-        return { message: `Conflict: ${err.message}`, requestId, detail };
+        return { message: `Conflict: ${sentence(err.message)}`, requestId, detail };
       case 413:
-        return { message: `The server rejected the upload as too large: ${err.message}`, requestId, detail };
+        return { message: `The server rejected the upload as too large: ${sentence(err.message)}${offenderNote(err, names)}`, requestId, detail };
       case 415:
         return {
-          message: `The server rejected an unsupported file type (for example a binary or executable): ${err.message} Remove it and try again.`,
+          message: `The server rejected an unsupported file type (for example a binary or executable): ${sentence(err.message)}${offenderNote(err, names)} Remove the refused file and try again.`,
           requestId,
           detail,
         };
@@ -151,6 +163,8 @@ function successText(httpStatus: number, a: ImportAccepted): string {
     : "Import accepted.";
 }
 
+const DONE_VISIBLE_MS = 10_000;
+
 let nextEntryId = 1;
 
 export function UploadForm({ projectId, expectedParentId, onImported, onStale }: Props) {
@@ -178,6 +192,13 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
   useEffect(() => {
     if (phase.kind === "failed") failedRegion.current?.focus();
   }, [phase.kind]);
+
+  // The "accepted" confirmation is transient; it clears itself (still announced while shown).
+  useEffect(() => {
+    if (phase.kind !== "done") return;
+    const timer = window.setTimeout(() => setPhase((p) => (p.kind === "done" ? { kind: "idle" } : p)), DONE_VISIBLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
 
   const problems = validateSelection(entries.map((e) => e.file));
   const uploading = phase.kind === "uploading";
@@ -244,7 +265,7 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
         idemKey.current = null;
         if (reason === "stale_parent") onStale();
       }
-      setPhase({ kind: "failed", ...describeUploadFailure(err) });
+      setPhase({ kind: "failed", ...describeUploadFailure(err, entries.map((e) => e.file.name)) });
     } finally {
       if (controller.current === ctl) controller.current = null;
     }
@@ -312,7 +333,9 @@ export function UploadForm({ projectId, expectedParentId, onImported, onStale }:
             <ul className={zone.files} aria-label="Selected files">
               {entries.map((e) => (
                 <li key={e.id} className={zone.file}>
-                  <span className={zone.fileName}>{e.file.name}</span>
+                  <span className={zone.fileName}>
+                    <TruncatedText value={e.file.name} label="file name" maxCh={60} />
+                  </span>
                   <span className={zone.fileSize}>({formatBytes(e.file.size)})</span>
                   <NativeSelect
                     size="xs"

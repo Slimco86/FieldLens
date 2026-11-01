@@ -17,6 +17,10 @@ interface Props {
 /**
  * Project tabs. Selection is the URL (the parent navigates in `onSection`); every tab is a button
  * in tab order, so Tab/Shift+Tab reach each one and Enter or Space selects it.
+ *
+ * ARIA choice: this is a navigation landmark of page-level destinations, not a WAI-ARIA tablist, so the
+ * current destination is marked with `aria-current="page"` only. `aria-selected` is invalid on buttons
+ * without `role="tab"`, and a tablist would make inactive tabs unreachable by Tab (roving tabindex).
  */
 export function ProjectTabs({ section, onSection }: Props) {
   return (

@@ -15,11 +15,13 @@
   background: var(--fl-color-brand-soft);
 }
 .zoneText {
-  margin: 0;
+  margin: 0 0 var(--fl-space-xs);
+  line-height: var(--fl-line-body);
   color: var(--fl-color-text-muted);
 }
 .pickerWrap {
   position: relative;
+  margin-top: var(--fl-space-sm);
 }
 .picker {
   position: absolute;
@@ -51,6 +53,7 @@
   opacity: 0.6;
 }
 .files {
+  grid-template-columns: minmax(0, 1fr);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -72,6 +75,7 @@
 .fileName {
   flex: 1 1 16rem;
   min-width: 0;
+  max-width: 100%;
   overflow-wrap: anywhere;
 }
 .fileSize {

@@ -334,3 +334,133 @@ for (const size of [
     expect(await projectId(page, name)).toBe(id);
   });
 }
+
+// Repair D1: the longest allowed (120 character) unbroken project name must not break any region.
+const longName = () => `QA <b>bold</b> Ünïcode 油田 ${"L".repeat(120)}`.slice(0, 100) + Date.now().toString(36).padStart(20, "L").slice(-20);
+
+for (const size of [
+  { width: 1920, height: 1080 },
+  { width: 2560, height: 1440 },
+]) {
+  test(`D1: a 120-character unbroken project name keeps every region inside its box at ${size.width}x${size.height}`, async ({
+    page,
+  }) => {
+    await blockExternal(page);
+    await page.setViewportSize(size);
+    const LONG_NAME = longName();
+    expect(LONG_NAME.length).toBe(120);
+    const id = await apiProject(page, LONG_NAME, "long name check");
+    await apiProject(page, unique("Neighbour"), "short");
+    await page.goto(`/#/projects/${id}/sources`);
+    await expect(page.getByRole("heading", { name: LONG_NAME })).toBeVisible();
+
+    const sidebar = page.getByRole("complementary", { name: "Project sidebar" });
+    const box = await sidebar.boundingBox();
+    expect(box?.width).toBeLessThanOrEqual(301);
+    const dims = await sidebar.evaluate((el) => {
+      const body = el.querySelector("section")?.parentElement as HTMLElement;
+      return { sw: body.scrollWidth, cw: body.clientWidth, asideSw: el.scrollWidth, asideCw: el.clientWidth };
+    });
+    expect(dims.sw).toBeLessThanOrEqual(dims.cw); // no horizontal scroll in the sidebar
+    expect(dims.asideSw).toBeLessThanOrEqual(dims.asideCw);
+    await expect(sidebar.getByRole("button", { name: "New project" })).toBeInViewport();
+    const row = sidebar.getByRole("button", { name: `Open project ${LONG_NAME}` });
+    const rowBox = await row.boundingBox();
+    expect((rowBox?.x ?? 0) + (rowBox?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0) + 1);
+    expect(rowBox?.height).toBeLessThan(60);
+    // The full name stays the accessible name and is shown in a tooltip on focus.
+    await row.focus();
+    await expect(page.getByRole("tooltip")).toContainText(LONG_NAME);
+
+    // Main header, edit form and the page itself.
+    const heading = page.getByRole("heading", { name: LONG_NAME });
+    const hb = await heading.boundingBox();
+    expect((hb?.x ?? 0) + (hb?.width ?? 0)).toBeLessThanOrEqual(size.width);
+    await page.getByRole("button", { name: "Edit project details" }).click();
+    const input = page.getByLabel("Name");
+    await expect(input).toHaveValue(LONG_NAME);
+    const ib = await input.boundingBox();
+    expect((ib?.x ?? 0) + (ib?.width ?? 0)).toBeLessThanOrEqual(size.width);
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+    await noPageOverflow(page);
+    await page.screenshot({ path: `${SHOTS}/long-name-${size.width}x${size.height}.png` });
+
+    // Landing notice with the long name (missing project path uses an ID, so check home with the list).
+    await page.getByRole("button", { name: "Back to all projects" }).click();
+    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+    await noPageOverflow(page);
+  });
+}
+
+test("D2: a 240-character file name keeps the Files table, selection list and inspection panel bounded", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await blockExternal(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const id = await apiProject(page, unique("LongFile"), "long file name check");
+  const longName = `${"f".repeat(236)}.csv`;
+  expect(longName.length).toBe(240);
+  await page.goto(`/#/projects/${id}/sources`);
+  await expect(page.getByText(/no source files yet/i)).toBeVisible();
+
+  await page.getByLabel("Choose files").setInputFiles([
+    { name: longName, mimeType: "text/csv", buffer: Buffer.from("well_id,md_m,tvd_m\nA,0,0\n") },
+    { name: "short.csv", mimeType: "text/csv", buffer: Buffer.from("well_id,md_m,tvd_m\nB,0,0\n") },
+  ]);
+  const selected = page.getByRole("list", { name: "Selected files" }).getByRole("listitem").first();
+  expect((await selected.boundingBox())?.height).toBeLessThan(80);
+  await noPageOverflow(page);
+  await page.getByRole("button", { name: "Upload 2 file(s)" }).click();
+  await expect(page.getByText("Ready (files stored; not extracted)")).toBeVisible({ timeout: 30_000 });
+
+  const table = page.getByRole("table", { name: "Files in this source revision" });
+  const row = table.getByRole("row").filter({ has: page.getByRole("button", { name: `Edit labels for ${longName}` }) });
+  await expect(row).toHaveCount(1);
+  expect((await row.boundingBox())?.height).toBeLessThan(160); // bounded row height
+  for (const name of [`Edit labels for ${longName}`, `Inspect extraction for ${longName}`]) {
+    const target = page.getByRole("button", { name });
+    await target.scrollIntoViewIfNeeded();
+    const tb = await target.boundingBox();
+    expect((tb?.x ?? 0) + (tb?.width ?? 0)).toBeLessThanOrEqual(1920); // other columns stay on screen
+  }
+  await noPageOverflow(page);
+
+  // The full name is reachable from the keyboard: a button with the full value and a tooltip.
+  const nameButton = row.getByRole("button", { name: `Copy file name: ${longName}` });
+  await nameButton.focus();
+  await expect(page.getByRole("tooltip")).toContainText(longName);
+
+  // Inspection and editor panels stay inside the table width too.
+  await page.getByRole("button", { name: `Inspect extraction for ${longName}` }).click();
+  await page.getByRole("button", { name: `Edit labels for ${longName}` }).click();
+  await expect(page.getByRole("form", { name: `Edit labels for ${longName}` })).toBeVisible();
+  await noPageOverflow(page);
+  await primaryControlsInside(page);
+  await page.screenshot({ path: `${SHOTS}/long-filename-1920x1080.png` });
+});
+
+test("D6: the document outline has no skipped heading level on home and Sources", async ({ page }) => {
+  await blockExternal(page);
+  const id = await apiProject(page, unique("Outline"));
+  for (const hash of ["/", `/projects/${id}/sources`]) {
+    await page.goto(`/#${hash}`);
+    await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByRole("heading").first()).toBeVisible();
+    const result = await new AxeBuilder({ page }).withRules(["heading-order"]).analyze();
+    expect(result.passes.length + result.incomplete.length).toBeGreaterThan(0);
+    expect(result.violations.map((v) => v.id), `heading-order on ${hash}`).toEqual([]);
+  }
+});
+
+test("D5: an unknown tab in the address is normalized to Sources", async ({ page }) => {
+  await blockExternal(page);
+  const id = await apiProject(page, unique("Bogus"));
+  await page.goto(`/#/projects/${id}/bogus`);
+  await expect(page.getByRole("navigation", { name: "Project sections" }).getByRole("button", { name: "Sources" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page).toHaveURL(new RegExp(`#/projects/${id}/sources$`));
+});

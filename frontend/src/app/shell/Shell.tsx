@@ -49,12 +49,6 @@ export function Shell({ sidebar, title, status, mainRef, busy = false, children 
         padding={0}
         transitionDuration={0}
       >
-        <AppShell.Header>
-          <div className={styles.header}>
-            <Burger opened={open} onClick={toggle} hiddenFrom="md" size="sm" aria-label="Toggle project sidebar" />
-            {title !== undefined && <h2>{title}</h2>}
-          </div>
-        </AppShell.Header>
         <AppShell.Navbar component="aside" className={styles.navbar} data-open={open} aria-label="Project sidebar">
           <div className={styles.brand}>
             <span className={styles.mark} aria-hidden="true">
@@ -65,6 +59,12 @@ export function Shell({ sidebar, title, status, mainRef, busy = false, children 
           <div className={styles.sidebarBody}>{sidebar}</div>
           {status !== undefined && <div className={styles.sidebarFoot}>{status}</div>}
         </AppShell.Navbar>
+        <AppShell.Header>
+          <div className={styles.header}>
+            <Burger opened={open} onClick={toggle} hiddenFrom="md" size="sm" aria-label="Toggle project sidebar" />
+            {title !== undefined && <h2>{title}</h2>}
+          </div>
+        </AppShell.Header>
         <AppShell.Main id="main" tabIndex={-1} ref={setMain} aria-busy={busy} className={styles.main}>
           <div className={styles.content}>{children}</div>
         </AppShell.Main>

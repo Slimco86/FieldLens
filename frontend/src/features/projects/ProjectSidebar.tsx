@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, NavLink } from "@mantine/core";
+import { Button, NavLink, Tooltip } from "@mantine/core";
 import { FolderKanban, Plus, X } from "lucide-react";
 import { Callout, EmptyState, ErrorState, LoadingState } from "../../design";
 import { navigate, useRoute } from "../../app/shell/route";
@@ -74,6 +74,7 @@ export function ProjectSidebar() {
         <div className={styles.create}>
           <ProjectForm
             title="Create project"
+            headingOrder={2}
             submitLabel="Create project"
             initial={{ name: "", description: "" }}
             resetOnSuccess
@@ -103,16 +104,19 @@ export function ProjectSidebar() {
             const active = openProjectId === p.project_id;
             return (
               <li key={p.project_id} className={styles.item} data-active={active}>
-                <NavLink
-                  component="button"
-                  type="button"
-                  label={p.name}
-                  aria-label={`Open project ${p.name}`}
-                  aria-current={active ? "page" : undefined}
-                  active={active}
-                  leftSection={<FolderKanban size={16} aria-hidden="true" />}
-                  onClick={() => navigate({ kind: "project", projectId: p.project_id, section: "sources" })}
-                />
+                <Tooltip label={p.name} multiline withArrow position="right" openDelay={300} events={{ hover: true, focus: true, touch: false }}>
+                  <NavLink
+                    component="button"
+                    type="button"
+                    label={p.name}
+                    aria-label={`Open project ${p.name}`}
+                    aria-current={active ? "page" : undefined}
+                    active={active}
+                    classNames={{ body: styles.navBody, label: styles.navLabel }}
+                    leftSection={<FolderKanban size={16} aria-hidden="true" />}
+                    onClick={() => navigate({ kind: "project", projectId: p.project_id, section: "sources" })}
+                  />
+                </Tooltip>
               </li>
             );
           })}

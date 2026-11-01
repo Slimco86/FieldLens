@@ -15,3 +15,7 @@
   gap: 2px var(--fl-space-sm);
   font-size: var(--fl-font-size-sm);
 }
+.list dd code {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}

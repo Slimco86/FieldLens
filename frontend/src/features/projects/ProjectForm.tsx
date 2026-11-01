@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Button, Stack, Textarea, TextInput, Title } from "@mantine/core";
 import { Callout } from "../../design";
 import type { Failure, Outcome } from "./scope";
@@ -9,9 +9,13 @@ interface Props {
   submitLabel: string;
   initial: { name: string; description: string };
   resetOnSuccess?: boolean;
+  /** Heading level of the form title (keeps the document outline continuous). */
+  headingOrder?: 2 | 3 | 4;
   submit: (values: { name: string; description: string }) => Promise<Outcome<Project>>;
   onSaved: (project: Project) => void;
 }
+
+const SAVED_VISIBLE_MS = 8000;
 
 function failureText(error: Failure): string {
   if (error.code === "SESSION_TOKEN_INVALID") {
@@ -20,7 +24,7 @@ function failureText(error: Failure): string {
   return error.message;
 }
 
-export function ProjectForm({ title, submitLabel, initial, resetOnSuccess, submit, onSaved }: Props) {
+export function ProjectForm({ title, submitLabel, initial, resetOnSuccess, headingOrder = 4, submit, onSaved }: Props) {
   const ids = useId();
   const nameRef = useRef<HTMLInputElement | null>(null);
   const [name, setName] = useState(initial.name);
@@ -29,6 +33,13 @@ export function ProjectForm({ title, submitLabel, initial, resetOnSuccess, submi
   const [problem, setProblem] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+
+  // The confirmation is a transient status: it clears itself (screen readers announce it while shown).
+  useEffect(() => {
+    if (saved === null) return;
+    const timer = window.setTimeout(() => setSaved(null), SAVED_VISIBLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -63,7 +74,7 @@ export function ProjectForm({ title, submitLabel, initial, resetOnSuccess, submi
   return (
     <form onSubmit={(e) => void onSubmit(e)} noValidate aria-labelledby={`${ids}-title`}>
     <Stack gap="sm">
-      <Title order={4} id={`${ids}-title`}>
+      <Title order={headingOrder} id={`${ids}-title`}>
         {title}
       </Title>
       <TextInput

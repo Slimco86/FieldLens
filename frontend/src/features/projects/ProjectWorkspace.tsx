@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Box, Title } from "@mantine/core";
 import { Callout, EmptyState } from "../../design";
 import { FolderOpen } from "lucide-react";
-import { navigate, setHomeNotice, useHomeNotice, useRoute } from "../../app/shell/route";
+import { navigate, routeHash, setHomeNotice, useHomeNotice, useRoute } from "../../app/shell/route";
 import { ProjectView } from "./ProjectView";
 import { isProjectId, loadSelectedProjectId, saveSelectedProjectId } from "./keys";
 
@@ -15,6 +15,7 @@ export function ProjectWorkspace() {
 
   // On first load an address without a project restores the saved selection (PW-8).
   const restored = useRef(false);
+  const fromSaved = useRef<string | null>(null);
   useEffect(() => {
     if (restored.current) return;
     restored.current = true;
@@ -26,8 +27,14 @@ export function ProjectWorkspace() {
       setHomeNotice(INVALID_SAVED);
       return;
     }
+    fromSaved.current = saved;
     navigate({ kind: "project", projectId: saved, section: "sources" }, { replace: true });
   }, [route.kind]);
+
+  // An unknown tab segment (#/projects/<id>/bogus) is normalized to the Sources address.
+  useEffect(() => {
+    if (route.kind === "project" && window.location.hash !== routeHash(route)) navigate(route, { replace: true });
+  }, [route]);
 
   useEffect(() => {
     if (route.kind === "project") setHomeNotice(null);
@@ -36,7 +43,9 @@ export function ProjectWorkspace() {
   const onMissing = useCallback((projectId: string) => {
     saveSelectedProjectId(null);
     setHomeNotice(
-      `The previously open project (${projectId}) was not found. It may no longer exist; choose a project from the sidebar.`,
+      fromSaved.current === projectId
+        ? `The previously open project (${projectId}) was not found. It may no longer exist; choose a project from the sidebar.`
+        : `No project with ID ${projectId} was found. Check the address or choose a project from the sidebar.`,
     );
     navigate({ kind: "home" }, { replace: true });
   }, []);

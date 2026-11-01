@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Title } from "@mantine/core";
-import { Callout, KeyValue, KeyValueList, LoadingState, StatusChip } from "../../design";
+import { Callout, KeyValue, KeyValueList, LoadingState, StatusChip, TruncatedText } from "../../design";
 import { cancelJob, getJob, type Job } from "./api";
 import { formatTime } from "./format";
 import { usePolled } from "./usePolled";
@@ -26,6 +26,14 @@ interface Props {
   jobId: string;
   /** Called when this job's status changes so the revision list can refresh. */
   onChanged: () => void;
+}
+
+/** "4 of 4 documents": the unit is pluralized unless it already is (or the count is 1). */
+function progressText(processed: number, total: number | null | undefined, unit: string | null | undefined): string {
+  const count = total === null || total === undefined ? `${processed}` : `${processed} of ${total}`;
+  if (unit === null || unit === undefined || unit === "") return count;
+  const n = total ?? processed;
+  return `${count} ${n === 1 || unit.endsWith("s") ? unit : `${unit}s`}`;
 }
 
 export function JobStatus({ projectId, jobId, onChanged }: Props) {
@@ -81,25 +89,28 @@ export function JobStatus({ projectId, jobId, onChanged }: Props) {
   }
   const job = state.data;
   const active = isJobActive(job.status);
+  // The job's own stage while it runs; once finished, the stage of its last attempt. Otherwise omitted.
+  const lastAttempt = job.attempts[job.attempts.length - 1];
+  const stage = job.stage ?? lastAttempt?.stage ?? null;
   return (
     <div className={`${styles.stack} ${styles.job}`}>
       <Title order={6}>Storage verification job</Title>
       <KeyValueList compact>
         <KeyValue term="Job">
-          <code className={styles.idLong} title={job.job_id}>
-            {job.job_id}
-          </code>
+          <TruncatedText value={job.job_id} label="job ID" maxCh={20}>
+            <code>{job.job_id}</code>
+          </TruncatedText>
         </KeyValue>
         <KeyValue term="Job status">
           <StatusChip kind="job" value={job.status} label={jobStatusLabel(job.status)} />{" "}
           <span className={styles.muted}>({job.status})</span>
           {job.cancel_requested && " — cancellation requested"}
         </KeyValue>
-        <KeyValue term="Stage">{job.stage ?? "Not reported"}</KeyValue>
+        {stage !== null && <KeyValue term="Stage">{stage}</KeyValue>}
         <KeyValue term="Progress">
           {job.progress.processed === null || job.progress.processed === undefined
             ? "Not reported"
-            : `${job.progress.processed}${job.progress.total === null || job.progress.total === undefined ? "" : ` of ${job.progress.total}`} ${job.progress.unit ?? ""}`.trim()}
+            : progressText(job.progress.processed, job.progress.total, job.progress.unit)}
         </KeyValue>
         <KeyValue term="Updated">{formatTime(job.updated_at)}</KeyValue>
         {job.finished_at !== null && job.finished_at !== undefined && (
@@ -131,7 +142,7 @@ export function JobStatus({ projectId, jobId, onChanged }: Props) {
       )}
       {job.result !== null && job.result !== undefined && (
         <p>
-          Result: {job.result.documents} file(s): {job.result.stored} stored, {job.result.quarantined} quarantined,{" "}
+          Result at job completion (the table below is live and may be newer): {job.result.documents} file(s): {job.result.stored} stored, {job.result.quarantined} quarantined,{" "}
           {job.result.pending_extraction} pending extraction, {job.result.unsupported} unsupported. Extraction performed:
           no (storage verification only).
         </p>

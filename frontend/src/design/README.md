@@ -15,3 +15,6 @@ Light theme only, large-screen layout (1920x1080 primary, 2560x1440). Spec: `doc
 - Fonts and icons are self-hosted (`@fontsource-variable/inter`, `lucide-react` named imports). Nothing is loaded from
   a CDN; `tests/e2e/shell.spec.ts` asserts zero external requests.
 - Tests render inside `tests/render.tsx` (`DesignProvider test`), which disables portals and transitions in jsdom.
+- `TruncatedText`: long identifiers, hashes and file names are cut with an ellipsis on one line (fixed layouts);
+  the control is a button whose accessible name and tooltip carry the full value, and activating it copies it.
+- Project tabs use `aria-current="page"` on buttons inside a labelled `nav`, not `aria-selected` (see `ProjectTabs.tsx`).
