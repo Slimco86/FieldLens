@@ -37,7 +37,9 @@ def test_candidates_persisted(world: World) -> None:
     # the locator resolves to the source span and the quote is in it
     doc = world.reader.require(world.project_id, world.revision_id, world.perf_doc)
     span = world.reader.read_lines(doc, loc_["line_start"], loc_["line_end"])
-    assert first["quote"] in span.text
+    from fieldlens.candidates.validators import norm_text
+
+    assert norm_text(first["quote"]) in norm_text(span.text)
     # model, prompt and version ids and usage are recorded
     ids = world.rows("select model_id, prompt_version, harness_version from extraction_candidate")
     assert ids[0] == ("stub-model-1", "ax-prompt-1", "extract-1")
