@@ -8,6 +8,16 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.27.0 - 2026-11-01
+
+- **TASK-048 (UI-13) project Overview in the Sources tab:** frontend-only summary of what was parsed for the project:
+  documents by state and format, extraction coverage per record kind, issues by severity with locators, resolved
+  wells/wellbores with record counts, series with units and ranges, and an honest "not available yet" list. Sections
+  load, fail and retry independently; answers for another project are dropped. Uses existing APIs only, so issues come
+  from per-document reports (bounded to 100 reports/500 documents with a visible notice). QA: gates green (153 vitest),
+  browser-verified counts, empty/error/retry, keyboard and wording; series/units, cap notice and real Volve data were
+  not browser-verified.
+
 ## 0.26.0 - 2026-11-01
 
 - **TASK-054 (PF-1..PF-3, PF-10) persistent processing runs:** project-scoped runs for selected documents with or

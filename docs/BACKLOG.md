@@ -1485,7 +1485,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend |
 | Depends on | TASK-034, TASK-046, TASK-047 |
@@ -1493,12 +1493,12 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
 | Spec | specs/UI_DESIGN_SYSTEM.md |
-| Version | none |
+| Version | 0.27.0 |
 | Parent | FL-021 |
 | Slice | FL-021-C |
 
 **Outcome.** Frontend owner adds the project Overview (UI-13) as the first view of the Sources tab from existing APIs only: documents by processing state/format, extraction coverage per kind, issues by severity with locators, resolved wells/wellbores with record counts, available log and production series per wellbore with units and ranges, depth-default warnings, and the honest list of what is not available yet. No new backend or contract.
-**Next action.** Lane `task-048-project-overview` (agent:fieldlens-frontend), started November 1; independent QA with the seeded real subset, then the owner checkpoint. The pipeline panel (TASK-053) follows once the TASK-054/056 contracts merge.
+**Next action.** Merged in 0.27.0 on November 1 after independent QA (partial pass, no blocking defects). Owner browser checkpoint pending. The pipeline panel (TASK-053) follows once the TASK-056/057 contracts merge. Not browser-verified by QA: series and units, the cap notice, in-page stale-project switch and real Volve data; two low wording observations.
 **Evidence.** Implemented on branch `feature/task-048-project-overview` (frontend only; no backend or contract change, `check:contracts` clean). `frontend/src/features/overview/` (`api.ts`, `model.ts`, `ProjectOverview.tsx`) feeds `ProjectOverviewSlot`. Sources used: documents list (state, storage, format), per-document extraction reports (record counts per kind, stated coverage, issues with first locator; bounded to 100 reports and 500 documents with a visible notice), identity listing (wells, wellbores, record counts per kind, unresolved groups, stale-resolution warning), series list (per source wellbore label: unit and status, index range, value range, valid/sample counts; unit warnings) and a static not-yet-available list (TASK-054/056/057, reconstruction). Sections load, fail and retry independently with request IDs; answers for another project are dropped. Vitest `tests/overview.test.tsx` (6 tests: exact counts against fixtures, empty state, local failure and retry, unreadable reports, stale project, refresh and keyboard region). Gates: lint, typecheck, test (153 passed), build, check:contracts all green. Not run: Playwright against a real lane with the seeded subset and axe (needs the lane stack; left to independent QA). Known limits: no project-wide issues API exists, so issues come from per-document reports; series labels are shown as written and not mapped to resolved wellbores; record-level unit-defaulted depths are not summarised (only series unit status and MISSING_UNIT issues).
 
 ### TASK-049 · Source remove/replace and project-delete controls (IN-9, IN-5, PW-9)
@@ -1751,6 +1751,27 @@ the slice letter and `Slice` keeps the plan's original string.
 
 **Outcome.** Owner decision (2026-11-01 16:39): a label such as `F-12` or `F-5` is a valid wellbore name exactly as written. When it differs from a fully qualified name (`15/9-F-12`) it is a separate wellbore until the merge process unifies them; detecting "several names, one entity" and unifying their data is the job of the reconstruction/merge step (TASK-057), not of the resolver. Today the deterministic resolver resolves an unqualified label only when another source names it with the block, so a project with only the Statoil exports yields `NO_WELLBORE_IDENTIFIED` (found by the TASK-056 real-record test). Change: unqualified labels become wellbore identities named as written (block and well key recorded as not stated, no invented block), carry their records, count for the exposure and the start gate directly (with a "block not stated" warning), and are eligible merge-proposal members/targets with guards unchanged (an unqualified label never silently merges into a qualified one).
 **Next action.** Decided; add the rule to PROCESSING_FLOW.md (D9) and implement after TASK-056 and TASK-057 merge (resolver change, exposure/gate warning, merge-proposal candidate blocking for unqualified-to-qualified same-designator pairs); independent QA including the real F-12/F-5 files alone and together with the perforation table.
+**Evidence.** none yet
+
+### TASK-062 · PDF extraction reports "Failed (nothing is trusted)" on re-processing
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend, ingestion |
+| Depends on | none |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-02 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-J |
+
+**Outcome.** Owner report (2026-11-01 17:12): re-processing an uploaded PDF shows the extraction status "Failed (nothing is trusted)". Diagnose which real Volve PDFs fail and why, then make the status honest (no native parser means "processing available", not failed) and fix genuine bugs. No classification (TASK-055) and no OCR (TASK-060).
+**Next action.** Lane `task-062-pdf-reprocess-failures` started November 1; diagnosis table and fix, then independent QA.
 **Evidence.** none yet
 
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
