@@ -82,10 +82,13 @@ def verify_quote(
         raise Dropped("source_unavailable")
     if not present:
         raise Dropped("quote_not_found")
-    if not names_in(quote, block.target, allow_short=block.allow_short_target):
-        raise Dropped("quote_lacks_target")
     if not names_in(quote, member, allow_short=False):
         raise Dropped("quote_lacks_member")
+    # The member's own spelling may contain the target's designator ("Well F12 (Volve)"); it must
+    # not count as naming the target, so the target is looked for outside the member's name.
+    outside = literal_pattern(member.name).sub(" ", normalize_text(quote))
+    if not names_in(outside, block.target, allow_short=block.allow_short_target):
+        raise Dropped("quote_lacks_target")
     return EvidenceItem(document_id, sha, quote)
 
 
