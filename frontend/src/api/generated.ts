@@ -292,6 +292,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/processing/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Document States */
+        get: operations["document_states_api_v1_projects__project_id__processing_documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/processing/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_v1_projects__project_id__processing_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/processing/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_v1_projects__project_id__processing_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/processing/runs/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_v1_projects__project_id__processing_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/processing/runs/{run_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm */
+        post: operations["confirm_api_v1_projects__project_id__processing_runs__run_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/processing/runs/{run_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry */
+        post: operations["retry_api_v1_projects__project_id__processing_runs__run_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/processing/runs/estimates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Estimate */
+        post: operations["create_estimate_api_v1_projects__project_id__processing_runs_estimates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/retrieval/coverage": {
         parameters: {
             query?: never;
@@ -998,6 +1117,85 @@ export interface components {
             items: components["schemas"]["SourceDocumentItem"][];
             page: components["schemas"]["PageInfo"];
         };
+        /**
+         * DocumentProcessingState
+         * @description Honest per-document view: what the native pipeline did and what processing can do now.
+         */
+        DocumentProcessingState: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Last Run Id
+             * @default null
+             */
+            last_run_id: string | null;
+            native_state: components["schemas"]["ExtractionState"];
+            /**
+             * No Native Parser
+             * @description True when no native profile matched; model processing is available.
+             */
+            no_native_parser: boolean;
+            /**
+             * Not Processable Reason
+             * @default null
+             */
+            not_processable_reason: string | null;
+            /** Original Filename */
+            original_filename: string;
+            /**
+             * Over Page Cap
+             * @description True when a page range is required (more than 500 pages).
+             * @default false
+             */
+            over_page_cap: boolean;
+            /**
+             * Page Count
+             * @description Null when the file is not a readable PDF.
+             * @default null
+             */
+            page_count: number | null;
+            /**
+             * Processable
+             * @description True when a processing run can be estimated now.
+             */
+            processable: boolean;
+            processing_status: components["schemas"]["DocumentProcessingStatus"];
+            /**
+             * Retryable
+             * @default false
+             */
+            retryable: boolean;
+            /**
+             * State Text
+             * @description Plain-language state, e.g. 'no native parser; model processing available, not started'.
+             */
+            state_text: string;
+            /** User Labels */
+            user_labels?: components["schemas"]["DocumentCategory"][];
+        };
+        /** DocumentProcessingStateList */
+        DocumentProcessingStateList: {
+            /** Items */
+            items: components["schemas"]["DocumentProcessingState"][];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Source Revision Id
+             * @default null
+             */
+            source_revision_id: string | null;
+        };
+        /**
+         * DocumentProcessingStatus
+         * @enum {string}
+         */
+        DocumentProcessingStatus: "not_started" | "queued" | "running" | "processed" | "failed" | "cancelled" | "interrupted";
         /**
          * DraftContext
          * @description Candidate review only.
@@ -2390,6 +2588,263 @@ export interface components {
              * @default null
              */
             table_id: string | null;
+        };
+        /** ProcessingConfirmRequest */
+        ProcessingConfirmRequest: {
+            /**
+             * Estimated Usd
+             * @description Echo of the estimate being confirmed; a stale value is rejected.
+             */
+            estimated_usd: string;
+        };
+        /** ProcessingDocumentSelection */
+        ProcessingDocumentSelection: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * @description Explicit range; required when the document has more than 500 pages.
+             * @default null
+             */
+            pages: components["schemas"]["ProcessingPageRange"] | null;
+        };
+        /**
+         * ProcessingDocumentState
+         * @enum {string}
+         */
+        ProcessingDocumentState: "estimated" | "pending" | "running" | "processed" | "failed" | "cancelled" | "interrupted";
+        /** ProcessingEstimate */
+        ProcessingEstimate: {
+            /**
+             * Confirmable
+             * @description True while the run is in the estimated state and the estimate fits the budget.
+             */
+            confirmable: boolean;
+            /** Estimated Input Tokens */
+            estimated_input_tokens: number;
+            /** Estimated Output Tokens */
+            estimated_output_tokens: number;
+            /** Estimated Usd */
+            estimated_usd: string;
+            /** Fits Budget */
+            fits_budget: boolean;
+            /** Pages */
+            pages: number;
+            /**
+             * Pricing Source
+             * @description Where the rates come from; 'stub_illustrative' is never an owner rate card.
+             */
+            pricing_source: string;
+            provider: components["schemas"]["ProcessingProvider"];
+            /**
+             * Remaining Budget Usd
+             * @description Cap minus ledger spend and minus other confirmed, unfinished estimates.
+             */
+            remaining_budget_usd: string;
+            route: components["schemas"]["ProcessingRoute"];
+            /**
+             * Total Cap Usd
+             * @description Aggregate live-spend cap (PROCESSING_FLOW D7).
+             */
+            total_cap_usd: string;
+        };
+        /** ProcessingEstimateRequest */
+        ProcessingEstimateRequest: {
+            /** Documents */
+            documents: components["schemas"]["ProcessingDocumentSelection"][];
+            /**
+             * Idempotency Key
+             * @description Replays return the same run; a different selection under it is a conflict.
+             * @default null
+             */
+            idempotency_key: string | null;
+        };
+        /**
+         * ProcessingFailureCode
+         * @enum {string}
+         */
+        ProcessingFailureCode: "provider_error" | "provider_refused" | "provider_truncated" | "budget_stop" | "confirmed_estimate_exceeded" | "document_unavailable" | "page_count_changed" | "interrupted" | "cancelled";
+        /**
+         * ProcessingPageRange
+         * @description 1-based inclusive page range; both ends are required together.
+         */
+        ProcessingPageRange: {
+            /** Page End */
+            page_end: number;
+            /** Page Start */
+            page_start: number;
+        };
+        /**
+         * ProcessingProvider
+         * @enum {string}
+         */
+        ProcessingProvider: "stub";
+        /**
+         * ProcessingRoute
+         * @description OCR is deferred (PROCESSING_FLOW D8); every run uses the model route.
+         * @enum {string}
+         */
+        ProcessingRoute: "model";
+        /** ProcessingRun */
+        ProcessingRun: {
+            /** Actual Usd */
+            actual_usd: string;
+            /** Attempt No */
+            attempt_no: number;
+            /**
+             * Cancel Requested
+             * @default false
+             */
+            cancel_requested: boolean;
+            /**
+             * Confirmed At
+             * @default null
+             */
+            confirmed_at: string | null;
+            /**
+             * Confirmed Usd
+             * @default null
+             */
+            confirmed_usd: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Documents */
+            documents: components["schemas"]["ProcessingRunDocument"][];
+            /** @default null */
+            error_code: components["schemas"]["ProcessingFailureCode"] | null;
+            /**
+             * Error Message
+             * @default null
+             */
+            error_message: string | null;
+            estimate: components["schemas"]["ProcessingEstimate"];
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Retry Of Run Id
+             * @default null
+             */
+            retry_of_run_id: string | null;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Started At
+             * @default null
+             */
+            started_at: string | null;
+            status: components["schemas"]["ProcessingRunStatus"];
+            /**
+             * Step
+             * @description Step that processes each document; 'stub' produces no data.
+             */
+            step: string;
+        };
+        /** ProcessingRunDocument */
+        ProcessingRunDocument: {
+            /** Actual Usd */
+            actual_usd: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Estimated Usd */
+            estimated_usd: string;
+            /** @default null */
+            failure_code: components["schemas"]["ProcessingFailureCode"] | null;
+            /**
+             * Failure Message
+             * @default null
+             */
+            failure_message: string | null;
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /**
+             * Label Hints
+             * @description User labels at estimate time; hints, not evidence.
+             */
+            label_hints?: components["schemas"]["DocumentCategory"][];
+            /** Ordinal */
+            ordinal: number;
+            /** Original Filename */
+            original_filename: string;
+            /**
+             * Page Count
+             * @description Pages in the whole document.
+             */
+            page_count: number;
+            /** @description Pages this run reads. */
+            pages: components["schemas"]["ProcessingPageRange"];
+            /** Pages Done */
+            pages_done: number;
+            /**
+             * Retryable
+             * @default false
+             */
+            retryable: boolean;
+            /**
+             * Source Revision Id
+             * Format: uuid
+             */
+            source_revision_id: string;
+            state: components["schemas"]["ProcessingDocumentState"];
+        };
+        /** ProcessingRunPage */
+        ProcessingRunPage: {
+            /** Items */
+            items: components["schemas"]["ProcessingRunSummary"][];
+        };
+        /**
+         * ProcessingRunStatus
+         * @enum {string}
+         */
+        ProcessingRunStatus: "estimated" | "queued" | "running" | "succeeded" | "partial" | "failed" | "cancelled" | "interrupted";
+        /** ProcessingRunSummary */
+        ProcessingRunSummary: {
+            /** Actual Usd */
+            actual_usd: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Document Count */
+            document_count: number;
+            /** Estimated Usd */
+            estimated_usd: string;
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /** Processed Count */
+            processed_count: number;
+            provider: components["schemas"]["ProcessingProvider"];
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            status: components["schemas"]["ProcessingRunStatus"];
         };
         /**
          * Project
@@ -4840,6 +5295,426 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    document_states_api_v1_projects__project_id__processing_documents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentProcessingStateList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_projects__project_id__processing_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingRunPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_run_api_v1_projects__project_id__processing_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_projects__project_id__processing_runs__run_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    confirm_api_v1_projects__project_id__processing_runs__run_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessingConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    retry_api_v1_projects__project_id__processing_runs__run_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_estimate_api_v1_projects__project_id__processing_runs_estimates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessingEstimateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */

@@ -1625,7 +1625,7 @@ the slice letter and `Slice` keeps the plan's original string.
 
 **Outcome.** A persistent, project-scoped processing run for selected documents with or without labels: estimate (pages, route, tokens, USD, remaining budget) then separate confirmation, 500-page bound, cancellation, retryable failure states and honest "no native parser, processing available" document state.
 **Next action.** Lane `task-054-processing-runs` (agent:fieldlens-backend), started November 1: contracts, migration, stub-provider tests, independent QA. Live spend only under PROCESSING_FLOW D7 (USD 5 total, orchestrator-authorized).
-**Evidence.** none yet
+**Evidence.** Contract implemented on branch `feature/task-054-processing-runs` (migration 0011, `backend/fieldlens/processing/`, stub provider only, no live spend, no OCR); targeted tests in `backend/tests/processing` for PF-1/2/3/10. Independent QA and the full-suite result are recorded at merge.
 
 ### TASK-055 · Document classification, label proposal and label-driven extraction for non-native PDFs (PF-4, PF-5)
 

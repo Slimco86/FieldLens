@@ -33,6 +33,8 @@ from fieldlens.ingestion import build_ingestion_router
 from fieldlens.jobs import JobWorker, build_jobs_router
 from fieldlens.persistence.readiness import evaluate_readiness
 from fieldlens.persistence.session import create_db_engine, create_session_factory
+from fieldlens.processing.routes import build_processing_router
+from fieldlens.processing.runtime import build_runtime
 from fieldlens.projects import build_projects_router
 from fieldlens.retrieval.embedder import EmbedderProvider
 from fieldlens.retrieval.routes import build_retrieval_router
@@ -214,7 +216,12 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
                 logger.warning("activity-log recovery skipped: storage unavailable")
         if worker is not None and settings.job_worker_enabled:
             worker.start()
+        processing = app.state.processing
+        if processing is not None and settings.job_worker_enabled:
+            processing.runner.start()
         yield
+        if processing is not None:
+            processing.runner.stop()
         if worker is not None:
             worker.stop()
         if engine is not None:
@@ -254,6 +261,11 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         else None
     )
 
+    app.state.processing = (
+        build_runtime(app.state.session_factory, app.state.blob_store, settings)
+        if app.state.session_factory is not None
+        else None
+    )
     app.state.activity_log = (
         ActivityLog(app.state.session_factory) if app.state.session_factory is not None else None
     )
@@ -285,6 +297,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_retrieval_router())
     app.include_router(build_identity_router())
     app.include_router(build_series_router())
+    app.include_router(build_processing_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:

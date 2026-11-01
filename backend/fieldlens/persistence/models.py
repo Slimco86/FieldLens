@@ -663,6 +663,9 @@ agent_step = Table(
 # Model-proposed extraction candidates (TASK-036, migration 0010).
 from fieldlens.candidates import tables as _candidate_tables  # noqa: E402,F401
 from fieldlens.identity import tables as _identity_tables  # noqa: E402,F401
+
+# Processing runs (TASK-054, migration 0011).
+from fieldlens.processing import tables as _processing_tables  # noqa: E402,F401
 from fieldlens.retrieval import tables as _retrieval_tables  # noqa: E402,F401
 
 # Series storage tables (TASK-047, migration 0008).

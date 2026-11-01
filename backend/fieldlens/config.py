@@ -145,6 +145,26 @@ class Settings(BaseSettings):
     """Triage cap: candidate pages read per document (AX-14)."""
     extraction_read_concurrency: int = Field(3, ge=1, le=8)
     extraction_page_reserve_usd: Decimal = Field(Decimal("0.25"), gt=0, le=Decimal("0.50"))
+
+    # Staged document processing runs (TASK-054, PROCESSING_FLOW D3/D7/D8). Stub provider only:
+    # the live provider is wired by a later, orchestrator-authorized task; nothing here can spend.
+    processing_provider: Literal["stub"] = "stub"
+    processing_max_pages: int = Field(500, ge=1, le=500)
+    """Pages per document and per run (D3); larger documents need an explicit page range."""
+    processing_total_cap_usd: Decimal = Field(Decimal("5"), gt=0, le=Decimal("5"))
+    """Aggregate live-spend cap for developing/testing the processing flow (D7)."""
+    processing_document_concurrency: int = Field(2, ge=1, le=4)
+    processing_input_tokens_per_page: int = Field(1600, ge=1, le=100_000)
+    processing_output_tokens_per_page: int = Field(400, ge=1, le=100_000)
+    """UNCALIBRATED per-page token assumptions behind the estimate (model route)."""
+    processing_stub_input_usd_per_mtok: Decimal = Field(Decimal("0.30"), gt=0)
+    processing_stub_output_usd_per_mtok: Decimal = Field(Decimal("2.50"), gt=0)
+    """Illustrative stub rates, labelled as such in every estimate; never an owner rate card."""
+    processing_lease_seconds: float = Field(60.0, gt=0)
+    processing_heartbeat_seconds: float = Field(10.0, gt=0)
+    processing_stage_delay_s: float = Field(0.0, ge=0.0, le=5.0)
+    """Test-only pause after each page so cancel/restart tests can interrupt a run."""
+
     local_data_root: Path | None = None
     """Opt-in read-only root of the local Volve subset (tests only); unset => local_data skips."""
 

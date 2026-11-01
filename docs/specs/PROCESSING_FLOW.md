@@ -81,6 +81,24 @@ Labels and tags are hints for stages 2 and 4, never a precondition and never evi
 | PF-9 | Negative | A wellbore on the local origin is excluded from cross-well distance, terrain alignment and closest-approach results, and the exclusion is stated | 3 | `test_unlocated_origin_excluded` |
 | PF-10 | Failure | Provider failure, refusal, truncation, cancellation and budget stop leave the document in an explicit, retryable state; interrupted work never shows as processed | 3 | `test_processing_failure_states` |
 
+### 4.1 Implementation traceability: processing-run contract (TASK-054)
+
+Covered by `backend/tests/processing/test_processing_runs.py` (stub provider; no network, no spend): PF-1, PF-2,
+PF-3 and PF-10 (`test_processing_runs_start_without_label`, `test_processing_estimate_confirm`,
+`test_processing_page_cap`, `test_processing_failure_states` plus cancel, interrupted, budget-stop and
+concurrency tests). Migration `0011_processing_runs`; routes under `/api/v1/projects/{project_id}/processing`:
+`GET /documents`, `POST /runs/estimates`, `GET /runs`, `GET /runs/{id}`, `POST /runs/{id}/confirm|cancel|retry`.
+
+- A retry is a **new estimate** for the retryable documents (`retry_of_run_id`); it spends only after its own confirm.
+- A document sits in at most one pending/running run (partial unique index); a confirm that would double-process is 409.
+- The remaining budget is the USD 5 cap (D7) minus ledger spend minus confirmed, unfinished run estimates. If actual
+  usage exceeds the confirmed estimate the run stops (`confirmed_estimate_exceeded`); nothing restarts automatically.
+- Seam for TASK-055: `processing.steps.ProcessingStep` (owns the page loop, reports each page through a checkpoint) and
+  `PageProvider`. Only `StubProvider`/`StubStep` exist: no classification, no label-driven extraction, no live call.
+- OCR is absent (D8); every run records route `model`. PF-4 and PF-5 remain open (TASK-055/060).
+- Scope limits: only PDFs are processable; the 500-page upload limit (IN-7) means the range path is normally a
+  defence in depth (`processing_max_pages` is lowered in tests to exercise it).
+
 ## 5. Scope
 
 - **IN:** stage definitions and gates, the processing-run contract (estimate, confirm, state, cancel), document
