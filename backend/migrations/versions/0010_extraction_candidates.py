@@ -45,6 +45,7 @@ def upgrade() -> None:
         sa.Column("document_id", UUID, nullable=False),
         sa.Column("wellbore_id", UUID, nullable=True),
         sa.Column("candidate_key", sa.String(64), nullable=False),
+        sa.Column("ordinal", sa.Integer, server_default=sa.text("0"), nullable=False),
         sa.Column("subject", postgresql.JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False),
         sa.Column("method", sa.String(16), nullable=False),
         sa.Column(

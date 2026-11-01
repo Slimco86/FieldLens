@@ -328,9 +328,10 @@ class ExtractionHarness:
             wire = parse_output(text)
             self._persist(req, doc, key, handle, wire.candidates)
             counts = self._counts(req.project_id, handle.unit_id)
-            if unit.reservation is not None:
-                unit.close()
+            # finalize first: a kill between the two leaves the reservation open (conservative
+            # liability, reconciled by the ledger) and the unit resumable, never half-settled
             self.log.finalize(handle, "succeeded", "completed", _counts_text(counts))
+            self._settle(unit, key)
             state, reason = "succeeded", "completed"
         except FenceLost:
             raise
@@ -401,12 +402,18 @@ class ExtractionHarness:
         detail: str | None,
         settle: bool,
     ) -> None:
-        if settle and unit.reservation is not None:
-            try:
-                unit.close()
-            except Exception:  # noqa: BLE001 - settlement trouble must not hide the unit's outcome
-                logger.warning("reservation settle failed for %s", key[:16])
         self.log.finalize(handle, state, reason, detail)
+        if settle:
+            self._settle(unit, key)
+
+    @staticmethod
+    def _settle(unit: WorkUnit, key: str) -> None:
+        if unit.reservation is None:
+            return
+        try:
+            unit.close()
+        except Exception:  # noqa: BLE001 - settlement trouble must not hide the unit's outcome
+            logger.warning("reservation settle failed for %s", key[:16])
 
     def _malformed_reason(self, spy: _Spy, handle: UnitHandle, key: str) -> str:
         """Record a refused tool request by name (never executed) and return the stop reason."""
@@ -420,7 +427,7 @@ class ExtractionHarness:
                 step_key=step_key(key, f"tool:{call.name}", call.arguments),
                 tool_name=call.name,
                 outcome=AgentStepOutcome.REFUSED,
-                detail={"reason": "tool_not_allowed"},
+                detail={"reason": "tool_not_allowed", "by": "model"},
             )
         return "tool_not_allowed" if bad else "malformed_output"
 
@@ -587,7 +594,11 @@ class ExtractionHarness:
                         step_key=step_key(key, f"tool:{call.name}", call.arguments),
                         tool_name=call.name,
                         outcome=AgentStepOutcome.REFUSED,
-                        detail={"reason": "tool_call_limit", "limit": unit.limits.max_tool_calls},
+                        detail={
+                            "reason": "tool_call_limit",
+                            "limit": unit.limits.max_tool_calls,
+                            "by": "model",
+                        },
                     )
                 raise RequestLimitExceeded("tool_calls")
             results: list[ToolResultPart] = []
@@ -636,11 +647,11 @@ class ExtractionHarness:
         )
         rows: list[dict[str, Any]] = []
         decisions: list[tuple[str, Decision]] = []
-        for wire in wires:
+        for ordinal, wire in enumerate(wires):
             ckey = candidate_key(wire)
             decision = validate(ctx, wire)
             decisions.append((ckey, decision))
-            rows.append(self._row(req, handle, ckey, decision))
+            rows.append({**self._row(req, handle, ckey, decision), "ordinal": ordinal})
         repository.insert_candidates(self._factory, handle, rows)
         for ckey, decision in decisions:
             link = _decision_link(decision, req.revision_id)

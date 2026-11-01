@@ -201,6 +201,15 @@ def _document_wellbores(session: Session, project_id: UUID, document_id: UUID) -
     return {r.wellbore_id for r in rows}
 
 
+def _wellbore_names(session: Session, project_id: UUID, ids: set[UUID]) -> str:
+    rows = session.execute(
+        select(m.wellbore.c.name).where(
+            m.wellbore.c.project_id == project_id, m.wellbore.c.wellbore_id.in_(ids)
+        )
+    ).all()
+    return ", ".join(sorted(r.name for r in rows))[:120]
+
+
 # -- parsed value conflict ----------------------------------------------------------------------
 
 
@@ -442,12 +451,15 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
             else:
                 doc_bores = _document_wellbores(session, ctx.project_id, span.doc.document_id)
                 if doc_bores and wellbore_id not in doc_bores:
+                    # keep the document's actual subject; never attach to the model's claim
+                    names = _wellbore_names(session, ctx.project_id, doc_bores)
+                    wellbore_id = None
                     results.append(
                         _result(
                             ValidatorName.SUBJECT,
                             ValidatorOutcome.FLAGGED,
                             ReasonCode.SUBJECT_DOCUMENT_MISMATCH,
-                            "the document's own records name a different wellbore",
+                            f"the document's own records name {names}; stays unattached",
                         )
                     )
                 else:

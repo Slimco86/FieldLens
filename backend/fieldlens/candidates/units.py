@@ -80,6 +80,8 @@ _SPECS: dict[str, AttributeSpec] = {
     "od": AttributeSpec("length", *_SIZE_RANGE),
     "id": AttributeSpec("length", *_SIZE_RANGE),
     "diameter": AttributeSpec("length", *_SIZE_RANGE),
+    "easting": AttributeSpec("length", -1.0e7, 1.0e8),
+    "northing": AttributeSpec("length", -1.0e7, 1.0e8),
     "pressure": AttributeSpec("pressure", 0.0, 2.0e9),
     "temperature": AttributeSpec("temperature", -60.0, 450.0),
     "inclination": AttributeSpec("angle", 0.0, 180.0),
