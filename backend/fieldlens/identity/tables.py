@@ -41,6 +41,9 @@ identity_merge = Table(
     Column("decided_by", String(80), nullable=False),
     Column("reverted_at", DateTime(timezone=True), nullable=True),
     Column("reverted_by", String(80), nullable=True),
+    # Row ids of a merged-away wellbore (and its well), so a revert can restore them exactly.
+    Column("source_wellbore_id", UUID(as_uuid=True), nullable=True),
+    Column("source_well_id", UUID(as_uuid=True), nullable=True),
     ForeignKeyConstraint(
         ["project_id", "proposal_id"],
         ["merge_proposal.project_id", "merge_proposal.proposal_id"],

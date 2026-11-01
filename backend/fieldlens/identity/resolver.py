@@ -298,9 +298,17 @@ def _lock(session: Session, project_id: UUID) -> None:
     )
 
 
-def resolve_project(session: Session, project_id: UUID) -> ResolveOutcome:
+def resolve_project(
+    session: Session,
+    project_id: UUID,
+    *,
+    bore_id_hints: dict[str, UUID] | None = None,
+    well_id_hints: dict[str, UUID] | None = None,
+) -> ResolveOutcome:
     """Rebuild the project's identities from its current extraction output (idempotent: stable
-    row ids by key, links and findings replaced atomically). Caller commits."""
+    row ids by key, links and findings replaced atomically). Caller commits. The hints give the
+    row id to use when a key has to be created again (a reverted merge restores its old ids)."""
+    bore_id_hints, well_id_hints = bore_id_hints or {}, well_id_hints or {}
     _lock(session, project_id)
     groups = current_subject_groups(session, project_id)
     resolved = [g for g in groups if isinstance(g.outcome, Resolved)]
@@ -325,7 +333,12 @@ def resolve_project(session: Session, project_id: UUID) -> ResolveOutcome:
     for name in wells:
         stmt = (
             pg_insert(w)
-            .values(well_id=uuid4(), project_id=project_id, name=name, well_key=name)
+            .values(
+                well_id=well_id_hints.get(name) or uuid4(),
+                project_id=project_id,
+                name=name,
+                well_key=name,
+            )
             .on_conflict_do_update(
                 index_elements=[w.c.project_id, w.c.well_key], set_={"name": name}
             )
@@ -337,7 +350,7 @@ def resolve_project(session: Session, project_id: UUID) -> ResolveOutcome:
         stmt = (
             pg_insert(wb)
             .values(
-                wellbore_id=uuid4(),
+                wellbore_id=bore_id_hints.get(name) or uuid4(),
                 project_id=project_id,
                 well_id=well_ids[bore.well_name],
                 name=name,

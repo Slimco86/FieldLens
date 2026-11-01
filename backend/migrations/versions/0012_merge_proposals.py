@@ -143,6 +143,8 @@ def upgrade() -> None:
         sa.Column("decided_by", sa.String(80), nullable=False),
         sa.Column("reverted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("reverted_by", sa.String(80), nullable=True),
+        sa.Column("source_wellbore_id", UUID, nullable=True),
+        sa.Column("source_well_id", UUID, nullable=True),
         sa.PrimaryKeyConstraint("merge_id", name=F("pk_identity_merge")),
         sa.ForeignKeyConstraint(
             ["project_id", "proposal_id"],

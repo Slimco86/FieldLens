@@ -353,3 +353,48 @@ def test_no_candidates_run_makes_no_call(world: World) -> None:
     world.api.client.app.state.merge_proposer = proposer
     run = _run(world, pid)
     assert run["state"] == "no_candidates" and not provider.calls
+
+
+def test_wellbore_kind_revert_restores_row_ids(world: World) -> None:
+    from fieldlens.identity.resolver import resolve_project
+    from tests.merge_proposals.support import subj
+    from tests.retrieval.support import attr, rec
+
+    pid = world.project()
+    doc = world.add_doc(
+        pid,
+        "two.txt",
+        [
+            rec("note", subj("NO 15/9-F-12", "15/9-F-12"), [attr("note.text", "x")]),
+            rec("note", subj("NO 15/09-F-12", "15/09-F-12"), [attr("note.text", "x")]),
+        ],
+    )
+    with session_scope(world.factory) as s:
+        resolve_project(s, UUID(pid))
+        ds = build_dataset(s, UUID(pid))
+    keys = sorted(ds.resolved)
+    assert len(keys) == 2, keys
+    block = next(b for b in ds.blocks if b.members and b.members[0].party.kind == "wellbore")
+    member = block.members[0].party
+    text = f"{block.target.key} and {member.key} are the same wellbore."
+    source = FakeSource(world, {doc.document_id: text})
+    proposer, provider = make_proposer(world, source, [])
+    world.api.client.app.state.merge_proposer = proposer
+    label = f"b{ds.blocks.index(block) + 1}"
+    provider._script.append(text_response(group(label, "t", ["m1"], [_ev(doc.document_id, text)])))
+    provider._script.extend([text_response('{"groups":[]}')] * 2)
+
+    def rows() -> list[tuple[Any, ...]]:
+        return world.sql(
+            "SELECT w.well_key, w.well_id, b.wellbore_key, b.wellbore_id FROM wellbore b "
+            "JOIN well w ON w.well_id = b.well_id ORDER BY b.wellbore_key"
+        )
+
+    before = rows()
+    run = _run(world, pid)
+    assert run["proposals_created"] == 1, run
+    pr = world.api.client.get(_url(pid)).json()["items"][0]["proposal_id"]
+    assert _decide(world, pid, pr, "accept").status_code == 200
+    assert len(rows()) == 1
+    assert _decide(world, pid, pr, "revert").status_code == 200
+    assert rows() == before

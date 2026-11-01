@@ -28,6 +28,7 @@ from fieldlens.contracts.merge_proposals import (
     MergeProposalStatus,
     MergeRunCall,
 )
+from fieldlens.identity.labels import parse_bore_label
 from fieldlens.identity.resolver import resolve_project
 from fieldlens.identity.service import require_project
 from fieldlens.identity.tables import identity_merge
@@ -380,6 +381,17 @@ def accept(
     if row.status != "pending":
         raise _conflict("invalid_transition", f"a {row.status} proposal cannot be accepted")
     members = _recheck(session, project_id, row)
+    # Accepting deletes a merged-away wellbore (and its well when empty); remember the row ids
+    # so a revert restores them exactly.
+    ids = {
+        r.wellbore_key: (r.wellbore_id, r.well_id)
+        for r in session.execute(
+            select(m.wellbore.c.wellbore_key, m.wellbore.c.wellbore_id, m.wellbore.c.well_id).where(
+                m.wellbore.c.project_id == project_id,
+                m.wellbore.c.wellbore_key.in_([p.key for p in members if p.kind == "wellbore"]),
+            )
+        )
+    }
     try:
         with session.begin_nested():
             session.execute(
@@ -392,6 +404,8 @@ def accept(
                         "source_key": p.key,
                         "target_key": row.target_key,
                         "decided_by": decided_by[:80],
+                        "source_wellbore_id": ids.get(p.key, (None, None))[0],
+                        "source_well_id": ids.get(p.key, (None, None))[1],
                     }
                     for p in members
                 ],
@@ -409,12 +423,26 @@ def revert(
     row = _locked(session, project_id, proposal_id)
     if row.status != "accepted":
         raise _conflict("invalid_transition", f"a {row.status} proposal cannot be reverted")
+    bore_hints: dict[str, UUID] = {}
+    well_hints: dict[str, UUID] = {}
+    for r in session.execute(
+        select(identity_merge).where(
+            identity_merge.c.proposal_id == proposal_id,
+            identity_merge.c.reverted_at.is_(None),
+            identity_merge.c.source_kind == "wellbore",
+        )
+    ):
+        parsed = parse_bore_label(r.source_key)
+        if r.source_wellbore_id is not None:
+            bore_hints[r.source_key] = r.source_wellbore_id
+        if r.source_well_id is not None and parsed is not None and parsed.well_name:
+            well_hints[parsed.well_name] = r.source_well_id
     session.execute(
         update(identity_merge)
         .where(identity_merge.c.proposal_id == proposal_id, identity_merge.c.reverted_at.is_(None))
         .values(reverted_at=_now(), reverted_by=decided_by[:80])
     )
-    resolve_project(session, project_id)
+    resolve_project(session, project_id, bore_id_hints=bore_hints, well_id_hints=well_hints)
     _decide(session, proposal_id, "reverted", decided_by, note)
     return get_proposal(session, project_id, proposal_id)
 
