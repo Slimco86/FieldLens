@@ -145,3 +145,8 @@ Read-only, no migration. `GET /api/v1/projects/{id}/identity/exposure` (all well
 - Surface location: `well_surface_location` record (TASK-051 profile; absent kinds yield no records) with easting+northing
   or latitude+longitude. Missing/incomplete gives warning `SURFACE_LOCATION_MISSING`/`_INCOMPLETE` and `unlocated: true`;
   never a blocker. The local display origin is TASK-058.
+- Real-record check (opt-in `local_data`, `backend/tests/identity/test_local_data_exposure.py`): the Volve F-12 and F-5 ACTUAL
+  Statoil exports through the real upload/extraction/identity path give `survey_status` `unstated` (passes with
+  `SURVEY_STATUS_UNSTATED`) and a sourced `well_surface_location` (`located`, no unlocated flag); no key mismatch. The
+  exports name the well only as `F-12`/`F-5`, so identity resolves them only beside a block-qualified source (here the
+  perforation table); alone they are unresolved and the gate says `NO_WELLBORE_IDENTIFIED`.
