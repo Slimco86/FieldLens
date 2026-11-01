@@ -199,7 +199,7 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
             </Title>
             {section === "sources" && (
               <>
-                <ProjectOverviewSlot projectId={projectId} />
+                <ProjectOverviewSlot projectId={projectId} revisionId={state.data.latest_source_revision_id} />
                 <SourcesPanel
                   projectId={projectId}
                   latestRevisionId={state.data.latest_source_revision_id}
