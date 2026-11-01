@@ -8,6 +8,15 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.26.0 - 2026-11-01
+
+- **TASK-054 (PF-1..PF-3, PF-10) persistent processing runs:** project-scoped runs for selected documents with or
+  without labels: estimate (pages capped at 500, route, tokens, USD, remaining budget against the USD 5 total), a
+  separate explicit confirm, start, cancel and retry, interruption-safe states (never reported as succeeded), bounded
+  concurrency and an honest "no native parser, processing available" document state. Confirm rejects non-finite,
+  oversized and malformed amounts. Stub provider only: no live calls, no OCR; classification and label-driven extraction
+  is TASK-055. Migration 0011.
+
 ## 0.25.0 - 2026-11-01
 
 - **TASK-051 (IN-11) native Statoil survey export profile:** Added `text_statoil_survey_export` for the extensionless

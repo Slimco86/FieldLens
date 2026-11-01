@@ -1611,7 +1611,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, agent |
 | Depends on | TASK-036, TASK-050 |
@@ -1619,13 +1619,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/PROCESSING_FLOW.md |
-| Version | none |
+| Version | 0.26.0 |
 | Parent | FL-005 |
 | Slice | FL-005-I |
 
 **Outcome.** A persistent, project-scoped processing run for selected documents with or without labels: estimate (pages, route, tokens, USD, remaining budget) then separate confirmation, 500-page bound, cancellation, retryable failure states and honest "no native parser, processing available" document state.
-**Next action.** Lane `task-054-processing-runs` (agent:fieldlens-backend), started November 1: contracts, migration, stub-provider tests, independent QA. Live spend only under PROCESSING_FLOW D7 (USD 5 total, orchestrator-authorized).
-**Evidence.** Contract implemented on branch `feature/task-054-processing-runs` (migration 0011, `backend/fieldlens/processing/`, stub provider only, no live spend, no OCR); targeted tests in `backend/tests/processing` for PF-1/2/3/10. Independent QA and the full-suite result are recorded at merge.
+**Next action.** Done in 0.26.0 with a stub provider. TASK-055 plugs the label-driven extraction step into `ProcessingStep.run_document`; the UI panel is TASK-053.
+**Evidence.** Shipped in 0.26.0 (migration 0011, `backend/fieldlens/processing/`, stub provider only, no live spend, no OCR). Independent QA on `0a0c4fc`: full backend 1260 passed/7 skipped (one stale-metadata version test, environment only), ruff, mypy strict, contracts clean, 17 processing tests, hostile-amount repro fixed after one defect (D-1); a true 500-page PDF and a real ledger-spend case are not exercised.
 
 ### TASK-055 · Document classification, label proposal and label-driven extraction for non-native PDFs (PF-4, PF-5)
 
