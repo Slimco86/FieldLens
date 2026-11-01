@@ -8,6 +8,15 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.28.0 - 2026-11-01
+
+- **TASK-056 (PF-6, PF-8) wellbore data exposure and start gate:** `GET /identity/exposure` groups records per wellbore
+  and category with locators, validation state, gaps and conflicts; `GET /identity/start-gate` passes only with a
+  wellbore and a validated trajectory (explicit planned or conflicting status fails; unstated status, stale identity
+  and a missing surface location only warn, location marked unlocated). Findings and proposal lists are capped for
+  display with exact totals and truncation flags. Evidence endpoint gains a required `exposure` field. Backend only;
+  the UI is TASK-053. Unqualified labels (`F-12`) only resolve once TASK-061 lands.
+
 ## 0.27.0 - 2026-11-01
 
 - **TASK-048 (UI-13) project Overview in the Sources tab:** frontend-only summary of what was parsed for the project:

@@ -1653,7 +1653,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-046, TASK-047 |
@@ -1661,13 +1661,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/PROCESSING_FLOW.md |
-| Version | none |
+| Version | 0.28.0 |
 | Parent | FL-016 |
 | Slice | FL-016-G |
 
 **Outcome.** Read-only API grouping records per wellbore and category with locators, validation state, gaps and conflicts, plus the deterministic start gate (validated trajectory present; surface location only warns).
-**Next action.** Lane `task-056-wellbore-exposure` (agent:fieldlens-backend), started November 1: extend the identity evidence endpoint rather than adding a parallel store; contracts first; independent QA.
-**Evidence.** Implemented on branch feature/task-056-wellbore-exposure (pending QA/merge): `specs/PROCESSING_FLOW.md` section 8; `test_wellbore_exposure.py`.
+**Next action.** Merged in 0.28.0. The exposure/gate UI is TASK-053; block-less labels count directly after TASK-061 (D9).
+**Evidence.** Merged in 0.28.0 after independent QA (first QA failed on silent caps; repaired and re-verified PASS): `specs/PROCESSING_FLOW.md` section 8; `test_wellbore_exposure.py`, `test_exposure_caps.py`, opt-in `test_local_data_exposure.py`. QA: full suite 1268 passed, ruff/format/mypy strict/check:contracts green; exact totals and truncation flags verified with 130 findings and 5100 candidates; azimuth [0,360]. Not run: browser, live model. Known: Statoil files alone give NO_WELLBORE_IDENTIFIED until TASK-061.
 
 ### TASK-057 · AI identity-merge proposals and review (PF-7)
 
