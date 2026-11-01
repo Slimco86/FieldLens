@@ -60,12 +60,13 @@ def test_las_nulls_never_become_zero_and_real_zeros_survive(tmp_path: Path) -> N
 
 
 def test_las_skipped_lines_are_not_stored_and_run_is_partial(tmp_path: Path) -> None:
-    text_ = las_text([[1.0, 2.0, 3.0], [2.0, 5.0, 6.0]]).replace(" 2.0 5.0 6.0", " 2.0 5.0")
+    rows = [[float(i), 2.0, 3.0] for i in range(1, 13)]
+    text_ = las_text(rows).replace(" 2.0 2.0 3.0", " 2.0 2.0")
     out = LasProfile().parse(write(tmp_path, "p.las", text_), CTX)
     assert out.status == "partial"
-    assert out.series[0].index.tolist() == [1.0]
+    assert out.series[0].index.tolist() == [float(i) for i in range(1, 13) if i != 2]
     attr = out.records[0].attr("las_header.data_rows")
-    assert attr is not None and attr.number == 1.0 and attr.original_text == "2"
+    assert attr is not None and attr.number == 11.0 and attr.original_text == "12"
 
 
 def test_las_without_samples_stores_no_series(tmp_path: Path) -> None:
@@ -155,3 +156,28 @@ def test_production_header_columns_define_the_measures(tmp_path: Path) -> None:
         "bore_wi_vol",
     }
     assert set(DAILY_HEAD) >= {"DATEPRD"}
+
+
+def test_free_text_a_header_and_curve_count_mismatch_store_no_series(tmp_path: Path) -> None:
+    text_ = las_text([[1.0, 2.0, 3.0]] * 3).replace("~A\n", "~Ascii Log Data\n")
+    assert "~Ascii Log Data" in text_
+    out = LasProfile().parse(write(tmp_path, "w.las", text_), CTX)
+    assert out.series == [], "words in the ~A header must never become curve names"
+    keys = {f.key for f in out.findings}
+    assert "las_series_refused" in keys and "las_curve_block_mismatch" in keys
+    assert out.records[0].attr("las_header.data_rows") is not None  # summaries unchanged
+    assert out.detail["series_samples"] == 0
+
+
+def test_mostly_skipped_data_lines_store_no_series(tmp_path: Path) -> None:
+    rows = [f" {i}.0 1.0 2.0" for i in range(1, 3)] + [f" {i}.0 1.0" for i in range(3, 12)]
+    text_ = las_text([]) + "\n".join(rows) + "\n"
+    out = LasProfile().parse(write(tmp_path, "s.las", text_), CTX)
+    assert out.series == [] and out.status == "partial"
+    assert any(f.key == "las_series_refused" for f in out.findings)
+
+
+def test_small_skip_ratio_still_stores_the_good_rows(tmp_path: Path) -> None:
+    rows = [f" {i}.0 1.0 2.0" for i in range(1, 40)] + [" 40.0 1.0"]
+    out = LasProfile().parse(write(tmp_path, "k.las", las_text([]) + "\n".join(rows) + "\n"), CTX)
+    assert len(out.series) == 1 and out.series[0].index.size == 39

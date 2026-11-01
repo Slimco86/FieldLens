@@ -50,7 +50,7 @@ from .downsample import select_positions
 from .tables import series_axis, series_curve
 
 _EPOCH = date(1970, 1, 1)
-_NUMBER = re.compile(r"^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$")
+_NUMBER = re.compile(r"^[+-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?$", re.ASCII)
 _VISIBLE_STATUS = ("succeeded", "partial")
 
 
@@ -148,6 +148,8 @@ class SeriesService:
                     select(series_axis.c.index_data).where(series_axis.c.axis_id == row.axis_id)
                 ).scalar_one()
             )
+            if index.size != int(row.sample_count):
+                raise _inconsistent()
             sel = _select(index, row.index_order, lo.value, hi.value)
             values = self._values(session, series_id, sel, int(row.sample_count))
         window_index = index[sel] if isinstance(sel, np.ndarray) else index[sel[0] : sel[1]]
@@ -199,7 +201,10 @@ class SeriesService:
                     func.substring(series_curve.c.values_data, first * 8 + 1, (last - first) * 8)
                 ).where(series_curve.c.series_id == series_id)
             ).scalar_one()
-            return codec.decode_f8(data).copy()
+            out = codec.decode_f8(data).copy()
+            if out.size != last - first or last > total:
+                raise _inconsistent()
+            return out
         if sel.size == 0:
             return np.zeros(0, dtype=np.float64)
         data = session.execute(
@@ -207,8 +212,14 @@ class SeriesService:
         ).scalar_one()
         full = codec.decode_f8(data)
         if full.size != total:
-            raise ContractError(ErrorCode.INTERNAL_ERROR, "stored series is inconsistent", 500)
+            raise _inconsistent()
         return full[sel].copy()
+
+
+def _inconsistent() -> ContractError:
+    return ContractError(
+        ErrorCode.INTERNAL_ERROR, "stored series is inconsistent with its sample count", 500
+    )
 
 
 def _require_project(session: Session, project_id: UUID) -> None:
@@ -370,7 +381,7 @@ def _parse_bound(raw: str | None, encoding: IndexEncoding, name: str) -> _Bound:
     if raw is None:
         return _Bound(None, None)
     if encoding is IndexEncoding.EPOCH_DAYS:
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", raw, re.ASCII):
             raise ContractError(
                 ErrorCode.VALIDATION_ERROR, f"{name} must be an ISO date (YYYY-MM-DD) here"
             )

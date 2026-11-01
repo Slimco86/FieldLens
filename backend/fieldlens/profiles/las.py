@@ -72,6 +72,33 @@ def _loc(
     return loc
 
 
+MAX_SKIPPED_LINE_RATIO = 0.10
+
+
+def _series_refusal(
+    curve_names: list[str], data_header: list[str], a_marker: str, skipped: int, n_data: int
+) -> str | None:
+    """Why the samples are not a trustworthy series (None = store them). The data marker must be
+    exactly ``~A`` (``~Ascii Log Data`` style text makes the header tokens free text, so words
+    would become curve names and data the index), the ~A header must name as many columns as the
+    ~C block declares curves (a WRAP YES layout breaks this), and at most 10% of the data lines
+    may have been skipped as unparseable. Differing names with the same count (truncated
+    fixed-width ~A headers) stay a REFERENCE_CONFLICT finding and the ~A names are kept."""
+    if a_marker != "~A":
+        return f"the data section header '{a_marker}' is free text, not a column header"
+    if curve_names and len(curve_names) != len(data_header):
+        return (
+            f"the ~A header names {len(data_header)} column(s) but the ~C block declares "
+            f"{len(curve_names)} curve(s), so the data layout is not established"
+        )
+    if n_data and skipped / n_data > MAX_SKIPPED_LINE_RATIO:
+        return (
+            f"{skipped} of {n_data} data lines were skipped as unparseable "
+            f"(more than {MAX_SKIPPED_LINE_RATIO:.0%})"
+        )
+    return None
+
+
 def classify_index(name: str, unit: str) -> str:
     """depth | time | unknown from the index mnemonic and stated unit (a hint, not a datum)."""
     if name.strip().upper() in _DEPTH_NAMES or unit.strip().lower() in _DEPTH_UNITS:
@@ -113,6 +140,7 @@ class LasProfile:
         data_header: list[str] = []
         data_start = 0
         n_lines = 0
+        a_marker = "~A"
         # data lines are parsed into compact arrays as they are read (see ingest below)
         cols: list[array[float]] = []
         lines: array[int] = array("i")
@@ -150,6 +178,7 @@ class LasProfile:
                     if section == "data":
                         data_header = s[2:].split()
                         data_start = n_lines
+                        a_marker = s.split()[0].upper()
                     continue
                 if section == "data":
                     n_data += 1
@@ -621,6 +650,28 @@ class LasProfile:
                     "warning",
                     reasons[-1] + ".",
                     "las_series_too_large",
+                    ["las_curve.valid_count"],
+                    [],
+                    [_loc("data", first_line, last_line)],
+                    ["calculation"],
+                )
+            )
+        elif (
+            ok_rows
+            and ncols
+            and (
+                refusal := _series_refusal(
+                    info_names, data_header, a_marker, len(bad_width) + len(bad_token), n_data
+                )
+            )
+        ):
+            findings.append(
+                Finding(
+                    "EXTRACTION_PARTIAL",
+                    "warning",
+                    f"full-resolution samples were not stored: {refusal}. The per-curve "
+                    "summaries are kept.",
+                    "las_series_refused",
                     ["las_curve.valid_count"],
                     [],
                     [_loc("data", first_line, last_line)],

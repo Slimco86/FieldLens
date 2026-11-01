@@ -51,6 +51,9 @@ class IndexOrder(StrEnum):
     INCREASING = "increasing"
     NON_DECREASING = "non_decreasing"
     """Equal neighbouring index values exist (for example repeated production days)."""
+    DECREASING = "decreasing"
+    NON_INCREASING = "non_increasing"
+    """Equal neighbouring index values exist in a descending index."""
     UNORDERED = "unordered"
     """The index goes backwards somewhere; source order is kept and nothing is re-sorted."""
 

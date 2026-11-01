@@ -33,6 +33,10 @@ def index_order(index: NDArray[np.float64]) -> str:
         return "increasing"
     if bool((d >= 0).all()):
         return "non_decreasing"
+    if bool((d < 0).all()):
+        return "decreasing"
+    if bool((d <= 0).all()):
+        return "non_increasing"
     return "unordered"
 
 

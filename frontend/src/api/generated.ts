@@ -1555,7 +1555,7 @@ export interface components {
          * IndexOrder
          * @enum {string}
          */
-        IndexOrder: "increasing" | "non_decreasing" | "unordered";
+        IndexOrder: "increasing" | "non_decreasing" | "decreasing" | "non_increasing" | "unordered";
         /** IndexState */
         IndexState: {
             /** Eligible Documents */

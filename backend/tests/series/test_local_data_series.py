@@ -91,6 +91,25 @@ def _independent_samples(path: Path, ncols: int) -> tuple[np.ndarray, float | No
     return np.array(rows, dtype=np.float64).reshape(-1, ncols), null
 
 
+def _curve_block_names(path: Path) -> list[str]:
+    """Curve mnemonics of the ~C block read independently, in order (stops at the data section)."""
+    names: list[str] = []
+    in_curves = False
+    with path.open("r", encoding="latin-1") as handle:
+        for line in handle:
+            s = line.strip()
+            if s.upper().startswith("~A"):
+                break
+            if s.startswith("~"):
+                in_curves = s[1:2].upper() == "C"
+            elif in_curves and s and not s.startswith("#"):
+                names.append(s.split(".", 1)[0].strip())
+    return names
+
+
+CPI = LOGS / "15_9-19 A" / "05.PETROPHYSICAL INTERPRETATION" / "CPI" / "15_9-19_A_CPI.las"
+
+
 def _check_axis_against_records(out: ProfileOutput, axis: AxisOut) -> int:
     header = out.records[0]
     data_rows = header.attr("las_header.data_rows")
@@ -126,6 +145,8 @@ def test_series_fidelity_every_real_las() -> None:
     stored = zero_sample = partial = independent = 0
     samples = cells = skipped_lines = 0
     mismatched_lines: list[str] = []
+    unknown_index: list[str] = []
+    refused_layout: list[str] = []
     for path in files:
         out = _parse_las(path)
         if isinstance(out, str):
@@ -139,12 +160,20 @@ def test_series_fidelity_every_real_las() -> None:
             skipped_lines += total_lines - int(data_rows.number)
             mismatched_lines.append(f"{path.name}: {int(data_rows.number)}/{total_lines}")
         partial += out.status == "partial"
+        if any(f.key == "las_series_refused" for f in out.findings):
+            refused_layout.append(path.name)
+            assert out.series == []
+            continue
         if int(data_rows.number) == 0:
             assert out.series == [], "no sample, no series"
             zero_sample += 1
             continue
         assert len(out.series) == 1
         axis = out.series[0]
+        # a stored series has as many columns as the file's ~C block declares
+        assert 1 + len(axis.curves) == len(_curve_block_names(path)), path
+        if axis.index_type == "unknown":
+            unknown_index.append(path.name)
         samples += _check_axis_against_records(out, axis)
         cells += axis.index.size * (len(axis.curves) + 1)
         stored += 1
@@ -170,7 +199,23 @@ def test_series_fidelity_every_real_las() -> None:
             "data_rows != data lines (rows skipped by the profile): "
             + "; ".join(mismatched_lines[:25])
         )
+    print(
+        f"series refused for layout/skip ratio: {refused_layout}; stored series with an "
+        f"unknown index type: {unknown_index}"
+    )
+    assert CPI.name in refused_layout, "WRAP YES file with a free-text ~A header stores no series"
     assert stored > 100
+
+
+def test_wrapped_free_text_header_real_file_has_no_series() -> None:
+    out = _parse_las(CPI)
+    assert isinstance(out, ProfileOutput)
+    assert out.series == []
+    assert [f.key for f in out.findings if f.key == "las_series_refused"]
+    data_rows = out.records[0].attr("las_header.data_rows")
+    assert (
+        data_rows is not None and data_rows.number == 3008.0 and data_rows.original_text == "18048"
+    )
 
 
 def test_production_series_counts_values_and_units_equal_the_records() -> None:

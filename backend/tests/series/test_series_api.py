@@ -222,3 +222,46 @@ def test_series_are_project_scoped(lane: Lane) -> None:
     assert lane.api.client.get(f"{base}?document_id={doc}").json()["total"] == 0
     assert lane.api.client.get(f"/api/v1/projects/{uuid4()}/series").status_code == 404
     assert lane.api.client.get(f"/api/v1/projects/{uuid4()}/series/{sid}").status_code == 404
+
+
+def test_descending_index_is_decreasing_and_windows_select_by_value(lane: Lane) -> None:
+    rows = [[50.0, 5.0, 1.0], [40.0, 4.0, 1.0], [30.0, 3.0, 1.0], [20.0, 2.0, 1.0]]
+    (doc,) = lane.upload([("d.las", las_text(rows).encode())])
+    lane.drain()
+    gr = _gr(lane, doc)
+    assert gr["index"]["order"] == "decreasing"
+    w = lane.get(f"/{gr['series_id']}/window", **{"from": "25", "to": "45"}).json()
+    assert w["index"] == [40.0, 30.0] and w["values"] == [4.0, 3.0]
+
+
+def test_non_ascii_digits_are_rejected_in_bounds(lane: Lane) -> None:
+    (doc,) = lane.upload([("a.las", las_text(_rows(30)).encode())])
+    lane.drain()
+    sid = _gr(lane, doc)["series_id"]
+    for bad in ("\u0661\u0662", "1\u0662", "\uff11\uff10"):
+        r = lane.get(f"/{sid}/window", **{"from": bad})
+        assert r.status_code == 422, bad
+
+
+def test_non_ascii_digits_are_rejected_in_dates(lane: Lane) -> None:
+    (doc,) = lane.upload([("prod.xlsx", workbook_bytes([day_row(40000, "15/9-F-A", 1, 1.0)]))])
+    lane.drain()
+    sid = lane.series(kind="production")[0]["series_id"]
+    assert lane.get(f"/{sid}/window", **{"from": "2009-07-06"}).status_code == 200
+    assert (
+        lane.get(f"/{sid}/window", **{"from": "\u0662\u0660\u0660\u0669-07-06"}).status_code == 422
+    )
+
+
+def test_inconsistent_stored_arrays_fail_clearly(
+    lane: Lane, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (doc,) = lane.upload([("a.las", las_text(_rows(30)).encode())])
+    lane.drain()
+    sid = _gr(lane, doc)["series_id"]
+    real = service_module.codec.decode_f8
+    monkeypatch.setattr(service_module.codec, "decode_f8", lambda data: real(data)[:-1])
+    r = lane.get(f"/{sid}/window")
+    assert r.status_code == 500 and "inconsistent" in r.json()["error"]["message"]
+    monkeypatch.undo()
+    assert lane.get(f"/{sid}/window").status_code == 200

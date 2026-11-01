@@ -228,3 +228,18 @@ def test_cascades_run_record_and_document_hook(lane: Lane) -> None:
     assert _counts(lane) == (1, 1), "a series cannot outlive the record it is anchored to"
     lane.sql("delete from extraction_run where document_id = :d", d=doc)
     assert _counts(lane) == (0, 0)
+
+
+def test_database_rejects_inconsistent_ranges(lane: Lane) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    lane.upload([("a.las", las_text(ROWS).encode())])
+    lane.drain()
+    for statement in (
+        "update series_curve set min_value = max_value + 1 where measure = 'GR'",
+        "update series_axis set index_min = index_max + 1",
+        "update series_curve set valid_count = 0, null_count = sample_count where measure = 'GR'",
+    ):
+        with pytest.raises(IntegrityError):
+            lane.sql(statement)
+    assert _counts(lane) == (1, 2)

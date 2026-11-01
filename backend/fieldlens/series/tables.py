@@ -77,9 +77,11 @@ series_axis = Table(
     CheckConstraint("index_encoding IN ('numeric', 'epoch_days')", name="index_encoding_known"),
     CheckConstraint("index_unit_status IN ('stated', 'missing')", name="index_unit_status_known"),
     CheckConstraint(
-        "index_order IN ('increasing', 'non_decreasing', 'unordered')", name="index_order_known"
+        "index_order IN ('increasing', 'non_decreasing', 'decreasing', 'non_increasing', 'unordered')",
+        name="index_order_known",
     ),
     CheckConstraint("position_kind IN ('line', 'row')", name="position_kind_known"),
+    CheckConstraint("index_min <= index_max", name="index_range_ordered"),
     CheckConstraint("sample_count > 0", name="has_samples"),
     CheckConstraint("octet_length(index_data) = sample_count * 8", name="index_data_size"),
     CheckConstraint("octet_length(positions_data) = sample_count * 4", name="positions_data_size"),
@@ -142,6 +144,7 @@ series_curve = Table(
     CheckConstraint(
         "(valid_count = 0) = (min_value IS NULL AND max_value IS NULL)", name="range_iff_valid"
     ),
+    CheckConstraint("min_value IS NULL OR min_value <= max_value", name="range_ordered"),
     CheckConstraint("data_sha256 ~ '^[0-9a-f]{64}$'", name="sha256"),
     Index("ix_series_curve_axis", "axis_id"),
     Index("ix_series_curve_project_measure", "project_id", text("lower(measure)")),

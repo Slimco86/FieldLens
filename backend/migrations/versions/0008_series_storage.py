@@ -88,13 +88,14 @@ def upgrade() -> None:
             name=F("ck_series_axis_index_unit_status_known"),
         ),
         sa.CheckConstraint(
-            "index_order IN ('increasing', 'non_decreasing', 'unordered')",
+            "index_order IN ('increasing', 'non_decreasing', 'decreasing', 'non_increasing', 'unordered')",
             name=F("ck_series_axis_index_order_known"),
         ),
         sa.CheckConstraint(
             "position_kind IN ('line', 'row')", name=F("ck_series_axis_position_kind_known")
         ),
         sa.CheckConstraint("sample_count > 0", name=F("ck_series_axis_has_samples")),
+        sa.CheckConstraint("index_min <= index_max", name=F("ck_series_axis_index_range_ordered")),
         sa.CheckConstraint(
             "octet_length(index_data) = sample_count * 8", name=F("ck_series_axis_index_data_size")
         ),
@@ -171,6 +172,9 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "(valid_count = 0) = (min_value IS NULL AND max_value IS NULL)",
             name=F("ck_series_curve_range_iff_valid"),
+        ),
+        sa.CheckConstraint(
+            "min_value IS NULL OR min_value <= max_value", name=F("ck_series_curve_range_ordered")
         ),
         sa.CheckConstraint("data_sha256 ~ '^[0-9a-f]{64}$'", name=F("ck_series_curve_sha256")),
     )
