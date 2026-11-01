@@ -1,0 +1,33 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fl-space-xs);
+  max-width: 100%;
+  padding: 2px var(--fl-space-sm);
+  border: 1px solid var(--chip-border);
+  border-radius: var(--fl-radius-lg);
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  font-size: var(--fl-font-size-sm);
+  font-weight: 500;
+  line-height: var(--fl-line-tight);
+  vertical-align: middle;
+}
+.chip[data-tone="unknown"] {
+  border-style: dashed;
+}
+.icon {
+  flex: none;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+.label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

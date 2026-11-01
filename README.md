@@ -289,6 +289,17 @@ Run everything with `npm --prefix frontend run test:e2e`, or one file as shown a
 Native-browser hosts may omit the container and delete the two `FIELDLENS_PW_*` keys
 from `.env` after installing the matching browser (the runner then sets no `PW_TEST_*`).
 
+Application shell and design system (TASK-034, [UI_DESIGN_SYSTEM](docs/specs/UI_DESIGN_SYSTEM.md)): the
+left sidebar manages projects; an opened project shows the Sources / Reconstruction / Explore tabs. The route
+is the address hash (`#/projects/<id>/<sources|reconstruction|explore>`; `#/` is home), so any static server
+works and reload/back/forward keep the selection. Tokens, theme and status/evidence components live in
+`frontend/src/design/` (see its README). `npm --prefix frontend run test` includes the UI-1 token style scan
+(`tests/tokens.test.ts`, also the contrast check) and the Explore region test; `tests/e2e/shell.spec.ts`
+adds axe (dev-only `@axe-core/playwright`), zero-external-request, keyboard/reduced-motion, URL-routing and
+1920x1080 / 2560x1440 checks and writes review screenshots to `.local/screens/task-034/` (gitignored).
+In a lane, run e2e on the lane's own API port (the other ports answer 403 by design): stop the lane API
+(`./dev down`), set `FIELDLENS_E2E_API_PORT` to the lane port printed by `./dev up`, then run the command above.
+
 Verified versions and requirement-to-test evidence are recorded in
 [FOUNDATION](docs/specs/FOUNDATION.md). Generated client changes must come from
 `npm --prefix frontend run generate:contracts`; `check:contracts` never rewrites it.

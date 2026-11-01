@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Title } from "@mantine/core";
+import { CircleCheck } from "lucide-react";
 import { ApiError, fetchReadiness, type ReadinessResponse } from "../api/client";
+import { ErrorState, LoadingState } from "../design";
+import { ProjectSidebar } from "../features/projects/ProjectSidebar";
 import { ProjectWorkspace } from "../features/projects/ProjectWorkspace";
+import { Shell } from "./shell/Shell";
+import styles from "./shell/Shell.module.css";
 
 type State =
   | { kind: "loading" }
@@ -37,36 +43,39 @@ export function App() {
     return () => controller.current?.abort();
   }, [check]);
 
+  const ready = state.kind === "ready";
   return (
-    <>
-      <a className="skip" href="#main">
-        Skip to main content
-      </a>
-      <header>
-        <h1>FieldLens</h1>
-      </header>
-      <main ref={main} id="main" tabIndex={-1} aria-busy={state.kind === "loading"}>
-        {state.kind === "loading" && (
-          <p role="status">Checking local services…</p>
-        )}
-        {state.kind === "unavailable" && (
-          <section role="alert" aria-labelledby="unavailable-title">
-            <h2 id="unavailable-title">Local services unavailable</h2>
-            <p>{state.message}</p>
-            {state.requestId && <p>Request ID: {state.requestId}</p>}
-            <button type="button" onClick={() => { main.current?.focus(); check(); }}>
-              Retry
-            </button>
-          </section>
-        )}
-        {state.kind === "ready" && (
-          <section aria-labelledby="workspace-title">
-            <h2 id="workspace-title">Workspace</h2>
-            <p role="status">Local services ready.</p>
-            <ProjectWorkspace />
-          </section>
-        )}
-      </main>
-    </>
+    <Shell
+      mainRef={main}
+      title={ready ? "Workspace" : undefined}
+      busy={state.kind === "loading"}
+      sidebar={ready ? <ProjectSidebar /> : undefined}
+      status={
+        ready ? (
+          <p role="status" className={styles.ready}>
+            <CircleCheck size={14} aria-hidden="true" />
+            Local services ready.
+          </p>
+        ) : undefined
+      }
+    >
+      {state.kind === "loading" && <LoadingState label="Checking local services…" status />}
+      {state.kind === "unavailable" && (
+        <section aria-labelledby="unavailable-title">
+          <Title order={3} id="unavailable-title" mb="md">
+            Local services unavailable
+          </Title>
+          <ErrorState
+            message={state.message}
+            requestId={state.requestId}
+            onRetry={() => {
+              main.current?.focus();
+              check();
+            }}
+          />
+        </section>
+      )}
+      {ready && <ProjectWorkspace />}
+    </Shell>
   );
 }

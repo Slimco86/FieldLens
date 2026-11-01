@@ -1,0 +1,85 @@
+.navbar {
+  background: var(--fl-color-surface);
+  border-right: var(--fl-border-width) solid var(--fl-color-border);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--fl-space-sm);
+  height: var(--fl-layout-header);
+  padding: 0 var(--fl-space-md);
+  border-bottom: var(--fl-border-width) solid var(--fl-color-border);
+  flex: none;
+}
+.brand h1 {
+  margin: 0;
+  font-size: var(--fl-font-size-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--fl-color-brand-text);
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: var(--fl-space-lg);
+  height: var(--fl-space-lg);
+  border-radius: var(--fl-radius-md);
+  background: var(--fl-color-brand);
+  color: var(--fl-color-text-on-brand);
+}
+.sidebarBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--fl-space-md);
+}
+.sidebarFoot {
+  flex: none;
+  padding: var(--fl-space-sm) var(--fl-space-md);
+  border-top: var(--fl-border-width) solid var(--fl-color-border);
+  color: var(--fl-color-text-muted);
+  font-size: var(--fl-font-size-sm);
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--fl-space-md);
+  height: 100%;
+  padding: 0 var(--fl-space-lg);
+  background: var(--fl-color-surface);
+  border-bottom: var(--fl-border-width) solid var(--fl-color-border);
+}
+.header h2 {
+  margin: 0;
+  font-size: var(--fl-font-size-md);
+  font-weight: 600;
+  color: var(--fl-color-text-muted);
+}
+.main {
+  min-width: 0;
+  background: var(--fl-color-surface-sunken);
+}
+.main:focus {
+  outline: none;
+}
+.content {
+  max-width: var(--fl-layout-content);
+  margin: 0 auto;
+  padding: var(--fl-space-lg);
+  min-width: 0;
+}
+/* Below the large-screen range the sidebar becomes an opt-in drawer (not a verified layout). */
+@media (max-width: 61.99em) {
+  .navbar:not([data-open="true"]) {
+    visibility: hidden;
+  }
+  .content {
+    padding: var(--fl-space-md);
+  }
+}
+.ready {
+  display: flex;
+  align-items: center;
+  gap: var(--fl-space-sm);
+  margin: 0;
+}
