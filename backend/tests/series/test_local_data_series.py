@@ -45,7 +45,8 @@ APPROVED = {
 }
 MAX_EXTRA_SECONDS = 60.0
 _NULL_LINE = re.compile(
-    r"^\s*NULL\s*\.[^\s:]*\s+([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)", re.IGNORECASE | re.MULTILINE
+    r"^\s*NULL\s*\.[^\s:]*\s+([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
@@ -165,7 +166,10 @@ def test_series_fidelity_every_real_las() -> None:
         f"not parsed={dict(reasons)}"
     )
     if mismatched_lines:
-        print("data_rows != data lines (rows skipped by the profile): " + "; ".join(mismatched_lines[:25]))
+        print(
+            "data_rows != data lines (rows skipped by the profile): "
+            + "; ".join(mismatched_lines[:25])
+        )
     assert stored > 100
 
 
@@ -206,9 +210,9 @@ def _rss_mb() -> float:
 def test_real_extraction_time_storage_and_database_roundtrip(
     migrated_url: URL, tmp_path: Path, engine: Engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    files = [
-        (f"{w}_{p.name}", p.read_bytes()) for w, p in APPROVED.items()
-    ] + [(PRODUCTION.name, PRODUCTION.read_bytes())]
+    files = [(f"{w}_{p.name}", p.read_bytes()) for w, p in APPROVED.items()] + [
+        (PRODUCTION.name, PRODUCTION.read_bytes())
+    ]
 
     def extract(with_series: bool, root: Path) -> tuple[float, Lane]:
         lane = Lane(migrated_url, root, engine)
@@ -251,7 +255,9 @@ def test_real_extraction_time_storage_and_database_roundtrip(
     f12 = [i for i in items if i["kind"] == "log" and i["well_name"] == axis.subject["well_name"]]
     assert len(f12) == len(axis.curves)
     for curve in axis.curves:
-        entry = next(i for i in f12 if i["measure"] == curve.measure and i["sample_count"] == axis.index.size)
+        entry = next(
+            i for i in f12 if i["measure"] == curve.measure and i["sample_count"] == axis.index.size
+        )
         win = lane.get(f"/{entry['series_id']}/window", resolution="full").json()
         assert win["index"] == axis.index.tolist()
         assert win["values"] == [None if np.isnan(v) else v for v in curve.values.tolist()]
