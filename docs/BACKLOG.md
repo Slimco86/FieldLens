@@ -1561,8 +1561,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-005-H |
 
 **Outcome.** Text files without an extension or in UTF-16/Windows-1252 are inspected as text with a recorded encoding, and the Volve Compass survey text export (for example `Volve F_F-12_F-12_F-12_ACTUAL`) gets a native trajectory profile preferred over the PDF text layer. The owner's first upload refused that file as an unsupported signature; the cause (likely non-UTF-8 bytes or NULs in the first 64 KiB) is unconfirmed until the file is inspected.
-**Next action.** Compass survey text profile still open: inspect the real extensionless file (paste the first 40 lines or grant `/add-dir`), record the layout in specs/INGESTION.md, then implement.
-**Evidence.** Encoding-tolerant intake (UTF-8/UTF-16/Windows-1252, extensionless, NUL and high-byte refusal) shipped in 0.23.0; the Compass profile is not done. Independent QA on `9e490f0`: backend 1194 passed/7 skipped, ruff, mypy strict, frontend 143 tests, contracts, build, e2e 29/29.
+**Next action.** Validate the profile against the real extensionless F-12 export (paste the first 40 lines or `/add-dir` the folder) and adjust; then mark done. Duplicate-source precedence is TASK-059.
+**Evidence.** Intake shipped in 0.23.0; `text_compass_survey_report` profile and Latin-1 acceptance fix in 0.24.0 (synthetic fixtures only; real file not yet read). Independent QA on `da43a87`: backend 1217 passed/7 skipped, ruff, mypy strict, contracts clean; adversarial profile and encoding checks passed after one repair (kana UTF-16, late-byte whole-file check).
 
 ### TASK-052 · Files table columns, expandable details and bulk labelling (UI-14)
 
@@ -1603,7 +1603,133 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-016-F |
 
 **Outcome.** The user can see what the system already did after upload (automatic verification, parsing, indexing), what is ready, what is a gap, the minimum conditions to start, and can explicitly start reconstruction, with any model-spending step shown and confirmed separately. There is currently no UI for this and no start contract.
-**Next action.** Agree the minimum start conditions, the start/estimate contract and the deterministic-versus-model split in ASSET_RECONSTRUCTION.md with the owner; this is the front of the reconstruction slice (TASK-026).
+**Next action.** Owner decisions D1..D6 are recorded in specs/PROCESSING_FLOW.md (start gate = validated trajectory, location warns); implement the panel after TASK-054 and TASK-056 provide the contracts.
+**Evidence.** none yet
+
+### TASK-054 · Processing-run contract: estimate, confirm, start, state (PF-1..PF-3, PF-10)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend, agent |
+| Depends on | TASK-036, TASK-050 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-005 |
+| Slice | FL-005-I |
+
+**Outcome.** A persistent, project-scoped processing run for selected documents with or without labels: estimate (pages, route, tokens, USD, remaining budget) then separate confirmation, 500-page bound, cancellation, retryable failure states and honest "no native parser, processing available" document state.
+**Next action.** Approve PROCESSING_FLOW.md with the owner; then backend contract plus regenerated contracts, stub-provider tests, independent QA.
+**Evidence.** none yet
+
+### TASK-055 · Document classification, label proposal and label-driven extraction for non-native PDFs (PF-4, PF-5)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | agent, ingestion |
+| Depends on | TASK-054, TASK-041 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-E |
+
+**Outcome.** Documents without identity or label are classified (model route by default); the label is proposed with evidence, user labels win, and extraction runs through the label's agent step on the existing harness. Includes the OCR benchmark (cost, time, classification agreement against the model route); OCR is enabled only if it is demonstrably cheaper and faster.
+**Next action.** Spec the classification schema and benchmark protocol; one bounded live run on the F-14/F-5 pages within the remaining USD 2.32 period cap, owner-confirmed.
+**Evidence.** none yet
+
+### TASK-056 · Per-wellbore, per-category data exposure API and readiness gate (PF-6, PF-8)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend |
+| Depends on | TASK-046, TASK-047 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-G |
+
+**Outcome.** Read-only API grouping records per wellbore and category with locators, validation state, gaps and conflicts, plus the deterministic start gate (validated trajectory present; surface location only warns).
+**Next action.** Extend the identity evidence endpoint rather than adding a parallel store; contracts first.
+**Evidence.** none yet
+
+### TASK-057 · AI identity-merge proposals and review (PF-7)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend, frontend, agent |
+| Depends on | TASK-056, TASK-055 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-H |
+
+**Outcome.** A model step proposes that differently named or spelled sources are the same well/wellbore with alias evidence quotes; deterministic guards block impossible merges; the user accepts or rejects each; nothing merges silently.
+**Next action.** Write the proposal contract and guard rules into the spec first; stub-provider tests before any live run.
+**Evidence.** none yet
+
+### TASK-058 · Unlocated local display origin (0, 0) and its exclusion from georeferenced results (PF-9)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend, geospatial |
+| Depends on | TASK-056 |
+| Assignee | agent:fieldlens-geospatial |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-017 |
+| Slice | FL-017-C |
+
+**Outcome.** A wellbore without a sourced surface location is flagged unlocated, uses a labelled local origin with no CRS or datum, shows a warning, and is excluded from cross-well distance, terrain alignment and closest-approach results with the exclusion stated.
+**Next action.** Define the marker and the exclusion hook in DATA_QUALITY.md alongside the contract.
+**Evidence.** none yet
+
+### TASK-059 · PDF-versus-text duplicate-source precedence and conflict report (IN-11)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P1 |
+| Tags | backend, ingestion |
+| Depends on | TASK-051 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/INGESTION.md |
+| Version | none |
+| Parent | FL-005 |
+| Slice | FL-005-J |
+
+**Outcome.** When a Compass PDF and its text export describe the same wellbore, the text export is preferred and per-attribute disagreements beyond tolerance are reported as a conflict.
+**Next action.** Needs cross-document matching on well key plus wellbore name, a precedence flag on the extraction run and locator pairing.
 **Evidence.** none yet
 
 ## Journal

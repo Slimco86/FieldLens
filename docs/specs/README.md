@@ -16,6 +16,7 @@ See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
 | FL-003 | [Meta integration](META_INTEGRATION.md) | A: offline adapter/ledger; B: opt-in live protocol/entitlement |
 | FL-004 | [Foundation](FOUNDATION.md), [shared contracts](SHARED_CONTRACTS.md) | A: locked runtimes, migrations, API/types, shell; no G1/G2 dependency |
 | FL-005 | [Ingestion](INGESTION.md) | A: project upload/jobs; B: early native evidence; C: required selected scan/Word profiles; D: final IN-8 manifest qualification |
+| FL-005 / FL-016 / FL-022 | [Processing flow](PROCESSING_FLOW.md) | Stage order and gates from upload to reconstruction start: document processing without a label, data exposure, AI identity merge, minimum conditions |
 | FL-006 | [Trajectory/viewer](TRAJECTORY_VIEWER.md) | A: deterministic engineering; B: imported scene/selection/evidence |
 | FL-007 | [Equipment](EQUIPMENT_RECONSTRUCTION.md) | A: F-14/F-5 source-dimensioned candidates plus evidence-safe F-12 generic/unlocated case; B: optional approved Blender asset |
 | FL-008 | [Perforation history](PERFORATION_HISTORY.md) | A: deterministic state; B: real events/placement/inspector |

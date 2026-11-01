@@ -8,6 +8,20 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.24.0 - 2026-11-01
+
+- **TASK-051 (IN-11) native Compass text survey profile, and a Latin-1 fix:** Added the `text_compass_survey_report`
+  profile (shared line parsers with the PDF survey profile): extensionless or legacy-encoded Compass "Standard Survey
+  Report" text exports are selected by content and yield trajectory stations, survey program and casing points with
+  header-stated units, MD/TVD references, azimuth reference and datum (missing ones are findings, never assumed) and
+  line/record/column locators. Validated only against synthetic fixtures; the real Volve export has not been read, and
+  PDF-versus-text precedence and conflict reporting are not implemented (TASK-059). Text intake no longer refuses genuine
+  heavily accented Latin-1/cp1252 text: 8-bit streams with 25-60% high bytes are accepted when the accented bytes are
+  isolated, while BOM-less UTF-16 CJK and above 60% high bytes stay refused. Planning: staged processing flow
+  (`docs/specs/PROCESSING_FLOW.md`, owner decisions D1..D6: processing without a label, OCR only if cheaper and faster,
+  500-page bound, trajectory as the minimum start condition, unlocated (0, 0) display origin, AI identity-merge review)
+  and TASK-054..059 added to the backlog.
+
 ## 0.23.0 - 2026-11-01
 
 - **TASK-050 (IN-10), TASK-052 (UI-14), TASK-051 partial (IN-11):** Found in the owner's first manual test. An upload
