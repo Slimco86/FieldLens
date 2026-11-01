@@ -8,16 +8,60 @@ and its subject stay the evidence authority."""
 from __future__ import annotations
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
+    DateTime,
     ForeignKeyConstraint,
     Index,
     Integer,
     String,
     Table,
+    Text,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 
 from fieldlens.persistence.models import metadata
+
+# Durable, user-decided identity merges (migration 0012 is authoritative). An accepted merge
+# proposal inserts one row per merged source; the resolver applies the active rows
+# (``reverted_at IS NULL``) on every resolution, so reverting restores the prior identities.
+identity_merge = Table(
+    "identity_merge",
+    metadata,
+    Column(
+        "merge_id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    ),
+    Column("project_id", UUID(as_uuid=True), nullable=False),
+    Column("proposal_id", UUID(as_uuid=True), nullable=False),
+    Column("source_kind", String(8), nullable=False),  # 'label' | 'wellbore'
+    Column("source_key", Text, nullable=False),
+    Column("target_key", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    Column("decided_by", String(80), nullable=False),
+    Column("reverted_at", DateTime(timezone=True), nullable=True),
+    Column("reverted_by", String(80), nullable=True),
+    # Row ids of a merged-away wellbore (and its well), so a revert can restore them exactly.
+    Column("source_wellbore_id", UUID(as_uuid=True), nullable=True),
+    Column("source_well_id", UUID(as_uuid=True), nullable=True),
+    ForeignKeyConstraint(
+        ["project_id", "proposal_id"],
+        ["merge_proposal.project_id", "merge_proposal.proposal_id"],
+        name="fk_identity_merge_proposal_scope",
+    ),
+    CheckConstraint("source_kind IN ('wellbore', 'label')", name="source_kind_known"),
+    CheckConstraint("source_key <> target_key", name="source_is_not_target"),
+    CheckConstraint("(reverted_at IS NULL) = (reverted_by IS NULL)", name="revert_recorded"),
+    Index("ix_identity_merge_proposal", "project_id", "proposal_id"),
+    Index(
+        "uq_identity_merge_active_source",
+        "project_id",
+        "source_kind",
+        "source_key",
+        unique=True,
+        postgresql_where=text("reverted_at IS NULL"),
+    ),
+)
 
 record_wellbore_link = Table(
     "record_wellbore_link",

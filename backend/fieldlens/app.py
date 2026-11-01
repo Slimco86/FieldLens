@@ -31,6 +31,7 @@ from fieldlens.extraction import build_extraction_router
 from fieldlens.identity.routes import build_identity_router
 from fieldlens.ingestion import build_ingestion_router
 from fieldlens.jobs import JobWorker, build_jobs_router
+from fieldlens.merge_proposals.routes import build_merge_proposals_router
 from fieldlens.persistence.readiness import evaluate_readiness
 from fieldlens.persistence.session import create_db_engine, create_session_factory
 from fieldlens.processing.routes import build_processing_router
@@ -238,6 +239,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine) if engine is not None else None
     app.state.session_token = session_token or security.new_session_token()
+    app.state.merge_proposer = None  # no live provider wiring until D7 authorizes one
     app.state.blob_store = BlobStore(settings.storage_root)
     app.state.embedders = EmbedderProvider(settings)
     app.state.job_worker = (
@@ -296,6 +298,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_candidates_router())
     app.include_router(build_retrieval_router())
     app.include_router(build_identity_router())
+    app.include_router(build_merge_proposals_router())
     app.include_router(build_series_router())
     app.include_router(build_processing_router())
 

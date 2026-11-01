@@ -34,6 +34,14 @@ from sqlalchemy.orm import Session
 from fieldlens.persistence import models as m
 
 from .labels import BoreLabel, parse_bore_label
+from .merges import (
+    MERGE_BASIS,
+    SOURCE_LABEL,
+    SOURCE_WELLBORE,
+    ActiveMerge,
+    active_merges,
+    label_key,
+)
 from .tables import record_wellbore_link
 
 logger = logging.getLogger(__name__)
@@ -171,6 +179,7 @@ class SubjectGroup:
     profile: str | None = None
     run_counts: dict[UUID, int] = field(default_factory=dict)
     alias_of: str | None = None  # raw wellbore name when the production alias rule applied
+    merged_from: str | None = None  # source name replaced by an accepted, revertible merge
 
     @property
     def label(self) -> str:
@@ -222,6 +231,7 @@ def current_subject_groups(session: Session, project_id: UUID) -> list[SubjectGr
         group.run_counts[row.run_id] = group.run_counts.get(row.run_id, 0) + row.n
     out = list(by_subject.values())
     _apply_production_alias(out)
+    apply_merges(out, active_merges(session, project_id))
     return out
 
 
@@ -246,6 +256,32 @@ def _apply_production_alias(groups: list[SubjectGroup]) -> None:
             g.outcome = Resolved(BoreLabel(o.bore.block, o.bore.well_slot, None))
 
 
+def apply_merges(groups: list[SubjectGroup], merges: list[ActiveMerge]) -> None:
+    """Apply user-accepted merges (TASK-057): a resolved wellbore key or an unresolved raw label
+    becomes the target wellbore. Only active, explicit rows act; the raw labels stay in the
+    records, and reverting a merge restores the deterministic outcome on the next resolution."""
+    if not merges:
+        return
+    targets: dict[tuple[str, str], BoreLabel] = {}
+    for item in merges:
+        parsed = parse_bore_label(item.target_key)
+        if parsed is not None and parsed.block:
+            targets[(item.source_kind, item.source_key)] = parsed
+    for g in groups:
+        o = g.outcome
+        if isinstance(o, Resolved):
+            hit = targets.get((SOURCE_WELLBORE, o.wellbore_name))
+            if hit is not None:
+                g.merged_from, g.outcome = o.wellbore_name, Resolved(hit)
+            continue
+        for key in _LABEL_KEYS:
+            text_ = _str(g.subject.get(key))
+            hit = targets.get((SOURCE_LABEL, label_key(text_))) if text_ else None
+            if hit is not None:
+                g.merged_from, g.outcome = text_, Resolved(hit)
+                break
+
+
 @dataclass
 class ResolveOutcome:
     wells: int
@@ -262,9 +298,17 @@ def _lock(session: Session, project_id: UUID) -> None:
     )
 
 
-def resolve_project(session: Session, project_id: UUID) -> ResolveOutcome:
+def resolve_project(
+    session: Session,
+    project_id: UUID,
+    *,
+    bore_id_hints: dict[str, UUID] | None = None,
+    well_id_hints: dict[str, UUID] | None = None,
+) -> ResolveOutcome:
     """Rebuild the project's identities from its current extraction output (idempotent: stable
-    row ids by key, links and findings replaced atomically). Caller commits."""
+    row ids by key, links and findings replaced atomically). Caller commits. The hints give the
+    row id to use when a key has to be created again (a reverted merge restores its old ids)."""
+    bore_id_hints, well_id_hints = bore_id_hints or {}, well_id_hints or {}
     _lock(session, project_id)
     groups = current_subject_groups(session, project_id)
     resolved = [g for g in groups if isinstance(g.outcome, Resolved)]
@@ -289,7 +333,12 @@ def resolve_project(session: Session, project_id: UUID) -> ResolveOutcome:
     for name in wells:
         stmt = (
             pg_insert(w)
-            .values(well_id=uuid4(), project_id=project_id, name=name, well_key=name)
+            .values(
+                well_id=well_id_hints.get(name) or uuid4(),
+                project_id=project_id,
+                name=name,
+                well_key=name,
+            )
             .on_conflict_do_update(
                 index_elements=[w.c.project_id, w.c.well_key], set_={"name": name}
             )
@@ -301,7 +350,7 @@ def resolve_project(session: Session, project_id: UUID) -> ResolveOutcome:
         stmt = (
             pg_insert(wb)
             .values(
-                wellbore_id=uuid4(),
+                wellbore_id=bore_id_hints.get(name) or uuid4(),
                 project_id=project_id,
                 well_id=well_ids[bore.well_name],
                 name=name,
@@ -339,7 +388,7 @@ def resolve_project(session: Session, project_id: UUID) -> ResolveOutcome:
                 er.c.ordinal,
                 ru.c.project_id,
                 literal(wid),
-                literal(ALIAS_BASIS if g.alias_of else "label"),
+                literal(MERGE_BASIS if g.merged_from else (ALIAS_BASIS if g.alias_of else "label")),
             )
             .join(ru, ru.c.run_id == er.c.run_id)
             .where(

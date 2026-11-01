@@ -326,6 +326,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/merge-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proposals */
+        get: operations["list_proposals_api_v1_projects__project_id__merge_proposals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/merge-proposals/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get One */
+        get: operations["get_one_api_v1_projects__project_id__merge_proposals__proposal_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/merge-proposals/{proposal_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept */
+        post: operations["accept_api_v1_projects__project_id__merge_proposals__proposal_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/merge-proposals/{proposal_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject */
+        post: operations["reject_api_v1_projects__project_id__merge_proposals__proposal_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/merge-proposals/{proposal_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revert */
+        post: operations["revert_api_v1_projects__project_id__merge_proposals__proposal_id__revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/merge-proposals/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Estimate */
+        post: operations["estimate_api_v1_projects__project_id__merge_proposals_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/merge-proposals/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_v1_projects__project_id__merge_proposals_runs_get"];
+        put?: never;
+        /** Start Run */
+        post: operations["start_run_api_v1_projects__project_id__merge_proposals_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/processing/documents": {
         parameters: {
             query?: never;
@@ -2742,6 +2862,302 @@ export interface components {
              * @description The value exactly as written.
              */
             value_text: string;
+        };
+        /** MergeDecisionRequest */
+        MergeDecisionRequest: {
+            /**
+             * Decided By
+             * @default user
+             */
+            decided_by: string;
+            /**
+             * Note
+             * @default null
+             */
+            note: string | null;
+        };
+        /** MergeEvidenceQuote */
+        MergeEvidenceQuote: {
+            /**
+             * Content Sha256
+             * @description Hash of the document when the quote was verified.
+             */
+            content_sha256: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Quote
+             * @description Verbatim text found in the document by the server.
+             */
+            quote: string;
+        };
+        /** MergeGuardResult */
+        MergeGuardResult: {
+            /**
+             * Code
+             * @description g1_scope .. g7_evidence.
+             */
+            code: string;
+            /**
+             * Detail
+             * @description Short, non-sensitive explanation.
+             */
+            detail: string;
+            /** Passed */
+            passed: boolean;
+        };
+        /** MergeProposal */
+        MergeProposal: {
+            /**
+             * Acceptable
+             * @description True only for a pending proposal whose guards all passed when created.
+             */
+            acceptable: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Dataset Current
+             * @description False when the project's identity inputs changed since the proposal.
+             */
+            dataset_current: boolean;
+            /** Dataset Fingerprint */
+            dataset_fingerprint: string;
+            /**
+             * Decided At
+             * @default null
+             */
+            decided_at: string | null;
+            /**
+             * Decided By
+             * @default null
+             */
+            decided_by: string | null;
+            /**
+             * Decision Note
+             * @default null
+             */
+            decision_note: string | null;
+            /** Guard Results */
+            guard_results: components["schemas"]["MergeGuardResult"][];
+            /** Members */
+            members: components["schemas"]["MergeProposalMember"][];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+            /** Rationale */
+            rationale: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            status: components["schemas"]["MergeProposalStatus"];
+            target: components["schemas"]["MergeProposalMember"];
+        };
+        /** MergeProposalEstimate */
+        MergeProposalEstimate: {
+            /**
+             * Blocks
+             * @description Blocks that would be sent to the model.
+             */
+            blocks: number;
+            /** Calls */
+            calls: number;
+            /** Dataset Fingerprint */
+            dataset_fingerprint: string;
+            /**
+             * Deferred Blocks
+             * @description Blocks beyond the per-run bound.
+             */
+            deferred_blocks: number;
+            /** Max Reserved Usd Per Call */
+            max_reserved_usd_per_call: string;
+            /** Provider Configured */
+            provider_configured: boolean;
+            /** Upper Bound Usd */
+            upper_bound_usd: string;
+        };
+        /** MergeProposalMember */
+        MergeProposalMember: {
+            /** Evidence */
+            evidence?: components["schemas"]["MergeEvidenceQuote"][];
+            /**
+             * Key
+             * @description Wellbore key or normalized label (the durable merge key).
+             */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "wellbore" | "label";
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "target" | "member";
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
+        };
+        /** MergeProposalPage */
+        MergeProposalPage: {
+            /** Items */
+            items: components["schemas"]["MergeProposal"][];
+            /** Total */
+            total: number;
+        };
+        /** MergeProposalQuery */
+        MergeProposalQuery: {
+            /**
+             * Limit
+             * @default 50
+             */
+            limit: number;
+            /** @default null */
+            status: components["schemas"]["MergeProposalStatus"] | null;
+        };
+        /** MergeProposalRun */
+        MergeProposalRun: {
+            /** Blocks */
+            blocks: number;
+            /** Calls */
+            calls: components["schemas"]["MergeRunCall"][];
+            /**
+             * Cost Usd
+             * @default null
+             */
+            cost_usd: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Dataset Fingerprint */
+            dataset_fingerprint: string;
+            /** Deferred Blocks */
+            deferred_blocks: number;
+            /** Drop Reasons */
+            drop_reasons: {
+                [key: string]: number;
+            };
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /** Guard Version */
+            guard_version: string;
+            /**
+             * Input Tokens
+             * @default null
+             */
+            input_tokens: number | null;
+            /** Model Id */
+            model_id: string;
+            /**
+             * Output Tokens
+             * @default null
+             */
+            output_tokens: number | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Prompt Version */
+            prompt_version: string;
+            /** Proposals Created */
+            proposals_created: number;
+            /** Proposals Dropped */
+            proposals_dropped: number;
+            /** Provider Calls */
+            provider_calls: number;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "succeeded" | "partial" | "failed" | "no_candidates";
+        };
+        /** MergeProposalRunPage */
+        MergeProposalRunPage: {
+            /** Items */
+            items: components["schemas"]["MergeProposalRun"][];
+        };
+        /**
+         * MergeProposalStatus
+         * @enum {string}
+         */
+        MergeProposalStatus: "pending" | "accepted" | "rejected" | "reverted" | "blocked";
+        /** MergeRunCall */
+        MergeRunCall: {
+            /** Attempts */
+            attempts: number;
+            /** Blocks */
+            blocks: number;
+            /**
+             * Cost Usd
+             * @default null
+             */
+            cost_usd: string | null;
+            /** Index */
+            index: number;
+            /**
+             * Input Tokens
+             * @default null
+             */
+            input_tokens: number | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "ok" | "failed";
+            /**
+             * Output Tokens
+             * @default null
+             */
+            output_tokens: number | null;
+            /**
+             * Reason
+             * @description Stable failure code.
+             * @default null
+             */
+            reason: string | null;
+        };
+        /** MergeRunRequest */
+        MergeRunRequest: {
+            /**
+             * Confirm
+             * @description Must be true: the run spends model budget after the estimate was shown.
+             */
+            confirm: boolean;
         };
         /** ModelRevision */
         ModelRevision: {
@@ -5833,6 +6249,493 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_proposals_api_v1_projects__project_id__merge_proposals_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                status?: components["schemas"]["MergeProposalStatus"] | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProposalPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_one_api_v1_projects__project_id__merge_proposals__proposal_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProposal"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    accept_api_v1_projects__project_id__merge_proposals__proposal_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProposal"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    reject_api_v1_projects__project_id__merge_proposals__proposal_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProposal"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revert_api_v1_projects__project_id__merge_proposals__proposal_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProposal"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    estimate_api_v1_projects__project_id__merge_proposals_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProposalEstimate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_projects__project_id__merge_proposals_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProposalRunPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    start_run_api_v1_projects__project_id__merge_proposals_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProposalRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
