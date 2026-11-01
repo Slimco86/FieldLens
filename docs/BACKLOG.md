@@ -1732,6 +1732,27 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Needs cross-document matching on well key plus wellbore name, a precedence flag on the extraction run and locator pairing.
 **Evidence.** none yet
 
+### TASK-061 · Block-less well labels (Statoil exports) as unresolved identities eligible for merge proposals
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend, agent |
+| Depends on | TASK-056, TASK-057 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-I |
+
+**Outcome.** The real Statoil survey exports name the well only as `F-12` / `F-5` (no block, no well key), and the deterministic resolver by design resolves an unqualified label only when another source names it with the block, so a project with only those exports yields `NO_WELLBORE_IDENTIFIED` (found by the TASK-056 real-record test). Surface such labels as explicit unresolved "block not stated" identities that carry their records and are listed in the exposure/gate, and allow the TASK-057 merge proposals to merge them into the block-qualified wellbore with alias evidence, guards unchanged.
+**Next action.** Needs an owner decision on whether the gate may accept a "block not stated" wellbore directly (with a warning) or only after a merge proposal is accepted; spec it in PROCESSING_FLOW.md before implementation. Start after TASK-056 and TASK-057 merge.
+**Evidence.** none yet
+
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 
 | Field | Value |
