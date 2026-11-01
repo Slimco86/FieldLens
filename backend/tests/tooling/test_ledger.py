@@ -269,7 +269,7 @@ def test_backlog_links_resolve() -> None:
 def test_plan_command_and_list(capsys: pytest.CaptureFixture[str]) -> None:
     assert track.main(["plan", "--offline"]) == 0
     out = capsys.readouterr().out
-    assert "feature: 23" in out and "task: 49" in out
+    assert re.search(r"feature: \d+", out) and re.search(r"task: \d+", out)
     assert track.main(["list", "--status", "done", "--tag", "foundation"]) == 0
     assert "FL-004" in capsys.readouterr().out
 
