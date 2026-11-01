@@ -179,7 +179,7 @@ class PageRenderer:
     ) -> None:
         self._store = store
         self.long_side = clamp_long_side(long_side)
-        self._cache: OrderedDict[tuple[str, int, int, int | None], RenderedPage] = OrderedDict()
+        self._cache: OrderedDict[tuple[str, int, int, int | None, bool], RenderedPage] = OrderedDict()
         self._cache_bytes = cache_bytes
         self._cached_total = 0
         self._cache_lock = threading.Lock()
@@ -258,13 +258,16 @@ class PageRenderer:
         *,
         long_side: int | None = None,
         rotation: int | None = None,
+        image_check: bool = False,
     ) -> RenderedPage:
         """Upright JPEG of one page. ``rotation`` (0/90/180/270 clockwise) is an explicit flag;
-        None runs the bounded orientation check."""
+        None runs the text-layer check. The ink-profile check for image-only pages is OPT-IN
+        (``image_check``): on the real scanned completion reports it turned already-upright
+        pages by 180/270 degrees, so by default an image-only page is sent as pdfium rendered it."""
         if rotation is not None and rotation not in (0, 90, 180, 270):
             raise PageError("bad_rotation", "rotation must be 0, 90, 180 or 270")
         side = clamp_long_side(long_side if long_side is not None else self.long_side)
-        key = (sha256, page, side, rotation)
+        key = (sha256, page, side, rotation, image_check)
         with self._cache_lock:
             hit = self._cache.get(key)
             if hit is not None:
@@ -289,7 +292,7 @@ class PageRenderer:
                 image = pdf_page.render(scale=scale).to_pil().convert("RGB")
             finally:
                 doc.close()
-        if rotation is None and how == "none":
+        if rotation is None and how == "none" and image_check:
             applied, how = image_orientation(image)
         if applied:
             image = image.rotate(-applied, expand=True, fillcolor=(255, 255, 255))
@@ -316,7 +319,7 @@ class PageRenderer:
         self._remember(key, result)
         return result
 
-    def _remember(self, key: tuple[str, int, int, int | None], value: RenderedPage) -> None:
+    def _remember(self, key: tuple[str, int, int, int | None, bool], value: RenderedPage) -> None:
         with self._cache_lock:
             if key in self._cache:
                 return
@@ -334,11 +337,18 @@ class PageRenderer:
         *,
         long_side: int | None = None,
         rotation: int | None = None,
+        image_check: bool = False,
     ) -> RenderedPage:
         """Event-loop entry point: pdfium work runs in a worker thread, concurrency bounded."""
         if self._async_gate is None:
             self._async_gate = asyncio.Semaphore(self._concurrency)
         async with self._async_gate:
             return await asyncio.to_thread(
-                self.render, sha256, storage_key, page, long_side=long_side, rotation=rotation
+                self.render,
+                sha256,
+                storage_key,
+                page,
+                long_side=long_side,
+                rotation=rotation,
+                image_check=image_check,
             )

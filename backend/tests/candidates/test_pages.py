@@ -85,7 +85,9 @@ def test_page_orientation_image_only(tmp_path: Path, angle: int) -> None:
     data = make_pdf([PdfPage(scan_lines=EQUIPMENT_LINES, scan_angle_cw=angle)])
     r, sha, key = _store(tmp_path, data)
     assert not r.page_text(key, 1).has_text_layer
-    out = r.render(sha, key, 1)
+    default = r.render(sha, key, 1)  # opt-in only: real scans were mis-rotated by this check
+    assert default.orientation == "none" and default.rotation_applied == 0
+    out = r.render(sha, key, 1, image_check=True)
     assert out.orientation == "image_profile" and out.rotation_applied == (-angle) % 360
     with Image.open(io.BytesIO(out.data)) as img:
         assert pg.image_orientation(img)[0] == 0

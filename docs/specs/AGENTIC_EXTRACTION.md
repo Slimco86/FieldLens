@@ -190,6 +190,26 @@ step without comparing content, so a reused key with different content is ignore
 Start with one ambiguity class end to end (table/unit interpretation on a TASK-009 fixture), then add classes in order.
 Do not claim proposed commands exist; record actual test commands and results at handoff.
 
+### Implementation notes (TASK-036, stub provider only)
+
+- **Code.** `backend/fieldlens/candidates/`: `harness.py` (unit and document run), `tools.py` (read_span, read_table,
+  search_project, get_page_image), `pages.py` (pypdfium2 render, cache, orientation), `triage.py`, `validators.py`,
+  `schema.py` (closed wire schema), `repository.py`/`routes.py` (read API `GET /projects/{id}/extraction-candidates`
+  and `/documents/{id}/extraction-candidates`). Migration `0010_extraction_candidates`: `extraction_candidate`
+  (typed JSONB `attributes` with a `kind` discriminator; TASK-041 adds a variant, no migration) and
+  `agent_work_unit.reservation_id`. DB CHECKs make AX-13 structural (a `model_read` row is never `accepted`).
+- **Contracts.** `EvidenceClass.model_proposal`, `ValidationState.unverified`, `contracts/candidates.py`.
+- **Decisions.** A unit ends `failed` for refusal/malformed/oversized output, tool-allowlist violation or a hit limit
+  (nothing persisted); transient provider errors end it `interrupted` with the reservation left open so a fenced retry
+  resumes it; the unit is finalized before its reservation is settled. Warnings (a defaulted meter unit) never block.
+  Subject mismatch with the document's own records leaves the candidate unattached and flagged.
+- **Orientation.** Rotation flag, then text-layer character angles (reliable on synthetic pages). The ink-profile check
+  for image-only pages is **opt-in**: on the real scanned PV-17/PV-21 pages it rotated already-upright pages by 180/270
+  degrees, so the default sends image-only pages as pdfium renders them. A better scan orientation check is open.
+- **Calculation guard.** `engineering/provenance.py`; `PerforationHistory.build` rejects marked records. The trajectory
+  entry has no provenance input yet (open, for the reconstruction consumer).
+- Not done here: AX-11 (coordinate fallback acceptance), xlsx/xml locators for candidates, live behavior.
+
 ### Implementation handoff and integration
 
 | Field | Record before handoff / after integration |
