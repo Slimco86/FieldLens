@@ -75,6 +75,7 @@ from fieldlens.persistence.session import session_scope
 from fieldlens.retrieval.search import RetrievalService
 
 from . import repository
+from .reconcile import settle_finished_units
 from .schema import OutputRejected, WireMeasurement, WirePageItem, candidate_key, parse_output
 from .sources import DocInfo, SourceError, SourceReader
 from .tables import extraction_candidate
@@ -101,18 +102,19 @@ SYSTEM_PROMPT = (
     '("measurement" or "page_read"), a "locator" {document_id, page or line_start/line_end} '
     'that points at where you read it, a verbatim "quote" copied from that text when a text '
     "layer exists, subject {wellbore_label}, and the value exactly as written with its unit "
-    "exactly as written. Never convert units, never treat MD as TVD, never invent a unit, "
+    "exactly as written. If a page image is sideways or upside down, request it again with "
+    "get_page_image and a rotation of 90, 180 or 270 (clockwise degrees). Never convert units, never treat MD as TVD, never invent a unit, "
     "date or coordinate system, and use null or omit what the source does not state. If "
     'nothing is supported, answer {"candidates":[]}.'
 )
 
 
-def step_key(unit_key: str, name: str, args: object) -> str:
-    """AX-15: derived from (unit, tool/step name, canonical argument hash); <= 120 chars."""
-    digest = hashlib.sha256(f"{unit_key}\x00{name}\x00{canonical_json(args)}".encode()).hexdigest()[
-        :32
-    ]
-    return f"{name[:40]}:{digest}"
+def step_key(unit_key: str, name: str, args: object, ordinal: int = 0) -> str:
+    """AX-15: derived from (unit, tool/step name, canonical argument hash, ordinal); <= 120 chars.
+    The ordinal makes identical repeated calls separate, charged-and-logged steps; a resumed
+    attempt replays the same ordinals."""
+    material = f"{unit_key}\x00{name}\x00{canonical_json(args)}\x00{ordinal}"
+    return f"{name[:40]}:{hashlib.sha256(material.encode()).hexdigest()[:32]}"
 
 
 @dataclass(frozen=True)
@@ -222,8 +224,11 @@ class ExtractionHarness:
 
     # -- recovery / cancel --------------------------------------------------------------------
     def recover_interrupted(self) -> list[UUID]:
-        """Startup hook: running units become ``interrupted`` (never successful)."""
-        return self.log.recover_interrupted()
+        """Startup hook: running units become ``interrupted`` (never successful) and the
+        reservations of finished units that were never settled are settled (D8)."""
+        recovered = self.log.recover_interrupted()
+        settle_finished_units(self._factory, self._ledger)
+        return recovered
 
     def cancel(self, project_id: UUID, unit_key: str) -> bool:
         with self._lock:
@@ -419,12 +424,12 @@ class ExtractionHarness:
         """Record a refused tool request by name (never executed) and return the stop reason."""
         calls = spy.last.tool_calls() if spy.last is not None else []
         bad = [c for c in calls if c.name not in ALLOWED_TOOLS]
-        for call in bad:
+        for index, call in enumerate(bad):
             self.log.append_step(
                 handle,
                 "tool_call",
                 "refused: tool_not_allowed",
-                step_key=step_key(key, f"tool:{call.name}", call.arguments),
+                step_key=step_key(key, f"tool:{call.name}", call.arguments, index),
                 tool_name=call.name,
                 outcome=AgentStepOutcome.REFUSED,
                 detail={"reason": "tool_not_allowed", "by": "model"},
@@ -498,6 +503,7 @@ class ExtractionHarness:
         name: str,
         args: dict[str, Any],
         call: ToolCallPart | None = None,
+        ordinal: int = 0,
     ) -> ToolOutcome:
         call = call or ToolCallPart(call_id="harness", name=name, arguments=args)
         try:
@@ -505,7 +511,9 @@ class ExtractionHarness:
         except Exception:  # noqa: BLE001 - never forward internals; record and refuse
             logger.warning("tool %s failed", name)
             outcome = ToolOutcome('{"error":"tool_failed"}', "error", "tool_failed", "tool failed")
-        self._log_tool(handle, key, name, args, outcome, harness=call.call_id == "harness")
+        self._log_tool(
+            handle, key, name, args, outcome, harness=call.call_id == "harness", ordinal=ordinal
+        )
         return outcome
 
     def _log_tool(
@@ -517,6 +525,7 @@ class ExtractionHarness:
         outcome: ToolOutcome,
         *,
         harness: bool,
+        ordinal: int = 0,
     ) -> None:
         mapped = {
             "ok": AgentStepOutcome.OK,
@@ -532,7 +541,7 @@ class ExtractionHarness:
             handle,
             "tool_call",
             f"{name}: {outcome.summary}"[:300],
-            step_key=step_key(key, f"tool:{name}", args),
+            step_key=step_key(key, f"tool:{name}", args, ordinal),
             tool_name=name,
             outcome=mapped,
             detail=detail,
@@ -586,12 +595,14 @@ class ExtractionHarness:
             if not calls:
                 return response.text(), provider_calls
             if unit.tool_calls + len(calls) > unit.limits.max_tool_calls:
-                for call in calls:
+                for index, call in enumerate(calls):
                     self.log.append_step(
                         handle,
                         "tool_call",
                         "refused: tool_call_limit",
-                        step_key=step_key(key, f"tool:{call.name}", call.arguments),
+                        step_key=step_key(
+                            key, f"tool:{call.name}", call.arguments, unit.tool_calls + index + 1
+                        ),
                         tool_name=call.name,
                         outcome=AgentStepOutcome.REFUSED,
                         detail={
@@ -608,7 +619,7 @@ class ExtractionHarness:
                 unit.tool_calls += 1
                 self._ledger.add_tool_calls(rid, 1)
                 outcome = self._run_tool(
-                    toolbox, handle, key, call.name, dict(call.arguments), call
+                    toolbox, handle, key, call.name, dict(call.arguments), call, unit.tool_calls
                 )
                 results.append(
                     ToolResultPart(

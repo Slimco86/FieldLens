@@ -19,6 +19,8 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from fieldlens import __version__, security
 from fieldlens.activity import ActivityLog, build_activity_router
+from fieldlens.assistant.budget import BudgetLedger
+from fieldlens.candidates.reconcile import settle_finished_units
 from fieldlens.candidates.routes import build_candidates_router
 from fieldlens.config import Settings, get_settings
 from fieldlens.contracts.errors import ContractError, ErrorBody, ErrorCode, ErrorEnvelope
@@ -205,6 +207,9 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         if app.state.activity_log is not None:
             try:
                 app.state.activity_log.recover_interrupted()
+                settle_finished_units(
+                    app.state.session_factory, BudgetLedger(app.state.session_factory)
+                )
             except Exception:  # noqa: BLE001 - startup must not fail on an unavailable database
                 logger.warning("activity-log recovery skipped: storage unavailable")
         if worker is not None and settings.job_worker_enabled:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -74,8 +75,14 @@ class OutputRejected(Exception):
         self.code = code
 
 
+_FENCE = re.compile(r"\A```json[ \t]*\r?\n(?P<body>.*?)\r?\n```\Z", re.DOTALL)
+
+
 def parse_output(text: str) -> WireOutput:
     raw = text.strip()
+    fenced = _FENCE.match(raw)  # exactly one ```json block around the object, nothing else
+    if fenced is not None and "```" not in fenced.group("body"):
+        raw = fenced.group("body").strip()
     if len(raw.encode("utf-8", "replace")) > MAX_OUTPUT_BYTES:
         raise OutputRejected("output_oversized")
     if not raw.startswith("{"):

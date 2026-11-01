@@ -67,21 +67,37 @@ def test_page_image_cache(tmp_path: Path) -> None:
 @pytest.mark.parametrize("content_angle", [0, 90, 180, 270])
 @pytest.mark.parametrize("page_rotate", [0, 90])
 def test_page_orientation(tmp_path: Path, content_angle: int, page_rotate: int) -> None:
-    """Text-layer pages: the rendered image is corrected to upright, whatever the source."""
+    """Text-layer pages: the correction follows the geometry of the fixture, not the code under
+    test. Text drawn counter-clockwise by A on a page rotated clockwise by R looks rotated
+    counter-clockwise by (A - R); the upright image is that rotated back clockwise."""
     data = make_pdf(
         [PdfPage(lines=EQUIPMENT_LINES, content_angle=content_angle, page_rotate=page_rotate)]
     )
     r, sha, key = _store(tmp_path, data)
     out = r.render(sha, key, 1)
     assert out.orientation == "text_layer"
-    # the corrected image has horizontal text: ascender skew is positive upright
-    with Image.open(io.BytesIO(out.data)) as img:
-        assert pg.image_orientation(img)[0] == 0
+    assert out.rotation_applied == (content_angle - page_rotate) % 360
+    plain = r.render(sha, key, 1, rotation=0)
+    with Image.open(io.BytesIO(plain.data)) as raw, Image.open(io.BytesIO(out.data)) as fixed:
+        expected = raw.rotate(-out.rotation_applied, expand=True, fillcolor=(255, 255, 255))
+        assert fixed.size == expected.size
+
+
+def _diff(a: Image.Image, b: Image.Image) -> float:
+    import numpy as np
+
+    return float(
+        np.abs(np.asarray(a.convert("L"), float) - np.asarray(b.convert("L"), float)).mean()
+    )
 
 
 @pytest.mark.parametrize("angle", [0, 90, 180, 270])
 def test_page_orientation_image_only(tmp_path: Path, angle: int) -> None:
-    """Scan-like pages (no text layer): the bounded ink-profile check uprights the image."""
+    """Scan-like pages (no text layer). The ground truth is an independently produced upright
+    page: the corrected image of the rotated scan must equal it (up to JPEG noise)."""
+    upright_pdf = make_pdf([PdfPage(scan_lines=EQUIPMENT_LINES, scan_angle_cw=0)])
+    ru, shau, keyu = _store(tmp_path / "up", upright_pdf)
+    truth = ru.render(shau, keyu, 1, rotation=0)
     data = make_pdf([PdfPage(scan_lines=EQUIPMENT_LINES, scan_angle_cw=angle)])
     r, sha, key = _store(tmp_path, data)
     assert not r.page_text(key, 1).has_text_layer
@@ -89,8 +105,9 @@ def test_page_orientation_image_only(tmp_path: Path, angle: int) -> None:
     assert default.orientation == "none" and default.rotation_applied == 0
     out = r.render(sha, key, 1, image_check=True)
     assert out.orientation == "image_profile" and out.rotation_applied == (-angle) % 360
-    with Image.open(io.BytesIO(out.data)) as img:
-        assert pg.image_orientation(img)[0] == 0
+    with Image.open(io.BytesIO(truth.data)) as t, Image.open(io.BytesIO(out.data)) as fixed:
+        assert fixed.size == t.size
+        assert _diff(fixed, t) < 12  # a wrong rotation differs by far more than this
     # an explicit rotation flag wins over the check
     flagged = r.render(sha, key, 1, rotation=0)
     assert flagged.orientation == "flag" and flagged.rotation_applied == 0

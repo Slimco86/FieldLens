@@ -2067,6 +2067,12 @@ export interface components {
              */
             unit_defaulted: boolean;
             /**
+             * Unit Source
+             * @description Where the unit comes from: the quote (as written), a unit the cited context states (a table header), the model's claim (only when the quote states none and the context does not contradict it) or the meters default.
+             * @default null
+             */
+            unit_source: ("quote" | "context" | "claimed" | "default") | null;
+            /**
              * Value Text
              * @description The value exactly as written.
              */
@@ -2159,6 +2165,11 @@ export interface components {
              * @default null
              */
             depth_text: string | null;
+            /**
+             * Dropped Fields
+             * @description Fields the model proposed that the text layer does not support; removed.
+             */
+            dropped_fields?: string[];
             /** Item Type */
             item_type: string;
             /**
@@ -2454,7 +2465,7 @@ export interface components {
          * ReasonCode
          * @enum {string}
          */
-        ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified";
+        ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified" | "unit_conflicts_with_quote" | "unit_not_in_source" | "number_unparseable" | "field_unverified" | "coordinate_fallback_unsupported";
         /**
          * RequeueOutcome
          * @enum {string}

@@ -22,6 +22,7 @@ from .pages import PageError, PageRenderer, PageText
 
 MAX_SPAN_LINES = 200
 MAX_SPAN_CHARS = 8000
+MAX_LINE_BYTES = 4096  # per line read; the rest of a longer line is skipped, never held
 MAX_LINE_SCAN = 5_000_000
 SNIFF_BYTES = 8192
 
@@ -121,16 +122,27 @@ class SourceReader:
         except (ValueError, OSError) as exc:
             raise SourceError("document_unavailable", "document content is unavailable") from exc
         lines: list[str] = []
+        cut = False
         with handle:
-            for number, raw in enumerate(handle, start=1):
-                if number > line_end or number > MAX_LINE_SCAN:
+            number = 0
+            while number < min(line_end, MAX_LINE_SCAN):
+                chunk = handle.readline(MAX_LINE_BYTES + 1)
+                if not chunk:
                     break
+                number += 1
+                was_long = long_line = len(chunk) > MAX_LINE_BYTES and not chunk.endswith(b"\n")
+                while long_line:  # skip the remainder of an over-long line in bounded pieces
+                    rest = handle.readline(MAX_LINE_BYTES)
+                    long_line = bool(rest) and not rest.endswith(b"\n")
+                if was_long and number >= line_start:
+                    cut = True
+                    chunk = chunk[:MAX_LINE_BYTES]
                 if number >= line_start:
-                    lines.append(raw.decode("utf-8", "replace").rstrip("\r\n"))
+                    lines.append(chunk.decode("utf-8", "replace").rstrip("\r\n"))
         if not lines:
             raise SourceError("range_not_found", "the line range is beyond the end of the document")
         text = "\n".join(lines)
-        truncated = len(text) > MAX_SPAN_CHARS
+        truncated = cut or len(text) > MAX_SPAN_CHARS
         return LineSpan(text[:MAX_SPAN_CHARS], line_start, line_start + len(lines) - 1, truncated)
 
     # -- pdf pages --------------------------------------------------------------------------

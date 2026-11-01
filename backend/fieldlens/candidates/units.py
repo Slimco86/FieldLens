@@ -63,6 +63,7 @@ class AttributeSpec:
     low: float  # plausible range in base units
     high: float
     reference: str | None = None  # MD | TVD | TVDSS when the suffix names it
+    allow_fraction: bool = False  # nominal sizes are written as 9 5/8
 
 
 _DEPTH_RANGE = (0.0, 15_000.0)
@@ -77,9 +78,9 @@ _SPECS: dict[str, AttributeSpec] = {
     "tvdss": AttributeSpec("length", -500.0, 15_000.0, "TVDSS"),
     "depth": AttributeSpec("length", *_DEPTH_RANGE),
     "length": AttributeSpec("length", 0.0, 15_000.0),
-    "od": AttributeSpec("length", *_SIZE_RANGE),
-    "id": AttributeSpec("length", *_SIZE_RANGE),
-    "diameter": AttributeSpec("length", *_SIZE_RANGE),
+    "od": AttributeSpec("length", *_SIZE_RANGE, None, True),
+    "id": AttributeSpec("length", *_SIZE_RANGE, None, True),
+    "diameter": AttributeSpec("length", *_SIZE_RANGE, None, True),
     "easting": AttributeSpec("length", -1.0e7, 1.0e8),
     "northing": AttributeSpec("length", -1.0e7, 1.0e8),
     "pressure": AttributeSpec("pressure", 0.0, 2.0e9),
@@ -88,6 +89,8 @@ _SPECS: dict[str, AttributeSpec] = {
     "azimuth": AttributeSpec("angle", 0.0, 360.0),
 }
 COORDINATE_SUFFIXES = frozenset({"easting", "northing", "x", "y", "latitude", "longitude"})
+TRAJECTORY_PREFIXES = ("trajectory", "survey", "station", "coordinate")
+TRAJECTORY_SUFFIXES = frozenset({"inclination", "azimuth"})
 
 
 def attribute_spec(key: str) -> AttributeSpec | None:
@@ -96,3 +99,13 @@ def attribute_spec(key: str) -> AttributeSpec | None:
 
 def is_coordinate(key: str) -> bool:
     return key.rsplit(".", 1)[-1] in COORDINATE_SUFFIXES or key.startswith("coordinate.")
+
+
+def is_trajectory_type(key: str) -> bool:
+    """Coordinates and survey/trajectory values: no accept path until AX-11 exists."""
+    head, _, last = key.partition(".")
+    return (
+        is_coordinate(key)
+        or head.startswith(TRAJECTORY_PREFIXES)
+        or key.rsplit(".", 1)[-1] in TRAJECTORY_SUFFIXES
+    )

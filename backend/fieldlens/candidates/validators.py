@@ -28,14 +28,22 @@ from fieldlens.contracts.candidates import (
     ValidatorResult,
 )
 from fieldlens.contracts.evidence import ValidationState
-from fieldlens.identity.labels import BoreLabel, parse_bore_label
+from fieldlens.identity.labels import BoreLabel, aliases, norm_identifier, parse_bore_label
 from fieldlens.identity.tables import record_wellbore_link as lk
 from fieldlens.persistence import models as m
 from fieldlens.persistence.session import session_scope
 
 from .schema import WireLocator, WireMeasurement, WirePageItem
 from .sources import DocInfo, SourceError, SourceReader
-from .units import BASE_UNIT, attribute_spec, is_coordinate, parse_number, parse_unit
+from .textmatch import context_units, parse_quantity, supported_in, unit_after
+from .units import (
+    BASE_UNIT,
+    Parsed,
+    attribute_spec,
+    is_coordinate,
+    is_trajectory_type,
+    parse_unit,
+)
 
 PARSED_TOLERANCE = 0.01  # base units (m); a parsed value this close is an agreement
 LABEL_MODEL_READ = "model-read, unverified"
@@ -213,6 +221,14 @@ def _wellbore_names(session: Session, project_id: UUID, ids: set[UUID]) -> str:
 # -- parsed value conflict ----------------------------------------------------------------------
 
 
+def _record_value(attributes: list[dict[str, Any]], key: str) -> float | None:
+    for a in attributes:
+        if a.get("key") == key:
+            v = a.get("normalized_number")
+            return float(v) if isinstance(v, int | float) and not isinstance(v, bool) else None
+    return None
+
+
 def _parsed_conflict(
     session: Session,
     project_id: UUID,
@@ -220,12 +236,15 @@ def _parsed_conflict(
     key: str,
     normalized: float | None,
     span: _Span,
+    effective_time_text: str | None,
 ) -> tuple[ValidatorResult, UUID | None]:
-    """Compare with the deterministic record at the same source location (or the only parsed
-    value for the attribute). The parsed record is read-only here and always stays authoritative."""
+    """Compare with the deterministic records of the same wellbore and attribute. Records at the
+    cited source lines decide first; otherwise the candidate must agree with ANY parsed value of
+    that attribute (never skipped when parsed values exist). Records with another effective time
+    are not comparable. The parsed record is read-only and always stays authoritative."""
     er, run = m.extracted_record, m.extraction_run
     rows = session.execute(
-        select(er.c.record_id, er.c.document_id, er.c.locator, er.c.attributes)
+        select(er.c.record_id, er.c.document_id, er.c.locator, er.c.attributes, er.c.effective_time)
         .join(lk, (er.c.run_id == lk.c.run_id) & (er.c.ordinal == lk.c.ordinal))
         .join(run, run.c.run_id == er.c.run_id)
         .where(
@@ -235,21 +254,26 @@ def _parsed_conflict(
             run.c.status.in_(("succeeded", "partial")),
             er.c.attributes.contains([{"key": key}]),
         )
-        .limit(500)
+        .limit(2000)
     ).all()
     name = ValidatorName.PARSED_CONFLICT
-    comparable: list[tuple[UUID, float]] = []
+    if normalized is None:
+        return _result(name, ValidatorOutcome.SKIPPED, None, "no comparable proposed value"), None
+    cand_time = norm_text(effective_time_text) if effective_time_text else None
+    same_lines: list[tuple[UUID, float]] = []
+    pool: list[tuple[UUID, float]] = []
+    other_time = 0
     for row in rows:
-        values = [
-            a.get("normalized_number", a.get("number"))
-            for a in row.attributes
-            if a.get("key") == key
-            and isinstance(a.get("normalized_number", a.get("number")), int | float)
-        ]
-        if not values:
+        value = _record_value(row.attributes, key)
+        if value is None:
             continue
+        literal = (row.effective_time or {}).get("literal") if row.effective_time else None
+        if cand_time and literal and norm_text(str(literal)) != cand_time:
+            other_time += 1
+            continue
+        pool.append((row.record_id, value))
         loc = row.locator or {}
-        overlaps = (
+        if (
             row.document_id == span.doc.document_id
             and span.locator["kind"] == "text"
             and loc.get("kind") == "text"
@@ -258,32 +282,40 @@ def _parsed_conflict(
                 loc["line_end"] < span.locator["line_start"]
                 or loc["line_start"] > span.locator["line_end"]
             )
+        ):
+            same_lines.append((row.record_id, value))
+    if not pool:
+        note = "no parsed value at the same effective time" if other_time else "no parsed value"
+        return _result(name, ValidatorOutcome.SKIPPED, None, note), None
+    if same_lines:
+        if any(abs(v - normalized) <= PARSED_TOLERANCE for _, v in same_lines):
+            return _result(
+                name, ValidatorOutcome.PASSED, None, "agrees with the parsed value"
+            ), None
+        record_id, parsed = same_lines[0]
+        return (
+            _result(
+                name,
+                ValidatorOutcome.FLAGGED,
+                ReasonCode.PARSED_CONFLICT,
+                f"parsed value {parsed:g} at this location differs from proposed {normalized:g}; "
+                "parsed stays",
+            ),
+            record_id,
         )
-        if overlaps:
-            comparable.append((row.record_id, float(values[0])))
-    if not comparable and len(rows) == 1:
-        only = rows[0]
-        vals = [
-            a.get("normalized_number", a.get("number"))
-            for a in only.attributes
-            if a.get("key") == key
-        ]
-        if vals and isinstance(vals[0], int | float):
-            comparable.append((only.record_id, float(vals[0])))
-    if not comparable or normalized is None:
-        return _result(name, ValidatorOutcome.SKIPPED, None, "no comparable parsed value"), None
-    for record_id, parsed in comparable:
-        if abs(parsed - normalized) > PARSED_TOLERANCE:
-            return (
-                _result(
-                    name,
-                    ValidatorOutcome.FLAGGED,
-                    ReasonCode.PARSED_CONFLICT,
-                    f"parsed value {parsed:g} differs from proposed {normalized:g}; parsed stays",
-                ),
-                record_id,
-            )
-    return _result(name, ValidatorOutcome.PASSED, None, "agrees with the parsed value"), None
+    if any(abs(v - normalized) <= PARSED_TOLERANCE for _, v in pool):
+        return _result(name, ValidatorOutcome.PASSED, None, "agrees with a parsed value"), None
+    nearest = sorted(pool, key=lambda rv: abs(rv[1] - normalized))[:3]
+    listed = ", ".join(f"{v:g}" for _, v in nearest)
+    return (
+        _result(
+            name,
+            ValidatorOutcome.FLAGGED,
+            ReasonCode.PARSED_CONFLICT,
+            f"proposed {normalized:g} matches none of {len(pool)} parsed value(s); nearest {listed}",
+        ),
+        nearest[0][0],
+    )
 
 
 # -- the pipeline -------------------------------------------------------------------------------
@@ -327,6 +359,26 @@ def _decide(
     return CandidateState.ACCEPTED, ValidationState.VALID, reasons
 
 
+def _label_in_text(label: str, bore: BoreLabel, text: str) -> bool:
+    """The well/wellbore label as the source writes it (normalized through the identity rule).
+    A base label never matches a suffixed sidetrack, and a block-qualified claim never matches
+    another block's well."""
+    hay = norm_identifier(text)
+    forms = aliases(label)
+    if bore.block:
+        forms = forms[:2]
+    for form in forms:
+        pattern = (
+            rf"(?<![a-z0-9]){re.escape(form)}(?![a-z0-9])"
+            r"(?!\s(?:[a-z]\d{0,2}|t\d{1,2}|st\d{1,2})\b)"
+        )
+        if bore.suffix is not None:
+            pattern = rf"(?<![a-z0-9]){re.escape(form)}(?![a-z0-9])"
+        if re.search(pattern, hay):
+            return True
+    return False
+
+
 def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> Decision:
     results: list[ValidatorResult] = []
     warnings: list[ReasonCode] = []
@@ -335,13 +387,12 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
     subject: dict[str, str | None] = dict(wire.subject)
     quote = wire.quote.strip() if wire.quote and wire.quote.strip() else None
 
-    # Provisional attributes (fully built below once units are known).
     attrs: MeasurementAttributes | PageReadAttributes
     if isinstance(wire, WireMeasurement):
         attrs = MeasurementAttributes(
             attribute_key=_safe_key(wire.attribute_key),
             value_text=wire.value_text,
-            unit_as_written=wire.unit,
+            unit_as_written=None,
             depth_reference=wire.depth_reference,
             crs_text=wire.crs_text,
             effective_time_text=wire.effective_time_text,
@@ -358,12 +409,11 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
     image_only = span is not None and not span.has_layer
     method = ExtractionMethod.MODEL_READ if image_only else ExtractionMethod.MODEL_PROPOSAL
     if span is None:
-        method = ExtractionMethod.MODEL_PROPOSAL
-        state, vstate, reasons = _decide(results, method)
+        state, vstate, reasons = _decide(results, ExtractionMethod.MODEL_PROPOSAL)
         return Decision(
             state,
             vstate,
-            method,
+            ExtractionMethod.MODEL_PROPOSAL,
             reasons,
             results,
             None,
@@ -394,15 +444,15 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
             _result(ValidatorName.QUOTE, ValidatorOutcome.FAILED, ReasonCode.QUOTE_NOT_IN_SPAN)
         )
     else:
-        # the quote is in the span; the claimed value must be in the quote ("necessary, not sufficient")
+        # in the span; the claimed value must be a WHOLE token of the quote (D1)
         claimed = wire.value_text if isinstance(wire, WireMeasurement) else (wire.name or "")
-        if claimed and norm_text(claimed) not in norm_text(quote):
+        if claimed and not supported_in(claimed, quote):
             results.append(
                 _result(
                     ValidatorName.QUOTE,
                     ValidatorOutcome.FAILED,
                     ReasonCode.VALUE_NOT_IN_QUOTE,
-                    "the quote does not contain the claimed value",
+                    "the quote does not contain the claimed value as a whole token",
                 )
             )
         else:
@@ -411,15 +461,20 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
     normalized: float | None = None
     if isinstance(wire, WireMeasurement):
         assert isinstance(attrs, MeasurementAttributes)
-        normalized = _measurement_checks(wire, attrs, quote, span, results, warnings)
-    else:
-        results.append(
-            _result(ValidatorName.ATTRIBUTE, ValidatorOutcome.SKIPPED, None, "page item")
+        normalized = _measurement_checks(
+            wire, attrs, None if image_only else quote, span, results, warnings
         )
+    else:
+        assert isinstance(attrs, PageReadAttributes)
+        if image_only:
+            results.append(
+                _result(ValidatorName.ATTRIBUTE, ValidatorOutcome.SKIPPED, None, "page item")
+            )
+        else:
+            _verify_page_fields(wire, attrs, span, results)
 
-    if wire.__class__ is WireMeasurement and wire.effective_time_text:
-        haystack = norm_text(quote or "") if quote else ""
-        if not image_only and norm_text(wire.effective_time_text) not in haystack:
+    if isinstance(wire, WireMeasurement) and wire.effective_time_text and not image_only:
+        if not supported_in(wire.effective_time_text, quote or ""):
             results.append(
                 _result(
                     ValidatorName.PROVENANCE,
@@ -434,7 +489,7 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
     label_text, bore = _subject_label(wire.subject)
     conflict_id: UUID | None = None
     with session_scope(ctx.factory) as session:
-        if bore is None:
+        if bore is None or label_text is None:
             results.append(
                 _result(
                     ValidatorName.SUBJECT,
@@ -468,6 +523,16 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
                             f"the document's own records name {names}; stays unattached",
                         )
                     )
+                elif not doc_bores and not _source_names(ctx, span, label_text, bore):
+                    wellbore_id = None
+                    results.append(
+                        _result(
+                            ValidatorName.SUBJECT,
+                            ValidatorOutcome.FLAGGED,
+                            ReasonCode.SUBJECT_UNRESOLVED,
+                            "the cited text does not name this well/wellbore; stays unattached",
+                        )
+                    )
                 else:
                     results.append(_result(ValidatorName.SUBJECT, ValidatorOutcome.PASSED))
         if (
@@ -476,10 +541,15 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
             and isinstance(attrs, MeasurementAttributes)
         ):
             outcome, conflict_id = _parsed_conflict(
-                session, ctx.project_id, wellbore_id, attrs.attribute_key, normalized, span
+                session,
+                ctx.project_id,
+                wellbore_id,
+                attrs.attribute_key,
+                normalized,
+                span,
+                wire.effective_time_text,
             )
             results.append(outcome)
-    del label_text
 
     state, vstate, reasons = _decide(results, method)
     if method is ExtractionMethod.MODEL_READ:
@@ -504,9 +574,62 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
     )
 
 
+def _source_names(ctx: ValidationContext, span: _Span, label: str, bore: BoreLabel) -> bool:
+    """Image-only evidence cannot be checked (the page stays unverified); text evidence must
+    name the label in the cited span, or on page 1 of a PDF (cover/header)."""
+    if not span.has_layer:
+        return True
+    if _label_in_text(label, bore, span.text):
+        return True
+    if span.doc.kind == "pdf" and span.locator.get("page") != 1:
+        try:
+            first = ctx.reader.read_page(span.doc, 1)
+        except SourceError:
+            return False
+        return _label_in_text(label, bore, first.text)
+    return False
+
+
+def _verify_page_fields(
+    wire: WirePageItem,
+    attrs: PageReadAttributes,
+    span: _Span,
+    results: list[ValidatorResult],
+) -> None:
+    """D5: every field shown to the user must itself be in the text layer; unsupported fields
+    are dropped and the candidate is flagged (never shown as accepted with an unchecked field)."""
+    dropped: list[str] = []
+    if wire.depth_text and not supported_in(wire.depth_text, span.text):
+        attrs.depth_text = None
+        dropped.append("depth_text")
+    kept = [s for s in wire.sizes_text if supported_in(s, span.text)]
+    if len(kept) != len(wire.sizes_text):
+        dropped.append("sizes_text")
+    attrs.sizes_text = kept
+    if wire.notes and not supported_in(wire.notes, span.text):
+        attrs.notes = None
+        dropped.append("notes")
+    attrs.dropped_fields = dropped
+    if dropped:
+        results.append(
+            _result(
+                ValidatorName.ATTRIBUTE,
+                ValidatorOutcome.FLAGGED,
+                ReasonCode.FIELD_UNVERIFIED,
+                "not in the text layer, removed: " + ", ".join(dropped),
+            )
+        )
+    else:
+        results.append(_result(ValidatorName.ATTRIBUTE, ValidatorOutcome.PASSED))
+
+
 def _safe_key(key: str) -> str:
     """Keep the DTO constructible for a malformed key; the attribute validator then rejects it."""
     return key if re.fullmatch(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+", key) else "invalid.key"
+
+
+def _same_unit(a: Parsed, b: Parsed) -> bool:
+    return a.dimension == b.dimension and abs(a.factor - b.factor) < 1e-12
 
 
 def _measurement_checks(
@@ -519,21 +642,74 @@ def _measurement_checks(
 ) -> float | None:
     key = wire.attribute_key
     spec = attribute_spec(key) if attrs.attribute_key == key else None
-    if spec is None:
+    if is_trajectory_type(key):
+        # AX-11 is not built: coordinates and survey values have no accept path
         results.append(
             _result(
-                ValidatorName.ATTRIBUTE,
-                ValidatorOutcome.FAILED,
-                ReasonCode.ATTRIBUTE_UNKNOWN,
-                key[:80],
+                ValidatorName.PROVENANCE,
+                ValidatorOutcome.FLAGGED,
+                ReasonCode.COORDINATE_FALLBACK_UNSUPPORTED,
+                "coordinate/trajectory values are not accepted from a model (AX-11 not built)",
             )
         )
+        if is_coordinate(key):
+            haystack = norm_text(f"{quote or ''}{span.text}")
+            if not wire.crs_text or norm_text(wire.crs_text) not in haystack:
+                results.append(
+                    _result(
+                        ValidatorName.PROVENANCE,
+                        ValidatorOutcome.FLAGGED,
+                        ReasonCode.CRS_NOT_STATED,
+                        "no horizontal CRS stated in the source; never assumed",
+                    )
+                )
+    if spec is None:
+        if not is_trajectory_type(key):
+            results.append(
+                _result(
+                    ValidatorName.ATTRIBUTE,
+                    ValidatorOutcome.FAILED,
+                    ReasonCode.ATTRIBUTE_UNKNOWN,
+                    key[:80],
+                )
+            )
         return None
     results.append(_result(ValidatorName.ATTRIBUTE, ValidatorOutcome.PASSED))
 
-    number = parse_number(wire.value_text)
-    unit = parse_unit(wire.unit)
-    if wire.unit is not None and unit is None:
+    context = f"{quote or ''} {wire.value_text}"
+    if spec.reference is not None and "/" in wire.value_text:
+        # an MD/TVD pair is not one value (TASK-042 failure mode 2)
+        reason = (
+            ReasonCode.COMPOUND_DEPTH_PAIR
+            if _MD.search(context) and _TVD.search(context)
+            else ReasonCode.NUMBER_UNPARSEABLE
+        )
+        results.append(
+            _result(
+                ValidatorName.DEPTH_REFERENCE,
+                ValidatorOutcome.FAILED
+                if reason is ReasonCode.COMPOUND_DEPTH_PAIR
+                else ValidatorOutcome.FLAGGED,
+                reason,
+                "a pair of depths must be split into two values",
+            )
+        )
+        return None
+    parsed = parse_quantity(wire.value_text, allow_fraction=spec.allow_fraction)
+    if parsed.value is None:
+        results.append(
+            _result(
+                ValidatorName.UNIT,
+                ValidatorOutcome.FLAGGED,
+                ReasonCode.NUMBER_UNPARSEABLE,
+                f"{parsed.problem}; not guessed",
+            )
+        )
+        return None
+    number = parsed.value
+
+    claimed = parse_unit(wire.unit)
+    if wire.unit is not None and claimed is None:
         results.append(
             _result(
                 ValidatorName.UNIT,
@@ -543,20 +719,89 @@ def _measurement_checks(
             )
         )
         return None
-    if number is None:
+    if claimed is not None and claimed.dimension != spec.dimension:
         results.append(
             _result(
                 ValidatorName.UNIT,
                 ValidatorOutcome.FAILED,
-                ReasonCode.VALUE_NOT_IN_QUOTE,
-                "no number",
+                ReasonCode.UNIT_DIMENSION_MISMATCH,
+                f"{wire.unit} is {claimed.dimension}, attribute needs {spec.dimension}",
             )
         )
         return None
-    if unit is None:
-        if spec.dimension == "length":
+    word = unit_after(wire.value_text, quote) if quote else None
+    quoted = parse_unit(word)
+    states = context_units(span.text) if span.has_layer else set()
+    unit: Parsed | None
+    if quoted is not None and word is not None:
+        if claimed is not None and not _same_unit(claimed, quoted):
+            results.append(
+                _result(
+                    ValidatorName.UNIT,
+                    ValidatorOutcome.FAILED,
+                    ReasonCode.UNIT_CONFLICTS_WITH_QUOTE,
+                    f"claimed {wire.unit}, the quote says {word}",
+                )
+            )
+            return None
+        unit = quoted
+        attrs.unit_as_written, attrs.unit_source = word, "quote"
+        results.append(_result(ValidatorName.UNIT, ValidatorOutcome.PASSED))
+    else:
+        stated = {parse_unit(s) for s in states}
+        contradicts = bool(stated) and not any(
+            u is not None and (claimed is None or _same_unit(u, claimed)) for u in stated
+        )
+        if not span.has_layer and claimed is not None:
+            unit = claimed  # image-read: nothing to check against; stays unverified
+            attrs.unit_as_written, attrs.unit_source = wire.unit, "claimed"
+            results.append(_result(ValidatorName.UNIT, ValidatorOutcome.PASSED))
+        elif claimed is None and len(states) == 1:
+            only = next(iter(states))  # the cited context states exactly one unit: use it
+            unit = parse_unit(only)
+            attrs.unit_as_written, attrs.unit_source = only, "context"
+            results.append(_result(ValidatorName.UNIT, ValidatorOutcome.PASSED))
+        elif claimed is None and len(states) > 1:
+            unit = None
+            results.append(
+                _result(
+                    ValidatorName.UNIT,
+                    ValidatorOutcome.FLAGGED,
+                    ReasonCode.UNIT_NOT_IN_SOURCE,
+                    f"the context states several units ({', '.join(sorted(states))})",
+                )
+            )
+        elif contradicts:
+            unit = None
+            results.append(
+                _result(
+                    ValidatorName.UNIT,
+                    ValidatorOutcome.FLAGGED,
+                    ReasonCode.UNIT_NOT_IN_SOURCE,
+                    f"the context states {', '.join(sorted(states))}, not the claimed unit",
+                )
+            )
+        elif claimed is not None and not (
+            claimed.dimension == "length" and abs(claimed.factor - 1.0) < 1e-12
+        ):
+            if stated and any(u is not None and _same_unit(u, claimed) for u in stated):
+                unit = claimed
+                attrs.unit_as_written, attrs.unit_source = wire.unit, "claimed"
+                results.append(_result(ValidatorName.UNIT, ValidatorOutcome.PASSED))
+            else:
+                unit = None
+                results.append(
+                    _result(
+                        ValidatorName.UNIT,
+                        ValidatorOutcome.FLAGGED,
+                        ReasonCode.UNIT_NOT_IN_SOURCE,
+                        f"{wire.unit} is not stated by the quote or the context",
+                    )
+                )
+        elif spec.dimension == "length":
+            # the cited context states no unit: meters by default (a warning, never a block)
             unit = parse_unit("m")
-            attrs.unit_defaulted = True
+            attrs.unit_defaulted, attrs.unit_source = True, "default"
             warnings.append(ReasonCode.UNIT_DEFAULTED_METERS)
             results.append(
                 _result(
@@ -567,6 +812,7 @@ def _measurement_checks(
                 )
             )
         else:
+            unit = None
             results.append(
                 _result(
                     ValidatorName.UNIT,
@@ -575,20 +821,18 @@ def _measurement_checks(
                     "unit missing",
                 )
             )
-            return None
-    elif unit.dimension != spec.dimension:
+    if unit is None:
+        return None
+    if unit.dimension != spec.dimension:
         results.append(
             _result(
                 ValidatorName.UNIT,
                 ValidatorOutcome.FAILED,
                 ReasonCode.UNIT_DIMENSION_MISMATCH,
-                f"{wire.unit} is {unit.dimension}, attribute needs {spec.dimension}",
+                f"{unit.dimension} unit for a {spec.dimension} attribute",
             )
         )
         return None
-    else:
-        results.append(_result(ValidatorName.UNIT, ValidatorOutcome.PASSED))
-    assert unit is not None
     normalized = number * unit.factor
     attrs.number = number
     attrs.normalized_number = round(normalized, 6)
@@ -605,8 +849,6 @@ def _measurement_checks(
     else:
         results.append(_result(ValidatorName.RANGE, ValidatorOutcome.PASSED))
 
-    # MD is never TVD, and a compound "MD/TVD" pair is not one value
-    context = f"{quote or ''} {wire.value_text}"
     if spec.reference is not None:
         if wire.depth_reference is not None and wire.depth_reference != spec.reference:
             results.append(
@@ -615,15 +857,6 @@ def _measurement_checks(
                     ValidatorOutcome.FAILED,
                     ReasonCode.MD_TVD_CONFUSION,
                     f"key is {spec.reference}, reference says {wire.depth_reference}",
-                )
-            )
-        elif _PAIR.search(wire.value_text) and _MD.search(context) and _TVD.search(context):
-            results.append(
-                _result(
-                    ValidatorName.DEPTH_REFERENCE,
-                    ValidatorOutcome.FAILED,
-                    ReasonCode.COMPOUND_DEPTH_PAIR,
-                    "an MD/TVD pair must be split into two values",
                 )
             )
         elif spec.reference == "MD" and _TVD.search(quote or "") and not _MD.search(quote or ""):
@@ -638,19 +871,6 @@ def _measurement_checks(
         else:
             results.append(_result(ValidatorName.DEPTH_REFERENCE, ValidatorOutcome.PASSED))
         attrs.depth_reference = wire.depth_reference or spec.reference  # type: ignore[assignment]
-
-    if is_coordinate(key):
-        crs = wire.crs_text
-        haystack = norm_text(f"{quote or ''}{span.text}")
-        if not crs or norm_text(crs) not in haystack:
-            results.append(
-                _result(
-                    ValidatorName.PROVENANCE,
-                    ValidatorOutcome.FLAGGED,
-                    ReasonCode.CRS_NOT_STATED,
-                    "no horizontal CRS stated in the source; never assumed",
-                )
-            )
     return normalized
 
 

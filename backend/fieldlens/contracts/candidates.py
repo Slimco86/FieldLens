@@ -53,6 +53,11 @@ class ReasonCode(StrEnum):
     CRS_NOT_STATED = "crs_not_stated"
     DATE_NOT_IN_SOURCE = "date_not_in_source"
     MODEL_READ_UNVERIFIED = "model_read_unverified"
+    UNIT_CONFLICTS_WITH_QUOTE = "unit_conflicts_with_quote"
+    UNIT_NOT_IN_SOURCE = "unit_not_in_source"
+    NUMBER_UNPARSEABLE = "number_unparseable"
+    FIELD_UNVERIFIED = "field_unverified"
+    COORDINATE_FALLBACK_UNSUPPORTED = "coordinate_fallback_unsupported"
 
 
 class ValidatorName(StrEnum):
@@ -92,6 +97,13 @@ class MeasurementAttributes(ContractModel):
     unit_defaulted: bool = Field(
         default=False, description="True when the unit was defaulted to meters (a warning)."
     )
+    unit_source: Literal["quote", "context", "claimed", "default"] | None = Field(
+        default=None,
+        description="Where the unit comes from: the quote (as written), a unit the cited context states "
+        "(a table header), the model's claim "
+        "(only when the quote states none and the context does not contradict it) or the "
+        "meters default.",
+    )
     depth_reference: Literal["MD", "TVD", "TVDSS"] | None = None
     normalized_number: float | None = None
     normalized_unit: str | None = None
@@ -110,6 +122,10 @@ class PageReadAttributes(ContractModel):
     sizes_text: list[str] = Field(default_factory=list, max_length=8)
     depth_text: str | None = Field(default=None, max_length=80)
     notes: str | None = Field(default=None, max_length=300)
+    dropped_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields the model proposed that the text layer does not support; removed.",
+    )
 
 
 CandidateAttributes = Annotated[

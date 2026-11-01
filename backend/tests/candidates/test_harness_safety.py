@@ -104,8 +104,20 @@ MALFORMED: list[tuple[str, Any, str]] = [
     ("prose", lambda r, n: text_response("Sure! 4160 m.", usage=usage()), "malformed_output"),
     ("array", lambda r, n: text_response("[]", usage=usage()), "malformed_output"),
     (
-        "fenced",
-        lambda r, n: text_response('```json\n{"candidates":[]}\n```', usage=usage()),
+        "fence_with_prose",
+        lambda r, n: text_response('Here:\n```json\n{"candidates":[]}\n```', usage=usage()),
+        "malformed_output",
+    ),
+    (
+        "two_fences",
+        lambda r, n: text_response(
+            '```json\n{"candidates":[]}\n```\n```json\n{"candidates":[]}\n```', usage=usage()
+        ),
+        "malformed_output",
+    ),
+    (
+        "other_fence_language",
+        lambda r, n: text_response('```js\n{"candidates":[]}\n```', usage=usage()),
         "malformed_output",
     ),
     (
@@ -520,13 +532,14 @@ def test_step_key_scheme(world: World) -> None:
     assert a != step_key("u2", "tool:read_span", {"a": 2, "b": 1})
     assert a != step_key("u1", "tool:read_table", {"a": 2, "b": 1})
     assert a != step_key("u1", "tool:read_span", {"a": 2, "b": 3})
+    assert a != step_key("u1", "tool:read_span", {"a": 2, "b": 1}, 1)  # ordinal (L2)
     assert len(a) <= 120 and a.startswith("tool:read_span:")
     out, _ = run_cands(world, [meas(world)])
     keys = {r[0] for r in world.rows("select step_key from agent_step")}
     unit_key = world.scalar("select unit_key from agent_work_unit")
     me = str(world.perf_doc)
     assert (
-        step_key(unit_key, "tool:read_span", {"document_id": me, "line_start": 1, "line_end": 3})
+        step_key(unit_key, "tool:read_span", {"document_id": me, "line_start": 1, "line_end": 3}, 0)
         in keys
     )
     assert out.state == "succeeded"
@@ -554,3 +567,80 @@ def test_cost_reservation_link(world: World) -> None:
     assert world.scalar(
         "select request_key from spend_reservation where reservation_id=:r", r=reservation_id
     ) == world.scalar("select unit_key from agent_work_unit")
+
+
+# --- repair round: L1, L2, L3, L6 --------------------------------------------------------------
+
+
+def test_single_json_fence_is_accepted(world: World) -> None:
+    """L3: exactly one ```json block around the object is stripped; nothing else is."""
+    body = json.dumps({"candidates": [meas(world)]})
+    out, _ = run_cands(
+        world,
+        [],
+        provider=FixtureProvider(
+            lambda r, n: text_response(f"```json\n{body}\n```", usage=usage())
+        ),
+    )
+    assert out.state == "succeeded" and out.candidates == {"accepted": 1}
+
+
+def test_failed_and_cancelled_results_are_final_until_retry(world: World) -> None:
+    """L1: a failed result is cached as final; only a retry bump re-runs it."""
+    provider = FixtureProvider(lambda r, n: text_response("not json", usage=usage()))
+    h = world.harness(provider)
+    req = UnitRequest(
+        world.project_id, world.revision_id, world.perf_doc, "q", "measurement", line_range=(1, 3)
+    )
+    first = h.run_unit(req)
+    again = h.run_unit(req)
+    assert first.state == "failed" and again.cache_hit and again.state == "failed"
+    assert len(provider.calls) == 1
+    good = FixtureProvider(lambda r, n: json_response([meas(world)]))
+    h2 = world.harness(good)
+    retried = h2.run_unit(dataclasses.replace(req, retry=1))
+    assert not retried.cache_hit and retried.state == "succeeded" and len(good.calls) == 1
+    assert retried.unit_key.endswith(":r1") and retried.unit_id != first.unit_id
+
+
+def test_repeated_identical_tool_calls_are_each_logged_and_charged(world: World) -> None:
+    """L2: two identical calls are two steps and two charged tool calls."""
+    args = {"document_id": str(world.perf_doc), "start": 0, "count": 2}
+
+    def respond(req: Any, n: int) -> Any:
+        return (
+            call_response("read_table", args, f"c{n}") if n <= 2 else json_response([meas(world)])
+        )
+
+    out, _ = run_cands(world, [], provider=FixtureProvider(respond))
+    assert out.state == "succeeded"
+    used = world.scalar("select tool_calls_used from spend_reservation")
+    logged = world.scalar(
+        "select count(*) from agent_step where tool_name='read_table' and detail->>'by'='model'"
+    )
+    assert used == logged == 2
+
+
+def test_read_lines_bounds_bytes_per_line(world: World) -> None:
+    """L6: one enormous line is never read whole; the read is capped and marked truncated."""
+    import tracemalloc
+    from uuid import uuid4
+
+    from fieldlens.candidates.sources import MAX_LINE_BYTES, DocInfo, SourceReader
+    from fieldlens.evidence.storage import blob_key
+
+    store = world.api.client.app.state.blob_store
+    key = blob_key(uuid4(), "c" * 64)
+    path = store.path_for(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"first line\n" + b"x" * 50_000_000 + b"\nthird line\n")
+    doc = DocInfo(world.project_id, world.revision_id, uuid4(), "c" * 64, key, "text")
+    reader = SourceReader(world.factory, store, world.renderer)
+    tracemalloc.start()
+    span = reader.read_lines(doc, 1, 3)
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    assert span.truncated and span.line_end == 3
+    assert span.text.splitlines()[0] == "first line" and span.text.endswith("third line")
+    assert len(span.text.splitlines()[1]) == MAX_LINE_BYTES
+    assert peak < 1_000_000  # nowhere near the 50 MB line

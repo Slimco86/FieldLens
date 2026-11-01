@@ -21,7 +21,7 @@ def meas(world: World, **over: Any) -> dict[str, Any]:
         "attribute_key": "perforation.top_md",
         "value_text": "4160.00",
         "unit": "m",
-        "quote": "4160.00",
+        "quote": "Hugin Fm.  1  1  4160.00  4165.00",
         "locator": loc(world.perf_doc),
         "subject": SUBJECT,
     }

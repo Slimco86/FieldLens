@@ -208,7 +208,27 @@ Do not claim proposed commands exist; record actual test commands and results at
   degrees, so the default sends image-only pages as pdfium renders them. A better scan orientation check is open.
 - **Calculation guard.** `engineering/provenance.py`; `PerforationHistory.build` rejects marked records. The trajectory
   entry has no provenance input yet (open, for the reconstruction consumer).
-- Not done here: AX-11 (coordinate fallback acceptance), xlsx/xml locators for candidates, live behavior.
+- **Repair round (QA RETURN).** Values must be whole tokens of the quote (`3000` is not in `13000`); the unit must
+  agree with the unit written next to the value in the quote (a conflict rejects, an absent claim uses and records the
+  quote's unit); the meters default applies only when neither the quote nor the cited context states a unit, a context
+  header such as `(ft)` supplies the unit, a claimed non-meter unit that nothing states is flagged; numbers parse
+  strictly (mixed fractions for sizes, Unicode minus, an unambiguous decimal comma, everything else flagged
+  `number_unparseable`); a subject must be supported by the document's parsed wellbore links or named in the cited
+  span (for PDFs also on page 1, the cover/header); `page_read` fields (depth, sizes, notes) are verified against the
+  text layer one by one, unsupported fields are removed and the candidate is flagged; parsed conflicts compare with
+  the records at the cited lines, else with the whole parsed set of the wellbore/attribute (records at another
+  effective time are not comparable).
+- **AX-11 deferral.** The coordinate/trajectory fallback is NOT built: every coordinate, trajectory or survey-type
+  candidate is `flagged` with `coordinate_fallback_unsupported`; there is no accept path until AX-11 exists.
+- **Finalize then settle.** A unit is finalized before its reservation is settled; a failed settle or a crash between
+  the two is repaired by the idempotent `settle_finished_units` sweep (harness `recover_interrupted` and app startup).
+- **Cache of failures.** Failed and cancelled results are cached as final under their key; only a `retry` bump
+  (`:rN`) re-runs. Identical repeated tool calls are separate steps (ordinal in `step_key`).
+- **Residual risk (pdfium).** Rendering runs in-process under one lock with bounded size and concurrency but no render
+  timeout; a pathological PDF could stall the render thread. Process isolation is a follow-up.
+- **Orientation.** The model is told about the `rotation` parameter of `get_page_image`; TASK-041 passes explicit page
+  lists and rotations for the known rotated F-14 schematic.
+- Not done here: xlsx/xml locators for candidates, live behavior.
 
 ### Implementation handoff and integration
 

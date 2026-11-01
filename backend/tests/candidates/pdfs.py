@@ -101,6 +101,7 @@ def make_pdf(pages: list[PdfPage]) -> bytes:
 
 
 EQUIPMENT_LINES = [
+    "Well NO 15/9-F-99 completion",
     "Completion string 7 in monobore",
     "Production packer 3064.39 m MD Baker",
     "Tubing hanger Vetco 6-3/8 in XMT",

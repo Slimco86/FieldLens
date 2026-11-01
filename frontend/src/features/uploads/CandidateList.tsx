@@ -35,6 +35,11 @@ const REASON: Record<string, string> = {
   parsed_conflict: "disagrees with the parsed source value (the parsed value stays)",
   crs_not_stated: "no coordinate reference system stated",
   date_not_in_source: "the date is not in the quote",
+  unit_conflicts_with_quote: "the unit differs from the one written in the quote",
+  unit_not_in_source: "the unit is not stated by the quote or its context",
+  number_unparseable: "the number is ambiguous and was not guessed",
+  field_unverified: "some fields are not in the text layer and were removed",
+  coordinate_fallback_unsupported: "coordinates and survey values are not accepted from a model",
   model_read_unverified: "read from a page image without a text layer; unverified",
 };
 

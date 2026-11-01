@@ -27,7 +27,9 @@ def test_candidates_persisted(world: World) -> None:
     first = stored[0]
     assert first["method"] == "model_proposal" and first["validation_state"] == "valid"
     attrs = json.loads(first["attributes"])
-    assert attrs["kind"] == "measurement" and attrs["unit_as_written"] == "m"
+    # the table states no unit: meters by default (a warning), never presented as "as written"
+    assert attrs["kind"] == "measurement" and attrs["unit_as_written"] is None
+    assert attrs["unit_defaulted"] is True and attrs["unit_source"] == "default"
     assert attrs["value_text"] == "4160.00" and attrs["normalized_number"] == 4160.0
     loc_ = json.loads(first["locator"])
     assert loc_["kind"] == "text" and loc_["line_start"] == 2
@@ -237,9 +239,11 @@ def test_identity_and_reference_rules(world: World) -> None:
     )
     assert out7.state == "succeeded"
     a, b = rows(world)[-2:]
-    # the page text itself states the CRS, so both are decided on the stated reference only
-    assert b["state"] == "accepted"
-    assert a["state"] == "flagged" and "crs_not_stated" in a["reasons"]
+    # AX-11 is not built: coordinates have no accept path, with or without a stated CRS
+    for r in (a, b):
+        assert r["state"] == "flagged" and "coordinate_fallback_unsupported" in r["reasons"]
+    assert "crs_not_stated" in a["reasons"] and "crs_not_stated" not in b["reasons"]
+    assert world.scalar("select count(*) from extraction_candidate where state='accepted'") > 0
 
 
 def test_unit_request_ignores_filename_and_category_hints(world: World) -> None:
