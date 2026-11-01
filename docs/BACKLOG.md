@@ -1522,6 +1522,90 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Dispatch after TASK-034 and TASK-039 are integrated.
 **Evidence.** none yet
 
+### TASK-050 · Per-file upload rejection reporting and red refused-file rows (IN-10)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend, frontend, ingestion |
+| Depends on | TASK-006, TASK-034 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-02 |
+| Sprint | Hackathon |
+| Spec | specs/INGESTION.md |
+| Version | none |
+| Parent | FL-005 |
+| Slice | FL-005-G |
+
+**Outcome.** The upload error names every refused file with its reason and the batch outcome is explicit; the UI marks refused files red (text and icon) and lets the user retry without them. Found in the owner's first manual test (November 1): a generic "unsupported file type" message gave no file name.
+**Next action.** Owner decides all-or-nothing versus accepting the valid remainder (default proposal: preflight every file, store nothing if any is refused, report all of them); then backend contract change, regenerate contracts and a frontend row state, with independent QA.
+**Evidence.** none yet
+
+### TASK-051 · Extensionless and legacy-encoded text intake and Compass survey text profile (IN-11)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | ingestion, backend |
+| Depends on | TASK-009 |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-02 |
+| Sprint | Hackathon |
+| Spec | specs/INGESTION.md |
+| Version | none |
+| Parent | FL-005 |
+| Slice | FL-005-H |
+
+**Outcome.** Text files without an extension or in UTF-16/Windows-1252 are inspected as text with a recorded encoding, and the Volve Compass survey text export (for example `Volve F_F-12_F-12_F-12_ACTUAL`) gets a native trajectory profile preferred over the PDF text layer. The owner's first upload refused that file as an unsupported signature; the cause (likely non-UTF-8 bytes or NULs in the first 64 KiB) is unconfirmed until the file is inspected.
+**Next action.** Inspect the real file read-only (encoding, header, columns, units, reference), record the layout in the spec, then implement; the shell could not read the data folder, so grant `/add-dir` or paste the first 40 lines.
+**Evidence.** none yet
+
+### TASK-052 · Files table columns, expandable details and bulk labelling (UI-14)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-034 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-02 |
+| Sprint | Hackathon |
+| Spec | specs/UI_DESIGN_SYSTEM.md |
+| Version | none |
+| Parent | FL-021 |
+| Slice | FL-021-E |
+
+**Outcome.** Separate Your labels, Suggested labels and Tags columns, SHA-256 and identifiers in an expandable detail row, multi-select rows with a bulk category action, and batch assignment at upload time.
+**Next action.** Dispatch with TASK-050 in the same frontend branch only if the owner agrees; confirm whether a batch backend endpoint is wanted or per-document calls suffice.
+**Evidence.** none yet
+
+### TASK-053 · Reconstruction pipeline panel, readiness checklist and explicit start (UI-15)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | specifying |
+| Priority | P0 |
+| Tags | frontend, backend, agent |
+| Depends on | TASK-034, TASK-048 |
+| Assignee | owner |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/UI_DESIGN_SYSTEM.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-F |
+
+**Outcome.** The user can see what the system already did after upload (automatic verification, parsing, indexing), what is ready, what is a gap, the minimum conditions to start, and can explicitly start reconstruction, with any model-spending step shown and confirmed separately. There is currently no UI for this and no start contract.
+**Next action.** Agree the minimum start conditions, the start/estimate contract and the deterministic-versus-model split in ASSET_RECONSTRUCTION.md with the owner; this is the front of the reconstruction slice (TASK-026).
+**Evidence.** none yet
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
