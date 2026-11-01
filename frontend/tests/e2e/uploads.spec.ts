@@ -62,7 +62,12 @@ test("UP-1: upload a CSV and an unknown text file, see honest statuses, dedupe, 
   const txt = files(page).filter({ hasText: "notes.txt" });
   await expect(csv.getByText("Stored (hash-verified)")).toBeVisible();
   await expect(csv.getByText("Unsupported (no reader; not extracted)")).toBeVisible(); // settled text; the stale one-shot "Pending extraction" check raced the extraction worker (authorized correction)
-  await expect(csv.locator("code")).toHaveText(/^[0-9a-f]{64}$/);
+  // UI-14: the SHA-256 lives in the collapsed row detail, not in a column.
+  await expect(filesTable(page).locator("code")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show details for wells.csv" }).click();
+  await expect(page.getByRole("button", { name: "Hide details for wells.csv" })).toHaveAttribute("aria-expanded", "true");
+  await expect(filesTable(page).locator("code")).toHaveText(/^[0-9a-f]{64}$/);
+  await page.getByRole("button", { name: "Hide details for wells.csv" }).click();
   await expect(csv.getByText("Trajectory", { exact: false }).first()).toBeVisible();
   await expect(txt.getByText("Unsupported (no reader; not extracted)")).toBeVisible();
   await expect(page.getByText(/Extraction performed: no/)).toBeVisible();

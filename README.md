@@ -272,6 +272,17 @@ It runs as `pwuser`, with a 1 GiB memory cap and read-only frontend dependencies
 without application secrets, source documents or privileged capabilities.
 The image occupies approximately 2.52 GB on disk and remains cached after cleanup.
 
+If you run E2E on a port other than the default (for example next to another lane,
+`FIELDLENS_E2E_API_PORT=8312`), also export `FIELDLENS_PORT` with the same port and the
+host/origin allow-lists as **JSON lists**, otherwise the runner's requests are refused (403)
+or the API fails to start while parsing the value:
+
+```bash
+export FIELDLENS_E2E_API_PORT=8312 FIELDLENS_PORT=8312
+export FIELDLENS_ALLOWED_HOSTS='["127.0.0.1","localhost","127.0.0.1:8312","localhost:8312"]'
+export FIELDLENS_ALLOWED_ORIGINS='["http://127.0.0.1:8312","http://localhost:8312"]'
+```
+
 Stop any manual API on 8101 before E2E. The runner refuses an occupied port,
 creates/migrates its own unique DB, serves the built UI, then stops its own API
 and drops that DB even on test failure. One browser worker runs three scenarios:
