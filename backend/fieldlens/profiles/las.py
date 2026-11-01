@@ -18,6 +18,8 @@ from typing import Any
 
 import numpy as np
 
+from fieldlens.textenc import open_text, read_head_text
+
 from .common import event_time, parse_number, quantity_attr, text_attr, well_key
 from .types import (
     IDENTITY_MISMATCH,
@@ -109,8 +111,7 @@ def classify_index(name: str, unit: str) -> str:
 
 
 def looks_like_las(path: Path) -> bool:
-    with path.open("rb") as h:
-        head = h.read(4096).decode("latin-1", "replace")
+    head = read_head_text(path, 4096)
     lines = [ln.strip().upper() for ln in head.splitlines()]
     return any(ln.startswith("~V") for ln in lines[:20])
 
@@ -165,7 +166,7 @@ class LasProfile:
             if len(lines) * ncols > MAX_PARSE_CELLS:
                 raise ProfileError("too_many_samples", "LAS data exceeds the sample limit")
 
-        with path.open("r", encoding="latin-1", errors="replace") as handle:
+        with open_text(path) as handle:
             for n_lines, raw in enumerate(handle, 1):
                 if n_lines > MAX_TEXT_LINES:
                     raise ProfileError("too_many_lines", "LAS exceeds the line limit")

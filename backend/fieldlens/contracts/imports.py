@@ -126,6 +126,45 @@ class ImportMetadata(ContractModel):
         return self
 
 
+class RefusedFile(ContractModel):
+    """One file the server refused at intake (IN-10). The whole batch is rejected."""
+
+    filename: str
+    """Original file name exactly as sent (a hint; may itself be the reason for refusal)."""
+    position: int = Field(ge=0)
+    """Zero-based position of the file in the batch (aligns with ``metadata.files[position]``)."""
+    reason: str
+    """Machine reason code, e.g. ``unsupported_signature``, ``executable_content``, ``empty_file``,
+    ``file_bytes``, ``xml_dtd_forbidden``, ``too_many_pages``, ``unsafe_filename``."""
+    message: str
+    """Human-readable reason."""
+    error_code: str
+    """The stable error code this refusal would carry alone (e.g. ``UNSUPPORTED_MEDIA_TYPE``)."""
+    status_code: int
+    """The HTTP status this refusal would carry alone."""
+    limit: int | None = None
+    """The violated limit (bytes or pages) when the reason is a size limit."""
+
+
+class ImportRefusal(ContractModel):
+    """``error.details`` of a rejected import. Existing keys (``reason``, ``limit``) are kept.
+
+    ``scope == "files"``: every file of the batch was preflighted and ``refused_files`` lists all
+    refused ones (``refusals_complete`` true). ``scope == "batch"``: a batch-level refusal
+    (request/batch size, file count, malformed multipart or metadata) stopped intake; then
+    ``refused_files`` holds only the per-file refusals found before it (``refusals_complete``
+    false) and may be empty. In both cases nothing is stored (``batch_outcome``)."""
+
+    reason: str
+    scope: Literal["files", "batch"]
+    batch_outcome: Literal["nothing_stored"]
+    refusals_complete: bool
+    file_count: int | None = None
+    """Number of files received in the batch (``scope == "files"``)."""
+    refused_files: list[RefusedFile]
+    limit: int | None = None
+
+
 class ImportAccepted(ContractModel):
     """HTTP 202 for a new import; 200 when the request was a replay or all-duplicate no-op."""
 

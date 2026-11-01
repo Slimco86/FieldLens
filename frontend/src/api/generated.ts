@@ -1921,6 +1921,45 @@ export interface components {
             idempotency_key: string | null;
         };
         /**
+         * ImportRefusal
+         * @description ``error.details`` of a rejected import. Existing keys (``reason``, ``limit``) are kept.
+         *
+         *     ``scope == "files"``: every file of the batch was preflighted and ``refused_files`` lists all
+         *     refused ones (``refusals_complete`` true). ``scope == "batch"``: a batch-level refusal
+         *     (request/batch size, file count, malformed multipart or metadata) stopped intake; then
+         *     ``refused_files`` holds only the per-file refusals found before it (``refusals_complete``
+         *     false) and may be empty. In both cases nothing is stored (``batch_outcome``).
+         */
+        ImportRefusal: {
+            /**
+             * Batch Outcome
+             * @constant
+             */
+            batch_outcome: "nothing_stored";
+            /**
+             * File Count
+             * @description Number of files received in the batch (``scope == "files"``).
+             * @default null
+             */
+            file_count: number | null;
+            /**
+             * Limit
+             * @default null
+             */
+            limit: number | null;
+            /** Reason */
+            reason: string;
+            /** Refusals Complete */
+            refusals_complete: boolean;
+            /** Refused Files */
+            refused_files: components["schemas"]["RefusedFile"][];
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "files" | "batch";
+        };
+        /**
          * IndexedState
          * @enum {string}
          */
@@ -2592,6 +2631,49 @@ export interface components {
          * @enum {string}
          */
         ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified" | "unit_conflicts_with_quote" | "unit_not_in_source" | "number_unparseable" | "field_unverified" | "coordinate_fallback_unsupported" | "unit_away_from_value" | "size_ambiguous" | "subject_page_names_other_well" | "field_not_associated" | "id_exceeds_od" | "depth_order_invalid" | "label_not_in_text_layer" | "equipment_not_on_page" | "schema_invalid_item";
+        /**
+         * RefusedFile
+         * @description One file the server refused at intake (IN-10). The whole batch is rejected.
+         */
+        RefusedFile: {
+            /**
+             * Error Code
+             * @description The stable error code this refusal would carry alone (e.g. ``UNSUPPORTED_MEDIA_TYPE``).
+             */
+            error_code: string;
+            /**
+             * Filename
+             * @description Original file name exactly as sent (a hint; may itself be the reason for refusal).
+             */
+            filename: string;
+            /**
+             * Limit
+             * @description The violated limit (bytes or pages) when the reason is a size limit.
+             * @default null
+             */
+            limit: number | null;
+            /**
+             * Message
+             * @description Human-readable reason.
+             */
+            message: string;
+            /**
+             * Position
+             * @description Zero-based position of the file in the batch (aligns with ``metadata.files[position]``).
+             */
+            position: number;
+            /**
+             * Reason
+             * @description Machine reason code, e.g. ``unsupported_signature``, ``executable_content``, ``empty_file``,
+             *     ``file_bytes``, ``xml_dtd_forbidden``, ``too_many_pages``, ``unsafe_filename``.
+             */
+            reason: string;
+            /**
+             * Status Code
+             * @description The HTTP status this refusal would carry alone.
+             */
+            status_code: number;
+        };
         /**
          * RejectedItemAttributes
          * @description One item of a model answer that failed the closed item schema (never a valid candidate).

@@ -12,6 +12,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from fieldlens.textenc import open_text
+
 from .common import event_time, parse_number, quantity_attr, text_attr, well_key, wellbore_suffix
 from .types import (
     IDENTITY_MISMATCH,
@@ -62,7 +64,7 @@ def split_row(line: str, cols: list[tuple[str, int, int | None]]) -> dict[str, s
 
 def _read(path: Path) -> list[str]:
     lines: list[str] = []
-    with path.open("r", encoding="latin-1", errors="replace") as h:
+    with open_text(path) as h:
         for i, raw in enumerate(h, 1):
             if i > MAX_TEXT_LINES:
                 raise ProfileError("too_many_lines", "table exceeds the line limit")
@@ -72,7 +74,7 @@ def _read(path: Path) -> list[str]:
 
 def _head(path: Path, n: int = 120) -> list[str]:
     out: list[str] = []
-    with path.open("r", encoding="latin-1", errors="replace") as h:
+    with open_text(path) as h:
         for _, raw in zip(range(n), h, strict=False):
             out.append(raw.rstrip("\r\n"))
     return out

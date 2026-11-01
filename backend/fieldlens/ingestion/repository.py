@@ -347,7 +347,10 @@ def _insert_document(session: Session, project_id: UUID, staged: Any, hints: Any
             original_filename=staged.filename,
             detected_media_type=staged.detected.media_type,
             format_family=staged.detected.format_family,
-            origin_metadata={"origin": "multipart_upload"},
+            origin_metadata={
+                "origin": "multipart_upload",
+                **({"text_encoding": staged.detected.encoding} if staged.detected.encoding else {}),
+            },
             storage_key=blob_key(project_id, staged.sha256),
         )
         .returning(m.source_document.c.document_id)
