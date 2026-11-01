@@ -8,6 +8,12 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.21.1 - 2026-11-01
+
+- **TASK-034 integration polish:** The extraction candidates section (TASK-036) in the evidence panel now uses the design
+  kit (heading, state/validation/evidence chips with icons, kit buttons, loading/error/empty states, card layout), and
+  the status chips cover the `unverified` validation state and `model_proposal` evidence class. Frontend only.
+
 ## 0.21.0 - 2026-11-01
 
 - **TASK-034 (FL-021-A):** Replaced the unstyled prototype with a designed application shell: Mantine light theme
