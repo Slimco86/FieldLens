@@ -8,6 +8,15 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.25.0 - 2026-11-01
+
+- **TASK-051 (IN-11) native Statoil survey export profile:** Added `text_statoil_survey_export` for the extensionless
+  Volve "Survey Export" text files (header block, `SURVEY LIST` stations, survey program), with a new
+  `well_surface_location` record kind (UTM and lat/long as written, no CRS assumed). Verified against the real F-12, F-5
+  and F-14 ACTUAL/PLAN files (211/119/97/137 and 93/114 stations; every value matched the raw text). Plan versus actual
+  is never inferred from file names; conflicting wording, impossible dates and inferred day-first order produce findings.
+  Known low defect: an invalid date still counts as proof of day-first order for another date in the same file.
+
 ## 0.24.1 - 2026-11-01
 
 - **Planning/process:** the owner approved the staged processing flow (`docs/specs/PROCESSING_FLOW.md`), set total live

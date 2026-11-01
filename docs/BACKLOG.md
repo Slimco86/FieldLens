@@ -1548,7 +1548,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | ingestion, backend |
 | Depends on | TASK-009 |
@@ -1556,13 +1556,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
 | Spec | specs/INGESTION.md |
-| Version | none |
+| Version | 0.25.0 |
 | Parent | FL-005 |
 | Slice | FL-005-H |
 
 **Outcome.** Text files without an extension or in UTF-16/Windows-1252 are inspected as text with a recorded encoding, and the Volve Compass survey text export (for example `Volve F_F-12_F-12_F-12_ACTUAL`) gets a native trajectory profile preferred over the PDF text layer. The owner's first upload refused that file as an unsupported signature; the cause (likely non-UTF-8 bytes or NULs in the first 64 KiB) is unconfirmed until the file is inspected.
-**Next action.** Validate the profile against the real extensionless F-12 export (paste the first 40 lines or `/add-dir` the folder) and adjust; then mark done. Duplicate-source precedence is TASK-059.
-**Evidence.** Intake shipped in 0.23.0; `text_compass_survey_report` profile and Latin-1 acceptance fix in 0.24.0 (synthetic fixtures only; real file not yet read). Independent QA on `da43a87`: backend 1217 passed/7 skipped, ruff, mypy strict, contracts clean; adversarial profile and encoding checks passed after one repair (kana UTF-16, late-byte whole-file check).
+**Next action.** Done in 0.25.0. Known low defect D4 (an invalid date still proves day-first order for another date) is open; duplicate-source precedence is TASK-059.
+**Evidence.** The real F-12 export is a Statoil survey export, not the Compass layout; `text_statoil_survey_export` shipped in 0.25.0, independently verified on `5b5aaa5` against the real F-12/F-5/F-14 ACTUAL and PLAN files (0 value mismatches in 211/119/97/137 and 93/114 stations), backend 1244 passed/7 skipped, local-data opt-in tests pass, ruff, mypy strict, contracts clean. Intake shipped in 0.23.0; `text_compass_survey_report` profile and Latin-1 acceptance fix in 0.24.0 (synthetic fixtures only; real file not yet read). Independent QA on `da43a87`: backend 1217 passed/7 skipped, ruff, mypy strict, contracts clean; adversarial profile and encoding checks passed after one repair (kana UTF-16, late-byte whole-file check).
 
 ### TASK-052 · Files table columns, expandable details and bulk labelling (UI-14)
 
