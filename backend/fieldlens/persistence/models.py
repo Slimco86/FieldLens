@@ -584,6 +584,13 @@ agent_work_unit = Table(
     _created_at(),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     Column("finished_at", DateTime(timezone=True), nullable=True),
+    # AX-15 (migration 0010): the BudgetLedger reservation that pays for this unit's provider calls.
+    Column(
+        "reservation_id",
+        UUID(as_uuid=True),
+        ForeignKey("spend_reservation.reservation_id"),
+        nullable=True,
+    ),
     ForeignKeyConstraint(
         ["project_id", "source_revision_id"],
         ["source_revision.project_id", "source_revision.source_revision_id"],
@@ -658,3 +665,6 @@ from fieldlens.retrieval import tables as _retrieval_tables  # noqa: E402,F401
 
 # Series storage tables (TASK-047, migration 0008).
 from fieldlens.series import tables as _series_tables  # noqa: E402,F401
+
+# Model-proposed extraction candidates (TASK-036, migration 0010).
+from fieldlens.candidates import tables as _candidate_tables  # noqa: E402,F401

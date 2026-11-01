@@ -16,6 +16,8 @@ dependencies = [
   "openai>=3.41.0",
   "pypdf>=6.21.4",
   "fastembed>=0.9.1",
+  "pypdfium2==5.14.0",
+  "pillow==13.0.0",
 ]
 
 [dependency-groups]
