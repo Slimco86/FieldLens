@@ -12,6 +12,7 @@ model's own text never decides it."""
 
 from __future__ import annotations
 
+import re
 from uuid import UUID
 
 from fieldlens.contracts.candidates import (
@@ -20,6 +21,7 @@ from fieldlens.contracts.candidates import (
     EquipmentQuantity,
     ExtractionMethod,
     ReasonCode,
+    RejectedItemAttributes,
     ValidatorName,
     ValidatorOutcome,
     ValidatorResult,
@@ -28,8 +30,8 @@ from fieldlens.identity.labels import parse_bore_label
 from fieldlens.identity.resolver import known_md_max
 from fieldlens.persistence.session import session_scope
 
-from .schema import WireEquipment, WireQuantity
-from .textmatch import SIZE_AMBIGUOUS, parse_quantity, supported_in
+from .schema import InvalidItem, WireEquipment, WireQuantity
+from .textmatch import parse_printed_quantity, supported_in
 from .triage import keyword_score
 from .units import parse_unit
 from .validators import (
@@ -107,31 +109,67 @@ def _quantity(
         return out
 
     reference, compound = _depth_reference(q.reference_text)
-    if depth and (compound or "/" in q.value_text):
+    if depth and (compound or re.search(r"\d\s*/\s*\d", q.value_text)):
         return issue(
             ReasonCode.COMPOUND_DEPTH_PAIR,
             ValidatorName.DEPTH_REFERENCE,
             "an MD/TVD pair is not one value; kept as printed",
         )
     out.depth_reference = reference  # type: ignore[assignment]
-    parsed = parse_quantity(q.value_text, allow_fraction=size)
-    if parsed.value is None:
+    printed = parse_printed_quantity(q.value_text, size=size)
+    if printed.number is None:
         return issue(
-            ReasonCode.SIZE_AMBIGUOUS
-            if parsed.problem == SIZE_AMBIGUOUS
-            else ReasonCode.NUMBER_UNPARSEABLE,
+            ReasonCode.SIZE_AMBIGUOUS if printed.size_ambiguous else ReasonCode.NUMBER_UNPARSEABLE,
             ValidatorName.ATTRIBUTE,
-            f"{parsed.problem}; not guessed",
+            f"{printed.problem}; not guessed",
         )
-    out.number = parsed.value
-    unit = parse_unit(q.unit)
-    if q.unit is not None and unit is None:
+    out.number = printed.number
+    if printed.reference_text:
+        written_ref, compound = _depth_reference(printed.reference_text)
+        if compound:
+            return issue(
+                ReasonCode.COMPOUND_DEPTH_PAIR,
+                ValidatorName.DEPTH_REFERENCE,
+                "an MD/TVD pair is not one value; kept as printed",
+            )
+        if out.depth_reference is None:  # nothing claimed: the printed reference is used
+            out.depth_reference_text = out.depth_reference_text or printed.reference_text
+            out.depth_reference = written_ref  # type: ignore[assignment]
+        elif written_ref is not None and written_ref != out.depth_reference:
+            return issue(
+                ReasonCode.MD_TVD_CONFUSION,
+                ValidatorName.DEPTH_REFERENCE,
+                f"the value is printed with {written_ref} but the reference says "
+                f"{out.depth_reference}; not resolved",
+            )
+    claimed = parse_unit(q.unit)
+    if q.unit is not None and claimed is None:
         return issue(ReasonCode.UNIT_UNPARSEABLE, ValidatorName.UNIT, f"unit {q.unit[:16]!r}")
+    written = parse_unit(printed.unit_word)
+    if (
+        written is not None
+        and claimed is not None
+        and (written.dimension, written.factor) != (claimed.dimension, claimed.factor)
+    ):
+        return issue(
+            ReasonCode.UNIT_CONFLICTS_WITH_QUOTE,
+            ValidatorName.UNIT,
+            f"claimed {q.unit}, the value is printed with {printed.unit_word}",
+        )
+    unit = written or claimed
+    if written is not None and q.unit is None:
+        out.unit_as_written = printed.unit_word  # the unit as written in the value itself
     if unit is not None and unit.dimension != "length":
         return issue(
             ReasonCode.UNIT_DIMENSION_MISMATCH,
             ValidatorName.UNIT,
             f"{q.unit} is {unit.dimension}, a length is needed",
+        )
+    if unit is not None and not size and abs(unit.factor - IN_TO_M) < 1e-9:
+        return issue(
+            ReasonCode.UNIT_DIMENSION_MISMATCH,
+            ValidatorName.UNIT,
+            "inches are not a plausible unit for a depth or length; not converted",
         )
     if unit is None:
         if size:
@@ -153,7 +191,7 @@ def _quantity(
                 f"{field}: no unit printed; meters assumed (warning)",
             )
         )
-    meters = parsed.value * unit.factor
+    meters = printed.number * unit.factor
     out.normalized_number = round(meters, 6)
     out.normalized_unit = "m"
     if size:
@@ -411,4 +449,46 @@ def _order_checks(q: dict[str, EquipmentQuantity], flags: _Flags) -> None:
         )
 
 
-__all__ = ["validate_equipment", "EQUIPMENT_VALIDATORS_VERSION"]
+def invalid_item_decision(
+    ctx: ValidationContext,
+    item: InvalidItem,
+    page: int | None,
+    line_range: tuple[int, int] | None,
+) -> Decision:
+    """An item that failed the closed item schema: stored REJECTED (model-read, unverified) with
+    the bounded printed text, never as a valid candidate, never attached to a wellbore."""
+    doc = ctx.reader.require(ctx.project_id, ctx.revision_id, ctx.document_id)
+    base: dict[str, object] = {
+        "document_id": str(doc.document_id),
+        "source_revision_id": str(ctx.revision_id),
+    }
+    locator: dict[str, object]
+    if doc.kind == "pdf":
+        locator = {"kind": "pdf", "page": item.locator_page or page or 1, **base}
+    else:
+        start, end = line_range or (1, 1)
+        locator = {"kind": "text", "line_start": start, "line_end": end, **base}
+    detail = "; ".join(item.problems)[:300] or "invalid item"
+    results = [
+        _result(
+            ValidatorName.ATTRIBUTE, ValidatorOutcome.FAILED, ReasonCode.SCHEMA_INVALID_ITEM, detail
+        )
+    ]
+    state, vstate, reasons = _decide(results, ExtractionMethod.MODEL_READ)
+    return Decision(
+        state,
+        vstate,
+        ExtractionMethod.MODEL_READ,
+        reasons,
+        results,
+        None,
+        {},
+        RejectedItemAttributes(raw_text=item.raw_text[:400], problems=list(item.problems)[:6]),
+        None,
+        locator,
+        doc.document_id,
+        LABEL_MODEL_READ,
+    )
+
+
+__all__ = ["validate_equipment", "invalid_item_decision", "EQUIPMENT_VALIDATORS_VERSION"]

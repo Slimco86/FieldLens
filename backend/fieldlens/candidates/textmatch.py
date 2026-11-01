@@ -162,3 +162,65 @@ def parse_quantity(text: str, *, allow_fraction: bool = False) -> NumberResult:
     if "," in t or re.search(r"\d\.\d+\.\d", t):
         return NumberResult(None, "ambiguous separator")
     return NumberResult(None, "not a plain number")
+
+
+@dataclass(frozen=True)
+class PrintedQuantity:
+    """A quantity as printed in one string (``7"``, ``2615,4 m MD``, ``1,234 m``, ``9 5/8 in``)."""
+
+    number: float | None
+    unit_word: str | None = None  # the unit as written in the value, e.g. ``m``, ``"``, ``ft``
+    reference_text: str | None = None  # a depth reference written in the value, e.g. ``MD RKB``
+    problem: str | None = None
+    size_ambiguous: bool = False
+
+
+_REF_WORDS = frozenset("md tvd tvdss rkb msl brt bdf kb rt ahd".split())
+_INCH_MARKS = ('"', "″", "”", "''", "′′")
+_LEAD = re.compile(r"^(?P<num>[+-]?(?:\d+/\d+|\d[\d.,]*(?:[ -]\d+/\d+)?|\.\d+))\s*(?P<rest>.*)$")
+_THOUSANDS = re.compile(r"^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?$")
+
+
+def parse_printed_quantity(text: str, *, size: bool) -> PrintedQuantity:
+    """Number plus the unit/reference words printed with it. Never guesses: a range, an ``x``
+    separated pair, a number followed by other text, a thousands separator in a size or a glued
+    mixed number is a problem, not a value."""
+    t = norm(text)
+    for mark in _INCH_MARKS:
+        t = t.replace(mark, ' " ')
+    t = " ".join(t.split())
+    m = _LEAD.match(t)
+    if m is None:
+        return PrintedQuantity(None, problem="not a plain number")
+    num, rest = m.group("num"), m.group("rest").strip()
+    if size and (" x " in f" {rest} " or rest.startswith("x")):
+        return PrintedQuantity(None, problem="several sizes in one field")
+    if re.match(r"^[-–]\s*\d", rest) or re.search(r"\d\s*-\s*\d", num) and "/" not in num:
+        return PrintedQuantity(None, problem="a range in one field; kept as printed")
+    unit: str | None = None
+    refs: list[str] = []
+    for token in re.findall(r'"|[a-z°]+', rest):
+        if token == '"' or (token in ("in", "inch", "inches") and unit is None):
+            unit = '"' if token == '"' else token
+        elif token in _REF_WORDS:
+            refs.append(token.upper())
+        elif parse_unit(token) is not None and unit is None:
+            unit = token
+        else:
+            return PrintedQuantity(None, problem="other text after the number")
+    leftover = re.sub(r'"|[a-z°]+|\s+', "", rest)
+    if leftover:
+        return PrintedQuantity(None, problem="other text after the number")
+    reference = " ".join(refs) or None
+    if re.match(r"^[+-]?0,\d+$", num):  # a lone leading "0," is a decimal comma (0,125 = 0.125)
+        num = num.replace(",", ".")
+    elif _THOUSANDS.match(num):
+        if size:
+            return PrintedQuantity(None, problem="ambiguous separator")
+        num = num.replace(",", "")
+    parsed = parse_quantity(num, allow_fraction=size)
+    if parsed.value is None:
+        return PrintedQuantity(
+            None, problem=f"{parsed.problem}", size_ambiguous=parsed.problem == SIZE_AMBIGUOUS
+        )
+    return PrintedQuantity(parsed.value, unit, reference)

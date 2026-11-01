@@ -18,7 +18,7 @@ layer to check; that is reported as unchecked, not as a pass."""
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -191,6 +191,34 @@ class EquipmentExtractor:
         include_controls: bool = False,
         blind_sample: bool = False,
         max_pages: int | None = None,
+        only_pages: Sequence[int] | None = None,
+    ) -> PageSelection:
+        """``only_pages`` narrows the selection to a subset (a retry of failed pages); a page that
+        is not in the configured selection is never added."""
+        sel = self._select_pages(
+            project_id,
+            revision_id,
+            document_id,
+            include_controls=include_controls,
+            blind_sample=blind_sample,
+            max_pages=max_pages,
+        )
+        if only_pages is not None:
+            keep = set(only_pages)
+            sel.pages = [p for p in sel.pages if p in keep]
+            sel.rotations = {p: r for p, r in sel.rotations.items() if p in keep}
+            sel.notes.append(f"restricted to pages {sorted(keep)}")
+        return sel
+
+    def _select_pages(
+        self,
+        project_id: UUID,
+        revision_id: UUID,
+        document_id: UUID,
+        *,
+        include_controls: bool,
+        blind_sample: bool,
+        max_pages: int | None,
     ) -> PageSelection:
         harness = self._harness
         doc = harness.reader.require(project_id, revision_id, document_id)
@@ -236,6 +264,7 @@ class EquipmentExtractor:
         blind_sample: bool = False,
         max_pages: int | None = None,
         concurrency: int | None = None,
+        only_pages: Sequence[int] | None = None,
     ) -> EquipmentRunResult:
         harness = self._harness
         doc = harness.reader.require(project_id, revision_id, document_id)
@@ -260,6 +289,7 @@ class EquipmentExtractor:
             include_controls=include_controls,
             blind_sample=blind_sample,
             max_pages=max_pages,
+            only_pages=only_pages,
         )
         notes: list[str] = []
         if scope is not None and not scope.checked:

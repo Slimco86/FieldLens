@@ -18,7 +18,7 @@ from fieldlens.engineering.perforation.engine import PerforationHistory
 from fieldlens.engineering.provenance import MARKER_REASON, is_model_proposal
 from tests.candidates.conftest import World
 from tests.candidates.eq_helpers import eq_rows, equip, run_equip
-from tests.candidates.helpers import loc
+from tests.candidates.helpers import loc, run_cands
 from tests.candidates.support import (
     FixtureProvider,
     call_response,
@@ -81,17 +81,93 @@ def test_equipment_candidate_schema(world: World) -> None:
     [
         {"category": "drill_bit"},  # outside the closed taxonomy
         {"category": "casing", "wellbore_label": "15/9-F-99"},  # the model never names a wellbore
+        {"category": "casing", "state": "accepted"},  # nor decides a state
         {"category": "casing", "od": {"value_text": "7", "unit": "in", "bogus": 1}},
         {"category": "casing", "region": [0.1, 0.2]},
         {"category": "casing", "region": [0.1, 0.2, 0.3, 1.5]},
         {"category": "casing", "length": {"value_text": 7, "unit": "m"}},  # not a string
+        {"category": "casing", "material": "x" * 61},  # oversize string
         {"category": None},
     ],
 )
-def test_equipment_schema_is_closed(world: World, bad: dict[str, Any]) -> None:
-    out, _ = run_equip(world, [equip(world.pdf_doc, 1, **bad)], doc=world.pdf_doc)
-    assert out.state == "failed" and out.stop_reason == "schema_invalid"
+def test_equipment_schema_is_closed_per_item(world: World, bad: dict[str, Any]) -> None:
+    """An invalid ITEM is stored rejected (printed text kept, bounded); valid items of the same
+    page persist; a smuggled field never produces a valid candidate."""
+    good = equip(world.pdf_doc, 1, category="tubing")
+    out, _ = run_equip(world, [equip(world.pdf_doc, 1, **bad), good], doc=world.pdf_doc)
+    assert out.state == "succeeded"
+    rows = eq_rows(world)
+    assert len(rows) == 1  # eq_rows lists valid equipment only
+    assert rows[0]["attrs"]["category"] == "tubing"
+    rejected = world.rows(
+        "select state, validation_state, method, reason_codes, attributes::text, wellbore_id, "
+        "label from extraction_candidate where attributes->>'kind'='rejected_item'"
+    )
+    assert len(rejected) == 1
+    st, vs, method, reasons, attrs, wellbore, label = rejected[0]
+    assert (st, vs, method, wellbore) == ("rejected", "unverified", "model_read", None)
+    assert "schema_invalid_item" in reasons and label == "model-read, unverified"
+    body = json.loads(attrs)
+    assert len(body["raw_text"]) <= 400 and body["problems"]
+    assert world.scalar("select count(*) from extraction_candidate where state='accepted'") == 0
+
+
+def test_a_unit_takes_only_its_own_candidate_class(world: World) -> None:
+    measurement = {
+        "kind": "measurement",
+        "attribute_key": "perforation.top_md",
+        "value_text": "1",
+        "locator": loc(world.pdf_doc, page=1),
+        "quote": "x",
+        "subject": {},
+    }
+    # in an equipment unit another class is a rejected item, never a valid candidate
+    out, _ = run_equip(world, [measurement], doc=world.pdf_doc)
+    assert out.state == "succeeded" and out.candidates == {"rejected": 1}
+    assert (
+        world.scalar(
+            "select count(*) from extraction_candidate where attributes->>'kind'='measurement'"
+        )
+        == 0
+    )
+    # an equipment item in a measurement unit fails the unit
+    out2, _ = run_cands(
+        world, [equip(world.pdf_doc, 1)], doc=world.pdf_doc, page=1, line_range=None, question="m"
+    )
+    assert out2.state == "failed" and out2.stop_reason == "wrong_candidate_kind"
+
+
+@pytest.mark.parametrize(
+    ("text", "shape"),
+    [
+        ('Here are the items: {"candidates": []}', "text_before_json"),
+        ("[]", "array_not_object"),
+        ("", "empty"),
+        ('{"candidates": []} and some trailing words', "trailing_data@"),
+        ('{"candidates": [{"kind": "equipment", "label_text": "7" tubing"}]}', "invalid_json@"),
+        ('{"candidates": "none"}', "envelope_shape"),
+        ('{"candidates": [], "page_kind": "x"}', "envelope_shape"),
+    ],
+)
+def test_envelope_malformation_fails_the_unit_with_its_shape(
+    world: World, text: str, shape: str
+) -> None:
+    out, _ = run_equip(
+        world,
+        [],
+        doc=world.pdf_doc,
+        provider=FixtureProvider(lambda r, n: text_response(text, usage=usage())),
+    )
+    assert out.state == "failed" and out.stop_reason in ("malformed_output", "schema_invalid")
+    detail = world.scalar("select stop_detail from agent_work_unit where unit_key like 'extract:%'")
+    assert shape in detail  # a stable word naming HOW it was wrong, never the content
     assert world.scalar("select count(*) from extraction_candidate") == 0
+
+
+def test_too_many_items_fails_the_envelope(world: World) -> None:
+    items = [equip(world.pdf_doc, 1) for _ in range(41)]
+    out, _ = run_equip(world, items, doc=world.pdf_doc)
+    assert out.state == "failed" and out.stop_reason == "schema_invalid"
 
 
 def test_malformed_equipment_output_is_a_failed_attempt(world: World) -> None:
@@ -104,20 +180,6 @@ def test_malformed_equipment_output_is_a_failed_attempt(world: World) -> None:
             question=f"malformed {n}",
         )
         assert out.state == "failed", text
-    assert world.scalar("select count(*) from extraction_candidate") == 0
-
-
-def test_a_unit_takes_only_its_own_candidate_class(world: World) -> None:
-    measurement = {
-        "kind": "measurement",
-        "attribute_key": "perforation.top_md",
-        "value_text": "1",
-        "locator": loc(world.pdf_doc, page=1),
-        "quote": "x",
-        "subject": {},
-    }
-    out, _ = run_equip(world, [measurement], doc=world.pdf_doc)
-    assert out.state == "failed" and out.stop_reason == "wrong_candidate_kind"
     assert world.scalar("select count(*) from extraction_candidate") == 0
 
 

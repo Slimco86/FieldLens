@@ -8,6 +8,21 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.22.1 - 2026-11-01
+
+- **TASK-041 live run and repairs:** One authorized live run (cap USD 3, USD 0.68 at placeholder rates; real cost unknown)
+  read 4 of 9 planned F-14/F-5 completion pages (25 flagged, unverified, unattached candidates; two control pages returned
+  no items) and failed on 5 (two budget stops after a tool-call turn, one truncated output, one schema-invalid and one
+  malformed output); the evidence is in `docs/evidence/TASK041_EQUIPMENT_LIVE_RUN.md`. Repairs, verified offline: equipment
+  pages are now a single turn without tools (the rotation re-request is an opt-in two-pass mode), equipment output cap
+  8,192 tokens with an honest reservation (MI-5 amendment), items are validated one by one (an invalid item is stored
+  rejected with its printed text, valid items persist; a malformed envelope still fails the unit with its shape named), a
+  printed depth reference that contradicts the claimed one is flagged, quantity parsing accepts inch marks, glued units,
+  decimal commas and fractions without guessing, depths or lengths printed in inches are flagged. The runbook gained
+  `--only-failed`, `--pages`, remaining-budget checks, a `--file` bootstrap for native data, and clean argument errors.
+  Additive contracts only (`RejectedItemAttributes`, `schema_invalid_item`, request output bound 8,192). No second live
+  run yet; the 5 failed pages have never been re-read.
+
 ## 0.22.0 - 2026-11-01
 
 - **TASK-041 (FL-022-D):** Added visual-level production/completion equipment candidates (EQ-8..EQ-10, offline stub
