@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,7 @@ from .types import (
     TEMPORAL_AMBIGUITY,
     Attr,
     CoverageOut,
+    EventTime,
     Finding,
     Locator,
     ParseContext,
@@ -727,37 +729,38 @@ class StatoilSurveyTextProfile:
         # survey status: only explicit words in the survey name; never the file name
         name_hit = first("survey name")
         status_loc = _loc(name_hit[0] if name_hit else title_no, "survey_status")
-        status: Attr
-        if survey_name and _STATUS_PLAN.search(survey_name):
+        planned = bool(survey_name and _STATUS_PLAN.search(survey_name))
+        actual = bool(survey_name and _STATUS_ACTUAL.search(survey_name))
+        key = "survey_report_header.survey_status"
+        if planned != actual:
             status = Attr(
-                "survey_report_header.survey_status",
+                key,
                 status_loc,
                 original_text=survey_name,
-                text="planned",
-            )
-        elif survey_name and _STATUS_ACTUAL.search(survey_name):
-            status = Attr(
-                "survey_report_header.survey_status",
-                status_loc,
-                original_text=survey_name,
-                text="as_built",
+                text="planned" if planned else "as_built",
             )
         else:
-            status = Attr(
-                "survey_report_header.survey_status",
-                status_loc,
-                original_text=survey_name,
-                unknown_reason="the file does not state whether the survey is planned or as-built",
+            conflict = planned and actual
+            reason = (
+                "the survey name states both planned and as-built wording"
+                if conflict
+                else "the file does not state whether the survey is planned or as-built"
             )
+            status = Attr(key, status_loc, original_text=survey_name, unknown_reason=reason)
             findings.append(
                 Finding(
                     TEMPORAL_AMBIGUITY,
-                    "info",
-                    "the file does not state whether this survey is planned or as-built "
-                    f"(Survey Name: {survey_name or 'not stated'}); the file name is only a hint "
-                    "and was not used. Planned and as-built surveys must not be mixed.",
-                    "survey_status_unstated",
-                    ["survey_report_header.survey_status", "survey_report_header.survey_name"],
+                    "warning" if conflict else "info",
+                    (
+                        f"the survey name '{survey_name}' states both planned and as-built "
+                        "wording; no status is asserted."
+                        if conflict
+                        else "the file does not state whether this survey is planned or as-built "
+                        f"(Survey Name: {survey_name or 'not stated'}); the file name is only a "
+                        "hint and was not used. Planned and as-built surveys must not be mixed."
+                    ),
+                    "survey_status_conflict" if conflict else "survey_status_unstated",
+                    [key, "survey_report_header.survey_name"],
                     [0],
                     [status_loc],
                     ["temporal_state"],
@@ -771,17 +774,52 @@ class StatoilSurveyTextProfile:
             for d in (survey_date, extraction)
         )
 
-        def to_time(text: str | None, label: str) -> Any:
+        date_findings: list[Finding] = []
+
+        def to_time(text: str | None, label: str, label_key: str) -> Any:
             if not text:
                 return None
             m = _DATE.match(text)
-            if m and day_first:
-                return event_time(f"{m[3]}-{m[2]}-{m[1]}", label)
-            return event_time(text, label)
+            if not (m and day_first):
+                return event_time(text, label)
+            hit = first(label_key)
+            loc = [_loc(hit[0])] if hit else []
+            try:
+                date(int(m[3]), int(m[2]), int(m[1]))
+            except ValueError:
+                date_findings.append(
+                    Finding(
+                        SUSPICIOUS_VALUE,
+                        "warning",
+                        f"{label} '{text}' is not a valid calendar date (day-first); kept as "
+                        "written with unknown precision.",
+                        f"date_invalid:{label_key}",
+                        [f"survey_report_header.{label_key.replace(' ', '_')}"],
+                        [0],
+                        loc,
+                        ["temporal_state"],
+                    )
+                )
+                return EventTime(text, "unknown", False, label)
+            if int(m[1]) <= 12:
+                date_findings.append(
+                    Finding(
+                        TEMPORAL_AMBIGUITY,
+                        "info",
+                        f"{label} '{text}' is read day-first because another date in the file "
+                        "has a day above 12; the order is inferred, not stated.",
+                        f"date_order_inferred:{label_key}",
+                        [f"survey_report_header.{label_key.replace(' ', '_')}"],
+                        [0],
+                        loc,
+                    )
+                )
+            return event_time(f"{m[3]}-{m[2]}-{m[1]}", label)
 
-        survey_time = to_time(survey_date, "Survey Date")
-        report_time = to_time(extraction, "Extraction Date")
-        if survey_time and survey_time.precision == "unknown":
+        survey_time = to_time(survey_date, "Survey Date", "survey date")
+        report_time = to_time(extraction, "Extraction Date", "extraction date")
+        findings.extend(date_findings)
+        if survey_time and survey_time.precision == "unknown" and not day_first:
             findings.append(
                 Finding(
                     TEMPORAL_AMBIGUITY,

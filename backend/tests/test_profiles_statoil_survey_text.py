@@ -460,3 +460,31 @@ def test_extensionless_upload_yields_stations_and_a_surface_location(
     assert attrs["well_surface_location.latitude"]["original_text"] == "58° 26' 29.8941 N"
     assert attrs["well_surface_location.longitude"]["evidence"]["locator"]["kind"] == "text"
     assert api.documents(pid)[0]["extraction_state"] in ("extracted", "extracted_with_issues")
+
+
+def test_survey_name_with_plan_and_actual_wording_asserts_no_status(tmp_path: Path) -> None:
+    out = parse(tmp_path, export(replace={"Survey Name: F-99": "Survey Name: F-99 plan vs actual"}))
+    status = out.records[0].attr("survey_report_header.survey_status")
+    assert status and status.text is None and "both" in (status.unknown_reason or "")
+    f = finding(out, "survey_status_conflict")
+    assert f and f.severity == "warning" and "temporal_state" in f.blocked
+    assert finding(out, "survey_status_unstated") is None
+
+
+def test_impossible_calendar_date_is_unknown_with_a_finding(tmp_path: Path) -> None:
+    out = parse(tmp_path, export(replace={"Survey Date: 21.11.2007": "Survey Date: 31.02.2008"}))
+    t = out.records[0].effective_time
+    assert t and t.precision == "unknown" and t.literal == "31.02.2008"
+    f = finding(out, "date_invalid:survey date")
+    assert f and f.severity == "warning" and f.code == "SUSPICIOUS_VALUE"
+    assert out.records[0].report_time.literal == "2018-03-26"  # type: ignore[union-attr]
+
+
+def test_day_first_order_inferred_from_another_date_is_reported_as_info(tmp_path: Path) -> None:
+    out = parse(tmp_path, export(replace={"Survey Date: 21.11.2007": "Survey Date: 01.11.2007"}))
+    t = out.records[0].effective_time
+    assert t and t.literal == "2007-11-01" and t.precision == "day"  # value kept
+    f = finding(out, "date_order_inferred:survey date")
+    assert f and f.severity == "info" and "inferred" in f.message
+    assert finding(out, "date_order_inferred:extraction date") is None  # 26 proves itself
+    assert not [x for x in out.findings if x.severity in ("warning", "error")]
