@@ -1191,10 +1191,10 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | frontend |
-| Depends on | TASK-033, TASK-039 |
+| Depends on | TASK-033 |
 | Assignee | agent:fieldlens-frontend |
 | Due | 2026-11-01 |
 | Sprint | Hackathon |
@@ -1203,8 +1203,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-021 |
 | Slice | FL-021-A |
 
-**Outcome.** Frontend owner implements the approved light theme on Mantine (with Inter and lucide-react), the shell (left project sidebar, per-project Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock slots), shared components/states and restyled Projects and Sources/upload views (including classification edit and the TASK-039 remove/replace controls) and the evidence views built by TASK-009, with existing behavior, tests and accessibility preserved. Measures the bundle and sets the UI-8 budget. No new product behavior and no fake controls.
-**Next action.** Sequenced after upload and parsing (owner priority October 30): dispatch once TASK-009 and TASK-039 are integrated, with a fresh preflight (profile, resolved model/effort, tools); independent QA and an owner browser checkpoint (brand ramp and look) follow.
+**Outcome.** Frontend owner implements the approved light theme on Mantine (with Inter and lucide-react), the shell (left project sidebar, per-project Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock slots), shared components/states and restyled Projects and Sources/upload views (including the already-supported classification edit; the remove/replace and project-delete controls are TASK-049) and the evidence views built by TASK-009, with existing behavior, tests and accessibility preserved. Measures the bundle and sets the UI-8 budget. No new product behavior and no fake controls.
+**Next action.** Dispatched October 31 (owner: incremental, testable UI now) without waiting for TASK-039; no remove/replace/delete controls until their backend exists (TASK-049). Independent QA, then an owner browser checkpoint (brand ramp and look); TASK-048 (overview) follows.
 **Evidence.** none yet
 
 ### TASK-035 · Approve the agentic extraction contract and open decisions
@@ -1228,12 +1228,12 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** None. Superseded October 30 (second answer): a model-extracted coordinate/trajectory value may serve as a labeled backup when no deterministic source exists (AX-11).
 **Evidence.** Owner decisions of October 30 recorded in `specs/AGENTIC_EXTRACTION.md` section 6: question-driven model use, validators-only acceptance, deterministic coordinates/trajectories, one shared-contract change allowed, no live spend in TASK-036, all documents shareable (read-only content tools and multimodal input allowed).
 
-### TASK-036 · Model-proposed extraction candidates with deterministic validation and review (AX-1..9)
+### TASK-036 · Model-proposed extraction candidates with deterministic validation and review (AX-1..9, AX-12..15)
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
 | Depends on | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038, TASK-046 |
@@ -1246,7 +1246,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-A |
 
 **Outcome.** Ingestion owner implements question-driven candidate-claim proposals from the harness through the offline provider adapter, the allowlisted read-only content tools (span, table, page image, project search), deterministic validators, persisted candidate/accept/reject/flag states with source locators (including the AX-11 labeled coordinate fallback), writing to the TASK-038 activity log, and their display in the existing evidence/issue views (restyled later by TASK-034). One shared-contract change is allowed with a single writer. Offline stub provider only; no live spend is authorized by this task.
-**Next action.** Ready: TASK-004, TASK-009, TASK-011 and TASK-038 are integrated (0.17.0). Carry the TASK-038 deferrals (startup `recover_interrupted` wiring, budget reservation link, `step_key` scheme, cancel/retry only if needed), use TASK-043 effort control (`low`/`minimal`), the TASK-042 findings (upright pages about 1600 px, orientation fix, zoomed second pass, text layer for native pages) and, for scans, the OCR-agreement rule once TASK-030 phase B exists; fresh preflight in its own worktree (every command prefixed `env -u MODEL_API_KEY -u FIELDLENS_DATABASE_URL`); independent QA follows.
+**Next action.** Dispatched October 31 with the AX-12..15 amendment (page-image tool with pypdfium2/Pillow, model-read unverified marking, page triage and speed budget, startup recovery/budget link/step_key). Offline stub only; every command prefixed `env -u MODEL_API_KEY -u FIELDLENS_DATABASE_URL`; independent QA follows; TASK-041 builds on it.
 **Evidence.** none yet
 
 ### TASK-037 · Demo UI polish and responsive/accessibility sweep on the integrated app (UI-8, UI-10)
@@ -1329,8 +1329,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-005 |
 | Slice | FL-005-C |
 
-**Outcome.** Backend owner implements the owner-approved removal: an API that, after confirmation semantics, physically deletes a document's stored bytes and derived content (keeping shared blobs), cancels its running job, and records a tombstone source revision; derived claims become inactive and non-citable; a published model stays pinned and labeled; re-upload creates a fresh document. Replacement uses the existing new-revision path (IN-5). IN-9 offline tests on real PostgreSQL and storage; the UI controls arrive with TASK-034.
-**Next action.** Ready: TASK-009 is integrated (0.14.0), so real derived records exist to invalidate. Dispatch with a fresh preflight in its own worktree; independent QA follows.
+**Outcome.** Backend owner implements the owner-approved removal: an API that, after confirmation semantics, physically deletes a document's stored bytes and derived content (keeping shared blobs), cancels its running job, and records a tombstone source revision; derived claims become inactive and non-citable; a published model stays pinned and labeled; re-upload creates a fresh document. Replacement uses the existing new-revision path (IN-5). The same slice adds project deletion (PW-9, owner request October 31): a typed-name-confirmed API that cancels jobs, deletes unshared blobs and every project-scoped row in one transaction through a designed delete path (the immutable-revision guards stay enabled otherwise). IN-9 and PW-9 offline tests on real PostgreSQL and storage; the UI controls are TASK-049.
+**Next action.** Ready; dispatch into the first lane that frees up (TASK-034 or TASK-036 finishing), before TASK-049. Fresh preflight in its own worktree; independent QA follows.
 **Evidence.** none yet
 
 ### TASK-042 · Live feasibility spike: model reading of the real completion documents
@@ -1362,7 +1362,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | ingestion, rag, backend |
-| Depends on | TASK-036, TASK-030, TASK-042, TASK-046 |
+| Depends on | TASK-036, TASK-042, TASK-046 |
 | Assignee | agent:fieldlens-ingestion |
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
@@ -1372,7 +1372,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-D |
 
 **Outcome.** Using the TASK-036 harness, read the completion pages of F-14 and F-5 (scanned page images, and the text layer where it exists) and propose a superficial, visual-level production/completion equipment structure (casing/liner strings, tubing, packers, pumps, perforations, isolations: type, material if printed, OD/ID/length, top/bottom depth) as model-read, unverified candidates for the 3D model. Owner decision October 31: no OCR gate, speed and performance first, missed details are acceptable, values are never used in calculations; F-12 uses generic assets.
-**Next action.** Depends on TASK-036 (harness with page-image reading) and TASK-046 (wellbore identity). Spec amendment for the visual-level equipment taxonomy and acceptance written when TASK-036 is handed off; settings from the spike: upright pages about 1600 px, effort `low`, orientation fix, page triage by keywords or the printed table of contents.
+**Next action.** Acceptance written (EQ-8..11 in specs/EQUIPMENT_RECONSTRUCTION.md, owner taxonomy of October 31). Dispatch after TASK-036 is integrated; settings from the spike: upright pages about 1600 px, effort `low`, orientation fix, page triage. Live run on the approved F-14/F-5 pages needs a separate small allowance.
 **Evidence.** none yet
 
 ### TASK-043 · Provider adapter hardening from the live findings (effort control, tool-token estimate, cancel and liable semantics)
@@ -1480,11 +1480,57 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** None. Charts (TASK-016/TASK-017) read through `SeriesService.get_window` / the window API. Follow-ups are filed under TASK-045: LAS files with a time-formatted index (drilling time logs such as TIME_MWD) or wrapped rows store no series (two small F-5 `sig1` depth logs are the only depth-log gap in the cohort), monthly production series are not built (daily only), and low DB-hardening residuals (`min_value` NULL with `max_value` set, `index_max` NaN pass the CHECKs).
 **Evidence.** Integrated October 31 as 0.19.0 (branch `feature/task-047-series-storage`, head `c46ed0a`; migration renumbered to `0009_series_storage` on top of `0008_identity_links`). LAS samples and daily production stored at full resolution (`series_axis`/`series_curve`, float64 arrays, NaN = missing), written atomically with the extraction run and superseded/cascade-deleted with it; read-only `/series`, `/series/{id}`, `/series/{id}/window` with deterministic min/max- and gap-preserving downsampling (10,000-point window p95 about 9 ms in the service, about 27 ms over HTTP on a 100,000-sample series) and a typed `SeriesService`. Real subset: 172 of 301 LAS files store series (970,241 samples; 67 refused by the upload inspector, the rest time-indexed, wrapped or empty), independent re-read matched exactly (index and every curve, about 2.6M cells), production 7 wellbores / 15,634 days / 203,242 values exact; parse-only memory over 234 LAS files 792 MB -> 146 MB, extraction overhead under 0.5 s. Independent QA returned the first candidate for a bogus series from a wrapped-row file (repaired, scan found no other) plus low items; re-check passed (909 passed, 4 skipped, 1 deselected). Results are for the approved real files only.
 
+### TASK-048 · Project data overview in the Sources tab (UI-13)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | ready |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-034, TASK-046, TASK-047 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-02 |
+| Sprint | Hackathon |
+| Spec | specs/UI_DESIGN_SYSTEM.md |
+| Version | none |
+| Parent | FL-021 |
+| Slice | FL-021-C |
+
+**Outcome.** Frontend owner adds the project Overview (UI-13) as the first view of the Sources tab from existing APIs only: documents by processing state/format, extraction coverage per kind, issues by severity with locators, resolved wells/wellbores with record counts, available log and production series per wellbore with units and ranges, depth-default warnings, and the honest list of what is not available yet. No new backend or contract.
+**Next action.** Dispatch after TASK-034 is integrated (same frontend owner, new branch); independent QA with the seeded real subset, then the owner checkpoint.
+**Evidence.** none yet
+
+### TASK-049 · Source remove/replace and project-delete controls (IN-9, IN-5, PW-9)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P1 |
+| Tags | frontend |
+| Depends on | TASK-034, TASK-039 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/UI_DESIGN_SYSTEM.md |
+| Version | none |
+| Parent | FL-021 |
+| Slice | FL-021-D |
+
+**Outcome.** Frontend owner adds the Sources-tab remove (irreversible-deletion confirmation) and replace controls and the project-delete dialog (typed project name) on top of the TASK-039 APIs, using the shell components; no fake controls before the backend exists.
+**Next action.** Dispatch after TASK-034 and TASK-039 are integrated.
+**Evidence.** none yet
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
 work-items table and finalized priorities), kept as history. Where it conflicts with the
 item blocks above, the item blocks are authoritative for current status.
+
+## Owner decisions, October 31 (fourth pass)
+
+- **Dispatch.** Owner approved the extraction harness (TASK-036, AX-12..15), the visual-level equipment extraction (TASK-041, EQ-8..11) and the first proper UI (TASK-034 shell, project management and sources/upload; TASK-048 overview) so incremental work can be tested in the browser. Project deletion is added (PW-9, TASK-039; UI in TASK-049) because leftover projects had to be removed by hand. TASK-034 no longer waits for TASK-039.
 
 ## Owner decisions, October 31 (third pass)
 

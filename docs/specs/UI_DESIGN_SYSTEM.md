@@ -8,6 +8,13 @@
 > **Approved spec revision/date:** r1, 2026-10-30 (owner answers to all section 6 questions). **Integration version:** pending.
 > **Zero-Question Score:** 0 unowned questions blocking TASK-034. Sequencing (owner, October 30): upload and parsing come first, so TASK-034 follows TASK-039 and TASK-009; the exact brand color ramp is proposed by the implementer and signed off at the browser checkpoint.
 
+> **Owner amendment, October 31 (dispatch):** the owner wants incremental, testable UI now. TASK-034 starts without
+> waiting for TASK-039: remove/replace and project-delete controls are not shown until their backend exists (UI-6,
+> PW-1: no fake controls) and arrive in TASK-049. A **data overview** (UI-13) is added as TASK-048, built on the
+> existing project, document, job, coverage, identity, series and issue APIs only. Project edit stays; project
+> deletion is PW-9 (backend TASK-039) and its confirmation dialog is TASK-049. The Mantine kit, Inter and
+> lucide-react decisions below stand.
+
 ## How to Read This Spec
 
 Owner: outcome, look-and-feel decisions (section 6). Frontend implementer: scope, tokens,
@@ -94,6 +101,7 @@ No dependency on parsers, agents or data. Later UI tasks depend on TASK-034 (see
 | UI-10 | Behavioral | At 1920x1080 and 2560x1440 a reviewer other than the implementer scores the screenshots against the visual checklist in section 7 with no blocker; the owner records sign-off in the browser checkpoint. | 2 | [Assumed: verify] | reviewer report + owner checkpoint |
 | UI-11 | Behavioral | Inside Explore the four regions (`tree`, `stage`, `inspector`, `dock`) are documented layout components with collapse behavior; a test mounts a dummy panel in each without changing shell code, and an empty region renders nothing misleading. | 3 | [Assumed: verify] | `workspace-regions.test` |
 | UI-12 | Behavioral | The left sidebar lists, creates, edits and switches projects; opening a project shows exactly the tabs Sources / Reconstruction / Explore, selected by URL and keyboard, and switching projects resets tab state and invalidates pending requests (PW-8 preserved). The Sources tab offers only supported actions (upload, list, classification edit); Reconstruction and Explore state their prerequisite until their features exist. | 3 | [Validated: owner navigation model] | `project-navigation.spec.ts` extended |
+| UI-13 | Behavioral | A project **Overview** (the first view of the Sources tab, above the file table) shows from existing APIs only: counts of documents by processing state and by detected format, extraction coverage per record kind, issues by severity with the first items linking to their source locator, the resolved wells and wellbores with record counts per kind (identity API), the available log and production series per wellbore (series API: names, units, index range, sample counts, stated-vs-missing units) and the depth-default warnings; it states what is not available yet (equipment, reconstruction, scene) with its real prerequisite; every number is traceable to an API field (no client-side invention), every count is reproduced exactly against the API in a test, and a project with no data shows a designed empty state. | 3 | [Validated: owner request, October 31] | Vitest (fixtures from the generated types) + Playwright against a real lane with the seeded real subset |
 
 Definition of done: all ACs pass with recorded commands/results; owner browser checkpoint recorded; integration
 follows the [workflow](../DEVELOPMENT_WORKFLOW.md) (independent acceptance, version/changelog, backlog reconciliation).

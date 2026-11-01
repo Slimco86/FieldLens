@@ -172,17 +172,19 @@ Source-data tasks cannot be promoted by a mocked dependent test.
 | Task | Slice | Depends on | Description | Completed | Date |
 |---|---|---|---|---|---|
 | TASK-033 | FL-021-A | None | Owner approves the UI design direction and open decisions in `docs/specs/UI_DESIGN_SYSTEM.md`. | | |
-| TASK-034 | FL-021-A | TASK-033, TASK-039 | Frontend owner implements the light Mantine theme, the shell (left project sidebar, Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock regions), shared components/states and redesigned Projects/Sources screens; UI-1..7, UI-9..12, existing behavior preserved, large screens only. | | |
+| TASK-034 | FL-021-A | TASK-033 | Frontend owner implements the light Mantine theme, the shell (left project sidebar, Sources/Reconstruction/Explore tabs, Explore tree/stage/inspector/dock regions), shared components/states and redesigned Projects/Sources screens; UI-1..7, UI-9..12, existing behavior preserved, large screens only. | | |
 | TASK-035 | FL-022-A | None | Owner approves the agentic extraction contract and open decisions in `docs/specs/AGENTIC_EXTRACTION.md`. | | |
 | TASK-036 | FL-022-A | TASK-035, TASK-004, TASK-009, TASK-011, TASK-038 | Ingestion owner implements question-driven model-proposed candidate claims with read-only content tools and page images, deterministic validators, persisted states and evidence/issue display; AX-1..9, offline stub provider only. | | |
 | TASK-037 | FL-021-B | TASK-034, TASK-012, TASK-018 | Frontend owner runs the demo UI polish and accessibility sweep on the integrated app; UI-8, UI-10, owner sign-off. | | |
 | TASK-038 | FL-022-B | TASK-004 | Ingestion owner implements the persisted agent activity log, migration and read API; AX-10 backend. | | |
 | TASK-039 | FL-005-C | TASK-009 | Backend owner implements source removal (bytes deleted, tombstone revision, derived claims inactive) and replacement as a new revision; IN-9, IN-5. | | |
 | TASK-040 | FL-022-C | TASK-038, TASK-034 | Frontend owner implements the Reconstruction tab's agent activity log view; AX-10 UI. | | |
-| TASK-041 | FL-022-D | TASK-036, TASK-030, TASK-042 | Ingestion owner extracts production/completion equipment candidates (tubing, casing/liners in service, packers, pumps, bearings) from the completion documents with the TASK-036 harness; spec amendment first. | | |
+| TASK-041 | FL-022-D | TASK-036, TASK-042, TASK-046 | Ingestion owner extracts production/completion equipment candidates (tubing, casing/liners in service, packers, pumps, bearings) from the completion documents with the TASK-036 harness; spec amendment first. | | |
 | TASK-043 | FL-003-C | TASK-005 | RAG owner hardens the provider adapter from the live findings: reasoning-effort control, tool-request token estimate, documented in-flight cancel semantics, reconcile path for liable reservations; offline. | | |
 | TASK-047 | FL-005-F | TASK-009, TASK-011 | Backend owner stores LAS samples and production series at full resolution with a windowed downsampled API and typed service (DC-7..11). | | |
 | TASK-046 | FL-005-E | TASK-009, TASK-011 | Ingestion owner adds depth unit/datum defaults as warnings and deterministic well/wellbore identity (DC-1..6). | | |
+| TASK-048 | FL-021-C | TASK-034, TASK-046, TASK-047 | Frontend owner adds the project data overview to the Sources tab from existing APIs (UI-13). | | |
+| TASK-049 | FL-021-D | TASK-034, TASK-039 | Frontend owner adds source remove/replace and project-delete controls. | | |
 | TASK-045 | FL-011-F | TASK-011 | RAG owner handles the small retrieval follow-ups deferred by QA (id-only coverage, numeric-only sidetracks, production flooding, requeue). | | |
 | TASK-044 | FL-005-D | TASK-009 | Ingestion owner investigates the deferred EDM export offline for deterministic completion/production equipment and perforation history; profile only if justified. | | |
 | TASK-042 | FL-022-E | TASK-005, TASK-009, TASK-043 | Ingestion owner runs a bounded live feasibility spike of model reading on the seven completion documents (read-only, no product code, owner-approved allowance). | | |
