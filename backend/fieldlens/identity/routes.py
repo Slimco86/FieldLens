@@ -10,11 +10,13 @@ from sqlalchemy.exc import OperationalError
 
 from fieldlens import security
 from fieldlens.contracts.errors import ContractError, ErrorCode, ErrorEnvelope
+from fieldlens.contracts.exposure import ProjectExposure, StartGate
 from fieldlens.contracts.well_identity import (
     IdentityListing,
     IdentityResolveOutcome,
     WellboreEvidence,
 )
+from fieldlens.exposure import service as exposure_service
 from fieldlens.persistence.session import session_scope
 
 from . import service
@@ -53,6 +55,18 @@ def build_identity_router() -> APIRouter:
     @router.get("", response_model=IdentityListing)
     def get_listing(project_id: UUID, request: Request) -> IdentityListing:
         out: IdentityListing = _db(request, lambda s: service.listing(s, project_id))
+        return out
+
+    @router.get("/exposure", response_model=ProjectExposure)
+    def get_exposure(project_id: UUID, request: Request) -> ProjectExposure:
+        out: ProjectExposure = _db(
+            request, lambda s: exposure_service.project_exposure(s, project_id)
+        )
+        return out
+
+    @router.get("/start-gate", response_model=StartGate)
+    def get_start_gate(project_id: UUID, request: Request) -> StartGate:
+        out: StartGate = _db(request, lambda s: exposure_service.start_gate(s, project_id))
         return out
 
     @router.get("/wellbores/{wellbore_id}/evidence", response_model=WellboreEvidence)

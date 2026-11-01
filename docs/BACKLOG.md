@@ -1667,7 +1667,7 @@ the slice letter and `Slice` keeps the plan's original string.
 
 **Outcome.** Read-only API grouping records per wellbore and category with locators, validation state, gaps and conflicts, plus the deterministic start gate (validated trajectory present; surface location only warns).
 **Next action.** Lane `task-056-wellbore-exposure` (agent:fieldlens-backend), started November 1: extend the identity evidence endpoint rather than adding a parallel store; contracts first; independent QA.
-**Evidence.** none yet
+**Evidence.** Implemented on branch feature/task-056-wellbore-exposure (pending QA/merge): `specs/PROCESSING_FLOW.md` section 8; `test_wellbore_exposure.py`.
 
 ### TASK-057 · AI identity-merge proposals and review (PF-7)
 

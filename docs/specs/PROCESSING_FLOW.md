@@ -123,3 +123,22 @@ concurrency tests). Migration `0011_processing_runs`; routes under `/api/v1/proj
 Over-cap documents, missing budget, provider failure, malformed model output, a label contradicting content, two
 wellbores with the same alias, a (0, 0) origin leaking into a georeferenced result, and a confirmed estimate exceeded by
 actual usage (the run stops and reports; no automatic restart).
+
+## 8. Implementation evidence: TASK-056 (PF-6, PF-8)
+
+Read-only, no migration. `GET /api/v1/projects/{id}/identity/exposure` (all wells/wellbores with categories and gate),
+`GET .../identity/start-gate` and the extended `GET .../identity/wellbores/{id}/evidence` (new `exposure` field) return
+`contracts/exposure.py` DTOs; code in `backend/fieldlens/exposure/` (`rules.py` pure, `service.py` queries). Tests:
+`backend/tests/identity/test_wellbore_exposure.py` (`test_wellbore_data_exposure`, `test_reconstruction_start_gate`).
+
+- Categories: trajectory, surface_location, logs, production, equipment_completion, perforations, other (unknown kinds
+  land in `other`). Groups are per document run and record kind with exact counts and a bounded sample whose attributes
+  carry locators; proposals are listed apart and `is_accepted_fact` only for accepted+valid candidates.
+- "Validated trajectory" (native records are `unreviewed` by design, so it is rule-based): a current succeeded/partial
+  run linked to the wellbore with >= 2 stations, each with finite in-range MD/inclination/azimuth and no invalid or
+  conflicting state, strictly increasing MD, survey status `as_built` or `not_applicable` (format has no such
+  statement), and no error issue blocking geometry/calculation on the trajectory. Planned-only or unstated status
+  (Statoil `survey_report_header.survey_status`) does not satisfy the gate; planned and as-built sets stay separate.
+- Surface location: `well_surface_location` record (TASK-051 profile; absent kinds yield no records) with easting+northing
+  or latitude+longitude. Missing/incomplete gives warning `SURFACE_LOCATION_MISSING`/`_INCOMPLETE` and `unlocated: true`;
+  never a blocker. The local display origin is TASK-058.

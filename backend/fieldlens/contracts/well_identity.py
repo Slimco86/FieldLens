@@ -13,6 +13,7 @@ from uuid import UUID
 from pydantic import Field
 
 from .base import ContractModel, FiniteJsonValue
+from .exposure import WellboreExposure
 
 
 class IdentityKindCount(ContractModel):
@@ -88,3 +89,7 @@ class WellboreEvidence(ContractModel):
     project_id: UUID
     wellbore: ResolvedWellbore
     documents: list[WellboreEvidenceDocument]
+    exposure: WellboreExposure = Field(
+        description="Records of this wellbore grouped per category with locators, validation "
+        "state, gaps/conflicts and its start-gate verdict (TASK-056)."
+    )
