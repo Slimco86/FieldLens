@@ -8,6 +8,16 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.29.0 - 2026-11-01
+
+- **TASK-057 (PF-7) AI identity-merge proposals and review API:** deterministic candidate blocking over resolved
+  wells/wellbores and unresolved labels, a model step (stub provider only, no live call) proposing that differently
+  named sources are one entity with alias evidence quotes, seven deterministic guards (G1-G7: for example no
+  cross-designator, planned versus as-built or contradictory-block merges), and a review API where the user accepts,
+  rejects or reverts each proposal; nothing merges silently. Accept is concurrency-safe and revert restores the exact
+  well, wellbore and link rows. Backend only; review UI follows TASK-053. Known: the planned/as-built guard is lexical
+  only. Migration 0012.
+
 ## 0.28.0 - 2026-11-01
 
 - **TASK-056 (PF-6, PF-8) wellbore data exposure and start gate:** `GET /identity/exposure` groups records per wellbore

@@ -1674,7 +1674,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, frontend, agent |
 | Depends on | TASK-046 |
@@ -1682,13 +1682,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/PROCESSING_FLOW.md |
-| Version | none |
+| Version | 0.29.0 |
 | Parent | FL-016 |
 | Slice | FL-016-H |
 
 **Outcome.** A model step proposes that differently named or spelled sources are the same well/wellbore with alias evidence quotes; deterministic guards block impossible merges; the user accepts or rejects each; nothing merges silently.
-**Next action.** Lane `task-057-merge-proposals` (agent:fieldlens-rag), started November 1: proposal contract and guard rules into the spec, deterministic candidate blocking on the existing resolver, persistence and review API, stub-provider model step. Review UI follows after TASK-053. No live run without orchestrator authorization (D7).
-**Evidence.** none yet
+**Next action.** Merged in 0.29.0 (backend and API). Review UI is a follow-up task after TASK-053; TASK-061 adds block-less label eligibility. No live run without orchestrator authorization (D7).
+**Evidence.** Merged in 0.29.0 after independent QA (first QA failed on ruff import order and wellbore-kind revert ids; repaired in 1beb63a and re-verified PASS): `specs/MERGE_PROPOSALS.md` (guards G1-G7, MP-1..MP-9), `backend/tests/merge_proposals/`. QA: full suite 1288 passed, ruff/format/mypy strict/check:contracts green, concurrent accept yields one merge, label-kind and wellbore-kind revert id-exact, single Alembic head 0012. Stub provider only; no live model call. Known: G5 planned/as-built check is lexical only; cross-designator merges forbidden in v1; migration 0012 columns for revert hints added in place (0012 was unreleased).
 
 ### TASK-058 · Unlocated local display origin (0, 0) and its exclusion from georeferenced results (PF-9)
 
