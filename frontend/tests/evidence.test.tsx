@@ -1,7 +1,8 @@
 // Behavior tests for the source-inspection evidence panel with a stubbed fetch: detected profile,
 // parse status, coverage, locators, findings, and loading/error/empty states. Parser correctness
 // is proven by the backend tests, not here.
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
+import { render } from "./render";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EvidencePanel, describeLocator } from "../src/features/uploads/EvidencePanel";

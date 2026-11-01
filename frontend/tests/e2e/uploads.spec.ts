@@ -17,7 +17,12 @@ async function openProject(page: Page, name: string) {
   await expect(page.getByRole("heading", { name })).toBeVisible();
 }
 
-const files = (page: Page) => page.getByRole("list", { name: "Files in this source revision" }).getByRole("listitem");
+// One table row per file: the rows that carry the file's own "Edit labels" action.
+const files = (page: Page) =>
+  page
+    .getByRole("table", { name: "Files in this source revision" })
+    .getByRole("row")
+    .filter({ has: page.getByRole("button", { name: /^Edit labels for/ }) });
 
 test("UP-1: upload a CSV and an unknown text file, see honest statuses, dedupe, 415, abort and replay", async ({
   page,

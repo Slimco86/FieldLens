@@ -1,7 +1,8 @@
 // Interaction tests with a stubbed fetch. They prove client logic (stale rejection, retained
 // values, saved-ID handling). Persistence/restart acceptance lives in tests/e2e against the
 // real API and PostgreSQL; nothing here counts as persistence evidence.
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { render } from "./render";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/app/App";
@@ -95,7 +96,8 @@ describe("project workspace", () => {
     expect(await screen.findByRole("heading", { name: "Beta" })).toBeInTheDocument();
     releaseA(json(pa)); // the obsolete A response arrives after B is open
     await new Promise((r) => setTimeout(r, 20));
-    expect(screen.queryByText(/alpha/i)).not.toBeInTheDocument();
+    // The sidebar legitimately lists Alpha; no Alpha content may appear in the project region.
+    expect(within(screen.getByRole("main")).queryByText(/alpha/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
     expect(window.localStorage.getItem("fieldlens.selectedProjectId")).toBe(B);
     expect(releasePatch).toBeUndefined();
@@ -115,6 +117,7 @@ describe("project workspace", () => {
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Open project Alpha" }));
     await screen.findByRole("heading", { name: "Alpha" });
+    await user.click(screen.getByRole("button", { name: "Edit project details" }));
     const name = screen.getByLabelText("Name");
     await user.clear(name);
     await user.type(name, "Alpha 2");
@@ -125,8 +128,10 @@ describe("project workspace", () => {
     await screen.findByRole("heading", { name: "Beta" });
     releasePatch(json({ ...pa, name: "Alpha 2" }));
     await new Promise((r) => setTimeout(r, 20));
+    const main = within(screen.getByRole("main"));
     expect(screen.queryByText(/Saved/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Alpha/)).not.toBeInTheDocument();
+    expect(main.queryByText(/Alpha/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit project details" })); // editor state was reset by the switch
     expect(screen.getByLabelText("Name")).toHaveValue("Beta");
   });
 
@@ -144,6 +149,7 @@ describe("project workspace", () => {
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Open project Alpha" }));
     await screen.findByRole("heading", { name: "Alpha" });
+    await user.click(screen.getByRole("button", { name: "Edit project details" }));
     const name = screen.getByLabelText("Name");
     await user.clear(name);
     await user.type(name, "Changed");
@@ -198,7 +204,10 @@ describe("project workspace", () => {
 describe("saved selection", () => {
   it("reopens the saved existing project on reload", async () => {
     window.localStorage.setItem("fieldlens.selectedProjectId", B);
-    install((url) => (url === `/api/v1/projects/${B}` ? json(pb) : undefined));
+    install((url) => {
+      if (url.startsWith("/api/v1/projects?")) return page(pb);
+      if (url === `/api/v1/projects/${B}`) return json(pb);
+    });
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Beta" })).toBeInTheDocument();
   });
@@ -220,6 +229,7 @@ describe("saved selection", () => {
     window.localStorage.setItem("fieldlens.selectedProjectId", A);
     let n = 0;
     install((url) => {
+      if (url.startsWith("/api/v1/projects?")) return page(pa);
       if (url !== `/api/v1/projects/${A}`) return undefined;
       n += 1;
       return n === 1 ? json(envelope("SERVICE_UNAVAILABLE", "down"), 503) : json(pa);
@@ -242,7 +252,10 @@ describe("saved selection", () => {
 
   it("rejects a response whose project does not match the requested ID", async () => {
     window.localStorage.setItem("fieldlens.selectedProjectId", A);
-    install((url) => (url === `/api/v1/projects/${A}` ? json(pb) : undefined));
+    install((url) => {
+      if (url.startsWith("/api/v1/projects?")) return page(pa);
+      if (url === `/api/v1/projects/${A}`) return json(pb);
+    });
     render(<App />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/different project/i);
     expect(screen.queryByText("beta notes")).not.toBeInTheDocument();

@@ -1,7 +1,8 @@
 // Component tests with a stubbed fetch and a fake XMLHttpRequest. They prove client behavior
 // (request shape, limits, error surfacing, status wording, polling cleanup). Storage, hashing and
 // restart behavior are proven by the backend tests and tests/e2e/uploads.spec.ts, not here.
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
+import { render } from "./render";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SourcesPanel } from "../src/features/uploads/SourcesPanel";
@@ -430,7 +431,9 @@ describe("source list", () => {
     expect(within(warnings).getByText(/Partial revision: 1 file\(s\) were quarantined.*displaced a previously good version/)).toBeInTheDocument();
     expect(within(warnings).getByText(new RegExp(`parent revision ${R1}`))).toBeInTheDocument();
     expect(screen.getByText("Partial: ready with issues")).toBeInTheDocument();
-    expect(await screen.findByText("Quarantined", { selector: "dd" })).toBeInTheDocument();
+    expect(
+      await within(await screen.findByRole("table", { name: "Files in this source revision" })).findByText("Quarantined"),
+    ).toBeInTheDocument();
     expect(screen.getByText(D2, { selector: "code" })).toBeInTheDocument();
     expect(screen.getByText("(superseded)", { exact: false })).toBeInTheDocument();
   });
@@ -466,7 +469,7 @@ describe("source list", () => {
     });
     const { unmount } = render(<SourcesPanel projectId={P} latestRevisionId={R1} onProjectChanged={vi.fn()} />);
     await screen.findByText(/An import is in progress/);
-    expect(screen.getByRole("button", { name: "Cancel import" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Cancel import" })).toBeInTheDocument();
     const polls = () => count(fetchFn, "/source-revisions");
     const first = polls();
     await act(async () => {
