@@ -887,6 +887,16 @@ export interface components {
             /** Findings */
             findings: components["schemas"]["ExposureFinding"][];
             /**
+             * Findings Total
+             * @description Exact count of conflicts + gaps + findings before the per-list cap.
+             */
+            findings_total: number;
+            /**
+             * Findings Truncated
+             * @description True when findings_total exceeds the entries returned in the three lists.
+             */
+            findings_truncated: boolean;
+            /**
              * Gap Reasons
              * @description Machine-readable codes, e.g. NO_RECORDS, NO_VALIDATED_TRAJECTORY.
              */
@@ -904,6 +914,11 @@ export interface components {
             proposal_total: number;
             /** Proposals */
             proposals: components["schemas"]["ExposureProposal"][];
+            /**
+             * Proposals Truncated
+             * @description True when proposal_total exceeds the entries returned in proposals; proposal_total and accepted_proposal_count are exact counts.
+             */
+            proposals_truncated: boolean;
             /** Record Count */
             record_count: number;
         };

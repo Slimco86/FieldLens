@@ -122,6 +122,16 @@ class CategoryExposure(ContractModel):
     conflicts: list[ExposureFinding]
     gaps: list[ExposureFinding]
     findings: list[ExposureFinding]
+    findings_total: int = Field(
+        ge=0, description="Exact count of conflicts + gaps + findings before the per-list cap."
+    )
+    findings_truncated: bool = Field(
+        description="True when findings_total exceeds the entries returned in the three lists."
+    )
+    proposals_truncated: bool = Field(
+        description="True when proposal_total exceeds the entries returned in proposals; "
+        "proposal_total and accepted_proposal_count are exact counts."
+    )
     gap_reasons: list[str] = Field(
         description="Machine-readable codes, e.g. NO_RECORDS, NO_VALIDATED_TRAJECTORY."
     )

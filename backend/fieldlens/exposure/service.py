@@ -125,6 +125,15 @@ _CANDIDATES = text(
      LIMIT :lim
     """
 )
+_CANDIDATE_COUNTS = text(
+    """
+    SELECT attributes->>'kind' AS akind, attributes->>'attribute_key' AS akey,
+           attributes->>'category' AS acategory, state, validation_state, count(*) AS n
+      FROM extraction_candidate
+     WHERE project_id = :p AND wellbore_id = :w
+     GROUP BY 1, 2, 3, 4, 5
+    """
+)
 
 _SURFACE = text(
     "SELECT er.record_id, er.validation_state, er.attributes "
@@ -269,11 +278,15 @@ def wellbore_exposure(
     proposals: dict[str, list[ExposureProposal]] = defaultdict(list)
     proposal_total: dict[str, int] = defaultdict(int)
     accepted_count: dict[str, int] = defaultdict(int)
+    # Exact counts come from an aggregate; the bounded read below only supplies the sample.
+    for row in session.execute(_CANDIDATE_COUNTS, params).all():
+        category = _candidate_category(row.akind, row.akey, row.acategory)
+        proposal_total[category] += row.n
+        if row.state == "accepted" and row.validation_state == "valid":
+            accepted_count[category] += row.n
     for cand in session.execute(_CANDIDATES, {**params, "lim": MAX_CANDIDATES_READ}).all():
         category = _candidate_category(cand.akind, cand.akey, cand.acategory)
         accepted = cand.state == "accepted" and cand.validation_state == "valid"
-        proposal_total[category] += 1
-        accepted_count[category] += int(accepted)
         if len(proposals[category]) < MAX_PROPOSALS_PER_CATEGORY:
             proposals[category].append(
                 ExposureProposal(
@@ -423,6 +436,10 @@ def wellbore_exposure(
                 conflicts=[f for f in capped if f.kind == "conflict"],
                 gaps=[f for f in capped if f.kind == "gap"],
                 findings=[f for f in capped if f.kind == "finding"],
+                findings_total=len(fs),
+                findings_truncated=len(fs) > len(capped),
+                proposals_truncated=proposal_total.get(category, 0)
+                > len(proposals.get(category, [])),
                 gap_reasons=reasons,
             )
         )
