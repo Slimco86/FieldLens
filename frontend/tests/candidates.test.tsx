@@ -1,7 +1,8 @@
 // AX-7: model-proposed candidates are shown with state, reason, validator outcome and a source
 // link; accepted/flagged/rejected/unresolved are distinguishable without color; an unresolved
 // (model-read) candidate is never rendered as accepted.
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
+import { render } from "./render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CandidateList } from "../src/features/uploads/CandidateList";
 import { describeLocator } from "../src/features/uploads/EvidencePanel";
@@ -43,10 +44,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function serve(items: unknown[]) {
+function serve(items: unknown[], nextCursor: string | null = null) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(() => Promise.resolve(json({ items, page: { limit: 25, next_cursor: null } }))),
+    vi.fn(() => Promise.resolve(json({ items, page: { limit: 25, next_cursor: nextCursor } }))),
   );
   render(<CandidateList projectId={P} doc={doc} describeLocator={describeLocator} />);
 }
@@ -99,5 +100,31 @@ describe("candidate list", () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json({ error: { code: "internal_error", message: "boom" } }, 500))));
     render(<CandidateList projectId={P} doc={doc} describeLocator={describeLocator} />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not be loaded/);
+  });
+});
+
+describe("candidate list uses the design kit (TASK-034 integration)", () => {
+  it("heading is a level-6 Title, state/validation/evidence class are chips with icons, load more is a kit button", async () => {
+    serve([cand({}), cand({ state: "candidate", method: "model_read", validation_state: "unverified", label: "model-read, unverified", reason_codes: ["model_read_unverified"] })], "next");
+    const heading = await screen.findByRole("heading", { name: "Model-proposed candidates", level: 6 });
+    expect(heading.className).toMatch(/mantine-Title-root/);
+    const list = screen.getByRole("list", { name: /Model-proposed candidates for completion.pdf/ });
+    for (const li of within(list).getAllByRole("listitem")) {
+      const chips = li.querySelectorAll("[data-tone], [data-evidence]");
+      expect(chips.length).toBe(3); // state, validation, evidence class
+      for (const chip of chips) expect(chip.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+      expect(li.textContent).not.toMatch(/[✔⚑✖○]/); // no unicode state symbols
+    }
+    const unresolved = within(list).getAllByRole("listitem")[1] as HTMLElement;
+    expect(unresolved.querySelector("[data-evidence='model_proposal']")).toHaveTextContent("Model-read, unverified");
+    expect(unresolved.querySelector("[data-tone='unknown']")).toHaveTextContent("Unresolved candidate (not an accepted fact)");
+    const more = screen.getByRole("button", { name: "Load more candidates" });
+    expect(more.className).toMatch(/mantine-Button-root/);
+  });
+
+  it("the empty note is the shared designed empty state", async () => {
+    serve([]);
+    const note = await screen.findByText(/No model-proposed candidates exist for this file/);
+    expect(note.closest("div")?.className).toMatch(/empty/i);
   });
 });

@@ -539,3 +539,48 @@ for (const size of [
     await page.screenshot({ path: `${SHOTS}/revisions-table-${size.width}x${size.height}.png`, fullPage: true });
   });
 }
+
+test("TASK-036 integration: populated candidates in the inspection panel use the kit and pass axe", async ({ page }) => {
+  test.setTimeout(120_000);
+  await blockExternal(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const id = await apiProject(page, unique("Candidates"), "candidate styling check");
+  await page.goto(`/#/projects/${id}/sources`);
+  await page.getByLabel("Choose files").setInputFiles([
+    { name: "synthetic.las", mimeType: "text/plain", buffer: Buffer.from(LAS) },
+  ]);
+  await page.getByRole("button", { name: "Upload 1 file(s)" }).click();
+  await expect(page.getByText("Ready (files stored; not extracted)")).toBeVisible({ timeout: 30_000 });
+
+  const loc = { kind: "text", document_id: "d", source_revision_id: "r", line_start: 2, line_end: 2 };
+  const base = {
+    project_id: id, unit_id: "u1", source_revision_id: "r", document_id: "d", wellbore_id: null, subject: {},
+    method: "model_proposal", evidence_class: "model_proposal", validation_state: "valid", state: "accepted",
+    label: "model-proposed, rule-validated", reason_codes: [], validator_results: [],
+    attributes: { kind: "measurement", attribute_key: "perforation.top_md", value_text: "4160.00", unit_as_written: "m", unit_defaulted: false },
+    quote: "4160.00", evidence: { document_id: "d", source_revision_id: "r", locator: loc },
+  };
+  const items = [
+    { ...base, candidate_id: "c1" },
+    { ...base, candidate_id: "c2", state: "flagged", validation_state: "conflicting", label: "model-proposed, not accepted", reason_codes: ["parsed_conflict"], validator_results: [{ validator: "parsed_conflict", outcome: "flagged", reason: "parsed_conflict" }] },
+    { ...base, candidate_id: "c3", state: "rejected", validation_state: "invalid", reason_codes: ["quote_not_in_span"] },
+    { ...base, candidate_id: "c4", state: "candidate", method: "model_read", validation_state: "unverified", label: "model-read, unverified", reason_codes: ["model_read_unverified"], quote: null, attributes: { kind: "page_read", item_type: "packer", name: "Production packer", depth_text: "3064 m", sizes_text: [] }, evidence: { document_id: "d", source_revision_id: "r", locator: { kind: "pdf", document_id: "d", source_revision_id: "r", page: 3 } } },
+  ];
+  await page.route(/\/extraction-candidates/, (route) =>
+    route.fulfill({ json: { items, page: { limit: 25, next_cursor: "more" } } }),
+  );
+  await page.getByRole("button", { name: /Inspect extraction for synthetic\.las/ }).click();
+  const list = page.getByRole("list", { name: /Model-proposed candidates for synthetic\.las/ });
+  await expect(list).toBeVisible({ timeout: 60_000 });
+  await expect(list.getByRole("listitem")).toHaveCount(4);
+  const heading = page.getByRole("heading", { name: "Model-proposed candidates", level: 6 });
+  const sizes = await page.evaluate(() => {
+    const h = [...document.querySelectorAll("h6")];
+    return h.map((el) => parseFloat(getComputedStyle(el).fontSize));
+  });
+  for (const size of sizes) expect(size, "h6 headings are readable (>= 13 px)").toBeGreaterThanOrEqual(13);
+  await heading.scrollIntoViewIfNeeded();
+  await expect(page.getByRole("button", { name: "Load more candidates" })).toBeVisible();
+  await expectNoSeriousAxe(page, "inspection with populated candidates");
+  await page.screenshot({ path: `${SHOTS}/candidates-1920x1080.png`, fullPage: true });
+});

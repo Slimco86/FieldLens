@@ -68,6 +68,12 @@ const VALIDATION: Record<S["ValidationState"], ChipSpec> = {
   unsupported: { tone: "unknown", icon: CircleHelp },
   unverified: { tone: "warning", icon: CircleHelp },
 };
+const CANDIDATE: Record<S["ExtractionCandidate"]["state"], ChipSpec> = {
+  accepted: { tone: "success", icon: CircleCheck },
+  flagged: { tone: "warning", icon: TriangleAlert },
+  rejected: { tone: "danger", icon: CircleX },
+  candidate: { tone: "unknown", icon: CircleHelp },
+};
 const SEVERITY: Record<S["IssueSeverity"], ChipSpec> = {
   info: { tone: "info", icon: Info },
   warning: { tone: "warning", icon: TriangleAlert },
@@ -82,6 +88,7 @@ export const chipVocabulary = {
   revision: REVISION,
   validation: VALIDATION,
   severity: SEVERITY,
+  candidate: CANDIDATE,
 } as const;
 
 export const UNKNOWN_CHIP: ChipSpec = { tone: "unknown", icon: CircleHelp };

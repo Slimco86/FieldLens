@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Button, Title } from "@mantine/core";
+import { Callout, EmptyState, ErrorState, EvidenceClassChip, LoadingState, StatusChip } from "../../design";
 import {
   listCandidates,
   type EvidenceLink,
@@ -8,13 +10,14 @@ import {
 } from "./api";
 import { usePolled } from "./usePolled";
 import { toFailure, type Failure } from "../projects/scope";
+import styles from "./CandidateList.module.css";
 
-/** State is conveyed by a symbol and words, never by color alone (AX-7). */
-const STATE: Record<ExtractionCandidate["state"], { mark: string; text: string }> = {
-  accepted: { mark: "✔", text: "Accepted by validators" },
-  flagged: { mark: "⚑", text: "Flagged (needs attention)" },
-  rejected: { mark: "✖", text: "Rejected" },
-  candidate: { mark: "○", text: "Unresolved candidate (not an accepted fact)" },
+/** State is a kit chip: icon plus words, never color alone (AX-7). */
+const STATE_TEXT: Record<ExtractionCandidate["state"], string> = {
+  accepted: "Accepted by validators",
+  flagged: "Flagged (needs attention)",
+  rejected: "Rejected",
+  candidate: "Unresolved candidate (not an accepted fact)",
 };
 
 const REASON: Record<string, string> = {
@@ -65,28 +68,25 @@ function Candidate({
   c: ExtractionCandidate;
   describeLocator: (l: EvidenceLink) => string;
 }) {
-  const s = STATE[c.state];
   const failed = c.validator_results.filter((v) => v.outcome === "failed" || v.outcome === "flagged");
   return (
-    <li data-state={c.state}>
-      <strong>
-        <span aria-hidden="true">{s.mark} </span>
-        {s.text}
-      </strong>{" "}
-      <em>[{c.label}]</em>
-      <div>{valueText(c)}</div>
-      <small>
+    <li data-state={c.state} className={styles.item}>
+      <div className={styles.chips}>
+        <StatusChip kind="candidate" value={c.state} label={STATE_TEXT[c.state]} />
+        <StatusChip kind="validation" value={c.validation_state} label={c.validation_state} />
+        <EvidenceClassChip value={c.evidence_class} />
+        <em className={styles.label}>[{c.label}]</em>
+      </div>
+      <div className={styles.value}>{valueText(c)}</div>
+      <div className={styles.meta}>
         source: <code>{describeLocator(c.evidence) || describe(c.evidence)}</code>
-        {c.quote !== null && c.quote !== undefined && <> quote: &ldquo;{c.quote}&rdquo;</>}
-      </small>
+        {c.quote !== null && c.quote !== undefined && <span className={styles.quote}> quote: &ldquo;{c.quote}&rdquo;</span>}
+      </div>
       {c.reason_codes.length > 0 && (
-        <small>
-          {" "}
-          reason: {c.reason_codes.map((r) => REASON[r] ?? r).join("; ")}
-        </small>
+        <div className={styles.meta}>reason: {c.reason_codes.map((r) => REASON[r] ?? r).join("; ")}</div>
       )}
       {failed.length > 0 && (
-        <small> validators: {failed.map((v) => `${v.validator} ${v.outcome}`).join(", ")}</small>
+        <div className={styles.meta}>validators: {failed.map((v) => `${v.validator} ${v.outcome}`).join(", ")}</div>
       )}
     </li>
   );
@@ -102,7 +102,7 @@ export function CandidateList({
   doc: SourceDocumentItem;
   describeLocator: (l: EvidenceLink) => string;
 }) {
-  const { state } = usePolled<ExtractionCandidatePage>(
+  const { state, reload } = usePolled<ExtractionCandidatePage>(
     `candidates/${projectId}/${doc.document_id}`,
     (signal) => listCandidates(projectId, doc.document_id, signal),
     () => false,
@@ -111,9 +111,16 @@ export function CandidateList({
   const [cursor, setCursor] = useState<string | null | undefined>(undefined);
   const [moreError, setMoreError] = useState<Failure | null>(null);
 
-  if (state.kind === "loading") return <p role="status">Loading model-proposed candidates…</p>;
+  if (state.kind === "loading") return <LoadingState label="Loading model-proposed candidates…" status />;
   if (state.kind === "error") {
-    return <p role="alert">Model-proposed candidates could not be loaded: {state.error.message}</p>;
+    return (
+      <ErrorState
+        message={`Model-proposed candidates could not be loaded: ${state.error.message}`}
+        requestId={state.error.requestId}
+        onRetry={reload}
+        retryLabel="Retry loading candidates"
+      />
+    );
   }
   const page = state.data;
   const items = [...page.items, ...more];
@@ -130,14 +137,18 @@ export function CandidateList({
     }
   }
   return (
-    <div>
-      <h6>Model-proposed candidates</h6>
+    <div className={styles.block}>
+      <Title order={6}>Model-proposed candidates</Title>
       {items.length === 0 ? (
-        <p>No model-proposed candidates exist for this file.</p>
+        <EmptyState title="Nothing proposed">
+          <p>No model-proposed candidates exist for this file.</p>
+        </EmptyState>
       ) : (
         <>
-          <p>Proposals checked by rules. Only items marked accepted passed every check; none is a source record.</p>
-          <ul aria-label={`Model-proposed candidates for ${doc.original_filename}`}>
+          <p className={styles.note}>
+            Proposals checked by rules. Only items marked accepted passed every check; none is a source record.
+          </p>
+          <ul aria-label={`Model-proposed candidates for ${doc.original_filename}`} className={styles.list}>
             {items.map((c) => (
               <Candidate key={c.candidate_id} c={c} describeLocator={describeLocator} />
             ))}
@@ -145,11 +156,17 @@ export function CandidateList({
         </>
       )}
       {next !== null && (
-        <button type="button" onClick={() => void loadMore()}>
-          Load more candidates
-        </button>
+        <div>
+          <Button variant="default" size="xs" onClick={() => void loadMore()}>
+            Load more candidates
+          </Button>
+        </div>
       )}
-      {moreError !== null && <p role="alert">More candidates could not be loaded: {moreError.message}</p>}
+      {moreError !== null && (
+        <Callout tone="danger" role="alert">
+          <p>More candidates could not be loaded: {moreError.message}</p>
+        </Callout>
+      )}
     </div>
   );
 }
