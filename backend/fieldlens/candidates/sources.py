@@ -145,6 +145,21 @@ class SourceReader:
         truncated = cut or len(text) > MAX_SPAN_CHARS
         return LineSpan(text[:MAX_SPAN_CHARS], line_start, line_start + len(lines) - 1, truncated)
 
+    def full_text(self, doc: DocInfo, max_bytes: int = 2_000_000, max_pages: int = 500) -> str:
+        """Bounded whole-document text for server-side quote checks (never sent to a model as is).
+        Text documents are read up to ``max_bytes``; PDFs through the page renderer up to
+        ``max_pages`` pages. A document that cannot be read raises ``SourceError``."""
+        if doc.kind == "pdf":
+            return "\n".join(self.page_texts(doc, max_pages=max_pages))[:max_bytes]
+        if doc.kind != "text":
+            raise SourceError("unsupported_format", "text search needs a text or PDF document")
+        try:
+            with self._store.path_for(doc.storage_key).open("rb") as handle:
+                raw = handle.read(max_bytes)
+        except (ValueError, OSError) as exc:
+            raise SourceError("document_unavailable", "document content is unavailable") from exc
+        return raw.decode("utf-8", "replace")
+
     # -- pdf pages --------------------------------------------------------------------------
     def read_page(self, doc: DocInfo, page: int) -> PageText:
         if doc.kind != "pdf":

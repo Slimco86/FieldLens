@@ -1,0 +1,157 @@
+# Specification: AI identity-merge proposals and review (backend)
+
+> **Spec type:** Product/feature + API contract + Agent task.
+> **Load-bearing frameworks:** outcome, acceptance, scope, failure conditions.
+> **Supporting:** ambiguity audit.
+> **Date:** 2026-11-01. **Author:** agent:fieldlens-rag (lane TASK-057). **Decision owner:** owner.
+> **Status:** Implementing (the parent decisions D1..D8 in [PROCESSING_FLOW.md](PROCESSING_FLOW.md) are approved; the
+> contract below is the implementer's reading of PF-7/D6 and is open to owner amendment).
+> **Backlog ID:** FL-016 / TASK-057 (slice FL-016-H). **Delivery state:** in_progress, backend slice only.
+> **Approved spec revision/date:** PROCESSING_FLOW.md D6/D7, owner, November 1 2026. **Integration version:** pending.
+> **Zero-Question Score:** 0 unowned; open items in "Open Scope Tensions".
+
+Detail for PF-7 of [PROCESSING_FLOW.md](PROCESSING_FLOW.md) (stage 4, identity refinement). It extends the deterministic
+resolver of TASK-046 (`fieldlens.identity`, rule in `identity/labels.py`) and never replaces it. Related: RC-2 in
+[ASSET_RECONSTRUCTION.md](ASSET_RECONSTRUCTION.md), the agent boundaries in [AGENTIC_EXTRACTION.md](AGENTIC_EXTRACTION.md)
+and the provider/budget rules in [META_INTEGRATION.md](META_INTEGRATION.md).
+
+## 1. Outcome
+
+After this increment the backend can, on explicit user action, find source names that probably denote one already
+identified wellbore, ask a model to propose same-entity groups with alias evidence quotes, validate every proposal
+server-side, persist it for review, and let the user accept, reject or revert each one. An accepted proposal changes
+identity only through a persisted, revertible merge record that the deterministic resolver applies on every resolution.
+Nothing merges silently, and a proposal that violates a deterministic guard cannot be accepted.
+Verification: `backend/tests/merge_proposals` with the stub provider (no network, no spend).
+
+## 2. Scope
+
+**IN.** Candidate blocking over the resolver's output inside one project; deterministic guards; the model step behind the
+existing `Provider` protocol and `WorkUnit` budget path; server-side validation of model output; persistence, list/get,
+accept, reject, revert; run record with usage; spend estimate and explicit confirmation before a run.
+
+**OUT.** Review UI (TASK-053). Merging different designators (renames, "Gudrun A-12" for "F-12") even with a quote: v1
+forbids it, a later owner decision may allow it with explicit source-supported evidence. Merging well-level entities
+(`well` rows are only ever changed by the resolver). Cross-project merges. Equipment and perforation entity merges
+(RC-2 reconciliation inside reconstruction). Live model runs (D7: need orchestrator authorization; default tests use the
+stub). Embedding or retrieval changes.
+
+**Dependencies.** TASK-046 resolver (`resolve_project`, `current_subject_groups`), extraction harness provider/budget
+interfaces, `BudgetLedger`/`WorkUnit`, `SourceReader` for quote verification.
+
+## 3. Definitions
+
+- **Target**: an existing resolved wellbore (`wellbore` row) that remains.
+- **Member**: a name proposed to denote the target. Kind `label` (a raw source label that the resolver could not turn into
+  a wellbore: `not_a_well`, `unqualified_label`, `ambiguous`) or kind `wellbore` (another resolved wellbore, for example a
+  different spelling of the block `15/09-F-12` for `15/9-F-12`).
+- **Designator**: block (optional), well slot (`F-12`), suffix (`A`, `T2`, none). Parsed from a label by
+  `merge_proposals.designator.extract_designator`; a label with no extractable slot has no designator.
+- **Block** (blocking unit): one target plus the members whose designator is guard-compatible with it.
+- **Merge record** (`identity_merge`): durable `source_key -> target_key` mapping applied by the resolver. Source key is a
+  normalized label (`label`) or a wellbore key (`wellbore`).
+- **Dataset fingerprint**: SHA-256 over the resolver version and the sorted resolved wellbore keys, unresolved label
+  groups and current extraction run ids of the project. Stored on runs and proposals; it versions every retrieval of the
+  proposal context.
+
+## 4. Deterministic guards (G1..G7)
+
+Evaluated at proposal time (a failure persists the proposal as `blocked`, not acceptable) and re-evaluated at accept time
+(a failure returns 409 and changes nothing). The model cannot waive a guard.
+
+| ID | Guard | Rule |
+|---|---|---|
+| G1 | scope | target and every member belong to the project; a `wellbore` member and the target are different rows; no member is the target |
+| G2 | level | every member has a parseable designator; a field-level name (`Volve F`) or a well-level label that names no wellbore designator is never merged; `well` rows are never merged or re-parented by this flow |
+| G3 | designator equality | well slot equal; suffix equal (both none or the same canonical suffix); blocks equal after numeric normalization (`15/09` = `15/9`); an unqualified label is compatible with any block. So `F-12` never merges with `F-12 A`, `F-12 B`, `F-14` or `F-11`; a bore never merges with another suffix |
+| G4 | sidetrack preservation | a merge never changes `parent_wellbore_id` relationships by itself: the resolver re-derives parents by name suffix after the merge; a member with a suffix needs the same suffix on the target (G3), and no accepted merge may fold a sidetrack into its parent |
+| G5 | planned vs as-built | a lexical marker (`plan`, `planned`, `prognosis`, `proposed` versus `as-built`, `as built`, `actual`, `final`, `drilled`) on any member or target name must be shared by all of them; mixed or one-sided markers fail. No planned/as-built state exists in the data model yet, so this is lexical and conservative |
+| G6 | no chains | a source cannot already be an active target, a target cannot already be an active source, and a source has at most one active merge |
+| G7 | evidence | for each merged member there is at least one evidence item whose quote (a) is present in the cited document's text (NFKC, case-folded, whitespace-collapsed; bounded read), (b) contains a boundary-delimited spelling of the member and of the target (the short target alias only when the slot is unique among resolved wells in the project), and (c) names the target without a trailing sidetrack suffix |
+
+Accept-time additional checks: the proposal is `pending`; the target and any `wellbore` member still exist; the evidence
+documents still exist with an unchanged content hash (otherwise `stale`); no other accepted merge conflicts (G6).
+
+## 5. Model step
+
+Behind the existing `Provider` protocol, executed through `WorkUnit` (reservation, attempt bound, deadline, output cap,
+cancellation, usage recorded per attempt). The default provider is the stub; there is no runtime default that calls Meta.
+The app exposes no live provider: `app.state.merge_proposer` is `None` until a runner is configured, and run endpoints
+return 503 `provider_unavailable` then.
+
+- Input (bounded): per block, the target and members with opaque refs (`m1`..`mN`), names, kind, bounded document
+  snippets that contain the name (document id, line, at most 240 characters). At most `max_blocks_per_call` blocks and
+  `max_calls` calls per run; blocks beyond that are reported `deferred`. Source text is data, never instructions.
+- Output: one JSON object `{"groups":[{"target","members","evidence":[{"member","document_id","quote"}],"rationale"}]}`,
+  parsed strictly (closed schema, bounded lengths). No tools, no free text outside the JSON.
+- Failure handling (explicit, never a silent partial): provider refusal, truncation, malformed/invalid JSON, auth,
+  rate-limit/5xx after the single runner retry, timeout, budget or limit exhaustion and cancellation each end that call
+  with a stable reason code; blocks of that call create no proposals; the run is `partial` or `failed` with the reason.
+  Refusals and malformed output are never retried automatically. Interrupted calls keep their reservation liability.
+- Validation order per proposed group: refs exist and are in the block, target is a `wellbore` ref, no duplicates, quotes
+  verified (G7) -> dropped with a counted reason code on failure; then G1..G6 -> persisted `blocked` with the guard
+  result on failure; otherwise `pending`.
+- Pairs already `rejected` by the user are excluded from later blocking, so a rejection is not re-proposed.
+- Usage: input/output tokens, provider calls and USD (from the ledger) are stored on the run, per call.
+
+## 6. Persistence (migration 0012_merge_proposals)
+
+`merge_proposal_run` (state, reason, model, prompt/guard versions, dataset fingerprint, counts, per-call usage JSON),
+`merge_proposal` (project, run, status `pending|accepted|rejected|reverted|blocked`, target wellbore id/key, guard result,
+rationale, dataset fingerprint, decided_by, decided_at, decision note), `merge_proposal_member` (ordinal, kind, source key,
+wellbore id, evidence items with document id, content hash, quote), `identity_merge` (active when `reverted_at IS NULL`;
+partial unique index on `(project_id, source_key)`). All rows are project-scoped through composite keys.
+
+Accept runs in one transaction: lock the proposal row, re-check state, guards and staleness, insert the merge records,
+run `resolve_project` (idempotent rebuild that applies active merges), mark the proposal `accepted` with who/when.
+Revert marks the merge records reverted and re-resolves, restoring the deterministic identities.
+The resolver applies merges inside `current_subject_groups`, so the identity listing, `resolved_current` and links stay
+consistent; merged links use basis `merge:accepted`.
+
+## 7. API (all project scoped; mutations need the session guard)
+
+| Method and path | Result |
+|---|---|
+| `POST /api/v1/projects/{id}/merge-proposals/estimate` | blocks, calls, USD upper bound; no spend |
+| `POST /api/v1/projects/{id}/merge-proposals/runs` | body `{confirm:true}`; runs bounded model calls; returns the run |
+| `GET /api/v1/projects/{id}/merge-proposals/runs` | runs with usage |
+| `GET /api/v1/projects/{id}/merge-proposals?status=` | proposals with members, evidence, guard result, currentness |
+| `GET /api/v1/projects/{id}/merge-proposals/{proposal_id}` | one proposal |
+| `POST .../{proposal_id}/accept` `reject` `revert` | body `{decided_by?, note?}`; 409 for guard failure, stale, invalid transition |
+
+## 8. Acceptance criteria
+
+| ID | Type | Given / when / then | Score | Test |
+|---|---|---|---|---|
+| MP-1 | Behavioral | A label that spells a resolved wellbore differently (`Volve F 12`, `15/09-F-12`) is a guard-compatible member of that wellbore's block; `F-12` and `F-12 A`, `F-12` and `F-14`, `F-11 B` and `F-11 A` are never in one block | 3 | `test_blocking_respects_designators` |
+| MP-2 | Negative | Guards G1..G6 fail for cross-designator, sidetrack, well-level, planned/as-built and chain cases, each with its own code | 3 | `test_guards` |
+| MP-3 | Behavioral | A valid stub-provider proposal with quotes present in the cited document is persisted `pending` with both identities, quotes and the guard result | 3 | `test_stub_run_persists_pending_proposal` |
+| MP-4 | Negative | Unknown refs, unknown documents, quotes absent from the source, quotes lacking either name, and invented targets are dropped and counted; no proposal is stored | 3 | `test_model_output_validation` |
+| MP-5 | Negative | A model group that violates a guard is stored `blocked` and cannot be accepted (409, nothing changes) | 3 | `test_blocked_proposal_cannot_be_accepted` |
+| MP-6 | Behavioral | Accept merges identities transactionally: the label's records link to the target wellbore, the decision stores who/when, re-resolution keeps the merge; reject changes nothing and is not re-proposed; revert restores the prior identities | 3 | `test_accept_reject_revert` |
+| MP-7 | Failure | Refusal, truncation, malformed JSON, timeout, rate limit, budget exhaustion and cancellation each give an explicit run state and reason, no proposals for that call, usage recorded, no retry for refusal/malformed | 3 | `test_provider_failures` |
+| MP-8 | Integrity | Prompt injection text inside a source document cannot add a tool, change guards or accept a proposal; run needs `confirm:true`; with no configured proposer the API returns 503 | 3 | `test_injection_and_confirm_gate` |
+| MP-9 | Integrity | A superseded source (changed content hash) or a vanished target makes a pending proposal `stale` at accept | 3 | `test_stale_proposal` |
+
+## 9. Failure conditions
+
+Accepting a guard-blocked proposal; an accepted merge that is not persisted or not revertible; a quote not found in its
+source; a model-supplied identifier used without existing in the project; a merge applied without a user decision;
+a provider call without a reservation; a spend above the reservation; secrets, prompts or source bodies in logs or errors.
+
+## 10. Open scope tensions
+
+- Cross-designator renames with explicit source support (D6 wording "without source support") are deferred; v1 is stricter
+  than D6. Owner: decide before TASK-053 UI copy is final.
+- Planned/as-built has no data-model flag; G5 is lexical until reconstruction defines one.
+- Live evidence: none collected. A bounded live check needs orchestrator authorization (D7); the handoff carries an estimate.
+
+## 11. Traceability and evidence
+
+| Spec item | Code | Tests |
+|---|---|---|
+| G1..G7 | `backend/fieldlens/merge_proposals/guards.py`, `designator.py`, `validation.py` | `backend/tests/merge_proposals/` |
+| Model step | `merge_proposals/prompt.py`, `proposer.py` | same |
+| Persistence/API | `merge_proposals/{tables,service,routes}.py`, `identity/merges.py`, migration `0012_merge_proposals` | same |
+
+Evidence: filled in at handoff.

@@ -27,6 +27,7 @@ from . import (
     extraction,
     identity,
     imports,
+    merge_proposals,
     processing,
     projects,
     quality,
@@ -55,6 +56,7 @@ _MODULES = (
     retrieval,
     series,
     well_identity,
+    merge_proposals,
 )
 
 
