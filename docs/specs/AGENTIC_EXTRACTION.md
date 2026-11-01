@@ -230,6 +230,39 @@ Do not claim proposed commands exist; record actual test commands and results at
   lists and rotations for the known rotated F-14 schematic.
 - Not done here: xlsx/xml locators for candidates, live behavior.
 
+### Implementation notes (TASK-041, equipment candidates, stub provider only)
+
+- **Code.** `candidates/equipment_prompt.py` (versioned prompt `eq-prompt-1`, effort `low`, closed schema, `rotation`
+  hint, zero items on pages without equipment), `schema.py` (`WireEquipment`, closed EQ-8 taxonomy, no wellbore field),
+  `equipment_validators.py`, `equipment.py` (page plans `eq-pages-1`, scope check, `EquipmentExtractor`), harness kind
+  `equipment` (rotation and bound subject are part of the cache key; a unit accepts only its own candidate class),
+  `contracts.candidates.EquipmentAttributes` and the `wellbore_id`/`category` read filters. No migration.
+- **Always model-read.** Every equipment candidate is `model_read`, `unverified`, state `candidate` or `flagged`
+  (`rejected` only for a locator that does not resolve, a document other than the unit's, or an item that cannot be on
+  a text-layer page with no equipment vocabulary). The DB CHECKs make acceptance impossible; the calculation guard
+  rejects the marker; no parsed value is compared with or changed.
+- **Flag, not drop.** OD/ID outside 0.5 to 40 in, length <= 0, depth outside 0..15000 m or beyond the wellbore's known
+  MD range plus 5 percent (`identity.resolver.known_md_max`, DC-3; TVD is not checked), id > od, top below bottom,
+  a glued MD/TVD pair, an unparseable/ambiguous size (`95/8`), a missing size unit, a depth printed on another line than
+  the item's label: stored with the printed text and a reason. A missing depth/length unit is meters (warning only).
+- **Attachment.** The model never names the wellbore. A candidate attaches to the wellbore linked to its document by
+  TASK-046 record links (exactly one), else to a caller-bound subject label that resolves through the identity rule and,
+  where a text layer exists, is named on the page (a page naming another well wins); otherwise it stays unattached with
+  a finding. PDFs have no record links today, so real runs need the caller-bound subject (open: a document-to-wellbore
+  link for PDFs).
+- **Pages.** Configured lists by content hash (F-14 FWR completion: 4, 29, 30, 35, 36 with p.36 rotated 90; F-5
+  completion report: 48, 49; controls opt-in), then text-layer triage, then an opt-in blind sample. An image-only
+  document with no list and no opt-in selects nothing and the run ends `failed: no_pages_selected`.
+- **Wrong folder.** A document whose first three pages print well labels, none of them the expected subject, is
+  excluded (recorded unit, state `failed`, reason `document_excluded_wrong_subject`, no model call); explicit exclusions
+  are recorded too. A scanned document cannot be checked and is reported as unchecked.
+- **Shared-validator hardening (TASK-036 QA follow-ups).** A unit word written away from its value flags
+  `unit_away_from_value` instead of defaulting; page-item fields must sit on the label's line (`field_not_associated`);
+  a cited page that names another well wins over the cover rule (`subject_page_names_other_well`); a glued `95/8`
+  is `size_ambiguous`. Cache versions `validators-2`, `wire-2`.
+- **Live (EQ-11).** `scripts/run_equipment_live.py` is the guarded runbook (`--allow-live`, `--spend-cap-usd`,
+  `FIELDLENS_LIVE_META=1`); not run. Its code paths are tested offline.
+
 ### Implementation handoff and integration
 
 | Field | Record before handoff / after integration |

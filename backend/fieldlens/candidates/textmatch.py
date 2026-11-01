@@ -111,6 +111,21 @@ def context_units(text: str) -> set[str]:
     return out
 
 
+SIZE_AMBIGUOUS = "ambiguous size fraction"
+# Unit words that are unambiguous as words ("in" and "c" are ordinary words, never searched for).
+_AWAY_UNITS = frozenset(
+    "ft feet foot m meter meters metre metres mm cm km inch inches psi bar kpa mpa".split()
+)
+_BRACKETED = re.compile(r"[(\[][^)\]]*[)\]]")
+_WORD = re.compile(r"[a-z]+")
+
+
+def unit_words(text: str) -> list[str]:
+    """Recognised unit words written anywhere in the text (bracketed table-header units, which
+    are context rather than part of a value, are not included)."""
+    return [w for w in _WORD.findall(_BRACKETED.sub(" ", norm(text))) if w in _AWAY_UNITS]
+
+
 @dataclass(frozen=True)
 class NumberResult:
     value: float | None
@@ -138,6 +153,10 @@ def parse_quantity(text: str, *, allow_fraction: bool = False) -> NumberResult:
             return NumberResult(-v if m.group(1) == "-" else v)
         f = _FRAC.match(t)
         if f and int(f.group(3)) != 0:
+            if int(f.group(2)) > int(f.group(3)):
+                # "95/8" is far more likely a mixed number that lost its space (9 5/8); a size
+                # is never guessed from it
+                return NumberResult(None, SIZE_AMBIGUOUS)
             v = int(f.group(2)) / int(f.group(3))
             return NumberResult(-v if f.group(1) == "-" else v)
     if "," in t or re.search(r"\d\.\d+\.\d", t):

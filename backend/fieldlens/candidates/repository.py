@@ -117,6 +117,13 @@ def list_candidates(
         stmt = stmt.where(T.c.state == query.state.value)
     if query.method is not None:
         stmt = stmt.where(T.c.method == query.method.value)
+    if query.wellbore_id is not None:
+        stmt = stmt.where(T.c.wellbore_id == query.wellbore_id)
+    if query.category is not None:  # EQ-8 category (equipment candidates only)
+        stmt = stmt.where(
+            T.c.attributes["kind"].astext == "equipment",
+            T.c.attributes["category"].astext == query.category.value,
+        )
     if query.cursor is not None:
         created_at, candidate_id = decode_cursor(query.cursor)
         stmt = stmt.where(

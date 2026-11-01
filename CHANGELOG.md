@@ -8,6 +8,23 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.22.0 - 2026-11-01
+
+- **TASK-041 (FL-022-D):** Added visual-level production/completion equipment candidates (EQ-8..EQ-10, offline stub
+  verified; no live result yet) on the extraction harness: a closed taxonomy (casing, liner, tubing, packer, pump,
+  bearing, perforation interval, isolation, accessory, other) with optional printed material, sizes and depths; a
+  versioned prompt; page plans by content hash for the F-14 and F-5 completion documents (with the rotated F-14
+  schematic); wrong-well documents excluded before any model call; wellbore attachment through identity, never named by
+  the model; every candidate is model-read, unverified, never accepted and never used in calculations; flag-not-drop
+  validators; category/wellbore filters on the candidate API. Shared validators hardened (a unit written away from its
+  value is flagged, depths must sit on the item's own line, a page naming another well overrides the cover rule,
+  glued `95/8` is ambiguous). A page whose image cannot be produced fails the unit before any provider call. Added a
+  guarded live runbook `scripts/run_equipment_live.py` (dry run by default; requires an explicit allow flag, a spend cap
+  and the live-meta environment flag; refuses the application database) and a project bootstrap helper. Contracts are
+  additive; no migration. Known limits: PDFs have no record link to a wellbore (attachment uses a caller-bound label,
+  not checkable on scans), the database does not itself forbid relabelling an equipment row as accepted, and the
+  lane-database guard does not look at a `dbname` query override.
+
 ## 0.21.1 - 2026-11-01
 
 - **TASK-034 integration polish:** The extraction candidates section (TASK-036) in the evidence panel now uses the design

@@ -58,6 +58,14 @@ class ReasonCode(StrEnum):
     NUMBER_UNPARSEABLE = "number_unparseable"
     FIELD_UNVERIFIED = "field_unverified"
     COORDINATE_FALLBACK_UNSUPPORTED = "coordinate_fallback_unsupported"
+    UNIT_AWAY_FROM_VALUE = "unit_away_from_value"
+    SIZE_AMBIGUOUS = "size_ambiguous"
+    SUBJECT_PAGE_NAMES_OTHER_WELL = "subject_page_names_other_well"
+    FIELD_NOT_ASSOCIATED = "field_not_associated"
+    ID_EXCEEDS_OD = "id_exceeds_od"
+    DEPTH_ORDER_INVALID = "depth_order_invalid"
+    LABEL_NOT_IN_TEXT_LAYER = "label_not_in_text_layer"
+    EQUIPMENT_NOT_ON_PAGE = "equipment_not_on_page"
 
 
 class ValidatorName(StrEnum):
@@ -128,8 +136,69 @@ class PageReadAttributes(ContractModel):
     )
 
 
+class EquipmentCategory(StrEnum):
+    """EQ-8 closed taxonomy (owner, visual level). Drilling/BHA equipment has no category."""
+
+    CASING = "casing"
+    LINER = "liner"
+    TUBING = "tubing"
+    PACKER = "packer"
+    PUMP = "pump"
+    BEARING = "bearing"
+    PERFORATION_INTERVAL = "perforation_interval"
+    ISOLATION = "isolation"
+    """Plug, cement or bridge plug."""
+    COMPLETION_ACCESSORY = "completion_accessory"
+    """Nipple, valve, mandrel, sleeve, centralizer, wellhead/tree."""
+    OTHER = "other"
+
+
+class EquipmentQuantity(ContractModel):
+    """A size, length or depth exactly as printed (original text and unit are never replaced).
+
+    ``normalized_*`` is a display convenience for plausibility checks only; it is never a
+    calculation input (the candidate stays model-read and unverified)."""
+
+    value_text: str = Field(max_length=40, description="The value exactly as printed.")
+    unit_as_written: str | None = Field(default=None, max_length=16)
+    unit_defaulted: bool = Field(
+        default=False, description="True when a depth had no unit and meters were assumed."
+    )
+    depth_reference_text: str | None = Field(
+        default=None, max_length=24, description="Depth reference as printed, e.g. 'MD RKB'."
+    )
+    depth_reference: Literal["MD", "TVD", "TVDSS"] | None = None
+    number: float | None = None
+    normalized_number: float | None = None
+    normalized_unit: str | None = None
+    issue: str | None = Field(default=None, max_length=120, description="Why it was flagged.")
+
+
+class EquipmentAttributes(ContractModel):
+    """Visual-level production/completion equipment read from a page (EQ-8). Every field except
+    ``category`` is optional; unknown stays absent, never zero or guessed. The page locator is the
+    candidate's evidence link; ``region`` (normalized x0, y0, x1, y1) is optional."""
+
+    kind: Literal["equipment"] = "equipment"
+    category: EquipmentCategory
+    material: str | None = Field(default=None, max_length=60)
+    od: EquipmentQuantity | None = None
+    id: EquipmentQuantity | None = None
+    length: EquipmentQuantity | None = None
+    top_depth: EquipmentQuantity | None = None
+    bottom_depth: EquipmentQuantity | None = None
+    label_text: str | None = Field(default=None, max_length=120, description="Printed label.")
+    description: str | None = Field(default=None, max_length=200)
+    region: list[float] | None = Field(default=None, max_length=4)
+    label_in_text_layer: bool | None = Field(
+        default=None, description="Whether the printed label is in the page text layer, if any."
+    )
+    dropped_fields: list[str] = Field(default_factory=list)
+
+
 CandidateAttributes = Annotated[
-    MeasurementAttributes | PageReadAttributes, Field(discriminator="kind")
+    MeasurementAttributes | PageReadAttributes | EquipmentAttributes,
+    Field(discriminator="kind"),
 ]
 
 
@@ -173,3 +242,7 @@ class CandidateQuery(PageParams):
     document_id: UUID | None = None
     state: CandidateState | None = None
     method: ExtractionMethod | None = None
+    wellbore_id: UUID | None = None
+    category: EquipmentCategory | None = Field(
+        default=None, description="Equipment candidates of this EQ-8 category only."
+    )

@@ -53,6 +53,13 @@ EXTRA = (
     "Value 1.234,5 and 1,234 m\n"  # 8
     "Well 15/9-F-98 note: tubing 4 1/2 in\n"  # 9
 )
+HARD = (
+    "15/9-F-99 Set 3000 MD ft\n"  # 1 unit written away from the value
+    "Packer 4160 m MD ; liner 2000 ft MD\n"  # 2 two units, none claimed
+    "Casing OD 95/8 in at shoe\n"  # 3 glued mixed number
+    "Casing OD 9 5/8 in at shoe\n"  # 4
+    "Well 15/9-F-99 depth 2500 m MD\n"  # 5
+)
 COORD_LINES = ["Wellhead Easting 478123.5 m Northing 6478123.2 m", "CRS ED50 / UTM zone 31N"]
 BIG_TOC = ["Contents", "Completion schematic ........ 5", "Perforation intervals ...... 8"]
 SUBJECT = {"wellbore_label": "15/9-F-99"}
@@ -70,6 +77,10 @@ class World:
     hostile_doc: UUID
     extra_doc: UUID
     big_doc: UUID
+    hard_doc: UUID
+    other_doc: UUID
+    wrong_doc: UUID
+    imageonly_doc: UUID
     factory: Any
     ledger: BudgetLedger
     period: UUID
@@ -144,11 +155,28 @@ def world(migrated_url: URL, tmp_path: Path) -> World:
         + [PdfPage(lines=FILLER)]
     )
     scan = make_pdf([PdfPage(scan_lines=EQUIPMENT_LINES), PdfPage(lines=FILLER)])
+    imageonly = make_pdf([PdfPage(scan_lines=EQUIPMENT_LINES) for _ in range(3)])
+    wrong = make_pdf(  # a report about the F-11 wells (as the F-12 folder's completion reports)
+        [
+            PdfPage(lines=["Final well report", "Wells 15/9-F-11, 15/9-F-11 A and 15/9-F-11 B"]),
+            PdfPage(lines=EQUIPMENT_LINES[1:]),
+        ]
+    )
+    other = make_pdf(
+        [
+            PdfPage(lines=["Final report cover", "Well NO 15/9-F-99"]),
+            PdfPage(lines=["Well 15/9-F-98 completion", "Production packer 3064.39 m MD Baker"]),
+        ]
+    )
     files = [
         ("perf.dat", PERF_TEXT.encode()),
         ("perf98.dat", PERF98_TEXT.encode()),
         ("hostile.txt", HOSTILE.encode()),
         ("extra.txt", EXTRA.encode()),
+        ("hard.txt", HARD.encode()),
+        ("other.pdf", other),
+        ("wrongfolder.pdf", wrong),
+        ("imageonly.pdf", imageonly),
         ("completion.pdf", pdf),
         ("big.pdf", big),
         ("scan.pdf", scan),
@@ -188,6 +216,10 @@ def world(migrated_url: URL, tmp_path: Path) -> World:
         hostile_doc=docs["hostile.txt"],
         extra_doc=docs["extra.txt"],
         big_doc=docs["big.pdf"],
+        hard_doc=docs["hard.txt"],
+        other_doc=docs["other.pdf"],
+        wrong_doc=docs["wrongfolder.pdf"],
+        imageonly_doc=docs["imageonly.pdf"],
         factory=factory,
         ledger=ledger,
         period=period,

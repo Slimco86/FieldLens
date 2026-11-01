@@ -1367,13 +1367,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
 | Spec | specs/EQUIPMENT_RECONSTRUCTION.md |
-| Version | none |
+| Version | 0.22.0 |
 | Parent | FL-022 |
 | Slice | FL-022-D |
 
 **Outcome.** Using the TASK-036 harness, read the completion pages of F-14 and F-5 (scanned page images, and the text layer where it exists) and propose a superficial, visual-level production/completion equipment structure (casing/liner strings, tubing, packers, pumps, perforations, isolations: type, material if printed, OD/ID/length, top/bottom depth) as model-read, unverified candidates for the 3D model. Owner decision October 31: no OCR gate, speed and performance first, missed details are acceptable, values are never used in calculations; F-12 uses generic assets.
-**Next action.** Ready: TASK-036 is integrated (0.20.0). Acceptance written (EQ-8..11, owner taxonomy of October 31). Pass explicit page lists and rotation for the scanned F-14/F-5 documents (triage selects nothing for image-only PDFs; the F-14 PV-17 p36 schematic needs rotation), settings from the spike (upright pages about 1600 px, effort `low`), and harden the QA follow-ups first: unit written away from the value, item-to-depth association, page-1 cover rule override. Live run on the approved pages needs a separate small allowance from the owner.
-**Evidence.** none yet
+**Next action.** Offline work is integrated (0.22.0). The live run on the approved F-14/F-5 pages (owner authorized up to USD 3 on November 1, to be run only for this task, after QA) produces the only real-data result and decides TASK-041 done; follow-ups: PDF-to-wellbore link (identity), a DB CHECK that equipment rows cannot be relabelled accepted, lane-DB guard `dbname`/`service` override, block-qualified labels, filename-only plan fallback, `unit_away_from_value` over-flags some legitimate quotes.
+**Evidence.** Integrated November 1 as 0.22.0 (branch `feature/task-041-equipment-candidates`, head `4bd7535`; no migration, contracts additive). Offline stub provider only; no live result exists. Independent QA: first pass PASS with follow-ups (no route to accepted found across all categories, DB CHECK, API and relabel attempts), the spend-risk item (a refused page image still called the model) was fixed and re-verified; backend 1121 passed, 7 skipped, 1 deselected; stub end-to-end for the 7 planned F-14/F-5 pages 1.31 s, render 91-150 ms per page; dry-run plan: 7 provider calls, worst-case reservation USD 1.75 at placeholder rates against a USD 3 cap.
 
 ### TASK-043 · Provider adapter hardening from the live findings (effort control, tool-token estimate, cancel and liable semantics)
 

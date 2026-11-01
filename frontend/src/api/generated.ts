@@ -679,6 +679,11 @@ export interface components {
          */
         CandidateQuery: {
             /**
+             * @description Equipment candidates of this EQ-8 category only.
+             * @default null
+             */
+            category: components["schemas"]["EquipmentCategory"] | null;
+            /**
              * Cursor
              * @default null
              */
@@ -697,6 +702,11 @@ export interface components {
             method: components["schemas"]["ExtractionMethod"] | null;
             /** @default null */
             state: components["schemas"]["CandidateState"] | null;
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
         };
         /**
          * CandidateState
@@ -1079,6 +1089,122 @@ export interface components {
              */
             state: "ready" | "unavailable" | "disabled";
         };
+        /**
+         * EquipmentAttributes
+         * @description Visual-level production/completion equipment read from a page (EQ-8). Every field except
+         *     ``category`` is optional; unknown stays absent, never zero or guessed. The page locator is the
+         *     candidate's evidence link; ``region`` (normalized x0, y0, x1, y1) is optional.
+         */
+        EquipmentAttributes: {
+            /** @default null */
+            bottom_depth: components["schemas"]["EquipmentQuantity"] | null;
+            category: components["schemas"]["EquipmentCategory"];
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /** Dropped Fields */
+            dropped_fields?: string[];
+            /** @default null */
+            id: components["schemas"]["EquipmentQuantity"] | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "equipment";
+            /**
+             * Label In Text Layer
+             * @description Whether the printed label is in the page text layer, if any.
+             * @default null
+             */
+            label_in_text_layer: boolean | null;
+            /**
+             * Label Text
+             * @description Printed label.
+             * @default null
+             */
+            label_text: string | null;
+            /** @default null */
+            length: components["schemas"]["EquipmentQuantity"] | null;
+            /**
+             * Material
+             * @default null
+             */
+            material: string | null;
+            /** @default null */
+            od: components["schemas"]["EquipmentQuantity"] | null;
+            /**
+             * Region
+             * @default null
+             */
+            region: number[] | null;
+            /** @default null */
+            top_depth: components["schemas"]["EquipmentQuantity"] | null;
+        };
+        /**
+         * EquipmentCategory
+         * @description EQ-8 closed taxonomy (owner, visual level). Drilling/BHA equipment has no category.
+         * @enum {string}
+         */
+        EquipmentCategory: "casing" | "liner" | "tubing" | "packer" | "pump" | "bearing" | "perforation_interval" | "isolation" | "completion_accessory" | "other";
+        /**
+         * EquipmentQuantity
+         * @description A size, length or depth exactly as printed (original text and unit are never replaced).
+         *
+         *     ``normalized_*`` is a display convenience for plausibility checks only; it is never a
+         *     calculation input (the candidate stays model-read and unverified).
+         */
+        EquipmentQuantity: {
+            /**
+             * Depth Reference
+             * @default null
+             */
+            depth_reference: ("MD" | "TVD" | "TVDSS") | null;
+            /**
+             * Depth Reference Text
+             * @description Depth reference as printed, e.g. 'MD RKB'.
+             * @default null
+             */
+            depth_reference_text: string | null;
+            /**
+             * Issue
+             * @description Why it was flagged.
+             * @default null
+             */
+            issue: string | null;
+            /**
+             * Normalized Number
+             * @default null
+             */
+            normalized_number: number | null;
+            /**
+             * Normalized Unit
+             * @default null
+             */
+            normalized_unit: string | null;
+            /**
+             * Number
+             * @default null
+             */
+            number: number | null;
+            /**
+             * Unit As Written
+             * @default null
+             */
+            unit_as_written: string | null;
+            /**
+             * Unit Defaulted
+             * @description True when a depth had no unit and meters were assumed.
+             * @default false
+             */
+            unit_defaulted: boolean;
+            /**
+             * Value Text
+             * @description The value exactly as printed.
+             */
+            value_text: string;
+        };
         /** ErrorBody */
         ErrorBody: {
             code: components["schemas"]["ErrorCode"];
@@ -1376,7 +1502,7 @@ export interface components {
         /** ExtractionCandidate */
         ExtractionCandidate: {
             /** Attributes */
-            attributes: components["schemas"]["MeasurementAttributes"] | components["schemas"]["PageReadAttributes"];
+            attributes: components["schemas"]["MeasurementAttributes"] | components["schemas"]["PageReadAttributes"] | components["schemas"]["EquipmentAttributes"];
             /**
              * Candidate Id
              * Format: uuid
@@ -2465,7 +2591,7 @@ export interface components {
          * ReasonCode
          * @enum {string}
          */
-        ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified" | "unit_conflicts_with_quote" | "unit_not_in_source" | "number_unparseable" | "field_unverified" | "coordinate_fallback_unsupported";
+        ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified" | "unit_conflicts_with_quote" | "unit_not_in_source" | "number_unparseable" | "field_unverified" | "coordinate_fallback_unsupported" | "unit_away_from_value" | "size_ambiguous" | "subject_page_names_other_well" | "field_not_associated" | "id_exceeds_od" | "depth_order_invalid" | "label_not_in_text_layer" | "equipment_not_on_page";
         /**
          * RequeueOutcome
          * @enum {string}
@@ -4098,11 +4224,14 @@ export interface operations {
     list_document_api_v1_projects__project_id__documents__document_id__extraction_candidates_get: {
         parameters: {
             query?: {
+                /** @description Equipment candidates of this EQ-8 category only. */
+                category?: components["schemas"]["EquipmentCategory"] | null;
                 cursor?: string | null;
                 document_id?: string | null;
                 limit?: number;
                 method?: components["schemas"]["ExtractionMethod"] | null;
                 state?: components["schemas"]["CandidateState"] | null;
+                wellbore_id?: string | null;
             };
             header?: never;
             path: {
@@ -4208,11 +4337,14 @@ export interface operations {
     list_project_api_v1_projects__project_id__extraction_candidates_get: {
         parameters: {
             query?: {
+                /** @description Equipment candidates of this EQ-8 category only. */
+                category?: components["schemas"]["EquipmentCategory"] | null;
                 cursor?: string | null;
                 document_id?: string | null;
                 limit?: number;
                 method?: components["schemas"]["ExtractionMethod"] | null;
                 state?: components["schemas"]["CandidateState"] | null;
+                wellbore_id?: string | null;
             };
             header?: never;
             path: {

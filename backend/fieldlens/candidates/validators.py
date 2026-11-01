@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.contracts.candidates import (
     CandidateState,
+    EquipmentAttributes,
     ExtractionMethod,
     MeasurementAttributes,
     PageReadAttributes,
@@ -35,7 +36,14 @@ from fieldlens.persistence.session import session_scope
 
 from .schema import WireLocator, WireMeasurement, WirePageItem
 from .sources import DocInfo, SourceError, SourceReader
-from .textmatch import context_units, parse_quantity, supported_in, unit_after
+from .textmatch import (
+    SIZE_AMBIGUOUS,
+    context_units,
+    parse_quantity,
+    supported_in,
+    unit_after,
+    unit_words,
+)
 from .units import (
     BASE_UNIT,
     Parsed,
@@ -69,7 +77,7 @@ class Decision:
     results: list[ValidatorResult]
     wellbore_id: UUID | None
     subject: dict[str, str | None]
-    attributes: MeasurementAttributes | PageReadAttributes
+    attributes: MeasurementAttributes | PageReadAttributes | EquipmentAttributes
     quote: str | None
     locator: dict[str, Any] | None  # evidence locator (pdf/text) when it resolved
     document_id: UUID
@@ -85,6 +93,7 @@ class ValidationContext:
     document_id: UUID  # the document the unit is about
     reader: SourceReader
     factory: sessionmaker[Session]
+    document_subject: str | None = None  # caller-bound identity (never from the model)
 
 
 def _result(
@@ -525,12 +534,19 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
                     )
                 elif not doc_bores and not _source_names(ctx, span, label_text, bore):
                     wellbore_id = None
+                    other = other_wells_named(span.text, label_text, bore)
                     results.append(
                         _result(
                             ValidatorName.SUBJECT,
                             ValidatorOutcome.FLAGGED,
-                            ReasonCode.SUBJECT_UNRESOLVED,
-                            "the cited text does not name this well/wellbore; stays unattached",
+                            ReasonCode.SUBJECT_PAGE_NAMES_OTHER_WELL
+                            if other
+                            else ReasonCode.SUBJECT_UNRESOLVED,
+                            f"the cited page names {', '.join(other[:3])}, not this well; "
+                            "stays unattached"
+                            if other
+                            else "the cited text does not name this well/wellbore; "
+                            "stays unattached",
                         )
                     )
                 else:
@@ -574,13 +590,39 @@ def validate(ctx: ValidationContext, wire: WireMeasurement | WirePageItem) -> De
     )
 
 
+_BLOCK_LABEL = re.compile(
+    r"(?<![\w/])\d{1,2}/\d{1,2}-[A-Za-z]-?\d{1,3}(?:\s(?:[A-Za-z]\d{0,2}|T\d{1,2}|ST\d{1,2})\b)?"
+)
+_WELL_WORD_LABEL = re.compile(
+    r"\bwell(?:bore)?\s+(?:no\.?\s*)?([A-Za-z]-?\d{1,3}(?:\s(?:[A-Z]\d{0,2}|T\d{1,2}|ST\d{1,2})\b)?)"
+)
+
+
+def other_wells_named(text: str, label: str, bore: BoreLabel) -> list[str]:
+    """Well labels the text writes explicitly (block-qualified, or after the word ``well``) that
+    are not the claimed one."""
+    found = [m.group(0) for m in _BLOCK_LABEL.finditer(text)]
+    found += [m.group(1) for m in _WELL_WORD_LABEL.finditer(text)]
+    out = []
+    for item in dict.fromkeys(found):
+        parsed = parse_bore_label(item)
+        if parsed is None:
+            continue
+        if not _label_in_text(label, bore, item):
+            out.append(item)
+    return out
+
+
 def _source_names(ctx: ValidationContext, span: _Span, label: str, bore: BoreLabel) -> bool:
     """Image-only evidence cannot be checked (the page stays unverified); text evidence must
-    name the label in the cited span, or on page 1 of a PDF (cover/header)."""
+    name the label in the cited span, or on page 1 of a PDF (cover/header). A cited page that
+    explicitly names a different well overrides the cover rule (it is about that other well)."""
     if not span.has_layer:
         return True
     if _label_in_text(label, bore, span.text):
         return True
+    if other_wells_named(span.text, label, bore):
+        return False
     if span.doc.kind == "pdf" and span.locator.get("page") != 1:
         try:
             first = ctx.reader.read_page(span.doc, 1)
@@ -597,19 +639,35 @@ def _verify_page_fields(
     results: list[ValidatorResult],
 ) -> None:
     """D5: every field shown to the user must itself be in the text layer; unsupported fields
-    are dropped and the candidate is flagged (never shown as accepted with an unchecked field)."""
+    are dropped and the candidate is flagged (never shown as accepted with an unchecked field).
+    A field must also sit on the same line as the item's label (a depth that belongs to another
+    item on the page does not validate for this one)."""
     dropped: list[str] = []
+    unassociated: list[str] = []
+    scope = association_text(span.text, wire.name)
     if wire.depth_text and not supported_in(wire.depth_text, span.text):
         attrs.depth_text = None
         dropped.append("depth_text")
-    kept = [s for s in wire.sizes_text if supported_in(s, span.text)]
+    elif wire.depth_text and not supported_in(wire.depth_text, scope):
+        attrs.depth_text = None
+        unassociated.append("depth_text")
+    kept = []
+    for size in wire.sizes_text:
+        if not supported_in(size, span.text):
+            continue
+        if supported_in(size, scope):
+            kept.append(size)
     if len(kept) != len(wire.sizes_text):
-        dropped.append("sizes_text")
+        lost = [s for s in wire.sizes_text if s not in kept]
+        if any(not supported_in(s, span.text) for s in lost):
+            dropped.append("sizes_text")
+        if any(supported_in(s, span.text) for s in lost):
+            unassociated.append("sizes_text")
     attrs.sizes_text = kept
     if wire.notes and not supported_in(wire.notes, span.text):
         attrs.notes = None
         dropped.append("notes")
-    attrs.dropped_fields = dropped
+    attrs.dropped_fields = [*dropped, *unassociated]
     if dropped:
         results.append(
             _result(
@@ -619,13 +677,55 @@ def _verify_page_fields(
                 "not in the text layer, removed: " + ", ".join(dropped),
             )
         )
-    else:
+    if unassociated:
+        results.append(
+            _result(
+                ValidatorName.ATTRIBUTE,
+                ValidatorOutcome.FLAGGED,
+                ReasonCode.FIELD_NOT_ASSOCIATED,
+                "not on the item's label line, removed: " + ", ".join(unassociated),
+            )
+        )
+    if not dropped and not unassociated:
         results.append(_result(ValidatorName.ATTRIBUTE, ValidatorOutcome.PASSED))
+
+
+def association_text(text: str, label: str | None) -> str:
+    """The text a field of the item labelled ``label`` may come from: the lines that carry the
+    label. No label given: the whole span. A label found on no single line (glued or split layer)
+    gives an empty scope, so nothing can be associated with it."""
+    if not label or not label.strip():
+        return text
+    return "\n".join(line for line in text.splitlines() if supported_in(label, line))
 
 
 def _safe_key(key: str) -> str:
     """Keep the DTO constructible for a malformed key; the attribute validator then rejects it."""
     return key if re.fullmatch(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+", key) else "invalid.key"
+
+
+def _away_unit(
+    quote: str | None, claimed: Parsed | None, claimed_text: str | None
+) -> ValidatorResult | str | None:
+    """The quote has no unit next to the value, but writes a unit word elsewhere (``Set 3000 MD
+    ft``): that is not an unambiguous association. Flag unless the quote names exactly one unit
+    and the claim agrees with it (then the word is returned)."""
+    if not quote:
+        return None
+    words = unit_words(quote)
+    parsed = [(w, parse_unit(w)) for w in words]
+    distinct = {(p.dimension, p.factor) for _, p in parsed if p is not None}
+    if not distinct:
+        return None
+    if claimed is not None and distinct == {(claimed.dimension, claimed.factor)}:
+        return words[0]  # one unit in the quote, equal to the claim: accepted as written
+    return _result(
+        ValidatorName.UNIT,
+        ValidatorOutcome.FLAGGED,
+        ReasonCode.UNIT_AWAY_FROM_VALUE,
+        f"the quote writes {', '.join(sorted(set(words)))} away from the value; "
+        f"claimed {claimed_text or 'none'}; no unambiguous association",
+    )
 
 
 def _same_unit(a: Parsed, b: Parsed) -> bool:
@@ -701,7 +801,9 @@ def _measurement_checks(
             _result(
                 ValidatorName.UNIT,
                 ValidatorOutcome.FLAGGED,
-                ReasonCode.NUMBER_UNPARSEABLE,
+                ReasonCode.SIZE_AMBIGUOUS
+                if parsed.problem == SIZE_AMBIGUOUS
+                else ReasonCode.NUMBER_UNPARSEABLE,
                 f"{parsed.problem}; not guessed",
             )
         )
@@ -746,6 +848,13 @@ def _measurement_checks(
             return None
         unit = quoted
         attrs.unit_as_written, attrs.unit_source = word, "quote"
+        results.append(_result(ValidatorName.UNIT, ValidatorOutcome.PASSED))
+    elif (away := _away_unit(quote, claimed, wire.unit)) is not None and not isinstance(away, str):
+        results.append(away)  # a unit written away from its value is never defaulted or assumed
+        return None
+    elif isinstance(away, str):
+        unit = claimed  # the quote names exactly this one unit (not next to the value)
+        attrs.unit_as_written, attrs.unit_source = away, "quote"
         results.append(_result(ValidatorName.UNIT, ValidatorOutcome.PASSED))
     else:
         stated = {parse_unit(s) for s in states}

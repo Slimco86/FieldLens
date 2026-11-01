@@ -60,7 +60,52 @@ class WirePageItem(_Closed):
     subject: Subject = Field(default_factory=dict, max_length=4)
 
 
-WireCandidate = Annotated[WireMeasurement | WirePageItem, Field(discriminator="kind")]
+EquipmentCategoryName = Literal[
+    "casing",
+    "liner",
+    "tubing",
+    "packer",
+    "pump",
+    "bearing",
+    "perforation_interval",
+    "isolation",
+    "completion_accessory",
+    "other",
+]
+
+
+class WireQuantity(_Closed):
+    """A size/length/depth as printed: value text, unit as written, reference as printed."""
+
+    value_text: str = Field(min_length=1, max_length=40)
+    unit: str | None = Field(default=None, max_length=16)
+    reference_text: str | None = Field(default=None, max_length=24)
+
+
+class WireEquipment(_Closed):
+    """EQ-8: one visual-level production/completion equipment item. Everything except the
+    category and the locator is optional; the model never names the wellbore (identity comes from
+    the document's identity link, never from model text)."""
+
+    kind: Literal["equipment"]
+    category: EquipmentCategoryName
+    material: str | None = Field(default=None, max_length=60)
+    od: WireQuantity | None = None
+    id: WireQuantity | None = None
+    length: WireQuantity | None = None
+    top_depth: WireQuantity | None = None
+    bottom_depth: WireQuantity | None = None
+    label_text: str | None = Field(default=None, max_length=120)
+    description: str | None = Field(default=None, max_length=200)
+    region: list[Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
+        default=None, min_length=4, max_length=4
+    )
+    locator: WireLocator
+
+
+WireCandidate = Annotated[
+    WireMeasurement | WirePageItem | WireEquipment, Field(discriminator="kind")
+]
 
 
 class WireOutput(_Closed):
@@ -97,7 +142,7 @@ def parse_output(text: str) -> WireOutput:
         raise OutputRejected("schema_invalid") from exc
 
 
-def candidate_key(candidate: WireMeasurement | WirePageItem) -> str:
+def candidate_key(candidate: WireMeasurement | WirePageItem | WireEquipment) -> str:
     """Stable identity of a proposal inside one unit, so a fenced retry never duplicates it."""
     body = candidate.model_dump(mode="json", exclude_none=True)
     return hashlib.sha256(

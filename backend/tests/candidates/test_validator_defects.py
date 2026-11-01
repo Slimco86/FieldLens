@@ -188,7 +188,8 @@ def test_subject_must_be_named_by_the_source(world: World) -> None:
         ),
     )
     assert arbitrary["state"] == "flagged" and arbitrary["wellbore_id"] is None
-    assert "subject_unresolved" in arbitrary["reasons"]
+    # the span explicitly names another well (F-98): a stronger finding than "unresolved"
+    assert "subject_page_names_other_well" in arbitrary["reasons"]
     # the cited lines do not name the well either (line 2 only): unattached with a finding
     narrow = one(
         world,
@@ -233,7 +234,14 @@ def test_page_item_fields_are_verified_per_field(world: World) -> None:
                 world.pdf_doc, 1, depth_text="9999 m MD", sizes_text=["99 in"], notes="fabricated"
             ),
             page_item(world.pdf_doc, 1, depth_text="064.39 m MD"),  # inside 3064.39
-            page_item(world.pdf_doc, 1, sizes_text=["6-3/8 in"], depth_text="3064.39 m MD"),
+            page_item(
+                world.pdf_doc,
+                1,
+                name="Tubing hanger Vetco",
+                sizes_text=["6-3/8 in"],
+                depth_text=None,
+                quote="Tubing hanger Vetco 6-3/8 in XMT",
+            ),
         ],
         doc=world.pdf_doc,
         kind="page_read",

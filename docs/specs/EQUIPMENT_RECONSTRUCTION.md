@@ -76,6 +76,10 @@ Keep run/configuration types separate, even when XML calls a component "tubing."
 
 Synthetic source/catalog/generic fixtures prove fallback logic, not EQ-6.
 
+TASK-041 status (EQ-8..EQ-10 implemented and tested with the offline stub; EQ-11 runbook written, not run; no live
+result exists): see the TASK-041 notes in [AGENTIC_EXTRACTION](AGENTIC_EXTRACTION.md). EQ-10's F-12 generic display is
+the 3D consumer's job; here F-12 simply gets no model-read candidates.
+
 ## 4. Context and Decisions
 
 Owner: `fieldlens-3d-motion`; paths `frontend/src/features/equipment/`,
