@@ -152,7 +152,9 @@ def _usable(s: Station) -> bool:
         return False
     if (s.azi_state or "") in BAD_STATES:
         return False
-    return 0.0 <= s.incl <= 180.0 and -360.0 <= s.azi <= 360.0 and s.md >= 0.0
+    # Azimuth is a compass bearing, 0-360 degrees; negative bearings are not a stated source
+    # convention (Statoil and Compass exports use 0-360) and fail validation rather than guessing.
+    return 0.0 <= s.incl <= 180.0 and 0.0 <= s.azi <= 360.0 and s.md >= 0.0
 
 
 def judge_station_set(
