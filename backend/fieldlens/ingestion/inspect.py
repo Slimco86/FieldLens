@@ -18,7 +18,7 @@ from pathlib import Path
 from pypdf import PdfReader
 
 from fieldlens.contracts.errors import ContractError, ErrorCode
-from fieldlens.profiles.compass_text import sniff_compass_text
+from fieldlens.profiles.text_sniff import sniff_survey_text
 from fieldlens.textenc import decode_head, detect_encoding, refine_encoding
 
 HEAD_BYTES = 64 * 1024
@@ -130,7 +130,7 @@ def inspect_file(
     sniffed = _fixed_width_table(stripped)
     if sniffed is not None:
         return Detected("csv", "text/plain", "pending_extraction", sniffed, encoding=encoding)
-    if sniff_compass_text(stripped.splitlines()):
+    if sniff_survey_text(stripped.splitlines()):
         return Detected("text", "text/plain", "pending_extraction", encoding=encoding)
     if filename.lower().endswith((".csv", ".dat")):
         return Detected("csv", "text/csv", "pending_extraction", encoding=encoding)

@@ -1,7 +1,7 @@
 """Profile registry: content-based selection and versions.
 
 Selection looks only at content (XML root + namespace, workbook sheets/headers, LAS ``~V``/``~A``,
-table headers, PDF text, Compass survey-report text); filename and upload category are passed through as hints and ignored.
+table headers, PDF text, Compass survey-report text, Statoil survey-export text); filename and upload category are passed through as hints and ignored.
 A profile version bump makes every run of that profile stale (derived records are re-derived)."""
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from .dat_tables import PerforationTableProfile, PickTableProfile
 from .las import LasProfile
 from .pdf_survey import SurveyReportProfile
 from .production import ProductionWorkbookProfile
+from .statoil_survey_text import StatoilSurveyTextProfile
 from .types import Profile
 from .witsml import WitsmlProfile
 
@@ -27,6 +28,7 @@ PROFILES: tuple[Profile, ...] = (  # type: ignore[assignment]
     PickTableProfile(),
     SurveyReportProfile(),
     CompassTextProfile(),
+    StatoilSurveyTextProfile(),
 )
 _BY_NAME = {p.name: p for p in PROFILES}
 
