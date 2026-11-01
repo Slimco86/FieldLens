@@ -62,6 +62,10 @@ Labels and tags are hints for stages 2 and 4, never a precondition and never evi
   per-run cap and is recorded in the budget ledger; the pre-run estimate must fit the remaining USD 5 less recorded spend.
 - **D8 [Validated, 2026-11-01 14:26]** OCR is out of the first implementation. The OCR-versus-model comparison from D2 is
   a separate benchmark task (TASK-060); stage 2 is model-only until it proves OCR cheaper and faster.
+- **D9 [Validated, 2026-11-01 16:39]** A name as written in a source (for example `F-12`, `F-5`) is a valid wellbore
+  identity even without a block or well key. If it differs from a fully qualified name (`15/9-F-12`) it is a separate
+  wellbore until stage 4 detects that they are one entity and the user accepts the merge; the data is then unified.
+  The resolver never invents a block, and an unqualified label never merges silently (TASK-061).
 - **D6 [Validated]** Sources that name the same entity differently are reconciled by an AI refinement step (stage 4)
   whose proposals the user reviews. Hard guards stay deterministic (well and wellbore are distinct; no merge across
   different wellbore designators without source support); nothing merges silently.
