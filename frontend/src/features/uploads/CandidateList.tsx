@@ -41,6 +41,14 @@ const REASON: Record<string, string> = {
   field_unverified: "some fields are not in the text layer and were removed",
   coordinate_fallback_unsupported: "coordinates and survey values are not accepted from a model",
   model_read_unverified: "read from a page image without a text layer; unverified",
+  unit_away_from_value: "a unit is written away from the value; not assumed",
+  size_ambiguous: "the size is ambiguous (for example 95/8); not guessed",
+  subject_page_names_other_well: "the page names a different well; stays unattached",
+  field_not_associated: "a field is not on the item's own line; removed",
+  id_exceeds_od: "the inner diameter is larger than the outer diameter",
+  depth_order_invalid: "the top depth is below the bottom depth",
+  label_not_in_text_layer: "the printed label is not in the page text layer",
+  equipment_not_on_page: "no equipment vocabulary on this page; rejected",
 };
 
 function describe(link: EvidenceLink): string {
@@ -54,6 +62,12 @@ function valueText(c: ExtractionCandidate): string {
   const a = c.attributes;
   if (a.kind === "measurement") {
     return `${a.attribute_key}: ${a.value_text}${a.unit_as_written ? ` ${a.unit_as_written}` : a.unit_defaulted ? " (unit not stated)" : ""}`;
+  }
+  if (a.kind === "equipment") {
+    // visual-level equipment (TASK-041): category, printed label and top depth as printed
+    return [a.category, a.label_text, a.top_depth?.value_text]
+      .filter((p): p is string => Boolean(p))
+      .join(" - ");
   }
   return [a.item_type, a.name, a.depth_text].filter((p): p is string => Boolean(p)).join(" - ");
 }
