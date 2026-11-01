@@ -486,3 +486,83 @@ def test_plan_subsets_only_failed_and_remaining_budget(runbook: ModuleType, worl
         world.factory, world.project_id, world.revision_id, docs, cap=Decimal("0.4"), **common
     )
     assert tight.over_cap and "EXCEEDS THE CAP" in tight.text
+
+
+def test_only_failed_counts_refused_image_pages_and_tolerates_null_pages(
+    runbook: ModuleType, world: World
+) -> None:
+    from fieldlens.assistant.messages import ProviderResponse, TextPart
+
+    sha = str(
+        world.scalar("select sha256 from source_document where document_id=:d", d=world.scan_doc)
+    )
+    # page 1: the configured rotation (45) is refused by the page tool -> image_unavailable
+    # page 2: the model output is truncated -> failed
+    plan = PagePlan("scan (PV-17)", sha, None, (1, 2), ((1, 45),))
+
+    def answer(request: Any, n: int) -> Any:
+        return ProviderResponse(status="truncated", parts=(TextPart(text='{"cand'),), usage=None)
+
+    kwargs: dict[str, Any] = {
+        "factory": world.factory,
+        "store": world.api.client.app.state.blob_store,
+        "project_id": world.project_id,
+        "documents": [(world.scan_doc, "15/9-F-99")],
+        "cap": Decimal("3"),
+        "include_controls": False,
+        "model": "stub-model-1",
+        "report_path": None,
+        "revision_id": world.revision_id,
+        "plans": (plan,),
+    }
+    provider = FixtureProvider(answer)
+    runbook.run(provider=provider, **kwargs)
+    assert (
+        world.scalar("select count(*) from agent_work_unit where stop_reason='image_unavailable'")
+        == 1
+    )
+    common: dict[str, Any] = {"include_controls": False, "plans": (plan,), "cap": Decimal("3")}
+    docs = [(world.scan_doc, "15/9-F-99")]
+    failed = runbook.build_plan(
+        world.factory, world.project_id, world.revision_id, docs, only_failed=True, **common
+    )
+    assert failed.entries[0].pages == [1, 2]  # the refused-image page is failed AND retryable
+    # steps without a recorded page (NULL) must not crash the query
+    from sqlalchemy import text
+
+    from fieldlens.persistence.session import session_scope
+
+    with session_scope(world.factory) as sess:
+        sess.execute(
+            text("update agent_step set detail = detail - 'page' where tool_name='get_page_image'")
+        )
+        sess.execute(
+            text(
+                "update agent_step set detail = jsonb_set(detail, '{args}', (detail->'args') - 'page') "
+                "where tool_name='get_page_image' and outcome = 'refused'"
+            )
+        )
+    again = runbook.build_plan(
+        world.factory, world.project_id, world.revision_id, docs, only_failed=True, **common
+    )
+    assert again.entries[0].pages == [2]  # the refused step lost its page: skipped, no crash
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--project-id", PID, "--pages", "not-a-uuid=1,2"],
+        ["--project-id", PID, "--pages", f"{PID}=1,x"],
+        ["--project-id", PID, "--pages", PID],
+        ["--project-id", PID, "--document", "nope:15/9-F-14"],
+        ["--project-id", PID, "--only-failed", "--document", ":label"],
+        ["--bootstrap-project", "t", "--pdf", "/nonexistent/x.pdf"],
+        ["--bootstrap-project", "t", "--pdf", __file__, "--file", "/nonexistent/y.dat"],
+    ],
+)
+def test_argument_errors_are_clean_refusals(
+    runbook: ModuleType, capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    assert runbook.main(argv, {}) == 2
+    out = capsys.readouterr().out
+    assert out.startswith("refusing:") and "Traceback" not in out

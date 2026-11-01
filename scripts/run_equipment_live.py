@@ -594,7 +594,8 @@ def failed_pages(s: Session, project_id: UUID, document_id: UUID) -> set[int]:
     ended failed/interrupted, with no later succeeded unit for the same page)."""
     rows = s.execute(
         text(
-            "select (g.detail->>'page')::int as page, u.state from agent_work_unit u "
+            "select coalesce(g.detail->>'page', g.detail->'args'->>'page') as page, u.state "
+            "from agent_work_unit u "
             "join agent_step g on g.unit_id = u.unit_id and g.tool_name = 'get_page_image' "
             "where u.project_id = :p and u.unit_key like 'extract:%' "
             "and g.detail->'args'->>'document_id' = :d order by u.created_at"
@@ -603,7 +604,8 @@ def failed_pages(s: Session, project_id: UUID, document_id: UUID) -> set[int]:
     ).all()
     last: dict[int, str] = {}
     for page, state in rows:
-        last[page] = state
+        if page is not None and str(page).isdigit():  # a refused image keeps its page in args
+            last[int(page)] = state
     return {p for p, st in last.items() if st != "succeeded"}
 
 
@@ -645,7 +647,9 @@ def bootstrap_project(
 def parse_pages(values: list[str]) -> dict[UUID, list[int]]:
     out: dict[UUID, list[int]] = {}
     for value in values:
-        ident, _, pages = value.partition("=")
+        ident, sep, pages = value.partition("=")
+        if not sep:
+            raise ValueError("missing '='")
         out[UUID(ident)] = [int(p) for p in pages.split(",") if p.strip()]
     return out
 
@@ -701,6 +705,17 @@ def main(
     args = ap.parse_args(argv)
     environ = dict(os.environ) if env is None else env
     try:
+        for path in [*args.pdf, *args.file]:
+            if not path.is_file():
+                raise RunbookRefusal(f"file not found: {path.name}")
+        try:
+            parse_documents(args.document)
+            parse_pages(args.pages)
+        except ValueError:
+            raise RunbookRefusal(
+                "bad --document/--pages value: <document uuid>[:label] and <document uuid>=1,2 "
+                "with integer page numbers are required"
+            ) from None
         if args.bootstrap_project:
             return _bootstrap(args)
         if args.project_id is None:

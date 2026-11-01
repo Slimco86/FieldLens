@@ -124,14 +124,23 @@ def _quantity(
             f"{printed.problem}; not guessed",
         )
     out.number = printed.number
-    if out.depth_reference is None and printed.reference_text:
-        out.depth_reference_text = out.depth_reference_text or printed.reference_text
-        out.depth_reference, compound = _depth_reference(printed.reference_text)  # type: ignore[assignment]
+    if printed.reference_text:
+        written_ref, compound = _depth_reference(printed.reference_text)
         if compound:
             return issue(
                 ReasonCode.COMPOUND_DEPTH_PAIR,
                 ValidatorName.DEPTH_REFERENCE,
                 "an MD/TVD pair is not one value; kept as printed",
+            )
+        if out.depth_reference is None:  # nothing claimed: the printed reference is used
+            out.depth_reference_text = out.depth_reference_text or printed.reference_text
+            out.depth_reference = written_ref  # type: ignore[assignment]
+        elif written_ref is not None and written_ref != out.depth_reference:
+            return issue(
+                ReasonCode.MD_TVD_CONFUSION,
+                ValidatorName.DEPTH_REFERENCE,
+                f"the value is printed with {written_ref} but the reference says "
+                f"{out.depth_reference}; not resolved",
             )
     claimed = parse_unit(q.unit)
     if q.unit is not None and claimed is None:
@@ -155,6 +164,12 @@ def _quantity(
             ReasonCode.UNIT_DIMENSION_MISMATCH,
             ValidatorName.UNIT,
             f"{q.unit} is {unit.dimension}, a length is needed",
+        )
+    if unit is not None and not size and abs(unit.factor - IN_TO_M) < 1e-9:
+        return issue(
+            ReasonCode.UNIT_DIMENSION_MISMATCH,
+            ValidatorName.UNIT,
+            "inches are not a plausible unit for a depth or length; not converted",
         )
     if unit is None:
         if size:

@@ -227,6 +227,10 @@ def test_a_25_and_a_40_item_page_fit_the_wire_and_the_cap() -> None:
         ("about 3000 m", False, None, None, None, "not a plain number"),
         ("3000 m approx", False, None, None, None, "other text after the number"),
         ("1.234,5 m", False, None, None, None, "ambiguous separator"),
+        ("0,125 m", False, 0.125, "m", None, None),
+        ("0,125", False, 0.125, None, None, None),
+        ('0,125"', True, 0.125, '"', None, None),
+        ("-0,5 m", False, -0.5, "m", None, None),
         ("-2500 m", False, -2500.0, "m", None, None),
         ("−2500 m", False, -2500.0, "m", None, None),
     ],
@@ -269,3 +273,84 @@ def test_the_live_strings_now_validate(world: World) -> None:
     for r in (a, b, c):
         assert "number_unparseable" not in r["reasons"]
     assert "unit_conflicts_with_quote" in d["reasons"] and d["state"] == "flagged"
+
+
+def _flags(world: World, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    provider = FixtureProvider(lambda r, n: json_response(items))
+    out = real_rate_harness(world, provider).run_unit(unit(world))
+    assert out.state == "succeeded"
+    return eq_rows(world)
+
+
+def test_printed_depth_reference_never_silently_replaces_the_claimed_one(world: World) -> None:
+    def d(value: str, ref: str | None) -> dict[str, Any]:
+        return equip(
+            world.scan_doc, 1, top_depth={"value_text": value, "unit": "m", "reference_text": ref}
+        )
+
+    rows = _flags(
+        world,
+        [
+            d("3000 m TVD", "MD"),  # contradiction, flagged
+            d("3000 m MD", "TVD"),  # contradiction, flagged
+            d("3000 m TVD", None),  # nothing claimed: the printed reference is used
+            d("3000 m MD", "MD RKB"),  # consistent
+        ],
+    )
+    a, b, c, e = rows
+    for r in (a, b):
+        assert r["state"] == "flagged" and "md_tvd_confusion" in r["reasons"]
+        assert "not resolved" in r["attrs"]["top_depth"]["issue"]
+    assert a["attrs"]["top_depth"]["depth_reference"] == "MD"  # MD is never recorded as TVD
+    assert b["attrs"]["top_depth"]["depth_reference"] == "TVD"
+    assert (
+        "md_tvd_confusion" not in c["reasons"]
+        and c["attrs"]["top_depth"]["depth_reference"] == "TVD"
+    )
+    assert (
+        "md_tvd_confusion" not in e["reasons"]
+        and e["attrs"]["top_depth"]["depth_reference"] == "MD"
+    )
+
+
+def test_depth_and_length_in_inches_are_flagged_not_converted(world: World) -> None:
+    rows = _flags(
+        world,
+        [
+            equip(world.scan_doc, 1, top_depth={"value_text": '3000"', "unit": None}),
+            equip(world.scan_doc, 1, top_depth={"value_text": "3000", "unit": "in"}),
+            equip(
+                world.scan_doc, 1, category="tubing", length={"value_text": "12 in", "unit": None}
+            ),
+            equip(world.scan_doc, 1, category="casing", od={"value_text": '7"', "unit": None}),
+        ],
+    )
+    for r in rows[:3]:
+        assert r["state"] == "flagged" and "unit_dimension_mismatch" in r["reasons"]
+    assert rows[0]["attrs"]["top_depth"]["normalized_number"] is None
+    assert "inches" in rows[0]["attrs"]["top_depth"]["issue"]
+    assert "unit_dimension_mismatch" not in rows[3]["reasons"]  # an OD in inches is normal
+
+
+def test_leading_zero_comma_is_decimal_and_thousands_stay_thousands(world: World) -> None:
+    rows = _flags(
+        world,
+        [
+            equip(world.scan_doc, 1, length={"value_text": "0,125 m", "unit": "m"}),
+            equip(
+                world.scan_doc,
+                1,
+                top_depth={"value_text": "0,125", "unit": "m", "reference_text": "MD"},
+            ),
+            equip(
+                world.scan_doc,
+                1,
+                top_depth={"value_text": "1,234 m", "unit": "m", "reference_text": "MD"},
+            ),
+            equip(world.scan_doc, 1, category="casing", od={"value_text": "1,234", "unit": "in"}),
+        ],
+    )
+    assert rows[0]["attrs"]["length"]["normalized_number"] == pytest.approx(0.125)
+    assert rows[1]["attrs"]["top_depth"]["number"] == pytest.approx(0.125)
+    assert rows[2]["attrs"]["top_depth"]["number"] == 1234
+    assert "number_unparseable" in rows[3]["reasons"]  # a thousands separator in a size is flagged

@@ -212,7 +212,9 @@ def parse_printed_quantity(text: str, *, size: bool) -> PrintedQuantity:
     if leftover:
         return PrintedQuantity(None, problem="other text after the number")
     reference = " ".join(refs) or None
-    if _THOUSANDS.match(num):
+    if re.match(r"^[+-]?0,\d+$", num):  # a lone leading "0," is a decimal comma (0,125 = 0.125)
+        num = num.replace(",", ".")
+    elif _THOUSANDS.match(num):
         if size:
             return PrintedQuantity(None, problem="ambiguous separator")
         num = num.replace(",", "")
