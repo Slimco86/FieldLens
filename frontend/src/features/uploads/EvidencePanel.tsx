@@ -56,11 +56,16 @@ function describeValue(a: ExtractedRecord["attributes"][number]): string {
   return `${v}${unit ? ` ${unit}` : ""}${a.reference ? ` [${a.reference}]` : ""}`;
 }
 
-function Records({ projectId, doc }: { projectId: string; doc: SourceDocumentItem }) {
+/**
+ * `expected` is the record count the extraction report states. The report and the record list are two
+ * reads; if the list is still shorter than the report says (records not readable yet) it is re-read
+ * until they agree, and the mismatch is stated instead of showing a silently empty list.
+ */
+function Records({ projectId, doc, expected }: { projectId: string; doc: SourceDocumentItem; expected: number }) {
   const { state } = usePolled<ExtractedRecordPage>(
     `records/${projectId}/${doc.document_id}`,
     (signal) => listExtractedRecords(projectId, doc.document_id, signal),
-    () => false,
+    (page) => page.total < expected,
   );
   const [more, setMore] = useState<ExtractedRecord[]>([]);
   const [cursor, setCursor] = useState<string | null | undefined>(undefined);
@@ -79,7 +84,19 @@ function Records({ projectId, doc }: { projectId: string; doc: SourceDocumentIte
   const page = state.data;
   const next = cursor === undefined ? (page.page.next_cursor ?? null) : cursor;
   const items = [...page.items, ...more];
-  if (items.length === 0) return <p>No records were extracted from this file.</p>;
+  const catchingUp = page.total < expected;
+  if (items.length === 0) {
+    return (
+      <>
+        {catchingUp && (
+          <Callout tone="info" role="status">
+            <p>The report lists {expected} records but none are readable yet; this list refreshes automatically.</p>
+          </Callout>
+        )}
+        <p>No records were extracted from this file.</p>
+      </>
+    );
+  }
 
   async function loadMore() {
     if (next === null) return;
@@ -311,7 +328,7 @@ export function Inspection({ projectId, doc }: { projectId: string; doc: SourceD
         </ul>
       )}
       <Title order={6}>Extracted records</Title>
-      <Records projectId={projectId} doc={doc} />
+      <Records projectId={projectId} doc={doc} expected={Object.values(r.record_counts ?? {}).reduce((a, n) => a + n, 0)} />
     </div>
   );
 }
