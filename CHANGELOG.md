@@ -8,6 +8,21 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.34.0 - 2026-11-02
+
+- **TASK-070 storage integrity:** files are only Stored or Failed ("stored copy missing or damaged"); the word
+  "quarantined" is gone from the API and UI. A storage-root identity marker (`.fieldlens-root-id` plus a DB row) stops a
+  server with another root from marking real uploads failed, and replaces the 8-sample guard. Failures record a reason
+  (`missing`, `size_mismatch`, `hash_mismatch`) and the writing process; DB connections are named
+  `fieldlens:<lane>:<pid>`. Re-upload repairs a failed or missing original instead of reporting "already present";
+  `POST .../documents/{id}/storage/retry`; a startup heal pass restores failed files whose bytes verify and queues
+  extraction. `scripts/storage_root.py status|adopt`; `./dev status/restart` warn about other API processes attached to
+  the same database (never kill them). Sources UI: Failed state with Retry/re-upload, repaired-upload message, Start
+  extraction for run-less files, storage-root mismatch message.
+  **Migration 0014** renames the stored `quarantined` state to `failed`; DTO fields `quarantined_count` -> `failed_count`
+  and `JobResult.quarantined` -> `failed` (breaking for API clients, none besides the bundled frontend).
+  Operator note: after upgrading, restart every FieldLens API process; stop stale lane servers first.
+
 ## 0.33.1 - 2026-11-02
 
 - **Docs:** the delivery policy is parallel development routes in parallel linked worktrees (one writer, branch and
