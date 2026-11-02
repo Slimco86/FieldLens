@@ -128,7 +128,8 @@ test("UI-12/UI-6: URL selects project and tab; prerequisites come from revision 
   // No fake feature controls: nothing that removes, replaces or deletes a source or project.
   await nav.getByRole("button", { name: "Sources" }).click();
   await expect(page).toHaveURL(new RegExp(`#/projects/${id}/sources$`));
-  await expect(page.getByRole("button", { name: /remove|replace|delete|archive/i })).toHaveCount(0);
+  // Scoped to <main>: the sidebar's intended "Delete project …" control (TASK-071) is not a per-source control.
+  await expect(page.getByRole("main").getByRole("button", { name: /remove|replace|delete|archive/i })).toHaveCount(0);
 
   // Switching project by sidebar changes the URL and resets the tab to Sources.
   const other = unique("Other");

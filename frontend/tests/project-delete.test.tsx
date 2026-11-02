@@ -242,4 +242,24 @@ describe("project deletion dialog", () => {
     await waitFor(() => expect(screen.queryByText("Deleting…")).not.toBeInTheDocument(), { timeout: 6000 });
     expect(window.localStorage.getItem("fieldlens.selectedProjectId")).toBeNull();
   }, 10000);
+
+  it("moves focus to the Projects label after a completed delete from the list view", async () => {
+    window.location.hash = "#/";
+    let started = false;
+    install((url, init) => {
+      if (url.startsWith("/api/v1/projects?")) return page(...(started ? [] : [project(A, "Alpha")]));
+      if (url === `/api/v1/projects/${A}/deletion-preview`) return json(preview);
+      if (init?.method === "DELETE") {
+        started = true;
+        return json({ project_id: A, deletion_state: "deleting", deletion_requested_at: "2026-11-02T12:00:00Z", deletion_error: null }, 202);
+      }
+      if (url === `/api/v1/projects/${A}`) return notFound();
+    });
+    const user = userEvent.setup();
+    const dialog = await openDialog(user);
+    await user.type(within(dialog).getByLabelText(/Type the project name/), "Alpha");
+    await user.click(within(dialog).getByRole("button", { name: "Delete project" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(), { timeout: 6000 });
+    await waitFor(() => expect(screen.getByText("Projects", { selector: "p" })).toHaveFocus());
+  }, 15000);
 });
