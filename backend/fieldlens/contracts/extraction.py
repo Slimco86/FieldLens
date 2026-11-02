@@ -71,6 +71,8 @@ class ExtractedRecordPage(ContractModel):
 class ExtractionError(ContractModel):
     code: str
     message: str
+    process: str | None = None
+    """Writing process (host, pid, lane, root id) for ``source_missing`` failures."""
 
 
 class WellboreIdentity(ContractModel):

@@ -83,13 +83,13 @@ const record = {
   ],
 };
 
-function install(handler: (url: string) => Response | undefined) {
+function install(handler: (url: string, init?: RequestInit) => Response | undefined) {
   vi.stubGlobal(
     "fetch",
-    vi.fn((input: RequestInfo | URL) => {
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === "/api/v1/session") return Promise.resolve(json({ csrf_token: "t".repeat(43) }));
-      const out = handler(url);
+      const out = handler(url, init);
       if (out === undefined) throw new Error(`unexpected request ${url}`);
       return Promise.resolve(out);
     }),
@@ -208,7 +208,7 @@ describe("evidence panel", () => {
   it("explains a file with no run yet and an unsupported file without claiming success", async () => {
     install((u) => (u.endsWith("/extraction") ? json(report({ status: null, run_id: null, issues: [], coverage: null })) : undefined));
     await open();
-    expect(await screen.findByText(/No extraction has run for this file yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/no extraction run is recorded|Storage verification has not finished/)).toBeInTheDocument();
     cleanup();
     install((u) =>
       u.endsWith("/extraction")
@@ -241,5 +241,52 @@ describe("describeLocator", () => {
     expect(describeLocator(mk({ kind: "text", las_section: "curve", line_start: 12, line_end: 12, column_name: "GR" }))).toBe(
       "text section curve, line 12, column GR",
     );
+  });
+});
+
+describe("run-less documents (AC-8)", () => {
+  const stored = { ...doc, storage_state: "stored" } as unknown as SourceDocumentItem;
+  const runless = report({ status: null, run_id: null });
+
+  it("offers Start extraction for a Stored document with no run and reports the outcome", async () => {
+    let posts = 0;
+    install((u, init) => {
+      if (u.includes("/extraction?retry=true") && init?.method === "POST") {
+        posts++;
+        return json({ outcome: "queued", report: runless });
+      }
+      if (u.endsWith("/extraction")) return json(runless);
+    });
+    render(<EvidencePanel projectId={P} doc={stored} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Inspect extraction for prod\.xlsx/ }));
+    expect(await screen.findByText(/no extraction run is recorded/)).toBeInTheDocument();
+    expect(screen.queryByText(/waiting for the extraction worker/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Start extraction" }));
+    expect(await screen.findByText("Extraction was queued.")).toBeInTheDocument();
+    expect(posts).toBe(1);
+  });
+
+  it("gives a precise reason, not a start action, for a Failed document", async () => {
+    install((u) => (u.endsWith("/extraction") ? json(runless) : undefined));
+    render(<EvidencePanel projectId={P} doc={{ ...doc, storage_state: "failed" } as unknown as SourceDocumentItem} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Inspect extraction for prod\.xlsx/ }));
+    expect(await screen.findByText(/Storage failed for this file/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start extraction" })).not.toBeInTheDocument();
+  });
+
+  it("shows the writing process of an extraction error", async () => {
+    install((u) =>
+      u.endsWith("/extraction")
+        ? json(report({ status: "failed", error: { code: "source_missing", message: "source file missing", process: "host=a pid=1 lane=x root=y" } }))
+        : u.includes("/extraction/records")
+          ? json(records([]))
+          : undefined,
+    );
+    render(<EvidencePanel projectId={P} doc={stored} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Inspect extraction for prod\.xlsx/ }));
+    expect(await screen.findByText(/Written by process: host=a pid=1 lane=x root=y/)).toBeInTheDocument();
   });
 });

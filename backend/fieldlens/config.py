@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     port: int = Field(DEFAULT_API_PORT, ge=1, le=65535)
     database_url: SecretStr | None = None
     storage_root: Path = REPO_ROOT / ".local/fieldlens/storage"
+    lane: str = Field("main", pattern=r"^[A-Za-z0-9._-]{1,32}$")
+    """Development lane name; identifies this process in DB ``application_name`` and failures."""
     frontend_dist: Path = Path("frontend/dist")
     allowed_hosts: list[str] = Field(default_factory=_default_hosts)
     allowed_origins: list[str] = Field(default_factory=_default_origins)

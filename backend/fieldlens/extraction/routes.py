@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import Field
-from sqlalchemy import func, select, update
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
 from fieldlens import security
@@ -19,11 +19,20 @@ from fieldlens.contracts.extraction import (
     ExtractionRequeue,
     RequeueOutcome,
 )
+from fieldlens.contracts.imports import StorageRetryResult, StorageState
+from fieldlens.evidence.integrity import (
+    REUPLOAD_MESSAGE,
+    RootMismatch,
+    reverify_document,
+    root_mismatch_error,
+)
+from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.evidence.storage import BlobStore, VerifyOutcome
 from fieldlens.persistence import models as m
 from fieldlens.persistence.session import session_scope
 
 from . import views
+from .heal import queue_extraction_after_restore
 from .runner import requeue_document
 
 
@@ -94,12 +103,13 @@ def build_extraction_router() -> APIRouter:
         ] = False,
     ) -> ExtractionRequeue:
         store: BlobStore = request.app.state.blob_store
+        guard: StorageRootGuard = _guard(request)
         unreadable: list[str] = []
 
         def work(session: Any) -> ExtractionRequeue:
             views.require_document(session, project_id, document_id)
             if retry or _storage_state(session, project_id, document_id) != "stored":
-                reason = _reverify_original(session, store, project_id, document_id)
+                reason = _reverify_original(session, store, guard, project_id, document_id)
                 if reason is not None:
                     unreadable.append(reason)
                     return ExtractionRequeue(
@@ -137,35 +147,94 @@ def _storage_state(session: Any, project_id: UUID, document_id: UUID) -> str | N
     return None if state is None else str(state)
 
 
+def _guard(request: Request) -> StorageRootGuard:
+    guard: StorageRootGuard | None = request.app.state.root_guard
+    if guard is None:
+        raise ContractError(ErrorCode.SERVICE_UNAVAILABLE, "storage is unavailable; try again", 503)
+    return guard
+
+
 def _reverify_original(
-    session: Any, store: BlobStore, project_id: UUID, document_id: UUID
+    session: Any, store: BlobStore, guard: StorageRootGuard, project_id: UUID, document_id: UUID
 ) -> str | None:
-    """Re-read the stored original and make the storage state match reality: restore ``stored``
-    when the bytes verify again, otherwise record ``quarantined``. Returns the failed check
-    (e.g. ``missing``) or None when the bytes verify."""
-    doc = session.execute(
-        select(
-            m.source_document.c.storage_key,
-            m.source_document.c.sha256,
-            m.source_document.c.size_bytes,
-        ).where(
-            m.source_document.c.project_id == project_id,
-            m.source_document.c.document_id == document_id,
-        )
-    ).one()
-    result = store.verify(doc.storage_key, doc.sha256, doc.size_bytes)
-    ok = result.outcome is VerifyOutcome.OK
-    session.execute(
-        update(m.document_processing)
-        .where(
-            m.document_processing.c.project_id == project_id,
-            m.document_processing.c.document_id == document_id,
-            m.document_processing.c.storage_state != "pending_verification",
-        )
-        .values(
-            storage_state="stored" if ok else "quarantined",
-            detail=None if ok else f"verification_{result.outcome.value}",
-            updated_at=func.now(),
-        )
+    """Re-read the stored original (under the verified storage root only) and make the storage
+    state match reality: restore ``stored`` when the bytes verify again, otherwise record
+    ``failed``. Returns the failed check (e.g. ``missing``) or None when the bytes verify."""
+    try:
+        result = reverify_document(session, store, guard, project_id, document_id)
+    except RootMismatch as exc:
+        raise root_mismatch_error() from exc
+    return None if result.outcome is VerifyOutcome.OK else result.outcome.value
+
+
+def build_storage_router() -> APIRouter:
+    router = APIRouter(
+        prefix="/api/v1/projects/{project_id}/documents/{document_id}/storage",
+        tags=["storage"],
+        responses={
+            404: {"model": ErrorEnvelope},
+            409: {"model": ErrorEnvelope},
+            503: {"model": ErrorEnvelope},
+        },
+        dependencies=[Depends(_no_store)],
     )
-    return None if ok else result.outcome.value
+
+    @router.post(
+        "/retry", response_model=StorageRetryResult, dependencies=[Depends(_guard_mutation)]
+    )
+    def retry_storage(project_id: UUID, document_id: UUID, request: Request) -> StorageRetryResult:
+        """Retry a Failed (or re-check a Stored) document: re-verify its bytes; when they verify
+        the document is Stored and extraction is queued, otherwise 409 says to re-upload."""
+        store: BlobStore = request.app.state.blob_store
+        guard = _guard(request)
+        unreadable: list[str] = []
+
+        def work(session: Any) -> StorageRetryResult | None:
+            views.require_document(session, project_id, document_id)
+            before = _storage_state(session, project_id, document_id)
+            if before == "pending_verification":
+                raise ContractError(
+                    ErrorCode.CONFLICT,
+                    "This file is still being verified; try again in a moment.",
+                    409,
+                    {"reason": "verification_pending"},
+                )
+            try:
+                result = reverify_document(
+                    session,
+                    store,
+                    guard,
+                    project_id,
+                    document_id,
+                    write_failure=before != "failed",
+                )
+            except RootMismatch as exc:
+                raise root_mismatch_error() from exc
+            if result.outcome is not VerifyOutcome.OK:
+                unreadable.append(result.outcome.value)
+                return None
+            queued = queue_extraction_after_restore(session, project_id, document_id)
+            return StorageRetryResult(
+                document_id=document_id,
+                outcome="restored" if before == "failed" else "already_stored",
+                storage_state=StorageState.STORED,
+                extraction_queued=queued,
+                message="Stored: the stored copy verified."
+                + (" Extraction is queued." if queued else ""),
+            )
+
+        out: StorageRetryResult | None = _db(request, work)
+        if out is None:
+            raise ContractError(
+                ErrorCode.CONFLICT,
+                REUPLOAD_MESSAGE,
+                409,
+                {
+                    "reason": "stored_copy_unreadable",
+                    "check": unreadable[0],
+                    "recovery": "re-upload",
+                },
+            )
+        return out
+
+    return router

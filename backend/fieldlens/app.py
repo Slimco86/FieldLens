@@ -25,9 +25,15 @@ from fieldlens.candidates.routes import build_candidates_router
 from fieldlens.config import Settings, get_settings
 from fieldlens.contracts.errors import ContractError, ErrorBody, ErrorCode, ErrorEnvelope
 from fieldlens.contracts.registry import export_component_schemas
-from fieldlens.contracts.system import HealthResponse, ReadinessResponse, SessionResponse
+from fieldlens.contracts.system import (
+    HealthResponse,
+    ReadinessCheck,
+    ReadinessResponse,
+    SessionResponse,
+)
+from fieldlens.evidence.root_guard import MISMATCH, StorageRootGuard
 from fieldlens.evidence.storage import BlobStore
-from fieldlens.extraction import build_extraction_router
+from fieldlens.extraction import build_extraction_router, build_storage_router
 from fieldlens.identity.routes import build_identity_router
 from fieldlens.ingestion import build_ingestion_router
 from fieldlens.jobs import JobWorker, build_jobs_router
@@ -135,6 +141,16 @@ def _build_system_router() -> APIRouter:
 
     def ready(request: Request) -> Response:
         checks = evaluate_readiness(request.app.state.engine)
+        guard = request.app.state.root_guard
+        if guard is not None and all(c.ok for c in checks):
+            ok = guard.serves_database(force=True)
+            checks.append(
+                ReadinessCheck(
+                    name="storage_root",
+                    ok=ok,
+                    detail=None if ok else f"{MISMATCH}: {guard.status.reason}",
+                )
+            )
         if all(c.ok for c in checks):
             body = ReadinessResponse(status="ready", checks=checks)
             return JSONResponse(body.model_dump(mode="json"), headers={"Cache-Control": "no-store"})
@@ -217,6 +233,11 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
                 )
             except Exception:  # noqa: BLE001 - startup must not fail on an unavailable database
                 logger.warning("activity-log recovery skipped: storage unavailable")
+        if app.state.root_guard is not None:
+            try:  # bind a fresh/legacy root before any upload or worker can touch it
+                app.state.root_guard.serves_database(force=True)
+            except Exception:  # noqa: BLE001 - startup must not fail on an unavailable database
+                logger.warning("storage root check skipped: storage unavailable")
         if worker is not None and settings.job_worker_enabled:
             worker.start()
         processing = app.state.processing
@@ -248,6 +269,11 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.state.session_token = session_token or security.new_session_token()
     app.state.merge_proposer = None  # no live provider wiring until D7 authorizes one
     app.state.blob_store = BlobStore(settings.storage_root)
+    app.state.root_guard = (
+        StorageRootGuard(app.state.session_factory, app.state.blob_store, lane=settings.lane)
+        if app.state.session_factory is not None
+        else None
+    )
     app.state.embedders = EmbedderProvider(settings)
     app.state.job_worker = (
         JobWorker(
@@ -306,6 +332,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_ingestion_router())
     app.include_router(build_jobs_router())
     app.include_router(build_extraction_router())
+    app.include_router(build_storage_router())
     app.include_router(build_activity_router())
     app.include_router(build_candidates_router())
     app.include_router(build_retrieval_router())

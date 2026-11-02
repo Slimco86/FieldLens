@@ -82,7 +82,7 @@ def test_replacement_validation(migrated_url: URL, tmp_path: Path) -> None:
     assert len(api.revisions(pid)) == 1
 
 
-def test_partial_revision_exposes_quarantine_counts(migrated_url: URL, tmp_path: Path) -> None:
+def test_partial_revision_exposes_failed_counts(migrated_url: URL, tmp_path: Path) -> None:
     api = make_api(migrated_url, tmp_path)
     pid = api.project()
     r = api.upload(pid, [("a.pdf", PDF), ("b.txt", TEXT)]).json()
@@ -90,13 +90,13 @@ def test_partial_revision_exposes_quarantine_counts(migrated_url: URL, tmp_path:
     api.worker.run_once()
     job = api.job(pid, r["job_id"])
     assert job["status"] == "partial"
-    assert job["result"]["stored"] == 1 and job["result"]["quarantined"] == 1
+    assert job["result"]["stored"] == 1 and job["result"]["failed"] == 1
     rev = api.revisions(pid)[0]
-    assert rev["status"] == "ready_with_issues" and rev["quarantined_count"] == 1
-    assert "quarantined_documents" in rev["coverage"]["reasons"][1]
+    assert rev["status"] == "ready_with_issues" and rev["failed_count"] == 1
+    assert "failed_documents" in rev["coverage"]["reasons"][1]
     assert api.latest(pid) == r["source_revision_id"]
     states = {d["original_filename"]: d for d in api.documents(pid)}
-    assert states["b.txt"]["storage_state"] == "quarantined"
+    assert states["b.txt"]["storage_state"] == "failed"
     assert states["b.txt"]["processing_detail"] == "verification_missing"
     assert states["a.pdf"]["storage_state"] == "stored"
 
@@ -122,7 +122,7 @@ def test_failed_replacement_keeps_previous_results_labelled(
     assert [d["document_id"] for d in api.documents(pid)] == first["document_ids"]
     failed = next(r for r in api.revisions(pid) if r["status"] == "failed")
     assert failed["source_revision_id"] == second["source_revision_id"] and not failed["is_latest"]
-    assert "all_documents_quarantined" in failed["coverage"]["reasons"][0]
+    assert "all_documents_failed" in failed["coverage"]["reasons"][0]
     # the project can import again after the failed attempt
     retry = api.upload(pid, [("c.csv", CSV)], parent=first["source_revision_id"])
     assert retry.status_code == 202

@@ -48,7 +48,7 @@ def test_runner_source_missing_flips_badge_and_rerun_refuses_with_reupload_guida
     assert any(
         "source_missing" in i["message"] and "re-upload" in i["message"] for i in rep["issues"]
     )
-    assert _state(api, pid, did) == "quarantined", "must not keep saying hash-verified"
+    assert _state(api, pid, did) == "failed", "must not keep saying hash-verified"
 
     r = api.client.post(url + "?retry=true", headers=api.headers)
     assert r.status_code == 409, r.text
@@ -65,7 +65,7 @@ def test_rerun_re_resolves_and_recovers_when_original_is_readable_again(
     api, pid, did, blob, moved = _setup(migrated_url, tmp_path)
     url = f"/api/v1/projects/{pid}/documents/{did}/extraction"
     _drain(api)
-    assert _state(api, pid, did) == "quarantined"
+    assert _state(api, pid, did) == "failed"
     shutil.move(str(moved), str(blob))
     r = api.client.post(url + "?retry=true", headers=api.headers)
     assert r.status_code == 200, r.text
@@ -101,7 +101,7 @@ def test_worker_with_wrong_storage_root_does_not_poison_documents(
     )
 
 
-def test_wrong_root_does_not_quarantine_new_upload_verification(
+def test_wrong_root_does_not_fail_new_upload_verification(
     migrated_url: URL, tmp_path: Path
 ) -> None:
     writer = make_api(migrated_url, tmp_path / "root-a")

@@ -8,6 +8,8 @@ import {
   MAX_TAGS,
   MAX_TAG_LENGTH,
   listDocuments,
+  retryStorage,
+  describeStorageError,
   updateClassification,
   type DocumentCategory,
   type DocumentPage,
@@ -22,7 +24,7 @@ import { toFailure, type Failure } from "../projects/scope";
 const STORAGE_LABEL: Record<SourceDocumentItem["storage_state"], string> = {
   pending_verification: "Pending verification",
   stored: "Stored (hash-verified)",
-  quarantined: "Quarantined",
+  failed: "Failed",
 };
 const EXTRACTION_LABEL: Record<SourceDocumentItem["extraction_state"], string> = {
   pending_extraction: "Pending extraction (not yet extracted)",
@@ -160,6 +162,73 @@ function ClassificationEditor({ projectId, doc, onSaved, onClose }: EditorProps)
   );
 }
 
+const FAILED_DEFAULT = "Failed: stored copy missing or damaged.";
+
+/** Failed storage: the server's message, a Retry that re-verifies the stored bytes, and the re-upload route. */
+type RetryOutcome = { ok: boolean; text: string };
+function StorageRecovery({
+  projectId,
+  doc,
+  onChanged,
+  outcome,
+  setOutcome,
+}: {
+  projectId: string;
+  doc: SourceDocumentItem;
+  onChanged: () => void;
+  outcome: RetryOutcome | null;
+  setOutcome: (o: RetryOutcome | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const failed = doc.storage_state === "failed";
+  const ctl = useRef<AbortController | null>(null);
+  useEffect(() => () => ctl.current?.abort(), []);
+  async function retry() {
+    ctl.current?.abort();
+    const c = new AbortController();
+    ctl.current = c;
+    setBusy(true);
+    setOutcome(null);
+    try {
+      const res = await retryStorage(projectId, doc.document_id, c.signal);
+      if (c.signal.aborted) return;
+      setOutcome({ ok: true, text: res.message });
+      onChanged();
+    } catch (err) {
+      if (c.signal.aborted) return;
+      setOutcome({ ok: false, text: describeStorageError(err) ?? `Retry failed: ${toFailure(err).message}` });
+    } finally {
+      if (!c.signal.aborted) setBusy(false);
+    }
+  }
+  return (
+    <div className={`${styles.stack} ${styles.wrapText}`}>
+      {failed && (
+        <>
+          <div className={styles.small}>{doc.storage_message ?? FAILED_DEFAULT}</div>
+          <div>
+            <Button
+              size="compact-sm"
+              variant="default"
+              disabled={busy}
+              aria-label={`Retry storage verification for ${doc.original_filename}`}
+              onClick={() => void retry()}
+            >
+              Retry
+            </Button>
+          </div>
+          <div className={`${styles.small} ${styles.muted}`}>If Retry cannot restore it, re-upload this file with the upload control.</div>
+        </>
+      )}
+      {outcome !== null && (
+        <div role={outcome.ok ? "status" : "alert"} className={styles.small}>
+          {outcome.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DocumentRow({
   projectId,
   doc,
@@ -175,6 +244,10 @@ function DocumentRow({
   selected: boolean;
   onToggle: (on: boolean) => void;
 }) {
+  const [retryOutcome, setRetryOutcome] = useState<RetryOutcome | null>(null);
+  useEffect(() => {
+    if (doc.storage_state !== "failed") setRetryOutcome((o) => (o !== null && !o.ok ? null : o));
+  }, [doc.storage_state]);
   const [editing, setEditing] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const detailId = `details-${doc.document_id}`;
@@ -219,11 +292,20 @@ function DocumentRow({
         </Table.Td>
         <Table.Td>
           <StatusChip kind="storage" value={doc.storage_state} label={STORAGE_LABEL[doc.storage_state]} />
+          {(doc.storage_state === "failed" || (retryOutcome !== null && retryOutcome.ok)) && (
+            <StorageRecovery projectId={projectId} doc={doc} onChanged={onSaved} outcome={doc.storage_state === "failed" || retryOutcome?.ok === true ? retryOutcome : null} setOutcome={setRetryOutcome} />
+          )}
         </Table.Td>
         <Table.Td>
-          <StatusChip kind="extraction" value={doc.extraction_state} label={EXTRACTION_LABEL[doc.extraction_state]} />
-          {doc.processing_detail !== null && doc.processing_detail !== undefined && (
-            <div className={`${styles.small} ${styles.muted}`}>{doc.processing_detail}</div>
+          {doc.storage_state === "failed" ? (
+            <span className={styles.muted}>Not available: stored copy missing or damaged</span>
+          ) : (
+            <>
+              <StatusChip kind="extraction" value={doc.extraction_state} label={EXTRACTION_LABEL[doc.extraction_state]} />
+              {doc.processing_detail !== null && doc.processing_detail !== undefined && (
+                <div className={`${styles.small} ${styles.muted}`}>{doc.processing_detail}</div>
+              )}
+            </>
           )}
         </Table.Td>
         <Table.Td>

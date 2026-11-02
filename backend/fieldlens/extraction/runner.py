@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import socket
 import threading
 from dataclasses import dataclass
 from typing import Any
@@ -21,6 +23,7 @@ from sqlalchemy import delete, func, insert, select, text, tuple_, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.config import Settings
+from fieldlens.evidence.integrity import mark_failed
 from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.persistence import models as m
@@ -446,18 +449,26 @@ class ExtractionRunner:
             ).one()
         path = self._store.path_for(doc.storage_key)
         if not path.is_file():
+            if self._release_if_foreign_root(claim):
+                return
             self._finalize_failed(
                 claim,
                 "source_missing",
                 "stored original is not readable; re-upload this file",
+                process=self._identity(),
             )
-            self._mark_unreadable(claim, "source_missing")
+            self._mark_unreadable(claim, "missing")
             return
         if sha256_file(path) != doc.sha256:
+            if self._release_if_foreign_root(claim):
+                return
             self._finalize_failed(
-                claim, "content_hash_mismatch", "stored bytes differ from hash; re-upload this file"
+                claim,
+                "content_hash_mismatch",
+                "stored bytes differ from hash; re-upload this file",
+                process=self._identity(),
             )
-            self._mark_unreadable(claim, "content_hash_mismatch")
+            self._mark_unreadable(claim, "hash_mismatch")
             return
         profiles = registry.detect(path, doc.format_family, doc.original_filename)
         if not profiles:
@@ -478,19 +489,40 @@ class ExtractionRunner:
             raise FenceLost("lease lost")
         self._finalize_ok(claim, profile.name, profile.version, profile.method, output)
 
-    def _mark_unreadable(self, claim: RunClaim, reason: str) -> None:
-        """The original could not be read now, so the earlier "stored" verdict is stale: the
-        storage badge must stop claiming hash-verified bytes (state ``quarantined``)."""
+    def _identity(self) -> str:
+        if self._root_guard is not None:
+            return self._root_guard.identity()
+        return f"host={socket.gethostname()} pid={os.getpid()} lane=unknown root=unknown"
+
+    def _release_if_foreign_root(self, claim: RunClaim) -> bool:
+        """Before recording a missing/damaged original, re-check the root identity right now. If
+        this process's root is not the database's, put the run back (no attempt consumed) and
+        record nothing; True means the run was released."""
+        if self._root_guard is None or self._root_guard.serves_database(force=True):
+            return False
         with session_scope(self._factory) as session:
             session.execute(
-                update(m.document_processing)
-                .where(m.document_processing.c.document_id == claim.document_id)
+                update(m.extraction_run)
+                .where(
+                    m.extraction_run.c.run_id == claim.run_id,
+                    m.extraction_run.c.status == "running",
+                    m.extraction_run.c.lease_owner == claim.owner,
+                )
                 .values(
-                    storage_state="quarantined",
-                    detail=f"verification_{reason}",
-                    updated_at=func.now(),
+                    status="queued",
+                    attempt_no=m.extraction_run.c.attempt_no - 1,
+                    lease_owner=None,
+                    lease_expires_at=None,
                 )
             )
+        logger.error("extraction run %s released: storage_root_mismatch", claim.run_id)
+        return True
+
+    def _mark_unreadable(self, claim: RunClaim, reason: str) -> None:
+        """The original could not be read now under the verified root, so the earlier "stored"
+        verdict is stale: the document becomes Failed (``reason``: missing / hash_mismatch)."""
+        with session_scope(self._factory) as session:
+            mark_failed(session, claim.document_id, reason, self._identity())
 
     # -- finalization -----------------------------------------------------------------------
     def _fenced(self, session: Session, claim: RunClaim, **values: Any) -> None:
@@ -522,7 +554,11 @@ class ExtractionRunner:
         profile: str | None = None,
         version: str | None = None,
         method: str | None = None,
+        process: str | None = None,
     ) -> None:
+        error: dict[str, Any] = {"code": code, "message": message[:500]}
+        if process is not None:
+            error["process"] = process
         with session_scope(self._factory) as session:
             self._fenced(
                 session,
@@ -531,7 +567,7 @@ class ExtractionRunner:
                 profile_name=profile,
                 profile_version=version,
                 method=method,
-                error={"code": code, "message": message[:500]},
+                error=error,
             )
             pid = claim.project_id
             session.execute(

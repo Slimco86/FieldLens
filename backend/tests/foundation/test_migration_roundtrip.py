@@ -62,7 +62,7 @@ def _alembic(engine: Engine, fn: str, rev: str) -> None:
 
 
 def test_single_head_and_known_revision() -> None:
-    assert expected_head() == "0013_reconstruction_runs"
+    assert expected_head() == "0014_storage_root_identity"
 
 
 def test_migration_roundtrip(empty_database: URL) -> None:

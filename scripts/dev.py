@@ -121,6 +121,8 @@ class Procs(Protocol):
 
     def signal_group(self, pid: int, sig: int) -> None: ...
 
+    def descendants(self, pid: int) -> set[int]: ...
+
 
 class Http(Protocol):
     def status(self, url: str) -> int | None: ...
@@ -203,6 +205,23 @@ class RealProcs:
         except OSError:
             return None
         return [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
+
+    def descendants(self, pid: int) -> set[int]:
+        parents: dict[int, int] = {}
+        for entry in Path("/proc").iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                stat = (entry / "stat").read_text(encoding="utf-8", errors="replace")
+                parents[int(entry.name)] = int(stat.rsplit(")", 1)[1].split()[1])
+            except (OSError, ValueError, IndexError):
+                continue
+        found: set[int] = set()
+        frontier = {pid}
+        while frontier:
+            frontier = {c for c, p in parents.items() if p in frontier and c not in found}
+            found |= frontier
+        return found
 
     def signal_group(self, pid: int, sig: int) -> None:
         try:
@@ -649,6 +668,7 @@ def lane_server_env(lane: Lane) -> dict[str, str]:
     ]
     return {
         "FIELDLENS_PORT": str(lane.api_port),
+        "FIELDLENS_LANE": lane.name[:32],
         "FIELDLENS_ALLOWED_HOSTS": json.dumps(hosts),
         "FIELDLENS_ALLOWED_ORIGINS": json.dumps([f"http://{h}" for h in hosts]),
     }
@@ -1146,7 +1166,49 @@ def _drop_lane(ctx: Context) -> None:
     ctx.say("the derived .env was left in place")
 
 
+def foreign_api_connections(ctx: Context, compose: Compose, database: str | None) -> list[str]:
+    """Other processes holding connections to ``database`` that this lane does not manage.
+
+    FieldLens servers name their connections ``fieldlens:<lane>:<pid>``; connections with no
+    name come from older code that cannot be told apart. Nothing is ever signalled.
+    """
+    if not database or not compose.daemon_ok() or compose.postgres_state() != "healthy":
+        return []
+    sql = (
+        "SELECT application_name || '|' || count(*) FROM pg_stat_activity WHERE datname = '"  # noqa: S608
+        + _ident(database)
+        + "' AND pid <> pg_backend_pid() AND backend_type = 'client backend' AND "
+        "(application_name LIKE 'fieldlens:%' OR application_name = '') "
+        "GROUP BY application_name ORDER BY 1"
+    )
+    done = compose.psql(database, sql)
+    if done.returncode != 0:
+        return []
+    own_pid = api_process(ctx).pid()
+    own = {own_pid} | ctx.services.procs.descendants(own_pid) if own_pid is not None else set()
+    found: list[str] = []
+    for line in done.stdout.splitlines():
+        name, _, count = line.rpartition("|")
+        if any(name.endswith(f":{pid}") for pid in own):
+            continue
+        label = name or "unidentified client (older FieldLens code?)"
+        found.append(f"{label} x{count}")
+    return found
+
+
+def warn_foreign_api(ctx: Context, compose: Compose, database: str | None) -> None:
+    others = foreign_api_connections(ctx, compose, database)
+    if others:
+        ctx.say(
+            "WARNING: other FieldLens processes are attached to this database and are not "
+            "managed by this lane (never stopped by ./dev): " + "; ".join(others)
+        )
+        ctx.say("         an older server using another storage root can write wrong results.")
+
+
 def cmd_restart(ctx: Context) -> int:
+    compose = Compose(ctx, child_env(ctx.services.environ, None))
+    warn_foreign_api(ctx, compose, ctx.database() if ctx.env_path.is_file() else None)
     was_vite = vite_process(ctx).pid() is not None
     cmd_down(ctx)
     return cmd_up(ctx, dev=was_vite)
@@ -1185,6 +1247,7 @@ def cmd_status(ctx: Context) -> int:
     ctx.say(
         f"postgres:  {compose.postgres_state() if compose.daemon_ok() else 'docker unavailable'}"
     )
+    warn_foreign_api(ctx, compose, ctx.database(values))
     ctx.say(f"frontend:  {'build stale or missing' if Frontend(ctx).stale() else 'build current'}")
     ctx.say(f"logs:      {ctx.run_dir}")
     return 0
