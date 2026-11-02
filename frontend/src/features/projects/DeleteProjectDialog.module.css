@@ -1,0 +1,20 @@
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fl-space-sm);
+  padding: var(--fl-space-md) var(--fl-space-md) 0;
+}
+.stack {
+  display: grid;
+  gap: var(--fl-space-md);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fl-space-sm);
+}
+.progress {
+  display: grid;
+  gap: var(--fl-space-xs);
+}

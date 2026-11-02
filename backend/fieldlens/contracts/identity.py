@@ -27,6 +27,14 @@ class ModelRevisionStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class ProjectDeletionState(StrEnum):
+    """``none`` (normal), ``deleting`` (cancel/purge in progress) or ``failed`` (retryable)."""
+
+    NONE = "none"
+    DELETING = "deleting"
+    FAILED = "failed"
+
+
 class Project(ContractModel):
     """A project is a scope, not a field on other records."""
 
@@ -37,6 +45,9 @@ class Project(ContractModel):
     updated_at: UtcDatetime
     latest_source_revision_id: UUID | None = None
     active_model_revision_id: UUID | None = None
+    deletion_state: ProjectDeletionState = ProjectDeletionState.NONE
+    deletion_requested_at: UtcDatetime | None = None
+    deletion_error: str | None = None
 
     @field_validator("name")
     @classmethod

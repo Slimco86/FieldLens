@@ -400,6 +400,6 @@ def test_category_is_not_evidence(api: tuple[TestClient, dict[str, str]]) -> Non
 def test_openapi_documents_lifecycle_routes() -> None:
     paths = create_app(settings_for(database_url=None)).openapi()["paths"]
     assert set(paths[PATH]) == {"get", "post"}
-    assert set(paths[f"{PATH}/{{project_id}}"]) == {"get", "patch"}
+    assert set(paths[f"{PATH}/{{project_id}}"]) == {"get", "patch", "delete"}
     schemas = create_app(settings_for(database_url=None)).openapi()["components"]["schemas"]
     assert {"ProjectCreate", "ProjectUpdate", "ProjectPage"} <= set(schemas)

@@ -11,10 +11,17 @@ from sqlalchemy.orm import Session, sessionmaker
 from fieldlens.contracts.context import PageInfo, PageParams
 from fieldlens.contracts.errors import ContractError, ErrorCode
 from fieldlens.contracts.identity import Project
-from fieldlens.contracts.projects import ProjectCreate, ProjectPage, ProjectUpdate
+from fieldlens.contracts.projects import (
+    ProjectCreate,
+    ProjectDeleteRequest,
+    ProjectDeletionPreview,
+    ProjectDeletionStatus,
+    ProjectPage,
+    ProjectUpdate,
+)
 from fieldlens.persistence.session import session_scope
 
-from . import repository
+from . import purge, repository
 
 SessionFactory = sessionmaker[Session] | None
 
@@ -70,6 +77,23 @@ class ProjectService:
                 if not changed:
                     return current
                 return repository.update_fields(session, project_id, changed)
+        except OperationalError as exc:
+            raise _unavailable() from exc
+
+    def deletion_preview(self, project_id: UUID) -> ProjectDeletionPreview:
+        try:
+            with self._scope() as session:
+                return purge.preview(session, project_id)
+        except OperationalError as exc:
+            raise _unavailable() from exc
+
+    def request_deletion(
+        self, project_id: UUID, body: ProjectDeleteRequest
+    ) -> ProjectDeletionStatus:
+        """Phase 1: one transaction; the purge itself runs in the background executor."""
+        try:
+            with self._scope() as session:
+                return purge.request_deletion(session, project_id, body.confirm_name)
         except OperationalError as exc:
             raise _unavailable() from exc
 

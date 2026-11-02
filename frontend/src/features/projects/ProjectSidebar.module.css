@@ -23,6 +23,14 @@
 }
 .item {
   border-radius: var(--fl-radius-md);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fl-space-xs);
+}
+.item > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .item[data-active="true"] {
   background: var(--fl-color-brand-soft);

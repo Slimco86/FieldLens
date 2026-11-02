@@ -56,7 +56,7 @@ test("PW-8: keyboard-only create, open and Sources/Reconstruction/Explore naviga
     .evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? el.textContent ?? ""));
   expect(sidebarButtons.length).toBeGreaterThan(1);
   for (const label of sidebarButtons) {
-    expect(label, "unexpected sidebar control").toMatch(/^(Open project |New project$|Close form$|Load more projects$)/);
+    expect(label, "unexpected sidebar control").toMatch(/^(Open project |Delete project |New project$|Close form$|Load more projects$)/);
   }
   await expect(page.getByRole("button", { name: "Upload files" })).toBeDisabled();
 

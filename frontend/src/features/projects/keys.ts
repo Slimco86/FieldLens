@@ -6,6 +6,8 @@ export type Project = components["schemas"]["Project"];
 export type ProjectPage = components["schemas"]["ProjectPage"];
 export type ProjectCreate = components["schemas"]["ProjectCreate"];
 export type ProjectUpdate = components["schemas"]["ProjectUpdate"];
+export type ProjectDeletionPreview = components["schemas"]["ProjectDeletionPreview"];
+export type ProjectDeletionStatus = components["schemas"]["ProjectDeletionStatus"];
 
 export const PROJECTS_PATH = "/api/v1/projects";
 export const PAGE_LIMIT = 50;
@@ -44,4 +46,9 @@ export function saveSelectedProjectId(projectId: string | null): void {
   } catch {
     /* storage unavailable: selection is then session-only */
   }
+}
+
+/** Forget the persisted selection only when it points at `projectId` (e.g. a deleted project). */
+export function clearSelectedProjectIdIf(projectId: string): void {
+  if (loadSelectedProjectId() === projectId) saveSelectedProjectId(null);
 }

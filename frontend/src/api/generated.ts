@@ -46,7 +46,12 @@ export interface paths {
         get: operations["get_project_api_v1_projects__project_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Project
+         * @description Irreversible: needs ``confirm_name`` equal to the project name. 202 starts (or, for a
+         *     ``failed`` deletion, retries) the purge; poll ``GET /projects/{id}`` until 404.
+         */
+        delete: operations["delete_project_api_v1_projects__project_id__delete"];
         options?: never;
         head?: never;
         /** Update Project */
@@ -79,6 +84,23 @@ export interface paths {
         };
         /** Get Unit */
         get: operations["get_unit_api_v1_projects__project_id__agent_units__unit_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deletion Preview */
+        get: operations["deletion_preview_api_v1_projects__project_id__deletion_preview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3714,6 +3736,18 @@ export interface components {
              */
             created_at: string;
             /**
+             * Deletion Error
+             * @default null
+             */
+            deletion_error: string | null;
+            /**
+             * Deletion Requested At
+             * @default null
+             */
+            deletion_requested_at: string | null;
+            /** @default none */
+            deletion_state: components["schemas"]["ProjectDeletionState"];
+            /**
              * Description
              * @default
              */
@@ -3748,6 +3782,81 @@ export interface components {
             description: string;
             /** Name */
             name: string;
+        };
+        /**
+         * ProjectDeleteRequest
+         * @description Irreversible deletion request; ``confirm_name`` must equal the project name exactly.
+         */
+        ProjectDeleteRequest: {
+            /** Confirm Name */
+            confirm_name: string;
+        };
+        /**
+         * ProjectDeletionPreview
+         * @description What deleting the project removes (counts of project-scoped rows and stored bytes).
+         */
+        ProjectDeletionPreview: {
+            /**
+             * Active Jobs
+             * @description Queued or running work that will be cancelled.
+             */
+            active_jobs: number;
+            /** Agent Work Units */
+            agent_work_units: number;
+            deletion_state: components["schemas"]["ProjectDeletionState"];
+            /** Documents */
+            documents: number;
+            /** Evidence Chunks */
+            evidence_chunks: number;
+            /** Extracted Records */
+            extracted_records: number;
+            /** Name */
+            name: string;
+            /** Processing Runs */
+            processing_runs: number;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Reconstruction Runs */
+            reconstruction_runs: number;
+            /** Source Revisions */
+            source_revisions: number;
+            /** Stored Bytes */
+            stored_bytes: number;
+            /** Wellbores */
+            wellbores: number;
+            /** Wells */
+            wells: number;
+        };
+        /**
+         * ProjectDeletionState
+         * @description ``none`` (normal), ``deleting`` (cancel/purge in progress) or ``failed`` (retryable).
+         * @enum {string}
+         */
+        ProjectDeletionState: "none" | "deleting" | "failed";
+        /**
+         * ProjectDeletionStatus
+         * @description Deletion progress (202 body). Poll ``GET /projects/{id}``: 404 means the purge finished.
+         */
+        ProjectDeletionStatus: {
+            /**
+             * Deletion Error
+             * @default null
+             */
+            deletion_error: string | null;
+            /**
+             * Deletion Requested At
+             * @default null
+             */
+            deletion_requested_at: string | null;
+            deletion_state: components["schemas"]["ProjectDeletionState"];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
         };
         /** ProjectExposure */
         ProjectExposure: {
@@ -5828,6 +5937,77 @@ export interface operations {
             };
         };
     };
+    delete_project_api_v1_projects__project_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectDeletionStatus"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     update_project_api_v1_projects__project_id__patch: {
         parameters: {
             query?: never;
@@ -5981,6 +6161,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    deletion_preview_api_v1_projects__project_id__deletion_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectDeletionPreview"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */
