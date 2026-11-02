@@ -8,6 +8,16 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.31.1 - 2026-11-02
+
+- **TASK-064 re-run extraction on an unreadable original:** a file whose stored original cannot be found (for example
+  the app was started from another checkout, whose `.local/fieldlens/storage` differs) no longer loops on
+  `source_missing` while still marked hash-verified. Re-run extraction re-verifies the stored bytes first: if readable,
+  the file returns to stored and extraction runs; if not, it is marked Quarantined and the request returns 409
+  `CONFLICT` (with request id) telling the user to re-upload. A failed extraction on a missing or tampered original
+  also quarantines the file. No migration or contract change. Known low: a plain `POST` without `retry` skips the
+  verification, and the files list does not refresh after the 409 until the next reload.
+
 ## 0.31.0 - 2026-11-01
 
 - **TASK-061 (D9) block-less well labels:** a label such as `F-12` or `F-5` (the Statoil survey exports name the well

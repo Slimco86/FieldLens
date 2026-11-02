@@ -1800,7 +1800,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, ingestion |
 | Depends on | none |
@@ -1808,13 +1808,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
 | Spec | specs/PROCESSING_FLOW.md |
-| Version | none |
+| Version | 0.31.1 |
 | Parent | FL-016 |
 | Slice | FL-016-L |
 
 **Outcome.** Owner report (2026-11-01 22:29, running 0.30/0.31 on his own DB): `COMPLETION_REPORT_2.PDF` re-run extraction still fails with `source_missing: stored original is not readable` although storage shows hash-verified. TASK-062 only covered fresh uploads, so this is a different failure: the stored original is not found at extraction time (likely the storage root or paths resolved differently between the process that stored the file and the one extracting, e.g. another checkout/worktree or a changed `.local` root, or a stale path in the DB). Diagnose and fix so re-run works, or so the failure is honest and recoverable (e.g. re-upload prompt), without touching the owner's data.
-**Next action.** Lane `task-064-source-missing` (agent:fieldlens-backend).
-**Evidence.** none yet
+**Next action.** Owner: start the app from the checkout whose `.local/fieldlens/storage` holds the file (or re-upload it) and press Re-run extraction. Low follow-ups: refresh the files list after a 409 (frontend), plain POST without `retry` skips verification.
+**Evidence.** Root cause (code-supported, not reproduced across two real checkouts): the storage root is per checkout (`Settings.storage_root` = `REPO_ROOT/.local/fieldlens/storage`) while the DB is shared, and nothing re-verified storage after upload. Fix `09940b8` (merged); QA `5090da60` PASS: throwaway-root repro (409 with request id, no path leak, recovery restores stored, tampered bytes never succeed), 1304 backend tests passed/8 skipped, ruff, mypy strict, ledger ok.
 
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 
