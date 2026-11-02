@@ -27,7 +27,7 @@ export interface ChipSpec {
 const STORAGE: Record<S["SourceDocumentItem"]["storage_state"], ChipSpec> = {
   pending_verification: { tone: "info", icon: LoaderCircle, spin: true },
   stored: { tone: "success", icon: CircleCheck },
-  quarantined: { tone: "danger", icon: Ban },
+  failed: { tone: "danger", icon: Ban },
 };
 const EXTRACTION: Record<S["SourceDocumentItem"]["extraction_state"], ChipSpec> = {
   pending_extraction: { tone: "neutral", icon: Clock },

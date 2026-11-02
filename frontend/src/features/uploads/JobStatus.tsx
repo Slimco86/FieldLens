@@ -14,7 +14,7 @@ const JOB_STATUS_LABEL: Record<Job["status"], string> = {
   queued: "Queued",
   running: "Running",
   succeeded: "Succeeded (storage verification only)",
-  partial: "Partial (some files quarantined)",
+  partial: "Partial (some files failed storage verification)",
   failed: "Failed",
   cancelled: "Cancelled",
   interrupted: "Interrupted",
@@ -142,7 +142,7 @@ export function JobStatus({ projectId, jobId, onChanged }: Props) {
       )}
       {job.result !== null && job.result !== undefined && (
         <p>
-          Result at job completion (the table below is live and may be newer): {job.result.documents} file(s): {job.result.stored} stored, {job.result.quarantined} quarantined,{" "}
+          Result at job completion (the table below is live and may be newer): {job.result.documents} file(s): {job.result.stored} stored, {job.result.failed} failed,{" "}
           {job.result.pending_extraction} pending extraction, {job.result.unsupported} unsupported. Extraction performed:
           no (storage verification only).
         </p>

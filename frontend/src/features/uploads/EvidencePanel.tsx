@@ -5,6 +5,7 @@ import {
   getExtraction,
   listExtractedRecords,
   requeueExtraction,
+  describeStorageError,
   type EvidenceLink,
   type ExtractedRecord,
   type ExtractedRecordPage,
@@ -207,7 +208,8 @@ export function Inspection({ projectId, doc }: { projectId: string; doc: SourceD
     (signal) => getExtraction(projectId, doc.document_id, signal),
     (r) => r.status === null || ACTIVE.has(r.status),
   );
-  const [requeueError, setRequeueError] = useState<Failure | null>(null);
+  const [requeueError, setRequeueError] = useState<string | null>(null);
+  const [requeueNote, setRequeueNote] = useState<string | null>(null);
 
   if (state.kind === "loading") return <LoadingState label="Loading extraction report…" status />;
   if (state.kind === "error") {
@@ -221,11 +223,49 @@ export function Inspection({ projectId, doc }: { projectId: string; doc: SourceD
     );
   }
   const r = state.data;
+  async function startExtraction() {
+    setRequeueError(null);
+    setRequeueNote(null);
+    try {
+      const res = await requeueExtraction(projectId, doc.document_id, new AbortController().signal);
+      setRequeueNote(
+        res.outcome === "queued" ? "Extraction was queued." : "Nothing was queued: the server found no change that would alter the outcome.",
+      );
+      reload();
+    } catch (err) {
+      setRequeueError(describeStorageError(err) ?? `Start failed: ${toFailure(err).message}`);
+    }
+  }
   if (r.status === null) {
+    const note =
+      doc.storage_state === "stored"
+        ? "Stored and verified, but no extraction run is recorded for this file."
+        : doc.storage_state === "failed"
+          ? "Storage failed for this file, so it cannot be extracted. Use Retry in the Storage column, or re-upload the file."
+          : "Storage verification has not finished for this file; extraction starts after it is stored.";
     return (
-      <Callout tone="info">
-        <p>No extraction has run for this file yet; it is waiting for the extraction worker.</p>
-      </Callout>
+      <div className={styles.stack}>
+        <Callout tone="info">
+          <p>{note}</p>
+        </Callout>
+        {doc.storage_state === "stored" && (
+          <div>
+            <Button variant="default" size="xs" onClick={() => void startExtraction()}>
+              Start extraction
+            </Button>
+          </div>
+        )}
+        {requeueNote !== null && (
+          <p role="status" className={styles.muted}>
+            {requeueNote}
+          </p>
+        )}
+        {requeueError !== null && (
+          <Callout tone="danger" role="alert">
+            <p>{requeueError}</p>
+          </Callout>
+        )}
+      </div>
     );
   }
   const cov = r.coverage;
@@ -235,7 +275,7 @@ export function Inspection({ projectId, doc }: { projectId: string; doc: SourceD
       await requeueExtraction(projectId, doc.document_id, new AbortController().signal);
       reload();
     } catch (err) {
-      setRequeueError(toFailure(err));
+      setRequeueError(describeStorageError(err) ?? `Re-run failed: ${toFailure(err).message}`);
     }
   }
   const canRetry = r.stale || ["failed", "interrupted", "unsupported"].includes(r.status);
@@ -290,6 +330,7 @@ export function Inspection({ projectId, doc }: { projectId: string; doc: SourceD
           <p>
             Extraction error ({r.error.code}): {r.error.message}
           </p>
+          {r.error.process !== null && r.error.process !== undefined && <p>Written by process: {r.error.process}</p>}
         </Callout>
       )}
       {canRetry && (
@@ -301,7 +342,7 @@ export function Inspection({ projectId, doc }: { projectId: string; doc: SourceD
       )}
       {requeueError !== null && (
         <Callout tone="danger" role="alert">
-          <p>Re-run failed: {requeueError.message}</p>
+          <p>{requeueError}</p>
         </Callout>
       )}
       <Title order={6}>Data-quality findings</Title>

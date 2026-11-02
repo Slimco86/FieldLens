@@ -21,7 +21,7 @@ describe("status chips", () => {
   });
 
   it("covers the generated enums exactly", () => {
-    expect(Object.keys(chipVocabulary.storage).sort()).toEqual(["pending_verification", "quarantined", "stored"]);
+    expect(Object.keys(chipVocabulary.storage).sort()).toEqual(["failed", "pending_verification", "stored"]);
     expect(Object.keys(chipVocabulary.job).sort()).toEqual([
       "cancelled",
       "failed",

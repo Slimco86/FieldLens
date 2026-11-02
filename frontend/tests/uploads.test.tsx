@@ -35,7 +35,7 @@ function revision(over: Record<string, unknown> = {}) {
     is_latest: true,
     member_count: 2,
     stored_count: 2,
-    quarantined_count: 0,
+    failed_count: 0,
     pending_extraction_count: 1,
     unsupported_count: 1,
     job_id: J1,
@@ -86,7 +86,7 @@ function job(over: Record<string, unknown> = {}) {
       { attempt_no: 1, status: "failed", stage: "hashing", fencing_token: 1, started_at: "2026-10-29T12:00:00Z", heartbeat_at: "2026-10-29T12:00:01Z", ended_at: "2026-10-29T12:00:02Z", error_code: "io_error" },
       { attempt_no: 2, status: "succeeded", stage: null, fencing_token: 2, started_at: "2026-10-29T12:00:03Z", heartbeat_at: "2026-10-29T12:00:04Z", ended_at: "2026-10-29T12:00:05Z", error_code: null },
     ],
-    result: { result_kind: "storage_verification", documents: 2, stored: 2, quarantined: 0, pending_extraction: 1, unsupported: 1, extraction_performed: false },
+    result: { result_kind: "storage_verification", documents: 2, stored: 2, failed: 0, pending_extraction: 1, unsupported: 1, extraction_performed: false },
     error: null,
     created_at: "2026-10-29T12:00:00Z",
     updated_at: "2026-10-29T12:00:05Z",
@@ -418,22 +418,22 @@ describe("source list", () => {
           page(
             revision({
               source_revision_id: R2, status: "ready_with_issues", parent_source_revision_id: R1,
-              quarantined_count: 1, stored_count: 1, job_status: "partial", job_id: null,
+              failed_count: 1, stored_count: 1, job_status: "partial", job_id: null,
             }),
             revision({ is_latest: false, job_id: null }),
           ),
         );
       if (url.includes("/documents?"))
-        return json(page(document({ source_revision_id: R2, replaces_document_id: D2, storage_state: "quarantined" })));
+        return json(page(document({ source_revision_id: R2, replaces_document_id: D2, storage_state: "failed" })));
     });
     panel(R2);
     const warnings = await screen.findByLabelText("Revision warnings");
-    expect(within(warnings).getByText(/Partial revision: 1 file\(s\) were quarantined.*displaced a previously good version/)).toBeInTheDocument();
+    expect(within(warnings).getByText(/Partial revision: 1 file\(s\) failed storage verification.*displaced a previously good version/)).toBeInTheDocument();
     expect(within(warnings).getByText(new RegExp(`parent revision ${R1}`))).toBeInTheDocument();
     expect(screen.getByText("Partial: ready with issues")).toBeInTheDocument();
     const files = within(await screen.findByRole("table", { name: "Files in this source revision" }));
     const row = files.getByRole("row", { name: /wells\.csv/ });
-    expect(within(row).getByRole("cell", { name: "Quarantined" })).toBeInTheDocument();
+    expect(within(row).getByRole("cell", { name: /^Failed/ })).toBeInTheDocument();
     expect(screen.getByText(D2, { selector: "code" })).toBeInTheDocument();
     expect(screen.getByText("(superseded)", { exact: false })).toBeInTheDocument();
   });
@@ -668,3 +668,78 @@ describe("transient status (repair D5)", () => {
     expect(screen.queryByText(/Import accepted: 1 new file/)).not.toBeInTheDocument();
   });
 });
+
+describe("failed storage (AC-8)", () => {
+  const failedDoc = () => document({ storage_state: "failed", storage_failure_reason: "missing", storage_message: "Failed: stored copy missing or damaged." });
+  const listHandler = (retry?: (init?: RequestInit) => Response): Handler => (url, init) => {
+    if (url.includes("/source-revisions")) return json(page(revision({ failed_count: 1, status: "ready_with_issues" })));
+    if (url.includes("/documents?")) return json(page(failedDoc()));
+    if (url.endsWith(`/documents/${D1}/storage/retry`) && retry !== undefined) return retry(init);
+  };
+
+  it("shows the Failed message with Retry, refreshes and reports the outcome; no quarantine wording", async () => {
+    let restored = false;
+    const fetchFn = install((url, init) => {
+      if (url.includes("/documents?") && restored) return json(page(document()));
+      return listHandler(() => {
+        restored = true;
+        return json({ document_id: D1, outcome: "restored", storage_state: "stored", extraction_queued: true, message: "Restored: the stored copy verified and extraction was queued." });
+      })(url, init);
+    });
+    panel(R1);
+    const user = userEvent.setup();
+    expect(await screen.findByText("Failed: stored copy missing or damaged.")).toBeInTheDocument();
+    expect(document_body_text()).not.toMatch(/quarant/i);
+    await user.click(screen.getByRole("button", { name: /Retry storage verification for wells\.csv/ }));
+    expect(await screen.findByText(/Restored: the stored copy verified/)).toBeInTheDocument();
+    expect(fetchFn.mock.calls.some(([u, i]) => String(u).endsWith("/storage/retry") && (i as RequestInit).method === "POST")).toBe(true);
+    await waitFor(() => expect(screen.queryByText("Failed: stored copy missing or damaged.")).not.toBeInTheDocument());
+  });
+
+  it("tells the user to re-upload when the stored copy is unreadable", async () => {
+    install(listHandler(() => json(envelope("CONFLICT", "Stored copy is unreadable; re-upload this file.", { reason: "stored_copy_unreadable", recovery: "re-upload" }), 409)));
+    panel(R1);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Retry storage verification/ }));
+    expect(await screen.findByText(/Stored copy is unreadable; re-upload this file\..*Re-upload this file with the upload control/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Choose files")).toBeInTheDocument();
+  });
+
+  it("explains a storage root mismatch (503)", async () => {
+    install(listHandler(() => json(envelope("SERVICE_UNAVAILABLE", "x", { reason: "storage_root_mismatch" }), 503)));
+    panel(R1);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Retry storage verification/ }));
+    expect(await screen.findByText(/storage root does not match this database.*scripts\/storage_root\.py/i)).toBeInTheDocument();
+  });
+
+  it("says repaired files were repaired, not already present", async () => {
+    install(emptyHandler);
+    panel(null);
+    const user = userEvent.setup();
+    await screen.findByText(/no source files yet/i);
+    await selectAndSubmit(user, [csv()]);
+    act(() =>
+      lastXhr().respond(200, {
+        source_revision_id: R1, job_id: null, status: "ready", deduplicated: true, replayed: false,
+        document_ids: [D1], created_document_ids: [], repaired_document_ids: [D1],
+      }),
+    );
+    expect(await screen.findByText(/1 file\(s\) were repaired/)).toBeInTheDocument();
+    expect(screen.queryByText(/already belongs/)).not.toBeInTheDocument();
+  });
+
+  it("explains a 503 storage root mismatch on upload", async () => {
+    install(emptyHandler);
+    panel(null);
+    const user = userEvent.setup();
+    await screen.findByText(/no source files yet/i);
+    await selectAndSubmit(user, [csv()]);
+    act(() => lastXhr().respond(503, envelope("SERVICE_UNAVAILABLE", "mismatch", { reason: "storage_root_mismatch" })));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/scripts\/storage_root\.py/);
+  });
+});
+
+function document_body_text(): string {
+  return globalThis.document.body.textContent ?? "";
+}

@@ -14,6 +14,7 @@ export type ExtractionReport = components["schemas"]["ExtractionReport"];
 export type ExtractedRecord = components["schemas"]["ExtractedRecord"];
 export type ExtractedRecordPage = components["schemas"]["ExtractedRecordPage"];
 export type ExtractionRequeue = components["schemas"]["ExtractionRequeue"];
+export type StorageRetryResult = components["schemas"]["StorageRetryResult"];
 export type EvidenceLink = components["schemas"]["EvidenceLink"];
 export type ExtractionCandidate = components["schemas"]["ExtractionCandidate"];
 export type ExtractionCandidatePage = components["schemas"]["ExtractionCandidatePage"];
@@ -97,6 +98,33 @@ export async function requeueExtraction(
 ): Promise<ExtractionRequeue> {
   const res = await mutate(`${extractionUrl(projectId, documentId)}?retry=true`, { method: "POST", signal });
   return (await res.json()) as ExtractionRequeue;
+}
+
+export async function retryStorage(
+  projectId: string,
+  documentId: string,
+  signal: AbortSignal,
+): Promise<StorageRetryResult> {
+  const res = await mutate(`${base(projectId)}/documents/${documentId}/storage/retry`, { method: "POST", signal });
+  return (await res.json()) as StorageRetryResult;
+}
+
+export const STORAGE_ROOT_MISMATCH_MESSAGE =
+  "The storage root does not match this database, so files cannot be verified or stored. See scripts/storage_root.py.";
+export const REUPLOAD_MESSAGE = "The stored copy cannot be read. Re-upload this file with the upload control.";
+
+/** Plain-language text for storage-related refusals; null when the error is not one of them. */
+export function describeStorageError(err: unknown): string | null {
+  if (!(err instanceof ApiError)) return null;
+  const reason = err.details?.["reason"];
+  if (err.status === 503 && reason === "storage_root_mismatch") return STORAGE_ROOT_MISMATCH_MESSAGE;
+  if (err.status === 409 && (reason === "stored_copy_unreadable" || reason === "source_unreadable" || err.details?.["recovery"] === "re-upload")) {
+    return `${err.message} ${REUPLOAD_MESSAGE}`;
+  }
+  if (err.status === 409 && reason === "verification_pending") {
+    return "Storage verification is still running for this file; try again shortly.";
+  }
+  return null;
 }
 
 export function getJob(projectId: string, jobId: string, signal: AbortSignal): Promise<Job> {

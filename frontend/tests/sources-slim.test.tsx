@@ -24,7 +24,7 @@ const PROJECT = {
 };
 const REVISION = {
   source_revision_id: R, project_id: P, manifest_hash: "f".repeat(64), created_at: "2026-10-29T12:00:00Z", status: "ready",
-  parent_source_revision_id: null, coverage: null, is_latest: true, member_count: 1, stored_count: 1, quarantined_count: 0,
+  parent_source_revision_id: null, coverage: null, is_latest: true, member_count: 1, stored_count: 1, failed_count: 0,
   pending_extraction_count: 0, unsupported_count: 0, job_id: null, job_status: null,
 };
 const DOC = {
