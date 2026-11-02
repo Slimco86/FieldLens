@@ -53,6 +53,16 @@ OVERRIDES: dict[str, dict[str, Any]] = {
     "merge_proposal_run": {"state": "succeeded"},
     "processing_run": {"status": "estimated", "provider": "stub", "route": "model"},
     "processing_run_document": {"state": "estimated"},
+    "document_model_result": {
+        "extraction_method": "model_classification",
+        "provider": "stub",
+        "category": "general_report",
+    },
+    "document_identity_proposal": {
+        "extraction_method": "model_classification",
+        "provider": "stub",
+        "subject_kind": "wellbore",
+    },
     "reconstruction_run": {"status": "estimated", "source_revision": SHA},
     "reconstruction_run_stage": {"stage": "gather", "state": "pending", "kind": "deterministic"},
     "series_axis": {

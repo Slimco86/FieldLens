@@ -13,6 +13,7 @@ import {
   type SourceDocumentItem,
 } from "./api";
 import { CandidateList } from "./CandidateList";
+import { ModelProcessing } from "../processing/ModelProcessing";
 import { usePolled } from "./usePolled";
 import { toFailure, type Failure } from "../projects/scope";
 import styles from "./shared.module.css";
@@ -24,7 +25,7 @@ const STATUS_LABEL: Record<NonNullable<ExtractionReport["status"]>, string> = {
   partial: "Partial (not all content was extracted)",
   failed: "Failed (nothing is trusted)",
   interrupted: "Interrupted (will be retried; not a result)",
-  unsupported: "Unsupported (no profile matches the content)",
+  unsupported: "No native parser (no profile matches the content)",
 };
 const ACTIVE = new Set(["queued", "running", "interrupted"]);
 
@@ -245,6 +246,7 @@ export function Inspection({ projectId, doc }: { projectId: string; doc: SourceD
           : "Storage verification has not finished for this file; extraction starts after it is stored.";
     return (
       <div className={styles.stack}>
+        <ModelProcessing projectId={projectId} doc={doc} />
         <Callout tone="info">
           <p>{note}</p>
         </Callout>
@@ -281,6 +283,7 @@ export function Inspection({ projectId, doc }: { projectId: string; doc: SourceD
   const canRetry = r.stale || ["failed", "interrupted", "unsupported"].includes(r.status);
   return (
     <div className={styles.stack}>
+      <ModelProcessing projectId={projectId} doc={doc} />
       <KeyValueList compact>
         <KeyValue term="Parse status">
           <StatusChip kind="extractionRun" value={r.status} label={STATUS_LABEL[r.status]} />

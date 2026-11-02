@@ -64,7 +64,7 @@ test("TASK-009: evidence panel shows profile, status, records with locators, fin
 
   // Unsupported file: honest empty state, nothing extracted, no records claimed.
   await page.getByRole("button", { name: /Inspect extraction for notes\.txt/ }).click();
-  await expect(page.getByText(/Unsupported \(no profile matches the content\)/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/No native parser \(no profile matches the content\)/)).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("none matched the file content")).toBeVisible();
 });
 

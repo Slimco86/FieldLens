@@ -105,6 +105,12 @@ class ProcessingStep(Protocol):
 
     name: str
 
+    @property
+    def max_pages_per_document(self) -> int | None:
+        """Pages of a document the step will read at most (``None``: the run's page cap only).
+        The estimate stores and counts the window clipped to this, so spend never exceeds it."""
+        ...
+
     def run_document(
         self, task: DocumentTask, provider: PageProvider, checkpoint: Checkpoint
     ) -> None: ...
@@ -161,6 +167,7 @@ class StubStep:
     candidates, no label. It proves the run/step seam and the state machine, not extraction."""
 
     name: str = STUB_STEP
+    max_pages_per_document: int | None = None
     seen: list[UUID] = field(default_factory=list)
 
     def run_document(

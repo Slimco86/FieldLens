@@ -148,9 +148,10 @@ class Settings(BaseSettings):
     extraction_read_concurrency: int = Field(3, ge=1, le=8)
     extraction_page_reserve_usd: Decimal = Field(Decimal("0.25"), gt=0, le=Decimal("0.50"))
 
-    # Staged document processing runs (TASK-054, PROCESSING_FLOW D3/D7/D8). Stub provider only:
-    # the live provider is wired by a later, orchestrator-authorized task; nothing here can spend.
-    processing_provider: Literal["stub"] = "stub"
+    # Staged document processing runs (TASK-054, PROCESSING_FLOW D3/D7/D8). The stub provider is
+    # the default and never spends. ``meta`` (TASK-055 model step) needs explicit configuration:
+    # MODEL_API_KEY, both owner rates and a per-run cap below; otherwise startup refuses it.
+    processing_provider: Literal["stub", "meta"] = "stub"
     processing_max_pages: int = Field(500, ge=1, le=500)
     """Pages per document and per run (D3); larger documents need an explicit page range."""
     processing_total_cap_usd: Decimal = Field(Decimal("5"), gt=0, le=Decimal("5"))
@@ -162,6 +163,17 @@ class Settings(BaseSettings):
     processing_stub_input_usd_per_mtok: Decimal = Field(Decimal("0.30"), gt=0)
     processing_stub_output_usd_per_mtok: Decimal = Field(Decimal("2.50"), gt=0)
     """Illustrative stub rates, labelled as such in every estimate; never an owner rate card."""
+    processing_model_pages: int = Field(5, ge=1, le=20)
+    """Model step (TASK-055): first pages of each document sent to the model; the estimate and
+    the step never read more, whatever range was selected (cost bound, DOCUMENT_IDENTIFICATION)."""
+    processing_run_cap_usd: Decimal | None = Field(None, gt=0, le=Decimal("5"))
+    """Optional per-run spend cap (orchestrator-set for live checks): an estimate above it is not
+    confirmable. Required for the ``meta`` provider."""
+    processing_meta_input_usd_per_mtok: Decimal | None = Field(None, gt=0)
+    processing_meta_output_usd_per_mtok: Decimal | None = Field(None, gt=0)
+    """Owner-supplied Meta rates for the ``meta`` provider; the code assumes none."""
+    processing_live_period: str = Field("processing-live", min_length=1, max_length=64)
+    """Budget-ledger period the live model step reserves against."""
     processing_lease_seconds: float = Field(60.0, gt=0)
     processing_heartbeat_seconds: float = Field(10.0, gt=0)
     processing_stage_delay_s: float = Field(0.0, ge=0.0, le=5.0)
