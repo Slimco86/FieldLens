@@ -16,6 +16,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.config import Settings
+from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.evidence.storage import BlobStore, VerifyOutcome
 from fieldlens.extraction.runner import ExtractionRunner
 from fieldlens.persistence.session import session_scope
@@ -42,8 +43,9 @@ class JobWorker:
         self.owner = repo.new_owner()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self.root_guard = StorageRootGuard(factory, store)
         self.extraction = ExtractionRunner(
-            factory, store, settings, self.owner, self._is_dead_owner
+            factory, store, settings, self.owner, self._is_dead_owner, self.root_guard
         )
         self.embedders = embedders or EmbedderProvider(settings)
         self.health = IndexHealth()
@@ -78,6 +80,8 @@ class JobWorker:
     def run_once(self) -> bool:
         """Recover, claim and process at most one job. Returns True when a job was handled."""
         self.recover_once()
+        if not self.root_guard.serves_database():
+            return False  # wrong storage root: leave the job for a process that can read it
         with session_scope(self._factory) as session:
             claim = repo.claim_next(session, self.owner, self._settings.job_lease_seconds)
         if claim is None:
