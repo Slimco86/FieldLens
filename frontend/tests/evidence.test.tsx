@@ -218,7 +218,7 @@ describe("evidence panel", () => {
           : undefined,
     );
     await open();
-    expect(await screen.findByText(/Unsupported \(no profile matches the content\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/No native parser \(no profile matches the content\)/)).toBeInTheDocument();
     expect(screen.getByText(/none matched the file content/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Re-run extraction" })).toBeInTheDocument();
   });

@@ -301,7 +301,7 @@ function DocumentRow({
             <span className={styles.muted}>Not available: stored copy missing or damaged</span>
           ) : (
             <>
-              <StatusChip kind="extraction" value={doc.extraction_state} label={EXTRACTION_LABEL[doc.extraction_state]} />
+              <StatusChip kind="extraction" value={doc.extraction_state} label={doc.extraction_state === "unsupported" && doc.format_family === "pdf" ? "No native parser; model processing available" : EXTRACTION_LABEL[doc.extraction_state]} />
               {doc.processing_detail !== null && doc.processing_detail !== undefined && (
                 <div className={`${styles.small} ${styles.muted}`}>{doc.processing_detail}</div>
               )}
