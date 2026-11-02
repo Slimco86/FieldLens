@@ -1737,7 +1737,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, agent |
 | Depends on | TASK-056, TASK-057 |
@@ -1745,13 +1745,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/PROCESSING_FLOW.md |
-| Version | none |
+| Version | 0.31.0 |
 | Parent | FL-016 |
 | Slice | FL-016-I |
 
 **Outcome.** Owner decision (2026-11-01 16:39): a label such as `F-12` or `F-5` is a valid wellbore name exactly as written. When it differs from a fully qualified name (`15/9-F-12`) it is a separate wellbore until the merge process unifies them; detecting "several names, one entity" and unifying their data is the job of the reconstruction/merge step (TASK-057), not of the resolver. Today the deterministic resolver resolves an unqualified label only when another source names it with the block, so a project with only the Statoil exports yields `NO_WELLBORE_IDENTIFIED` (found by the TASK-056 real-record test). Change: unqualified labels become wellbore identities named as written (block and well key recorded as not stated, no invented block), carry their records, count for the exposure and the start gate directly (with a "block not stated" warning), and are eligible merge-proposal members/targets with guards unchanged (an unqualified label never silently merges into a qualified one).
-**Next action.** Decided; add the rule to PROCESSING_FLOW.md (D9) and implement after TASK-056 and TASK-057 merge (resolver change, exposure/gate warning, merge-proposal candidate blocking for unqualified-to-qualified same-designator pairs); independent QA including the real F-12/F-5 files alone and together with the perforation table.
-**Evidence.** none yet
+**Next action.** Merged in 0.31.0. Follow-ups: the UI must show `BLOCK_NOT_STATED` and present several pending proposals for one block-less wellbore as mutually exclusive (review UI task, not yet created).
+**Evidence.** Merged in 0.31.0 after independent QA PASS at e4620e7: full suite 1302 passed, ruff/format/mypy strict/check:contracts green, no migration (head 0012). Real data (opt-in `test_local_data_exposure.py`, passed): F-12 and F-5 Statoil exports alone give two block-less wellbores with validated trajectories, an open gate with `BLOCK_NOT_STATED` and `SURVEY_STATUS_UNSTATED`, located; adding the perforation table gives four wellbores and candidate pairs exactly F-12/15-9-F-12 and F-5/15-9-F-5, `identity_merge` empty. Synthetic adversarial (stub provider): prefix collisions, variants, two projects, two blocks, accept/revert id-exact, idempotent re-resolve. Deliberate behaviour change: the tail-join is removed (a lone F-12 beside one qualified well no longer joins silently). Not verified: stub provider on real data, F-14 on real perforation data, frontend on this branch, live model. Low residual: an underscore block spelling in a quote (`15_9-F-12`) could count as naming block-less F-12 (not tested).
 
 ### TASK-062 · PDF extraction reports "Failed (nothing is trusted)" on re-processing
 

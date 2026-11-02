@@ -8,6 +8,16 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.31.0 - 2026-11-01
+
+- **TASK-061 (D9) block-less well labels:** a label such as `F-12` or `F-5` (the Statoil survey exports name the well
+  only that way) is now a wellbore and well named as written, with no block invented. It carries its records, counts
+  for data exposure and the start gate with the warning `BLOCK_NOT_STATED`, and the real F-12 and F-5 exports alone now
+  open the gate. Merge proposals pair a block-less wellbore with the same-designator qualified one (`F-12` with
+  `15/9-F-12`) for user acceptance; guards are unchanged and nothing merges silently. Behaviour change: a lone `F-12`
+  beside a single `15/9-F-12` no longer joins silently. Known low: an underscore block spelling in a quote could count
+  as naming the block-less label. No migration.
+
 ## 0.30.0 - 2026-11-01
 
 - **TASK-053 (UI-15) Processing pipeline panel in the Sources tab:** a server-driven readiness checklist (wellbore
