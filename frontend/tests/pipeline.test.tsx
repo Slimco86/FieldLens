@@ -397,10 +397,24 @@ describe("Process and Process all (AC-5, AC-6)", () => {
     expect(gate).toHaveTextContent("NO_VALIDATED_TRAJECTORY");
   });
 
-  it("disables Process with a reason when the wellbore's files are all read by native parsers", async () => {
+  it("keeps Process enabled for a natively parsed PDF with a page count and posts the estimate (regression)", async () => {
     const m = install({}, {
       ...f12().routes,
-      "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "traj.csv", { no_native_parser: false, native_state: "extracted" })] }),
+      "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "compass.pdf", { no_native_parser: false, native_state: "extracted", page_count: 8 })] }),
+    });
+    render(panel());
+    const btn = await screen.findByRole("button", { name: "Process 15/9-F-12" });
+    await waitFor(() => expect(btn).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Process all ready wellbores (1)" })).toBeEnabled();
+    await userEvent.click(btn);
+    await screen.findByRole("button", { name: /Confirm and start run/ });
+    expect(estimates(m)[0]!.body).toMatchObject({ documents: [{ document_id: D1, pages: null }] });
+  });
+
+  it("disables Process with a reason when every source file is not processable (text-native, not a PDF)", async () => {
+    const m = install({}, {
+      ...f12().routes,
+      "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "traj.csv", { no_native_parser: false, native_state: "extracted", processable: false, page_count: null, not_processable_reason: "not_a_pdf" })] }),
     });
     render(panel());
     const row = (await screen.findAllByRole("row"))[1]!;
@@ -430,6 +444,16 @@ describe("Process and Process all (AC-5, AC-6)", () => {
     expect(estimates(m)).toHaveLength(0);
   });
 
+  it("creates a new estimate when the open one covers a different document set", async () => {
+    const other = runBody({ run_id: RUN2, created_at: "2026-11-01T09:00:00Z", documents: [runDoc({ document_id: D2 })] });
+    const m = install({ [RUN2]: other }, f12().routes);
+    render(panel());
+    await userEvent.click(await screen.findByRole("button", { name: "Process 15/9-F-12" }));
+    await screen.findByRole("button", { name: /Confirm and start run/ });
+    expect(estimates(m)).toHaveLength(1);
+    expect(screen.queryByText(/already exists/)).not.toBeInTheDocument();
+  });
+
   it("shows a rejected estimate with request id and spends nothing", async () => {
     install({}, { ...f12().routes, "POST /processing/runs/estimates": () => err(422, "BUDGET_EXCEEDED", "Over budget.") });
     render(panel());
@@ -444,7 +468,7 @@ describe("Process and Process all (AC-5, AC-6)", () => {
     const st = (id: string, over: Record<string, unknown>) => docState(id, `${id}.pdf`, over) as unknown as Parameters<typeof chooseDocuments>[1][number];
     const out = chooseDocuments(
       ["a", "b", "c", "d", "e", "f"],
-      [st("a", {}), st("b", { processing_status: "processed" }), st("c", { processing_status: "running" }), st("d", { processable: false, not_processable_reason: "quarantined" }), st("e", { over_page_cap: true })],
+      [st("a", { no_native_parser: false }), st("b", { processing_status: "processed" }), st("c", { processing_status: "running" }), st("d", { processable: false, not_processable_reason: "quarantined" }), st("e", { over_page_cap: true })],
     );
     expect(out.selection).toEqual([{ document_id: "a", pages: null }]);
     expect(out.skipped).toHaveLength(5);

@@ -123,11 +123,11 @@ export function chooseDocuments(ids: string[], states: DocumentProcessingState[]
     else if (d.processing_status === "processed") skipped.push(`${d.original_filename}: already processed`);
     else if (BUSY.has(d.processing_status)) skipped.push(`${d.original_filename}: already queued or running`);
     else if (!d.processable) skipped.push(`${d.original_filename}: not processable${d.not_processable_reason === null ? "" : ` (${d.not_processable_reason})`}`);
-    else if (!d.no_native_parser) skipped.push(`${d.original_filename}: read by a native parser; no model processing needed`);
     else if (d.over_page_cap) skipped.push(`${d.original_filename}: over the page cap; choose a page range under Document processing below`);
     else selection.push({ document_id: id, pages: null });
   }
-  const nativeOnly = ids.length > 0 && ids.every((id) => byId.get(id)?.no_native_parser === false);
+  // `processable` is the server's verdict (a readable PDF that can be estimated now); a native parser does not exclude a file.
+  const nativeOnly = ids.length > 0 && ids.every((id) => byId.get(id)?.processable === false);
   return { selection, skipped, reason: selection.length > 0 ? null : nativeOnly ? NATIVE_ONLY_REASON : NO_DOCS_REASON };
 }
 
