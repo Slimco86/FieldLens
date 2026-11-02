@@ -33,16 +33,16 @@ export const isRevisionActive = (r: SourceRevisionSummary): boolean =>
   r.status === "staging" || isJobActive(r.job_status ?? null);
 
 const versionOf = (r: SourceRevisionSummary): string =>
-  [r.status, r.job_status, r.member_count, r.stored_count, r.quarantined_count, r.pending_extraction_count, r.unsupported_count].join(":");
+  [r.status, r.job_status, r.member_count, r.stored_count, r.failed_count, r.pending_extraction_count, r.unsupported_count].join(":");
 
 export function revisionWarnings(r: SourceRevisionSummary): string[] {
   const out: string[] = [];
   if (r.status === "ready_with_issues") {
     out.push(
-      `Partial revision: ${r.quarantined_count} file(s) were quarantined. A partial revision still becomes the project's latest and may have displaced a previously good version of a file.`,
+      `Partial revision: ${r.failed_count} file(s) failed storage verification. A partial revision still becomes the project's latest and may have displaced a previously good version of a file.`,
     );
-  } else if (r.quarantined_count > 0) {
-    out.push(`${r.quarantined_count} file(s) in this revision are quarantined.`);
+  } else if (r.failed_count > 0) {
+    out.push(`${r.failed_count} file(s) in this revision failed storage verification.`);
   }
   if (r.status === "failed") {
     out.push(
@@ -163,7 +163,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged, fo
                   <Table.Th scope="col" className={styles.colCreated}>Created</Table.Th>
                   <Table.Th scope="col" className={`${styles.num} ${styles.colCount}`}>Files</Table.Th>
                   <Table.Th scope="col" className={`${styles.num} ${styles.colCount}`}>Stored</Table.Th>
-                  <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Quarantined</Table.Th>
+                  <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Failed</Table.Th>
                   <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Pending extraction</Table.Th>
                   <Table.Th scope="col" className={`${styles.num} ${styles.colCountWide}`}>Unsupported</Table.Th>
                   <Table.Th scope="col" className={styles.colJob}>Job</Table.Th>
@@ -185,7 +185,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged, fo
                     <Table.Td>{formatTime(r.created_at)}</Table.Td>
                     <Table.Td className={styles.num}>{r.member_count}</Table.Td>
                     <Table.Td className={styles.num}>{r.stored_count}</Table.Td>
-                    <Table.Td className={styles.num}>{r.quarantined_count}</Table.Td>
+                    <Table.Td className={styles.num}>{r.failed_count}</Table.Td>
                     <Table.Td className={styles.num}>{r.pending_extraction_count}</Table.Td>
                     <Table.Td className={styles.num}>{r.unsupported_count}</Table.Td>
                     <Table.Td>

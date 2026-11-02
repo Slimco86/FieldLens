@@ -1,7 +1,7 @@
 """Project deletion state and the designed purge path through the immutability guards (TASK-071).
 
 Revision ID: 0015_project_deletion
-Revises: 0013_reconstruction_runs
+Revises: 0014_storage_root_identity
 
 ``project.deletion_state`` is ``none`` | ``deleting`` | ``failed``. ``deletion_storage_purged_at``
 records that the project's files are gone, so a resumed deletion never has to re-verify a storage
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0015_project_deletion"
-down_revision: str | None = "0013_reconstruction_runs"
+down_revision: str | None = "0014_storage_root_identity"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

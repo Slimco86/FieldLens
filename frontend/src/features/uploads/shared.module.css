@@ -142,3 +142,9 @@
   white-space: normal;
   text-align: left;
 }
+
+.wrapText {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  min-width: 0;
+}

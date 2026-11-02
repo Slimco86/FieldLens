@@ -195,6 +195,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/documents/{document_id}/storage/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Storage
+         * @description Retry a Failed (or re-check a Stored) document: re-verify its bytes; when they verify
+         *     the document is Stored and extraction is queued, otherwise 409 says to re-upload.
+         */
+        post: operations["retry_storage_api_v1_projects__project_id__documents__document_id__storage_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/extraction-candidates": {
         parameters: {
             query?: never;
@@ -2309,6 +2330,12 @@ export interface components {
             code: string;
             /** Message */
             message: string;
+            /**
+             * Process
+             * @description Writing process (host, pid, lane, root id) for ``source_missing`` failures.
+             * @default null
+             */
+            process: string | null;
         };
         /**
          * ExtractionMethod
@@ -2618,6 +2645,11 @@ export interface components {
             /** Job Id */
             job_id: string | null;
             /**
+             * Repaired Document Ids
+             * @description Documents whose Failed/missing stored copy was restored from these uploaded bytes.
+             */
+            repaired_document_ids?: string[];
+            /**
              * Replayed
              * @description True when the idempotency key matched an earlier identical request.
              */
@@ -2896,10 +2928,10 @@ export interface components {
              * @constant
              */
             extraction_performed: false;
+            /** Failed */
+            failed: number;
             /** Pending Extraction */
             pending_extraction: number;
-            /** Quarantined */
-            quarantined: number;
             /**
              * Result Kind
              * @constant
@@ -4013,7 +4045,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "database" | "migrations" | "pgvector";
+            name: "database" | "migrations" | "pgvector" | "storage_root";
             /** Ok */
             ok: boolean;
         };
@@ -5102,6 +5134,14 @@ export interface components {
              * @description The revision whose membership this row was read from.
              */
             source_revision_id: string;
+            /** @default null */
+            storage_failure_reason: components["schemas"]["StorageFailureReason"] | null;
+            /**
+             * Storage Message
+             * @description "Failed: stored copy missing or damaged." when ``storage_state`` is ``failed``.
+             * @default null
+             */
+            storage_message: string | null;
             storage_state: components["schemas"]["StorageState"];
         };
         /**
@@ -5173,7 +5213,7 @@ export interface components {
         SourceRevisionStatus: "staging" | "ready" | "ready_with_issues" | "failed";
         /**
          * SourceRevisionSummary
-         * @description Revision plus honest storage/extraction counts; ``quarantined_count`` is surfaced.
+         * @description Revision plus honest storage/extraction counts; ``failed_count`` is surfaced.
          */
         SourceRevisionSummary: {
             /** @default null */
@@ -5183,6 +5223,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Failed Count */
+            failed_count: number;
             /** Is Latest */
             is_latest: boolean;
             /**
@@ -5208,8 +5250,6 @@ export interface components {
              * Format: uuid
              */
             project_id: string;
-            /** Quarantined Count */
-            quarantined_count: number;
             /**
              * Source Revision Id
              * Format: uuid
@@ -5247,10 +5287,38 @@ export interface components {
             wellbores: components["schemas"]["WellboreGate"][];
         };
         /**
-         * StorageState
+         * StorageFailureReason
+         * @description Why a copy is Failed (only ever set under the verified storage root).
          * @enum {string}
          */
-        StorageState: "pending_verification" | "stored" | "quarantined";
+        StorageFailureReason: "missing" | "size_mismatch" | "hash_mismatch";
+        /**
+         * StorageRetryResult
+         * @description Outcome of Retry on a Failed document whose stored bytes verify again.
+         */
+        StorageRetryResult: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Extraction Queued */
+            extraction_queued: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "restored" | "already_stored";
+            storage_state: components["schemas"]["StorageState"];
+        };
+        /**
+         * StorageState
+         * @description What the user sees: the stored copy is verified, being verified, or Failed.
+         * @enum {string}
+         */
+        StorageState: "pending_verification" | "stored" | "failed";
         /**
          * SubjectType
          * @enum {string}
@@ -6532,6 +6600,65 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    retry_storage_api_v1_projects__project_id__documents__document_id__storage_retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageRetryResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

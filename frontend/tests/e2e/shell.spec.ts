@@ -510,10 +510,10 @@ for (const size of [
       expect(header.h, `header "${header.text}" is not broken mid-word`).toBeLessThanOrEqual(60);
       expect(header.sw, `header "${header.text}" fits its column`).toBeLessThanOrEqual(header.w + 1);
     }
-    expect(metrics.headers.map((x) => x.text)).toContain("Quarantined");
+    expect(metrics.headers.map((x) => x.text)).toContain("Failed");
     for (const chip of metrics.chips) expect(chip, "status chip height bounded").toBeLessThanOrEqual(64);
     expect(metrics.rowH, "revision row height (Created, status, parent cells) bounded").toBeLessThanOrEqual(96);
-    const minimums = [["Files", 36], ["Stored", 36], ["Quarantined", 70], ["Status", 150], ["Created", 120]] as const;
+    const minimums = [["Files", 36], ["Stored", 36], ["Failed", 50], ["Status", 150], ["Created", 120]] as const;
     for (const [name, min] of minimums) {
       const header = metrics.headers.find((x) => x.text.startsWith(name));
       expect(header?.w, `${name} column width`).toBeGreaterThanOrEqual(min);

@@ -188,9 +188,9 @@ def test_superseded_replaced_inactive_and_invalidated_sources_are_not_returned(
         )
     assert_no_evidence(world.search(pid, "F-14 trajectory station"))
 
-    # a quarantined original and a superseded extraction run are excluded as well
+    # a failed original and a superseded extraction run are excluded as well
     world.sql(
-        "UPDATE document_processing SET storage_state = 'quarantined' WHERE document_id = :d",
+        "UPDATE document_processing SET storage_state = 'failed' WHERE document_id = :d",
         d=new.document_id,
     )
     assert world.search(pid, "F-12 trajectory station md")["hits"] == []

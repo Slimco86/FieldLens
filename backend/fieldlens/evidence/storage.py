@@ -131,6 +131,34 @@ class BlobStore:
         staged.unlink(missing_ok=True)
         return created
 
+    def needs_repair(self, key: str, size: int) -> bool:
+        """Cheap check (no hashing): the blob is absent or has the wrong size."""
+        try:
+            return self.path_for(key).stat().st_size != size
+        except (FileNotFoundError, NotADirectoryError):
+            return True
+
+    def repair(self, staged: Path, key: str, sha256: str, size: int) -> bool:
+        """Publish fully written, hash-verified upload bytes over a missing or damaged blob.
+
+        The replacement is linked beside the target and swapped in atomically, so a crash leaves
+        either the old state or the verified bytes. The staged file is left in place (the request's
+        staging cleanup removes it). Returns True when the stored copy changed; False when the
+        existing copy already verifies. Raises when the result does not verify."""
+        if self.verify(key, sha256, size).outcome is VerifyOutcome.OK:
+            return False
+        target = self.path_for(key)
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        temp = target.with_name(f"{target.name}.repair-{os.getpid()}-{threading.get_ident()}")
+        temp.unlink(missing_ok=True)
+        os.link(staged, temp)
+        os.chmod(temp, 0o444)
+        os.replace(temp, target)
+        _fsync_dir(target.parent)
+        if self.verify(key, sha256, size).outcome is not VerifyOutcome.OK:
+            raise OSError("repaired blob does not verify")
+        return True
+
     def verify(self, key: str, sha256: str, size: int) -> VerifyResult:
         """Re-read the stored bytes and compare size and SHA-256 (byte verification only)."""
         try:

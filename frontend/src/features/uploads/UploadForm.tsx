@@ -16,6 +16,7 @@ import {
   type ImportAccepted,
   type ImportMetadata,
   type UploadProgress,
+  describeStorageError,
 } from "./api";
 import { categoryLabel, formatBytes } from "./format";
 import { matchRefusals, parseImportRefusal, type ParsedRefusal } from "./refusal";
@@ -121,6 +122,8 @@ export function describeUploadFailure(err: unknown, names: readonly string[] = [
     if (refusal !== null) {
       return { message: `Upload refused. Nothing was stored. ${sentence(err.message)}`, requestId, detail, refusal };
     }
+    const storage = describeStorageError(err);
+    if (err.status === 503 && storage !== null) return { message: storage, requestId, detail };
     switch (err.status) {
       case 409:
         if (reason === "import_in_progress") {
@@ -163,6 +166,11 @@ export function describeUploadFailure(err: unknown, names: readonly string[] = [
 function successText(httpStatus: number, a: ImportAccepted): string {
   if (a.replayed) {
     return "This identical request was already accepted earlier (replay). No duplicate records were created.";
+  }
+  const repaired = a.repaired_document_ids?.length ?? 0;
+  if (repaired > 0) {
+    const fresh = a.created_document_ids.length;
+    return `${repaired} file(s) were repaired: their stored copy was missing or damaged and the uploaded bytes replaced it${fresh > 0 ? `; ${fresh} new file(s) were also received` : ""}. Storage verification runs in the background.`;
   }
   if (a.deduplicated) {
     return "Every file already belongs to the current source revision. Nothing new was stored.";

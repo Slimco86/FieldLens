@@ -1639,14 +1639,14 @@ the slice letter and `Slice` keeps the plan's original string.
 | Assignee | agent:fieldlens-rag |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
-| Spec | specs/PROCESSING_FLOW.md |
+| Spec | specs/DOCUMENT_IDENTIFICATION.md |
 | Version | none |
 | Parent | FL-022 |
 | Slice | FL-022-E |
 
 **Outcome.** Documents without identity or label are classified (model route only; OCR deferred to TASK-060); the label is proposed with evidence, user labels win, and extraction runs through the label's agent step on the existing harness.
-**Owner amendment 2026-11-02 (loose first slice, TASK-041 waived):** a non-native PDF is sent through the manually triggered, confirmed processing run; the model assigns a category or at least a tag description (classification failure falls back to category `others`) and must find a wellbore identity (the minimum). No identity yields a non-blocking warning, not a blocking error. Results are proposals with page/quote evidence, never accepted facts. Spec `specs/DOCUMENT_IDENTIFICATION.md` (to be written before dispatch).
-**Next action.** Write the spec, then dispatch after TASK-070 merges (needs reliable storage): classification/identity schema, stub-provider tests, then one bounded live check inside the USD 5 total (PROCESSING_FLOW D7).
+**Owner amendment 2026-11-02 (loose first slice, TASK-041 waived):** a non-native PDF is sent through the manually triggered, confirmed processing run; the model assigns a category or at least a tag description (classification failure falls back to category `others`) and must find a wellbore identity (the minimum). No identity yields a non-blocking warning, not a blocking error. Results are proposals with page/quote evidence, never accepted facts. Spec `specs/DOCUMENT_IDENTIFICATION.md` (written 2026-11-02, approved).
+**Next action.** Dispatch after TASK-070 merges (needs reliable storage): classification/identity schema, stub-provider tests, then one bounded live check inside the USD 5 total (PROCESSING_FLOW D7).
 **Evidence.** none yet
 
 ### TASK-056 · Per-wellbore, per-category data exposure API and readiness gate (PF-6, PF-8)
@@ -1927,7 +1927,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-066 |
@@ -1935,14 +1935,14 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/STORAGE_INTEGRITY.md |
-| Version | none |
+| Version | 0.34.0 |
 | Parent | FL-016 |
 | Slice | FL-016-R |
 
 **Outcome.** Replace the 8-most-recent heuristic of the TASK-066 guard with a persisted root-identity marker (DB row and `<root>/.fieldlens-root-id`) that every blob-reading worker compares before claiming work. Closes the QA-066 gaps: no protection before the first stored original, stall after an intentional wipe, global rather than project-scoped sample.
 Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was a stale pre-guard worktree server. Scope is widened (spec approved 2026-11-02): files are only Stored or Failed, "quarantined" disappears from API/UI, Retry and Re-upload repair a failed file, startup heal pass, failure attribution (process identity, `application_name`) and a `./dev` warning for other processes on the same DB. Migration `0014`, proposed 0.34.0.
-**Next action.** Lane `task-070-storage-integrity` (backend, then UI), independent QA, merge first.
-**Evidence.** QA-066 report (PASS with Medium findings), 2026-11-02; incident analysis 2026-11-02.
+**Next action.** None. Unblocks TASK-055. Follow-ups: heal runs once per process start (later failures use Retry/re-upload).
+**Evidence.** QA-070 PASS after one repair round (heal on all-failed incident shape, UI stale alert, dev-tool false warning); merged `9d46c94`, release 0.34.0. QA-066 report (PASS with Medium findings), 2026-11-02; incident analysis 2026-11-02.
 
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 

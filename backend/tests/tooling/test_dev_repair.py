@@ -44,6 +44,7 @@ def test_lane_env_copies_only_allowlisted_keys(tmp_path: Path) -> None:
         "FIELDLENS_DATABASE_URL",
         "FIELDLENS_STORAGE_ROOT",
         "FIELDLENS_PORT",
+        "FIELDLENS_LANE",
         "FIELDLENS_ALLOWED_HOSTS",
         "FIELDLENS_ALLOWED_ORIGINS",
     }

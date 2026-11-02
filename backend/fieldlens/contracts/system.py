@@ -16,7 +16,7 @@ class SessionResponse(ContractModel):
 
 
 class ReadinessCheck(ContractModel):
-    name: Literal["database", "migrations", "pgvector"]
+    name: Literal["database", "migrations", "pgvector", "storage_root"]
     ok: bool
     detail: str | None = None
 

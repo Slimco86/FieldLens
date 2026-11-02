@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -20,8 +21,16 @@ def create_db_engine(settings: Settings) -> Engine | None:
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=5,
-        connect_args={"connect_timeout": settings.db_connect_timeout_s},
+        connect_args={
+            "connect_timeout": settings.db_connect_timeout_s,
+            "application_name": application_name(settings),
+        },
     )
+
+
+def application_name(settings: Settings) -> str:
+    """``fieldlens:<lane>:<pid>`` so ``pg_stat_activity`` shows which process holds a connection."""
+    return f"fieldlens:{settings.lane}:{os.getpid()}"[:63]
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:

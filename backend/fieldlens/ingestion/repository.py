@@ -26,7 +26,9 @@ from fieldlens.contracts.imports import (
     SourceRevisionPage,
     SourceRevisionSummary,
 )
+from fieldlens.evidence.integrity import failure_message, restore_stored
 from fieldlens.evidence.storage import blob_key
+from fieldlens.extraction.heal import queue_extraction_after_restore
 from fieldlens.ingestion.inspect import CLASSIFICATION_METHOD, CLASSIFICATION_VERSION
 from fieldlens.ingestion.upload import ReceivedUpload
 from fieldlens.persistence import models as m
@@ -115,6 +117,7 @@ def publish_import(
     metadata: ImportMetadata,
     received: ReceivedUpload,
     publish_blobs: Callable[[], None] | None = None,
+    repair_blob: Callable[[Any, str], bool] | None = None,
 ) -> ImportAccepted:
     """One transaction: documents, classification, staging revision, membership, job, batch.
     The project's latest-source pointer is NOT touched here; only a verified job moves it."""
@@ -187,6 +190,7 @@ def publish_import(
 
     # Resolve documents by (project, sha256): same bytes reuse the existing document.
     doc_for_sha: dict[str, UUID] = {}
+    reused: dict[UUID, Any] = {}  # existing document -> the uploaded file carrying its bytes
     created: list[UUID] = []
     document_ids: list[UUID] = []
     for staged, hints in zip(received.files, metadata.files, strict=True):
@@ -203,6 +207,8 @@ def publish_import(
             if existing is None:
                 existing = _insert_document(session, project_id, staged, hints)
                 created.append(existing)
+            else:
+                reused[existing] = staged
             doc_id = existing
             doc_for_sha[staged.sha256] = doc_id
         document_ids.append(doc_id)
@@ -230,6 +236,10 @@ def publish_import(
             replaces_by_doc[doc_id] = target
         members[doc_id] = staged.sha256
 
+    repaired: list[UUID] = []
+    if repair_blob is not None and reused:
+        repaired = _repair_reused(session, project_id, reused, repair_blob)
+
     if latest is not None and set(members) == set(parent) and not replaces_by_doc:
         # Every file already belongs to the current revision: no new records, no job.
         if metadata.idempotency_key is not None:
@@ -240,7 +250,7 @@ def publish_import(
                     fingerprint=fingerprint,
                     source_revision_id=latest,
                     job_id=None,
-                    deduplicated=True,
+                    deduplicated=not repaired,
                     document_ids=document_ids,
                 )
             )
@@ -253,10 +263,11 @@ def publish_import(
             source_revision_id=latest,
             job_id=None,
             status=status,
-            deduplicated=True,
+            deduplicated=not repaired,
             replayed=False,
             document_ids=document_ids,
             created_document_ids=[],
+            repaired_document_ids=repaired,
         )
 
     try:
@@ -320,7 +331,40 @@ def publish_import(
         replayed=False,
         document_ids=document_ids,
         created_document_ids=created,
+        repaired_document_ids=repaired,
     )
+
+
+def _repair_reused(
+    session: Session,
+    project_id: UUID,
+    reused: dict[UUID, Any],
+    repair_blob: Callable[[Any, str], bool],
+) -> list[UUID]:
+    """Re-upload of bytes we already know: a Failed document or a missing/short blob is repaired
+    from the uploaded (hash-verified) bytes; a Failed document returns to Stored and extraction
+    is queued. An intact duplicate is left alone (reported as deduplicated, no job)."""
+    repaired: list[UUID] = []
+    states = dict(
+        session.execute(
+            select(m.document_processing.c.document_id, m.document_processing.c.storage_state)
+            .where(
+                and_(
+                    m.document_processing.c.project_id == project_id,
+                    m.document_processing.c.document_id.in_(list(reused)),
+                )
+            )
+            .with_for_update()
+        ).all()
+    )
+    for doc_id, staged in reused.items():
+        state = str(states.get(doc_id, "stored"))
+        if not repair_blob(staged, state):
+            continue
+        repaired.append(doc_id)
+        if state == "failed" and restore_stored(session, doc_id):
+            queue_extraction_after_restore(session, project_id, doc_id)
+    return repaired
 
 
 def unreferenced_shas(session: Session, project_id: UUID, shas: list[str]) -> list[str]:
@@ -437,6 +481,7 @@ def list_documents(
             sd.c.origin_metadata,
             sd.c.created_at,
             dp.c.storage_state,
+            dp.c.storage_failure_reason,
             dp.c.extraction_state,
             dp.c.detail,
             srd.c.replaces_document_id,
@@ -503,6 +548,8 @@ def _document_item(r: RowMapping, revision_id: UUID) -> SourceDocumentItem:
         origin_metadata=r["origin_metadata"],
         created_at=r["created_at"],
         storage_state=r["storage_state"],
+        storage_failure_reason=r["storage_failure_reason"],
+        storage_message=failure_message(r["storage_state"]),
         extraction_state=r["extraction_state"],
         processing_detail=r["detail"],
         classification=_classification(r),
@@ -548,7 +595,7 @@ def list_revisions(
                 srd.c.source_revision_id,
                 func.count(),
                 func.count().filter(dp.c.storage_state == "stored"),
-                func.count().filter(dp.c.storage_state == "quarantined"),
+                func.count().filter(dp.c.storage_state == "failed"),
                 func.count().filter(dp.c.extraction_state == "pending_extraction"),
                 func.count().filter(dp.c.extraction_state == "unsupported"),
             )
@@ -570,7 +617,7 @@ def list_revisions(
             jobs[jrow[0]] = (jrow[1], jrow[2])
     items = []
     for r in page_rows:
-        member, stored, quarantined, pending, unsupported = counts.get(
+        member, stored, failed, pending, unsupported = counts.get(
             r["source_revision_id"], (0, 0, 0, 0, 0)
         )
         job = jobs.get(r["source_revision_id"])
@@ -586,7 +633,7 @@ def list_revisions(
                 is_latest=r["source_revision_id"] == latest,
                 member_count=member,
                 stored_count=stored,
-                quarantined_count=quarantined,
+                failed_count=failed,
                 pending_extraction_count=pending,
                 unsupported_count=unsupported,
                 job_id=job[0] if job else None,

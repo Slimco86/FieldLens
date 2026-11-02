@@ -278,6 +278,8 @@ document_processing = Table(
     Column("storage_state", String(32), nullable=False),
     Column("extraction_state", String(32), nullable=False),
     Column("detail", Text, nullable=True),
+    Column("storage_failure_reason", String(32), nullable=True),
+    Column("storage_failed_by", Text, nullable=True),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     ForeignKeyConstraint(
         ["project_id", "document_id"],
@@ -285,14 +287,29 @@ document_processing = Table(
         name="fk_document_processing_document_scope",
     ),
     CheckConstraint(
-        "storage_state IN ('pending_verification','stored','quarantined')",
+        "storage_state IN ('pending_verification','stored','failed')",
         name="storage_state_known",
+    ),
+    CheckConstraint(
+        "storage_failure_reason IS NULL OR storage_failure_reason IN "
+        "('missing','size_mismatch','hash_mismatch')",
+        name="storage_failure_reason_known",
     ),
     CheckConstraint(
         "extraction_state IN ('pending_extraction','unsupported','extracted',"
         "'extracted_with_issues','extraction_failed')",
         name="extraction_state_known",
     ),
+)
+
+storage_root_identity = Table(
+    "storage_root_identity",
+    metadata,
+    Column("singleton", Boolean, primary_key=True, server_default=text("true")),
+    Column("root_id", UUID(as_uuid=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    Column("adopted_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint("singleton", name="single_row"),
 )
 
 document_classification = Table(

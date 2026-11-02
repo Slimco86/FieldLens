@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Title } from "@mantine/core";
 import { CircleCheck } from "lucide-react";
 import { ApiError, fetchReadiness, type ReadinessResponse } from "../api/client";
+import { STORAGE_ROOT_MISMATCH_MESSAGE } from "../features/uploads/api";
 import { ErrorState, LoadingState } from "../design";
 import { ProjectSidebar } from "../features/projects/ProjectSidebar";
 import { ProjectWorkspace } from "../features/projects/ProjectWorkspace";
@@ -30,7 +31,11 @@ export function App() {
       (err: unknown) => {
         if (ctl.signal.aborted) return;
         if (err instanceof ApiError) {
-          setState({ kind: "unavailable", message: err.message, requestId: err.requestId });
+          const checks = err.details?.["checks"];
+          const rootBad =
+            Array.isArray(checks) &&
+            checks.some((c: unknown) => typeof c === "object" && c !== null && (c as { name?: unknown }).name === "storage_root" && (c as { ok?: unknown }).ok === false);
+          setState({ kind: "unavailable", message: rootBad ? `${STORAGE_ROOT_MISMATCH_MESSAGE}` : err.message, requestId: err.requestId });
         } else {
           setState({ kind: "unavailable", message: "The local API is unreachable.", requestId: null });
         }
