@@ -39,6 +39,7 @@ class World:
     docker_down: bool = False
     dbs: set[str] = field(default_factory=lambda: {"fieldlens_app"})
     busy_ports: set[int] = field(default_factory=set)
+    activity: list[str] = field(default_factory=list)
     procs: dict[int, list[str]] = field(default_factory=dict)
     calls: list[list[str]] = field(default_factory=list)
     spawns: list[tuple[list[str], dict[str, str]]] = field(default_factory=list)
@@ -115,6 +116,8 @@ class FakeRunner:
         if sql.startswith("SELECT 1 FROM pg_database"):
             name = sql.split("'")[1]
             return result(0, "1\n" if name in w.dbs else "")
+        if "pg_stat_activity" in sql:
+            return result(0, "".join(line + "\n" for line in w.activity))
         if sql.startswith("CREATE DATABASE"):
             w.dbs.add(sql.split('"')[1])
         elif sql.startswith("DROP DATABASE"):
