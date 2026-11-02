@@ -66,7 +66,21 @@ project = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     Column("latest_source_revision_id", UUID(as_uuid=True), nullable=True),
     Column("active_model_revision_id", UUID(as_uuid=True), nullable=True),
+    # TASK-071: none | deleting | failed; the purge executor is the only writer after the request.
+    Column("deletion_state", String(16), nullable=False, server_default=text("'none'")),
+    Column("deletion_requested_at", DateTime(timezone=True), nullable=True),
+    Column("deletion_error", Text, nullable=True),
+    Column("deletion_storage_purged_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("char_length(name) >= 1 AND name = btrim(name)", name="name_trimmed"),
+    CheckConstraint(
+        "deletion_state IN ('none', 'deleting', 'failed')", name="deletion_state_known"
+    ),
+    CheckConstraint(
+        "(deletion_state = 'none') = (deletion_requested_at IS NULL) "
+        "AND (deletion_state <> 'none' OR (deletion_error IS NULL "
+        "AND deletion_storage_purged_at IS NULL))",
+        name="deletion_state_consistent",
+    ),
     CheckConstraint("char_length(description) <= 4000", name="description_max_length"),
     Index(
         "ix_project_created_at_project_id",

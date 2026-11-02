@@ -62,7 +62,7 @@ def _alembic(engine: Engine, fn: str, rev: str) -> None:
 
 
 def test_single_head_and_known_revision() -> None:
-    assert expected_head() == "0013_reconstruction_runs"
+    assert expected_head() == "0015_project_deletion"
 
 
 def test_migration_roundtrip(empty_database: URL) -> None:
@@ -222,7 +222,9 @@ def test_contract_fixture_roundtrips_through_postgresql(engine: Engine) -> None:
         persist(conn, f)
     with engine.connect() as conn:
         row = conn.execute(select(m.project)).mappings().one()
-        assert Project.model_validate(dict(row)) == f["project"]
+        project_row = dict(row)
+        project_row.pop("deletion_storage_purged_at")  # internal purge marker, not in the contract
+        assert Project.model_validate(project_row) == f["project"]
         row = conn.execute(select(m.source_revision)).mappings().one()
         assert SourceRevision.model_validate(dict(row)) == f["source"]
         row = conn.execute(select(m.model_revision)).mappings().one()
