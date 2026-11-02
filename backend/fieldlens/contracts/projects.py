@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from typing import Annotated, Any
+from uuid import UUID
 
 from pydantic import BeforeValidator, Field, model_validator
 
-from .base import ContractModel
+from .base import ContractModel, UtcDatetime
 from .context import PageInfo
-from .identity import Project
+from .identity import Project, ProjectDeletionState
 
 
 def _storable(value: Any) -> Any:
@@ -58,3 +59,37 @@ class ProjectPage(ContractModel):
 
     items: list[Project]
     page: PageInfo
+
+
+class ProjectDeleteRequest(ContractModel):
+    """Irreversible deletion request; ``confirm_name`` must equal the project name exactly."""
+
+    confirm_name: Annotated[str, Field(min_length=1, max_length=120)]
+
+
+class ProjectDeletionStatus(ContractModel):
+    """Deletion progress (202 body). Poll ``GET /projects/{id}``: 404 means the purge finished."""
+
+    project_id: UUID
+    deletion_state: ProjectDeletionState
+    deletion_requested_at: UtcDatetime | None = None
+    deletion_error: str | None = None
+
+
+class ProjectDeletionPreview(ContractModel):
+    """What deleting the project removes (counts of project-scoped rows and stored bytes)."""
+
+    project_id: UUID
+    name: str
+    deletion_state: ProjectDeletionState
+    documents: int = Field(ge=0)
+    stored_bytes: int = Field(ge=0)
+    source_revisions: int = Field(ge=0)
+    wells: int = Field(ge=0)
+    wellbores: int = Field(ge=0)
+    extracted_records: int = Field(ge=0)
+    evidence_chunks: int = Field(ge=0)
+    processing_runs: int = Field(ge=0)
+    reconstruction_runs: int = Field(ge=0)
+    agent_work_units: int = Field(ge=0)
+    active_jobs: int = Field(ge=0, description="Queued or running work that will be cancelled.")
