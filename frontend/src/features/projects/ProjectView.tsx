@@ -7,7 +7,7 @@ import { ProjectTabs, SECTION_LABEL } from "../../app/shell/ProjectTabs";
 import { SourcesPanel } from "../uploads/SourcesPanel";
 import { getProject, updateProject } from "./api";
 import { bumpProjectList } from "./listVersion";
-import { ProjectOverviewSlot } from "./OverviewSlot";
+import { PipelineSlot, ProjectOverviewSlot } from "./OverviewSlot";
 import { ProjectForm } from "./ProjectForm";
 import { keyString, projectKeys, saveSelectedProjectId, type Project, type Section } from "./keys";
 import { useActionScope, useScopedResource } from "./scope";
@@ -200,6 +200,7 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
             {section === "sources" && (
               <>
                 <ProjectOverviewSlot projectId={projectId} revisionId={state.data.latest_source_revision_id} />
+                <PipelineSlot projectId={projectId} revisionId={state.data.latest_source_revision_id} />
                 <SourcesPanel
                   projectId={projectId}
                   latestRevisionId={state.data.latest_source_revision_id}
