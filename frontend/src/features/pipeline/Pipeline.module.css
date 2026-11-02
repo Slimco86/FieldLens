@@ -98,3 +98,35 @@
   background: var(--fl-tone-success-bg);
   box-shadow: inset var(--fl-space-xs) 0 0 var(--fl-tone-success-border);
 }
+.catHeading {
+  margin: var(--fl-space-sm) 0 0;
+  font-size: inherit;
+  font-weight: 600;
+}
+.plain {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.plain th,
+.plain td {
+  padding: var(--fl-space-xs) var(--fl-space-sm);
+  vertical-align: top;
+  border-bottom: var(--fl-border-width) solid var(--fl-color-border);
+}
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--fl-space-xs) var(--fl-space-md);
+  margin: 0;
+}
+.facts dd {
+  margin: 0;
+}
+.dialogHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fl-space-md);
+  padding: var(--fl-space-md);
+}

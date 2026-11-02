@@ -165,6 +165,10 @@ class Settings(BaseSettings):
     processing_stage_delay_s: float = Field(0.0, ge=0.0, le=5.0)
     """Test-only pause after each page so cancel/restart tests can interrupt a run."""
 
+    # Per-wellbore reconstruction runs (TASK-068). Stub planning rates only; no live call exists.
+    reconstruction_concurrency: int = Field(2, ge=1, le=2)
+    """Runs executing at once (RECONSTRUCTION_RUN.md: bounded concurrency of at most two)."""
+
     local_data_root: Path | None = None
     """Opt-in read-only root of the local Volve subset (tests only); unset => local_data skips."""
 

@@ -5,16 +5,8 @@ type S = components["schemas"];
 
 export type StartGate = S["StartGate"];
 export type ProjectExposure = S["ProjectExposure"];
-export type DocumentProcessingState = S["DocumentProcessingState"];
-export type DocumentProcessingStateList = S["DocumentProcessingStateList"];
-export type ProcessingRun = S["ProcessingRun"];
-export type ProcessingRunPage = S["ProcessingRunPage"];
-export type ProcessingRunSummary = S["ProcessingRunSummary"];
-export type ProcessingRunStatus = S["ProcessingRunStatus"];
-export type ProcessingDocumentSelection = S["ProcessingDocumentSelection"];
 
 const base = (projectId: string) => `/api/v1/projects/${projectId}`;
-const runs = (projectId: string) => `${base(projectId)}/processing/runs`;
 
 export const getStartGate = (projectId: string, signal: AbortSignal) =>
   getJson<StartGate>(`${base(projectId)}/identity/start-gate`, signal);
@@ -22,33 +14,35 @@ export const getStartGate = (projectId: string, signal: AbortSignal) =>
 export const getExposure = (projectId: string, signal: AbortSignal) =>
   getJson<ProjectExposure>(`${base(projectId)}/identity/exposure`, signal);
 
-export const getProcessingDocuments = (projectId: string, signal: AbortSignal) =>
-  getJson<DocumentProcessingStateList>(`${base(projectId)}/processing/documents`, signal);
+export type ReconstructionEstimate = S["ReconstructionEstimate"];
+export type ReconstructionEstimateItem = S["ReconstructionEstimateItem"];
+export type ReconstructionRun = S["ReconstructionRun"];
+export type ReconstructionRunPage = S["ReconstructionRunPage"];
+export type ReconstructionStage = S["ReconstructionStage"];
+export type ReconstructionSummary = S["ReconstructionSummary"];
+export type ReconstructionEvidenceRef = S["ReconstructionEvidenceRef"];
 
-export const listRuns = (projectId: string, signal: AbortSignal) => getJson<ProcessingRunPage>(runs(projectId), signal);
+const runs = (projectId: string) => `${base(projectId)}/reconstruction-runs`;
 
-export const getRun = (projectId: string, runId: string, signal: AbortSignal) =>
-  getJson<ProcessingRun>(`${runs(projectId)}/${runId}`, signal);
+export const listReconstructionRuns = (projectId: string, signal: AbortSignal) =>
+  getJson<ReconstructionRunPage>(runs(projectId), signal);
 
-export const requestEstimate = (
-  projectId: string,
-  documents: ProcessingDocumentSelection[],
-  idempotencyKey: string,
-  signal?: AbortSignal,
-) =>
-  sendJson<ProcessingRun>(
+/** Estimate only: nothing is queued or spent. `wellboreIds` for one wellbore, `null` for every ready wellbore. */
+export const requestReconstructionEstimate = (projectId: string, wellboreIds: string[] | null, signal?: AbortSignal) =>
+  sendJson<ReconstructionEstimate>(
     `${runs(projectId)}/estimates`,
     "POST",
-    { documents, idempotency_key: idempotencyKey },
+    wellboreIds === null ? { all_ready: true } : { wellbore_ids: wellboreIds },
     signal,
   );
 
-/** Confirming is the only call that can spend; it echoes the estimate so a stale one is rejected. */
-export const confirmRun = (projectId: string, runId: string, estimatedUsd: string, signal?: AbortSignal) =>
-  sendJson<ProcessingRun>(`${runs(projectId)}/${runId}/confirm`, "POST", { estimated_usd: estimatedUsd }, signal);
+/** The separate explicit confirm; the total is echoed so a changed estimate is a conflict, not a silent spend. */
+export const confirmReconstructionEstimate = (projectId: string, estimateId: string, estimatedUsd: string, signal?: AbortSignal) =>
+  sendJson<ReconstructionRunPage>(`${runs(projectId)}/estimates/${estimateId}/confirm`, "POST", { estimated_usd: estimatedUsd }, signal);
 
-export const cancelRun = (projectId: string, runId: string, signal?: AbortSignal) =>
-  sendJson<ProcessingRun>(`${runs(projectId)}/${runId}/cancel`, "POST", undefined, signal);
+export const cancelReconstructionRun = (projectId: string, runId: string, signal?: AbortSignal) =>
+  sendJson<ReconstructionRun>(`${runs(projectId)}/${runId}/cancel`, "POST", undefined, signal);
 
-export const retryRun = (projectId: string, runId: string, signal?: AbortSignal) =>
-  sendJson<ProcessingRun>(`${runs(projectId)}/${runId}/retry`, "POST", undefined, signal);
+/** A retry is a new estimate that needs its own confirm. */
+export const retryReconstructionRun = (projectId: string, runId: string, signal?: AbortSignal) =>
+  sendJson<ReconstructionEstimate>(`${runs(projectId)}/${runId}/retry`, "POST", undefined, signal);

@@ -565,6 +565,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/reconstruction-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_v1_projects__project_id__reconstruction_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/reconstruction-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_v1_projects__project_id__reconstruction_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/reconstruction-runs/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_v1_projects__project_id__reconstruction_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/reconstruction-runs/{run_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry */
+        post: operations["retry_api_v1_projects__project_id__reconstruction_runs__run_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/reconstruction-runs/estimates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Estimate */
+        post: operations["create_estimate_api_v1_projects__project_id__reconstruction_runs_estimates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/reconstruction-runs/estimates/{estimate_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm */
+        post: operations["confirm_api_v1_projects__project_id__reconstruction_runs_estimates__estimate_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/retrieval/coverage": {
         parameters: {
             query?: never;
@@ -3821,6 +3923,465 @@ export interface components {
          * @enum {string}
          */
         ReasonCode: "locator_not_found" | "locator_unsupported" | "quote_missing" | "quote_not_in_span" | "value_not_in_quote" | "attribute_unknown" | "unit_unparseable" | "unit_dimension_mismatch" | "unit_defaulted_meters" | "out_of_range" | "md_tvd_confusion" | "compound_depth_pair" | "subject_unresolved" | "subject_document_mismatch" | "parsed_conflict" | "crs_not_stated" | "date_not_in_source" | "model_read_unverified" | "unit_conflicts_with_quote" | "unit_not_in_source" | "number_unparseable" | "field_unverified" | "coordinate_fallback_unsupported" | "unit_away_from_value" | "size_ambiguous" | "subject_page_names_other_well" | "field_not_associated" | "id_exceeds_od" | "depth_order_invalid" | "label_not_in_text_layer" | "equipment_not_on_page" | "schema_invalid_item";
+        /** ReconstructionConfirmRequest */
+        ReconstructionConfirmRequest: {
+            /**
+             * Estimated Usd
+             * @description Echo of the estimate's total; a mismatch is a conflict and queues nothing.
+             */
+            estimated_usd: string;
+        };
+        /** ReconstructionConflict */
+        ReconstructionConflict: {
+            /** Category */
+            category: string;
+            /** Code */
+            code: string;
+            /** Evidence */
+            evidence: components["schemas"]["ReconstructionEvidenceRef"][];
+            /** Message */
+            message: string;
+            /** Severity */
+            severity: string;
+        };
+        /** ReconstructionCoverage */
+        ReconstructionCoverage: {
+            /** Accepted Candidate Count */
+            accepted_candidate_count: number;
+            /** Category */
+            category: string;
+            /** Conflicting Record Count */
+            conflicting_record_count: number;
+            /**
+             * Evidence
+             * @description Bounded source references; empty only when present is false.
+             */
+            evidence: components["schemas"]["ReconstructionEvidenceRef"][];
+            /**
+             * Evidence Truncated
+             * @default false
+             */
+            evidence_truncated: boolean;
+            /** Gap Reasons */
+            gap_reasons: string[];
+            /** Open Candidate Count */
+            open_candidate_count: number;
+            /** Present */
+            present: boolean;
+            /** Record Count */
+            record_count: number;
+        };
+        /** ReconstructionEstimate */
+        ReconstructionEstimate: {
+            /** Confirmable */
+            confirmable: boolean;
+            /**
+             * Confirmed
+             * @default false
+             */
+            confirmed: boolean;
+            /**
+             * Estimate Id
+             * @description None when every selected wellbore already has an active run.
+             * @default null
+             */
+            estimate_id: string | null;
+            /** Fits Budget */
+            fits_budget: boolean;
+            /**
+             * Items
+             * @description The per-wellbore split.
+             */
+            items: components["schemas"]["ReconstructionEstimateItem"][];
+            /**
+             * Live Calls
+             * @default false
+             * @constant
+             */
+            live_calls: false;
+            /** Pricing Label */
+            pricing_label: string;
+            /** Pricing Source */
+            pricing_source: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Provider
+             * @default stub
+             * @constant
+             */
+            provider: "stub";
+            /** Remaining Budget Usd */
+            remaining_budget_usd: string;
+            /** Total Cap Usd */
+            total_cap_usd: string;
+            /** Total Estimated Usd */
+            total_estimated_usd: string;
+        };
+        /** ReconstructionEstimateItem */
+        ReconstructionEstimateItem: {
+            /**
+             * Already Active
+             * @description True: this wellbore and source revision already has a queued or running run; run_id is that run and nothing new is estimated for it.
+             */
+            already_active: boolean;
+            /** Estimated Usd */
+            estimated_usd: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            run_status: components["schemas"]["ReconstructionRunStatus"];
+            /** Source Revision */
+            source_revision: string;
+            /** Stages */
+            stages: components["schemas"]["ReconstructionStageEstimate"][];
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+            /** Wellbore Name */
+            wellbore_name: string;
+        };
+        /** ReconstructionEstimateRequest */
+        ReconstructionEstimateRequest: {
+            /**
+             * All Ready
+             * @description Every wellbore of the project that passes the start gate.
+             * @default false
+             */
+            all_ready: boolean;
+            /**
+             * Wellbore Ids
+             * @default null
+             */
+            wellbore_ids: string[] | null;
+        };
+        /**
+         * ReconstructionEvidenceRef
+         * @description A source reference: document plus the stored locator. Never a value.
+         */
+        ReconstructionEvidenceRef: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Filename
+             * @default null
+             */
+            filename: string | null;
+            /** Locator */
+            locator: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Record Kind
+             * @default null
+             */
+            record_kind: string | null;
+        };
+        /** ReconstructionRun */
+        ReconstructionRun: {
+            /** Actual Usd */
+            actual_usd: string;
+            /**
+             * Cancel Requested
+             * @default false
+             */
+            cancel_requested: boolean;
+            /**
+             * Confirmed At
+             * @default null
+             */
+            confirmed_at: string | null;
+            /**
+             * Confirmed Usd
+             * @default null
+             */
+            confirmed_usd: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Error Code
+             * @default null
+             */
+            error_code: string | null;
+            /**
+             * Error Message
+             * @default null
+             */
+            error_message: string | null;
+            /**
+             * Estimate Id
+             * Format: uuid
+             */
+            estimate_id: string;
+            /** Estimated Usd */
+            estimated_usd: string;
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /** Pricing Source */
+            pricing_source: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Provider
+             * @default stub
+             * @constant
+             */
+            provider: "stub";
+            /**
+             * Retry Of Run Id
+             * @default null
+             */
+            retry_of_run_id: string | null;
+            /**
+             * Retryable
+             * @description True for failed, cancelled and interrupted runs; a retry is a new estimate.
+             */
+            retryable: boolean;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Source Revision
+             * @description Digest of the wellbore's record groups; a changed source is a new revision.
+             */
+            source_revision: string;
+            /**
+             * Stages
+             * @description Always S1..S4, in order.
+             */
+            stages: components["schemas"]["ReconstructionStage"][];
+            /**
+             * Started At
+             * @default null
+             */
+            started_at: string | null;
+            status: components["schemas"]["ReconstructionRunStatus"];
+            /** @default null */
+            summary: components["schemas"]["ReconstructionSummary"] | null;
+            /**
+             * Well Id
+             * Format: uuid
+             */
+            well_id: string;
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+            /** Wellbore Name */
+            wellbore_name: string;
+        };
+        /** ReconstructionRunPage */
+        ReconstructionRunPage: {
+            /** Items */
+            items: components["schemas"]["ReconstructionRun"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * ReconstructionRunStatus
+         * @enum {string}
+         */
+        ReconstructionRunStatus: "estimated" | "queued" | "running" | "succeeded" | "partial" | "failed" | "cancelled" | "interrupted";
+        /** ReconstructionStage */
+        ReconstructionStage: {
+            /**
+             * Actual Usd
+             * @default 0
+             */
+            actual_usd: string;
+            /**
+             * Counts
+             * @description Exact stage counters.
+             */
+            counts?: {
+                [key: string]: number;
+            };
+            /**
+             * Error Code
+             * @default null
+             */
+            error_code: string | null;
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /**
+             * Input Tokens
+             * @default 0
+             */
+            input_tokens: number;
+            kind: components["schemas"]["ReconstructionStageKind"];
+            /**
+             * Message
+             * @default null
+             */
+            message: string | null;
+            /**
+             * Ordinal
+             * @description S1..S4.
+             */
+            ordinal: number;
+            /**
+             * Output Tokens
+             * @default 0
+             */
+            output_tokens: number;
+            /**
+             * Reason Code
+             * @description Stable code for not_available/skipped, e.g. agent_step_not_implemented.
+             * @default null
+             */
+            reason_code: string | null;
+            stage: components["schemas"]["ReconstructionStageName"];
+            /**
+             * Started At
+             * @default null
+             */
+            started_at: string | null;
+            state: components["schemas"]["ReconstructionStageState"];
+        };
+        /** ReconstructionStageEstimate */
+        ReconstructionStageEstimate: {
+            /**
+             * Availability
+             * @enum {string}
+             */
+            availability: "will_run" | "not_available";
+            /**
+             * Estimated Usd
+             * @description Stub planning rate reserved against the cap; spent only if the stage runs.
+             */
+            estimated_usd: string;
+            kind: components["schemas"]["ReconstructionStageKind"];
+            /**
+             * Page Cap
+             * @description S2 only: the page cap that will bound its scope (500).
+             * @default null
+             */
+            page_cap: number | null;
+            /**
+             * Reason Code
+             * @default null
+             */
+            reason_code: string | null;
+            stage: components["schemas"]["ReconstructionStageName"];
+        };
+        /**
+         * ReconstructionStageKind
+         * @enum {string}
+         */
+        ReconstructionStageKind: "deterministic" | "agent";
+        /**
+         * ReconstructionStageName
+         * @enum {string}
+         */
+        ReconstructionStageName: "gather" | "extract" | "identify" | "assemble";
+        /**
+         * ReconstructionStageState
+         * @enum {string}
+         */
+        ReconstructionStageState: "pending" | "running" | "succeeded" | "not_available" | "failed" | "cancelled" | "interrupted" | "skipped";
+        /**
+         * ReconstructionSummary
+         * @description Draft from S4. States what ran, what did not, and what remains unresolved.
+         */
+        ReconstructionSummary: {
+            /** Actual Usd */
+            actual_usd: string;
+            /** Conflicts */
+            conflicts: components["schemas"]["ReconstructionConflict"][];
+            /** Coverage */
+            coverage: components["schemas"]["ReconstructionCoverage"][];
+            /**
+             * Draft
+             * @default true
+             * @constant
+             */
+            draft: true;
+            /** Note */
+            note: string;
+            /**
+             * Published
+             * @default false
+             * @constant
+             */
+            published: false;
+            /**
+             * Scene 3D
+             * @default not_generated
+             * @constant
+             */
+            scene_3d: "not_generated";
+            /** Stages Failed */
+            stages_failed: components["schemas"]["ReconstructionStageName"][];
+            /** Stages Not Available */
+            stages_not_available: components["schemas"]["ReconstructionStageName"][];
+            /** Stages Succeeded */
+            stages_succeeded: components["schemas"]["ReconstructionStageName"][];
+            /** Unresolved */
+            unresolved: components["schemas"]["ReconstructionUnresolved"][];
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+            /** Wellbore Name */
+            wellbore_name: string;
+        };
+        /** ReconstructionUnresolved */
+        ReconstructionUnresolved: {
+            /** Code */
+            code: string;
+            /**
+             * Count
+             * @default null
+             */
+            count: number | null;
+            /** Evidence */
+            evidence?: components["schemas"]["ReconstructionEvidenceRef"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "unresolved_identity" | "pending_merge_proposal" | "warning" | "unlocated_surface" | "open_candidates";
+            /** Message */
+            message: string;
+            /**
+             * Reference Id
+             * @description E.g. the merge proposal id the user must review.
+             * @default null
+             */
+            reference_id: string | null;
+            /**
+             * Scope
+             * @default wellbore
+             * @enum {string}
+             */
+            scope: "wellbore" | "project";
+        };
         /**
          * RefusedFile
          * @description One file the server refused at intake (IN-10). The whole batch is rejected.
@@ -7143,6 +7704,369 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProcessingRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_projects__project_id__reconstruction_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                wellbore_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconstructionRunPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_run_api_v1_projects__project_id__reconstruction_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconstructionRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_projects__project_id__reconstruction_runs__run_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconstructionRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    retry_api_v1_projects__project_id__reconstruction_runs__run_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconstructionEstimate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_estimate_api_v1_projects__project_id__reconstruction_runs_estimates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReconstructionEstimateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconstructionEstimate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    confirm_api_v1_projects__project_id__reconstruction_runs_estimates__estimate_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                estimate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReconstructionConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconstructionRunPage"];
                 };
             };
             /** @description Not Found */
