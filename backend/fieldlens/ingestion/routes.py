@@ -23,6 +23,7 @@ from fieldlens.contracts.imports import (
     SourceDocumentItem,
     SourceRevisionPage,
 )
+from fieldlens.evidence.integrity import require_root
 from fieldlens.evidence.storage import BlobStore, blob_key
 from fieldlens.persistence.session import session_scope
 
@@ -134,6 +135,7 @@ def build_ingestion_router() -> APIRouter:
         await run_in_threadpool(_db, request, lambda s: repository.project_latest(s, project_id))
         limits = _limits(request)
         check_content_length(request.headers.get("content-length"), limits)
+        await run_in_threadpool(require_root, request)
         store: BlobStore = request.app.state.blob_store
         staging = await run_in_threadpool(store.new_staging_dir, uuid4())
         try:
@@ -151,6 +153,13 @@ def build_ingestion_router() -> APIRouter:
                         if store.publish(staged.path, blob_key(project_id, staged.sha256)):
                             created.append(staged.sha256)
 
+                def repair_blob(staged: Any, state: str) -> bool:
+                    key = blob_key(project_id, staged.sha256)
+                    if state != "failed" and not store.needs_repair(key, staged.size):
+                        return False
+                    store.repair(staged.path, key, staged.sha256, staged.size)
+                    return True
+
                 try:
                     with session_scope(factory) as session:
                         return repository.publish_import(
@@ -159,6 +168,7 @@ def build_ingestion_router() -> APIRouter:
                             received.metadata,
                             received,
                             publish_blobs=publish_blobs,
+                            repair_blob=repair_blob,
                         )
                 except BaseException as exc:
                     _discard_created(factory, store, project_id, created)

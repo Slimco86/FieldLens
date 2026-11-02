@@ -64,6 +64,6 @@ def build_runtime(
         chosen_step,
         owner,
         lambda other: is_dead_owner(other, owner),
-        StorageRootGuard(factory, store),
+        StorageRootGuard(factory, store, lane=settings.lane),
     )
     return ProcessingRuntime(counter, chosen_provider, chosen_step, runner)

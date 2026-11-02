@@ -162,7 +162,13 @@ def pending_documents(session: Session, claim: Claim) -> list[dict[str, Any]]:
 
 
 def record_document(
-    session: Session, claim: Claim, document_id: UUID, state: str, detail: str | None
+    session: Session,
+    claim: Claim,
+    document_id: UUID,
+    state: str,
+    detail: str | None,
+    failure_reason: str | None = None,
+    failed_by: str | None = None,
 ) -> None:
     _lock_fenced(session, claim)
     session.execute(
@@ -173,7 +179,13 @@ def record_document(
                 m.document_processing.c.document_id == document_id,
             )
         )
-        .values(storage_state=state, detail=detail, updated_at=_now())
+        .values(
+            storage_state=state,
+            detail=detail,
+            storage_failure_reason=failure_reason,
+            storage_failed_by=failed_by[:300] if failed_by else None,
+            updated_at=_now(),
+        )
     )
 
 
@@ -250,7 +262,7 @@ def publish(session: Session, claim: Claim) -> str:
         select(
             func.count(),
             func.count().filter(dp.c.storage_state == "stored"),
-            func.count().filter(dp.c.storage_state == "quarantined"),
+            func.count().filter(dp.c.storage_state == "failed"),
             func.count().filter(dp.c.storage_state == "pending_verification"),
             func.count().filter(dp.c.extraction_state == "pending_extraction"),
             func.count().filter(dp.c.extraction_state == "unsupported"),
@@ -268,33 +280,33 @@ def publish(session: Session, claim: Claim) -> str:
             )
         )
     ).one()
-    total, stored, quarantined, unverified, pending, unsupported = counts
+    total, stored, failed, unverified, pending, unsupported = counts
     if unverified:
         raise RuntimeError("publish attempted with unverified documents")
     result = JobResult(
         result_kind="storage_verification",
         documents=total,
         stored=stored,
-        quarantined=quarantined,
+        failed=failed,
         pending_extraction=pending,
         unsupported=unsupported,
         extraction_performed=False,
     ).model_dump(mode="json")
     if stored == 0:
-        _fail_revision(session, claim, f"all_documents_quarantined: {quarantined} of {total}")
+        _fail_revision(session, claim, f"all_documents_failed: {failed} of {total}")
         _finish_job(
             session,
             claim,
             "failed",
             "failed",
             result=result,
-            error={"code": "all_quarantined", "message": "no document passed verification"},
+            error={"code": "all_failed", "message": "no stored copy could be verified"},
         )
         return "failed"
     reasons = ["extraction_not_performed: storage verification only"]
-    if quarantined:
-        reasons.append(f"quarantined_documents: {quarantined} of {total}")
-    revision_status = "ready_with_issues" if quarantined else "ready"
+    if failed:
+        reasons.append(f"failed_documents: {failed} of {total}")
+    revision_status = "ready_with_issues" if failed else "ready"
     session.execute(
         update(m.source_revision)
         .where(
@@ -327,9 +339,7 @@ def publish(session: Session, claim: Claim) -> str:
     )
     if moved.rowcount != 1:  # type: ignore[attr-defined]
         raise FenceLost("project source pointer moved since staging")
-    _finish_job(
-        session, claim, "partial" if quarantined else "succeeded", "succeeded", result=result
-    )
+    _finish_job(session, claim, "partial" if failed else "succeeded", "succeeded", result=result)
     return revision_status
 
 

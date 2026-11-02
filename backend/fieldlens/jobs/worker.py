@@ -16,8 +16,10 @@ from uuid import UUID
 from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.config import Settings
+from fieldlens.evidence.integrity import RootMismatch
 from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.evidence.storage import BlobStore, VerifyOutcome
+from fieldlens.extraction.heal import HealResult, heal_pass
 from fieldlens.extraction.runner import ExtractionRunner
 from fieldlens.persistence.session import session_scope
 from fieldlens.retrieval.embedder import EmbedderProvider
@@ -43,7 +45,7 @@ class JobWorker:
         self.owner = repo.new_owner()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
-        self.root_guard = StorageRootGuard(factory, store)
+        self.root_guard = StorageRootGuard(factory, store, lane=settings.lane)
         self.extraction = ExtractionRunner(
             factory, store, settings, self.owner, self._is_dead_owner, self.root_guard
         )
@@ -109,6 +111,9 @@ class JobWorker:
             self._verify_all(claim, lost)
         except repo.FenceLost:
             logger.warning("job %s attempt %s lost its fence", claim.job_id, claim.attempt_no)
+        except RootMismatch:
+            # leave the lease to lapse: a process with the right root recovers and re-runs it
+            logger.error("job %s left unfinished: storage_root_mismatch", claim.job_id)
         except Exception as exc:
             logger.error("job %s failed: %s", claim.job_id, type(exc).__name__)
             try:
@@ -136,11 +141,21 @@ class JobWorker:
                 continue
             self._pause(lost)
             result = self._store.verify(doc["storage_key"], doc["sha256"], doc["size_bytes"])
-            state = "stored" if result.outcome is VerifyOutcome.OK else "quarantined"
-            detail = None if state == "stored" else f"verification_{result.outcome.value}"
+            ok = result.outcome is VerifyOutcome.OK
+            if not ok and not self.root_guard.serves_database(force=True):
+                # never write a failure for bytes this process may simply be unable to see
+                raise RootMismatch(self.root_guard.status.reason or "storage root mismatch")
             processed += 1
             with session_scope(self._factory) as session:
-                repo.record_document(session, claim, doc["document_id"], state, detail)
+                repo.record_document(
+                    session,
+                    claim,
+                    doc["document_id"],
+                    "stored" if ok else "failed",
+                    None if ok else f"verification_{result.outcome.value}",
+                    None if ok else result.outcome.value,
+                    None if ok else self.root_guard.identity(),
+                )
                 repo.set_progress(session, claim, processed, total)
         with session_scope(self._factory) as session:
             if repo.cancel_requested(session, claim):
@@ -174,9 +189,19 @@ class JobWorker:
         if removed:
             logger.info("removed %d abandoned staging directories", len(removed))
 
+    def heal_once(self) -> HealResult:
+        """Bounded startup heal (see ``extraction.heal``); idempotent, skipped on a root mismatch."""
+        return heal_pass(self._factory, self._store, self.root_guard)
+
     def _loop(self) -> None:
         next_sweep = 0.0
+        healed = False
         while not self._stop.is_set():
+            if not healed:
+                try:
+                    healed = self.heal_once().ran
+                except Exception as exc:
+                    logger.error("storage heal error: %s", type(exc).__name__)
             if time.monotonic() >= next_sweep:
                 self._sweep_staging()
                 next_sweep = time.monotonic() + self._settings.staging_sweep_interval_s

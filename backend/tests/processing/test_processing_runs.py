@@ -437,7 +437,7 @@ def test_processing_confirm_refuses_document_removed_after_estimate(world: World
     run = world.estimate("scan.pdf", "other.pdf").json()
     gone = world.docs["scan.pdf"]
     world.sql(
-        "UPDATE document_processing SET storage_state = 'quarantined' WHERE document_id = :d",
+        "UPDATE document_processing SET storage_state = 'failed' WHERE document_id = :d",
         d=UUID(gone),
     )
     r = world.confirm(run)

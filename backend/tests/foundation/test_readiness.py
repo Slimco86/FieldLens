@@ -64,7 +64,12 @@ def test_ready_reports_unmigrated_then_ready(empty_database: URL) -> None:
     r = c.get("/ready")
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "ready"
-    assert {x["name"] for x in r.json()["checks"]} == {"database", "migrations", "pgvector"}
+    assert {x["name"] for x in r.json()["checks"]} == {
+        "database",
+        "migrations",
+        "pgvector",
+        "storage_root",
+    }
     assert all(x["ok"] for x in r.json()["checks"])
     assert r.headers["cache-control"] == "no-store"
 

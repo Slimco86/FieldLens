@@ -8,7 +8,7 @@ from ``[a-z0-9]`` words.
 Order of operations (the spec's scope-before-rank rule):
 
 1. Eligibility is a WHERE clause shared by every ranking path: project, requested source
-   revision membership, stored (not quarantined) document, current non-superseded extraction run
+   revision membership, stored document, current non-superseded extraction run
    with records, complete chunk index of the current chunker version, not invalidated.
 2. Exact identifiers resolve first. One canonical entity restricts every later ranking to chunks
    that mention it (no broadening to siblings); several canonicals behind one identifier return

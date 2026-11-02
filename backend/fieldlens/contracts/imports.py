@@ -36,9 +36,19 @@ class DocumentCategory(StrEnum):
 
 
 class StorageState(StrEnum):
+    """What the user sees: the stored copy is verified, being verified, or Failed."""
+
     PENDING_VERIFICATION = "pending_verification"
     STORED = "stored"
-    QUARANTINED = "quarantined"
+    FAILED = "failed"
+
+
+class StorageFailureReason(StrEnum):
+    """Why a copy is Failed (only ever set under the verified storage root)."""
+
+    MISSING = "missing"
+    SIZE_MISMATCH = "size_mismatch"
+    HASH_MISMATCH = "hash_mismatch"
 
 
 class ExtractionState(StrEnum):
@@ -178,6 +188,18 @@ class ImportAccepted(ContractModel):
     document_ids: list[UUID]
     """Document IDs in request file order (duplicates map to their existing document)."""
     created_document_ids: list[UUID]
+    repaired_document_ids: list[UUID] = Field(default_factory=list)
+    """Documents whose Failed/missing stored copy was restored from these uploaded bytes."""
+
+
+class StorageRetryResult(ContractModel):
+    """Outcome of Retry on a Failed document whose stored bytes verify again."""
+
+    document_id: UUID
+    outcome: Literal["restored", "already_stored"]
+    storage_state: StorageState
+    extraction_queued: bool
+    message: str
 
 
 class DocumentClassification(ContractModel):
@@ -205,6 +227,9 @@ class SourceDocumentItem(SourceDocument):
     """A project document as shown in the source list."""
 
     storage_state: StorageState
+    storage_failure_reason: StorageFailureReason | None = None
+    storage_message: str | None = None
+    """"Failed: stored copy missing or damaged." when ``storage_state`` is ``failed``."""
     extraction_state: ExtractionState
     processing_detail: str | None = None
     classification: DocumentClassification
@@ -225,12 +250,12 @@ class DocumentPage(ContractModel):
 
 
 class SourceRevisionSummary(SourceRevision):
-    """Revision plus honest storage/extraction counts; ``quarantined_count`` is surfaced."""
+    """Revision plus honest storage/extraction counts; ``failed_count`` is surfaced."""
 
     is_latest: bool
     member_count: int = Field(ge=0)
     stored_count: int = Field(ge=0)
-    quarantined_count: int = Field(ge=0)
+    failed_count: int = Field(ge=0)
     pending_extraction_count: int = Field(ge=0)
     unsupported_count: int = Field(ge=0)
     job_id: UUID | None = None
@@ -267,7 +292,7 @@ class JobResult(ContractModel):
     result_kind: Literal["storage_verification"]
     documents: int = Field(ge=0)
     stored: int = Field(ge=0)
-    quarantined: int = Field(ge=0)
+    failed: int = Field(ge=0)
     pending_extraction: int = Field(ge=0)
     unsupported: int = Field(ge=0)
     extraction_performed: Literal[False]
