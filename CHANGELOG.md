@@ -8,6 +8,17 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.30.0 - 2026-11-01
+
+- **TASK-053 (UI-15) Processing pipeline panel in the Sources tab:** a server-driven readiness checklist (wellbore
+  identified, validated trajectory, surface location as a warning only), per-wellbore data exposure with counts,
+  gaps, conflicts, first locators and truncation notices, and explicit document processing: estimate (pages capped at
+  500, tokens, USD, budget against the USD 5 total), a separate confirm, per-document progress, cancel and retry.
+  Interrupted, failed and cancelled runs never show as success; stub runs are labelled. Frontend only. Merge review
+  and OCR are not available yet. Known low: a cancelled run's per-document text repeats the word "cancelled".
+- **TASK-062 diagnosis (no code change):** all 2,474 real Volve PDFs report honestly on 0.26.0 (0 failed); the
+  reported "Failed (nothing is trusted)" was stale pre-0.26 state. Two reports over 128 MiB cannot be uploaded.
+
 ## 0.29.0 - 2026-11-01
 
 - **TASK-057 (PF-7) AI identity-merge proposals and review API:** deterministic candidate blocking over resolved

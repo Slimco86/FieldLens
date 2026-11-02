@@ -1590,21 +1590,21 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | specifying |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, backend, agent |
 | Depends on | TASK-034, TASK-048 |
-| Assignee | owner |
+| Assignee | agent:fieldlens-frontend |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/UI_DESIGN_SYSTEM.md |
-| Version | none |
+| Version | 0.30.0 |
 | Parent | FL-016 |
 | Slice | FL-016-F |
 
-**Outcome.** The user can see what the system already did after upload (automatic verification, parsing, indexing), what is ready, what is a gap, the minimum conditions to start, and can explicitly start reconstruction, with any model-spending step shown and confirmed separately. There is currently no UI for this and no start contract.
-**Next action.** Spec approved by the owner (PROCESSING_FLOW D1..D8); implement the panel after the TASK-054 and TASK-056 contracts merge.
-**Evidence.** none yet
+**Outcome.** The user can see what the system already did after upload (automatic verification, parsing, indexing), what is ready, what is a gap, the minimum conditions to start, and can explicitly start reconstruction, with any model-spending step shown and confirmed separately.
+**Next action.** Merged in 0.30.0. Follow-ups: merge-proposal review UI (not built; needs a task), surfacing `BLOCK_NOT_STATED` after TASK-061, label-driven classification and extraction (TASK-055). Owner browser checkpoint pending.
+**Evidence.** Merged in 0.30.0 after independent QA (first QA failed on a stale remaining-budget figure for confirmed runs; repaired in cfef5da and re-verified PASS in a real browser against a lane API with the stub provider). `frontend/src/features/pipeline/`, `tests/pipeline.test.tsx` (178 vitest total). Browser-verified: checklist and exposure vs API, estimate then separate confirm, double-click single POST, stale confirm 409, cancel and retry, over-budget block (409 `budget_exceeded`), stale project switch, error/empty states, axe 0 violations. Not browser-verified: failed and interrupted run states (stub cannot inject; vitest only), over-500-page range input (intake refuses 501 pages), truncation notices beyond the "counts remain exact" notice, request-id display, live provider. Known low: per-document text in a cancelled run still reads "cancelled cancelled before it started". Confirm is one call (there is no separate start endpoint).
 
 ### TASK-054 · Processing-run contract: estimate, confirm, start, state (PF-1..PF-3, PF-10)
 
@@ -1758,7 +1758,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, ingestion |
 | Depends on | none |
@@ -1766,13 +1766,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
 | Spec | specs/PROCESSING_FLOW.md |
-| Version | none |
+| Version | 0.30.0 |
 | Parent | FL-016 |
 | Slice | FL-016-J |
 
 **Outcome.** Owner report (2026-11-01 17:12): re-processing an uploaded PDF shows the extraction status "Failed (nothing is trusted)". Diagnose which real Volve PDFs fail and why, then make the status honest (no native parser means "processing available", not failed) and fix genuine bugs. No classification (TASK-055) and no OCR (TASK-060).
-**Next action.** Lane `task-062-pdf-reprocess-failures` started November 1; diagnosis table and fix, then independent QA.
-**Evidence.** none yet
+**Next action.** Closed as diagnosis only; no code change.
+**Evidence.** Diagnosis on 0.26.0: all 2,474 real Volve PDFs through the real upload and extraction path on a throwaway DB: 0 failed (2,369 unsupported with no native parser, 49 Compass survey reports succeeded/partial, 54 in-batch duplicates not stored, 2 over the 128 MiB upload limit: `Discovery_report.pdf` and its copy). The owner's report matches stale 0.24 state (inferred, 0.24 was not run). Latent risk, not reproduced: a PDF that matches the Compass survey detector but lacks a "TVD Reference" page would be stored as failed (`profile_mismatch`). If old failed rows persist, an explicit retry re-queues them.
 
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 
