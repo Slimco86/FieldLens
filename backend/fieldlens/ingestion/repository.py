@@ -30,6 +30,7 @@ from fieldlens.evidence.storage import blob_key
 from fieldlens.ingestion.inspect import CLASSIFICATION_METHOD, CLASSIFICATION_VERSION
 from fieldlens.ingestion.upload import ReceivedUpload
 from fieldlens.persistence import models as m
+from fieldlens.projects.errors import deleting_error
 from fieldlens.projects.repository import decode_cursor, encode_cursor
 
 
@@ -66,12 +67,14 @@ def manifest_hash(members: dict[UUID, str]) -> str:
 def lock_project(session: Session, project_id: UUID) -> UUID | None:
     """Serialize imports per project; returns the latest source revision id (None = no revision)."""
     row = session.execute(
-        select(m.project.c.latest_source_revision_id)
+        select(m.project.c.latest_source_revision_id, m.project.c.deletion_state)
         .where(m.project.c.project_id == project_id)
         .with_for_update()
     ).one_or_none()
     if row is None:
         raise not_found()
+    if row[1] != "none":  # TASK-071: no import enters a project that is being deleted
+        raise deleting_error()
     latest: UUID | None = row[0]
     return latest
 

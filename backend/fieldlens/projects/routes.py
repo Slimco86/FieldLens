@@ -11,7 +11,14 @@ from fieldlens import security
 from fieldlens.contracts.context import PageParams
 from fieldlens.contracts.errors import ErrorEnvelope
 from fieldlens.contracts.identity import Project
-from fieldlens.contracts.projects import ProjectCreate, ProjectPage, ProjectUpdate
+from fieldlens.contracts.projects import (
+    ProjectCreate,
+    ProjectDeleteRequest,
+    ProjectDeletionPreview,
+    ProjectDeletionStatus,
+    ProjectPage,
+    ProjectUpdate,
+)
 
 from .service import ProjectService
 
@@ -68,5 +75,23 @@ def build_projects_router() -> APIRouter:
     @router.patch("/{project_id}", response_model=Project, dependencies=[Depends(_guard_mutation)])
     def update_project(project_id: UUID, body: ProjectUpdate, service: Service) -> Project:
         return service.update(project_id, body)
+
+    @router.get("/{project_id}/deletion-preview", response_model=ProjectDeletionPreview)
+    def deletion_preview(project_id: UUID, service: Service) -> ProjectDeletionPreview:
+        return service.deletion_preview(project_id)
+
+    @router.delete(
+        "/{project_id}",
+        status_code=202,
+        response_model=ProjectDeletionStatus,
+        dependencies=[Depends(_guard_mutation)],
+        responses={409: {"model": ErrorEnvelope}},
+    )
+    def delete_project(
+        project_id: UUID, body: ProjectDeleteRequest, service: Service
+    ) -> ProjectDeletionStatus:
+        """Irreversible: needs ``confirm_name`` equal to the project name. 202 starts (or, for a
+        ``failed`` deletion, retries) the purge; poll ``GET /projects/{id}`` until 404."""
+        return service.request_deletion(project_id, body)
 
     return router

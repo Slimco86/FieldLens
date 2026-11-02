@@ -24,6 +24,9 @@ _COLUMNS = (
     project_table.c.updated_at,
     project_table.c.latest_source_revision_id,
     project_table.c.active_model_revision_id,
+    project_table.c.deletion_state,
+    project_table.c.deletion_requested_at,
+    project_table.c.deletion_error,
 )
 
 

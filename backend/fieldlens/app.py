@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse, JSONResponse
@@ -37,6 +38,8 @@ from fieldlens.persistence.session import create_db_engine, create_session_facto
 from fieldlens.processing.routes import build_processing_router
 from fieldlens.processing.runtime import build_runtime
 from fieldlens.projects import build_projects_router
+from fieldlens.projects import guard as deletion_guard
+from fieldlens.projects.purge import ProjectPurger
 from fieldlens.reconstruction.routes import build_reconstruction_router
 from fieldlens.reconstruction.runtime import build_runtime as build_reconstruction_runtime
 from fieldlens.retrieval.embedder import EmbedderProvider
@@ -225,7 +228,12 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         reconstruction = app.state.reconstruction
         if reconstruction is not None and settings.job_worker_enabled:
             reconstruction.runner.start()
+        purger = app.state.purger
+        if purger is not None and settings.job_worker_enabled:
+            purger.start()
         yield
+        if purger is not None:
+            purger.stop()
         if reconstruction is not None:
             reconstruction.runner.stop()
         if processing is not None:
@@ -280,12 +288,30 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         if app.state.session_factory is not None
         else None
     )
+    app.state.purger = (
+        ProjectPurger(app.state.session_factory, app.state.blob_store, settings)
+        if app.state.session_factory is not None
+        else None
+    )
     app.state.activity_log = (
         ActivityLog(app.state.session_factory) if app.state.session_factory is not None else None
     )
     app.state.series = (
         SeriesService(app.state.session_factory) if app.state.session_factory is not None else None
     )
+
+    @app.middleware("http")
+    async def deleting_projects_reject_mutations(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        project_id = deletion_guard.target_project(request.method, request.url.path)
+        factory = app.state.session_factory
+        if project_id is not None and factory is not None:
+            try:
+                await run_in_threadpool(deletion_guard.check, factory, project_id)
+            except ContractError as exc:
+                return error_response(request, exc.status_code, exc.code, exc.message, exc.details)
+        return await call_next(request)
 
     @app.middleware("http")
     async def boundary(request: Request, call_next: RequestResponseEndpoint) -> Response:
