@@ -63,6 +63,8 @@ PURGE_ORDER: tuple[str, ...] = (
     "retrieval_index",
     "extraction_run",
     "agent_work_unit",
+    "document_identity_proposal",
+    "document_model_result",
     "processing_run_document",
     "processing_run",
     "reconstruction_run_stage",
