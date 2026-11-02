@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import StrEnum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -28,7 +29,9 @@ class ProcessingRoute(StrEnum):
 
 class ProcessingProvider(StrEnum):
     STUB = "stub"
-    """Deterministic, offline, never spends. The only provider wired in this increment."""
+    """Deterministic, offline, never spends. The default; a stub run produces no data."""
+    META = "meta"
+    """Live Meta model step. Selected only by explicit configuration; spend goes to the ledger."""
 
 
 class ProcessingRunStatus(StrEnum):
@@ -60,6 +63,8 @@ class ProcessingFailureCode(StrEnum):
     PROVIDER_ERROR = "provider_error"
     PROVIDER_REFUSED = "provider_refused"
     PROVIDER_TRUNCATED = "provider_truncated"
+    PROVIDER_MALFORMED = "provider_malformed"
+    """Output was not the closed JSON schema (retryable; no partial rows are stored)."""
     BUDGET_STOP = "budget_stop"
     CONFIRMED_ESTIMATE_EXCEEDED = "confirmed_estimate_exceeded"
     DOCUMENT_UNAVAILABLE = "document_unavailable"
@@ -151,6 +156,11 @@ class ProcessingRunDocument(ContractModel):
     failure_code: ProcessingFailureCode | None = None
     failure_message: str | None = None
     retryable: bool = False
+    cache_hit: bool = Field(
+        default=False,
+        description="True when the stored model result for this document, page window and "
+        "prompt/schema version was reused: zero provider calls, zero spend.",
+    )
     finished_at: UtcDatetime | None = None
 
 
@@ -200,6 +210,76 @@ class DocumentProcessingStatus(StrEnum):
     INTERRUPTED = "interrupted"
 
 
+class IdentitySubjectKind(StrEnum):
+    WELL = "well"
+    WELLBORE = "wellbore"
+
+
+class IdentityResolution(StrEnum):
+    LINKED = "linked"
+    """The normalized name equals an existing wellbore key exactly."""
+    UNRESOLVED = "unresolved"
+    """No exact key match (a near miss stays here); left for merge review."""
+
+
+class ModelReadWarningCode(StrEnum):
+    NO_WELLBORE_IDENTITY = "no_wellbore_identity"
+    """Non-blocking: 'no wellbore identity found'; the document keeps its category and tags."""
+    IDENTITY_QUOTE_NOT_FOUND = "identity_quote_not_found"
+    """A proposed identity was dropped: its quote was not in the page text the model read."""
+    IDENTITY_INVALID = "identity_invalid"
+    """A proposed identity was dropped: unknown kind, page not read, or name not in the quote."""
+    NO_TEXT_LAYER = "no_text_layer"
+    """The pages read had no text layer; nothing was sent to the model (OCR is not available)."""
+
+
+class ModelReadWarning(ContractModel):
+    code: ModelReadWarningCode
+    message: str
+    count: int = Field(default=1, ge=1)
+
+
+class DocumentIdentityProposal(ContractModel):
+    """One wellbore/well identity the model read. A proposal, never an accepted fact."""
+
+    proposal_id: UUID
+    subject_kind: IdentitySubjectKind
+    name_as_written: str
+    normalized_key: str | None = Field(
+        default=None, description="Canonical bore key when the name parses; null otherwise."
+    )
+    page: int = Field(ge=1, description="1-based page of the document the quote is on.")
+    quote: str = Field(description="Verbatim text from that page (checked server-side).")
+    status: Literal["model_proposal"] = "model_proposal"
+    label: str = "Model-read, unverified"
+    resolution: IdentityResolution
+    wellbore_id: UUID | None = None
+    wellbore_key: str | None = None
+
+
+class DocumentModelRead(ContractModel):
+    """What the model step recorded for one document (suggestion, never the user's label)."""
+
+    document_id: UUID
+    run_id: UUID = Field(description="Run that produced this result (a cache hit reuses it).")
+    category: DocumentCategory = Field(
+        description="Suggested category; 'general_report' with unclassified=true on fallback."
+    )
+    unclassified: bool
+    tags: list[str]
+    identities: list[DocumentIdentityProposal]
+    warnings: list[ModelReadWarning]
+    pages: ProcessingPageRange = Field(description="Page window the model was given.")
+    pages_read: int = Field(ge=0)
+    provider: ProcessingProvider
+    model_revision: str
+    prompt_version: str
+    schema_version: str
+    extraction_method: Literal["model_classification"] = "model_classification"
+    label: str = "Model-read, unverified"
+    created_at: UtcDatetime
+
+
 class DocumentProcessingState(ContractModel):
     """Honest per-document view: what the native pipeline did and what processing can do now."""
 
@@ -225,6 +305,11 @@ class DocumentProcessingState(ContractModel):
     processing_status: DocumentProcessingStatus
     last_run_id: UUID | None = None
     retryable: bool = False
+    model_read: DocumentModelRead | None = Field(
+        default=None,
+        description="Latest model-read result for this document; null until a model run stored "
+        "one. A user label always wins over model_read.category.",
+    )
 
 
 class DocumentProcessingStateList(ContractModel):

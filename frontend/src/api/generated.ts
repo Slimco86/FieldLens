@@ -1441,6 +1441,58 @@ export interface components {
             vector_notes?: string[];
         };
         /**
+         * DocumentIdentityProposal
+         * @description One wellbore/well identity the model read. A proposal, never an accepted fact.
+         */
+        DocumentIdentityProposal: {
+            /**
+             * Label
+             * @default Model-read, unverified
+             */
+            label: string;
+            /** Name As Written */
+            name_as_written: string;
+            /**
+             * Normalized Key
+             * @description Canonical bore key when the name parses; null otherwise.
+             * @default null
+             */
+            normalized_key: string | null;
+            /**
+             * Page
+             * @description 1-based page of the document the quote is on.
+             */
+            page: number;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+            /**
+             * Quote
+             * @description Verbatim text from that page (checked server-side).
+             */
+            quote: string;
+            resolution: components["schemas"]["IdentityResolution"];
+            /**
+             * Status
+             * @default model_proposal
+             * @constant
+             */
+            status: "model_proposal";
+            subject_kind: components["schemas"]["IdentitySubjectKind"];
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
+            /**
+             * Wellbore Key
+             * @default null
+             */
+            wellbore_key: string | null;
+        };
+        /**
          * DocumentListParams
          * @description Document list query: defaults to the project's latest source revision.
          */
@@ -1460,6 +1512,60 @@ export interface components {
              * @default null
              */
             source_revision_id: string | null;
+        };
+        /**
+         * DocumentModelRead
+         * @description What the model step recorded for one document (suggestion, never the user's label).
+         */
+        DocumentModelRead: {
+            /** @description Suggested category; 'general_report' with unclassified=true on fallback. */
+            category: components["schemas"]["DocumentCategory"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Extraction Method
+             * @default model_classification
+             * @constant
+             */
+            extraction_method: "model_classification";
+            /** Identities */
+            identities: components["schemas"]["DocumentIdentityProposal"][];
+            /**
+             * Label
+             * @default Model-read, unverified
+             */
+            label: string;
+            /** Model Revision */
+            model_revision: string;
+            /** @description Page window the model was given. */
+            pages: components["schemas"]["ProcessingPageRange"];
+            /** Pages Read */
+            pages_read: number;
+            /** Prompt Version */
+            prompt_version: string;
+            provider: components["schemas"]["ProcessingProvider"];
+            /**
+             * Run Id
+             * Format: uuid
+             * @description Run that produced this result (a cache hit reuses it).
+             */
+            run_id: string;
+            /** Schema Version */
+            schema_version: string;
+            /** Tags */
+            tags: string[];
+            /** Unclassified */
+            unclassified: boolean;
+            /** Warnings */
+            warnings: components["schemas"]["ModelReadWarning"][];
         };
         /** DocumentPage */
         DocumentPage: {
@@ -1482,6 +1588,11 @@ export interface components {
              * @default null
              */
             last_run_id: string | null;
+            /**
+             * @description Latest model-read result for this document; null until a model run stored one. A user label always wins over model_read.category.
+             * @default null
+             */
+            model_read: components["schemas"]["DocumentModelRead"] | null;
             native_state: components["schemas"]["ExtractionState"];
             /**
              * No Native Parser
@@ -2604,6 +2715,11 @@ export interface components {
             /** Wells */
             wells: components["schemas"]["ResolvedWell"][];
         };
+        /**
+         * IdentityResolution
+         * @enum {string}
+         */
+        IdentityResolution: "linked" | "unresolved";
         /** IdentityResolveOutcome */
         IdentityResolveOutcome: {
             /**
@@ -2625,6 +2741,11 @@ export interface components {
             /** Wells */
             wells: number;
         };
+        /**
+         * IdentitySubjectKind
+         * @enum {string}
+         */
+        IdentitySubjectKind: "well" | "wellbore";
         /**
          * ImportAccepted
          * @description HTTP 202 for a new import; 200 when the request was a replay or all-duplicate no-op.
@@ -3315,6 +3436,22 @@ export interface components {
              */
             confirm: boolean;
         };
+        /** ModelReadWarning */
+        ModelReadWarning: {
+            code: components["schemas"]["ModelReadWarningCode"];
+            /**
+             * Count
+             * @default 1
+             */
+            count: number;
+            /** Message */
+            message: string;
+        };
+        /**
+         * ModelReadWarningCode
+         * @enum {string}
+         */
+        ModelReadWarningCode: "no_wellbore_identity" | "identity_quote_not_found" | "identity_invalid" | "no_text_layer";
         /** ModelRevision */
         ModelRevision: {
             /**
@@ -3539,7 +3676,7 @@ export interface components {
          * ProcessingFailureCode
          * @enum {string}
          */
-        ProcessingFailureCode: "provider_error" | "provider_refused" | "provider_truncated" | "budget_stop" | "confirmed_estimate_exceeded" | "document_unavailable" | "page_count_changed" | "interrupted" | "cancelled";
+        ProcessingFailureCode: "provider_error" | "provider_refused" | "provider_truncated" | "provider_malformed" | "budget_stop" | "confirmed_estimate_exceeded" | "document_unavailable" | "page_count_changed" | "interrupted" | "cancelled";
         /**
          * ProcessingPageRange
          * @description 1-based inclusive page range; both ends are required together.
@@ -3554,7 +3691,7 @@ export interface components {
          * ProcessingProvider
          * @enum {string}
          */
-        ProcessingProvider: "stub";
+        ProcessingProvider: "stub" | "meta";
         /**
          * ProcessingRoute
          * @description OCR is deferred (PROCESSING_FLOW D8); every run uses the model route.
@@ -3633,6 +3770,12 @@ export interface components {
         ProcessingRunDocument: {
             /** Actual Usd */
             actual_usd: string;
+            /**
+             * Cache Hit
+             * @description True when the stored model result for this document, page window and prompt/schema version was reused: zero provider calls, zero spend.
+             * @default false
+             */
+            cache_hit: boolean;
             /**
              * Document Id
              * Format: uuid
