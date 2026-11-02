@@ -8,6 +8,20 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.32.0 - 2026-11-02
+
+- **TASK-063 (UI-16) Slim Sources tab and Reconstruction tab:** the Sources tab returns to the project header with
+  edit, the tabs, upload, source revision and revision files (with per-file Re-run extraction); the Overview and
+  pipeline panel are removed from it. The Reconstruction tab lists identified wells and wellbores, ready ones first with
+  a colour and "Ready" badge, a "Block not stated" badge for block-less labels, a Sources column (files per wellbore
+  with record count and first human locator, linking to the file row) instead of Present, no Validation column, and
+  gaps, conflicts and findings in an expandable row. Each ready wellbore has Process, plus "Process all ready
+  wellbores": an estimate first (an identical open estimate is reused), then a separate explicit Confirm; the stub
+  provider, no OCR, not reconstruction, and no merge review yet. Wellbores whose data comes only from native parsers
+  show why nothing can be processed. Frontend only; no migration or contract change. Known gaps: documents without a
+  native profile are not linked to a wellbore until model extraction (TASK-055); the Sources link does not focus a
+  file behind "Load more files".
+
 ## 0.31.1 - 2026-11-02
 
 - **TASK-064 re-run extraction on an unreadable original:** a file whose stored original cannot be found (for example

@@ -1779,7 +1779,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend |
 | Depends on | TASK-053, TASK-056, TASK-061 |
@@ -1787,13 +1787,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/RECONSTRUCTION_TAB.md |
-| Version | none |
+| Version | 0.32.0 |
 | Parent | FL-016 |
 | Slice | FL-016-K |
 
 **Outcome.** Owner feedback (2026-11-01 22:29): the Overview and pipeline panel bloat the Sources tab. Sources returns to header, tabs, upload, source revision and revision files (with per-file re-run). A Reconstruction tab lists identified wells and wellbores, ready ones first and highlighted, with a Sources column (files per wellbore) instead of Present/Validation, a per-wellbore Process action and a Process-all-ready action over the existing estimate and separate confirm flow.
-**Next action.** Lane `task-063-reconstruction-tab` (agent:fieldlens-frontend); independent QA with a browser pass on seeded Volve data; owner checkpoint.
-**Evidence.** none yet
+**Next action.** Owner checkpoint in the browser (confirm what Process should do). Follow-ups: merge-proposal review UI; files list refresh after a 409 re-run; Process cannot cover no-profile documents until TASK-055 links records to a wellbore.
+**Evidence.** Implementation `84a79b6` + repairs `c8fefc4`, `ac43e82`, merged. Independent QA (agent `58273c59`): first pass PASS with 4 Low defects (repaired); second pass FAIL (Process never enabled with real data, regression of the repair; fixed); third pass PASS in a real browser against the real API (stub provider): Sources slim, ready-first list with Ready badge, F-12 Block not stated, one estimate POST, separate confirm (keyboard), estimate reuse, native-only rows disabled with reason, axe 0 violations, cancel/retry. 189 vitest tests, lint, typecheck, build, check:contracts pass. Not verified: failed/interrupted run states, the different-document-set estimate in a browser (vitest only), live provider.
 
 ### TASK-064 · "Extraction failed (source_missing): stored original is not readable" on re-run extraction
 
@@ -1815,6 +1815,27 @@ the slice letter and `Slice` keeps the plan's original string.
 **Outcome.** Owner report (2026-11-01 22:29, running 0.30/0.31 on his own DB): `COMPLETION_REPORT_2.PDF` re-run extraction still fails with `source_missing: stored original is not readable` although storage shows hash-verified. TASK-062 only covered fresh uploads, so this is a different failure: the stored original is not found at extraction time (likely the storage root or paths resolved differently between the process that stored the file and the one extracting, e.g. another checkout/worktree or a changed `.local` root, or a stale path in the DB). Diagnose and fix so re-run works, or so the failure is honest and recoverable (e.g. re-upload prompt), without touching the owner's data.
 **Next action.** Owner: start the app from the checkout whose `.local/fieldlens/storage` holds the file (or re-upload it) and press Re-run extraction. Low follow-ups: refresh the files list after a 409 (frontend), plain POST without `retry` skips verification.
 **Evidence.** Root cause (code-supported, not reproduced across two real checkouts): the storage root is per checkout (`Settings.storage_root` = `REPO_ROOT/.local/fieldlens/storage`) while the DB is shared, and nothing re-verified storage after upload. Fix `09940b8` (merged); QA `5090da60` PASS: throwaway-root repro (409 with request id, no path leak, recovery restores stored, tampered bytes never succeed), 1304 backend tests passed/8 skipped, ruff, mypy strict, ledger ok.
+
+### TASK-065 · Merge-proposal review UI (accept, reject, revert) in the Reconstruction tab
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-057, TASK-063 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/MERGE_PROPOSALS.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-M |
+
+**Outcome.** The merge-proposal API (0.29.0) has no UI. Reconstruction tab shows pending proposals per wellbore (e.g. `F-12` with `15/9-F-12`) with the evidence quote, guards and warnings; accept, reject and revert are explicit user actions; several pending proposals for one block-less wellbore are presented as mutually exclusive; accepted merges update the list and sources. Also: refresh the files list after a 409 on re-run extraction (TASK-064 follow-up).
+**Next action.** Spec amendment for the review UI, owner approval, then a lane.
+**Evidence.** none yet
 
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 
