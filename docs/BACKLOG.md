@@ -1329,7 +1329,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Parent | FL-005 |
 | Slice | FL-005-C |
 
-**Outcome.** Backend owner implements the owner-approved removal: an API that, after confirmation semantics, physically deletes a document's stored bytes and derived content (keeping shared blobs), cancels its running job, and records a tombstone source revision; derived claims become inactive and non-citable; a published model stays pinned and labeled; re-upload creates a fresh document. Replacement uses the existing new-revision path (IN-5). The same slice adds project deletion (PW-9, owner request October 31): a typed-name-confirmed API that cancels jobs, deletes unshared blobs and every project-scoped row in one transaction through a designed delete path (the immutable-revision guards stay enabled otherwise). IN-9 and PW-9 offline tests on real PostgreSQL and storage; the UI controls are TASK-049.
+**Outcome.** Backend owner implements the owner-approved removal: an API that, after confirmation semantics, physically deletes a document's stored bytes and derived content (keeping shared blobs), cancels its running job, and records a tombstone source revision; derived claims become inactive and non-citable; a published model stays pinned and labeled; re-upload creates a fresh document. Replacement uses the existing new-revision path (IN-5). Project deletion (PW-9) moved to TASK-071 on 2026-11-02 and is no longer part of this task. (Original text: the same slice adds project deletion (PW-9, owner request October 31): a typed-name-confirmed API that cancels jobs, deletes unshared blobs and every project-scoped row in one transaction through a designed delete path (the immutable-revision guards stay enabled otherwise). IN-9 and PW-9 offline tests on real PostgreSQL and storage; the UI controls are TASK-049.)
 **Next action.** Ready; dispatch into the first lane that frees up (TASK-034 or TASK-036 finishing), before TASK-049. Fresh preflight in its own worktree; independent QA follows.
 **Evidence.** none yet
 
@@ -1635,7 +1635,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Status | proposed |
 | Priority | P0 |
 | Tags | agent, ingestion |
-| Depends on | TASK-054, TASK-041 |
+| Depends on | TASK-054, TASK-070 |
 | Assignee | agent:fieldlens-rag |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
@@ -1645,7 +1645,8 @@ the slice letter and `Slice` keeps the plan's original string.
 | Slice | FL-022-E |
 
 **Outcome.** Documents without identity or label are classified (model route only; OCR deferred to TASK-060); the label is proposed with evidence, user labels win, and extraction runs through the label's agent step on the existing harness.
-**Next action.** After TASK-054 merges: classification schema, stub-provider tests, then one minimal live check inside the USD 5 total (PROCESSING_FLOW D7).
+**Owner amendment 2026-11-02 (loose first slice, TASK-041 waived):** a non-native PDF is sent through the manually triggered, confirmed processing run; the model assigns a category or at least a tag description (classification failure falls back to category `others`) and must find a wellbore identity (the minimum). No identity yields a non-blocking warning, not a blocking error. Results are proposals with page/quote evidence, never accepted facts. Spec `specs/DOCUMENT_IDENTIFICATION.md` (to be written before dispatch).
+**Next action.** Write the spec, then dispatch after TASK-070 merges (needs reliable storage): classification/identity schema, stub-provider tests, then one bounded live check inside the USD 5 total (PROCESSING_FLOW D7).
 **Evidence.** none yet
 
 ### TASK-056 · Per-wellbore, per-category data exposure API and readiness gate (PF-6, PF-8)
@@ -1921,26 +1922,27 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Merge-proposal review UI is TASK-065; live agent stages TASK-055.
 **Evidence.** Per-wellbore and bulk Reconstruct with estimate/confirm, run state and draft detail; QA-069 PASS in a real browser (axe clean on the three tabs), 3 Low defects repaired in `aa68ac7`, 195 vitest. Release 0.33.0.
 
-### TASK-070 · Storage-root identity marker for all blob-reading workers
+### TASK-070 · Storage integrity: root identity marker, recoverable failed files, no "quarantine"
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
-| Priority | P1 |
+| Status | ready |
+| Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-066 |
 | Assignee | agent:fieldlens-backend |
-| Due | 2026-11-04 |
+| Due | 2026-11-03 |
 | Sprint | Hackathon |
-| Spec | specs/RECONSTRUCTION_RUN.md |
+| Spec | specs/STORAGE_INTEGRITY.md |
 | Version | none |
 | Parent | FL-016 |
 | Slice | FL-016-R |
 
 **Outcome.** Replace the 8-most-recent heuristic of the TASK-066 guard with a persisted root-identity marker (DB row and `<root>/.fieldlens-root-id`) that every blob-reading worker compares before claiming work. Closes the QA-066 gaps: no protection before the first stored original, stall after an intentional wipe, global rather than project-scoped sample.
-**Next action.** Needs a short spec amendment; schedule after TASK-069.
-**Evidence.** QA-066 report (PASS with Medium findings), 2026-11-02.
+Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was a stale pre-guard worktree server. Scope is widened (spec approved 2026-11-02): files are only Stored or Failed, "quarantined" disappears from API/UI, Retry and Re-upload repair a failed file, startup heal pass, failure attribution (process identity, `application_name`) and a `./dev` warning for other processes on the same DB. Migration `0014`, proposed 0.34.0.
+**Next action.** Lane `task-070-storage-integrity` (backend, then UI), independent QA, merge first.
+**Evidence.** QA-066 report (PASS with Medium findings), 2026-11-02; incident analysis 2026-11-02.
 
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 
@@ -2692,3 +2694,24 @@ Next action / cleanup status:
 Keep cancelled or superseded items with rationale. Newly discovered scope is a
 new item or an owner-approved spec revision, not a hidden addition to another
 agent's work. Record verified test evidence in the feature spec; link it here.
+
+### TASK-071 · Project deletion with all records and documents (PW-9)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | ready |
+| Priority | P1 |
+| Tags | backend, frontend |
+| Depends on | none |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/PROJECT_DELETION.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-D |
+
+**Outcome.** Typed-name-confirmed `DELETE /api/v1/projects/{id}`: cancels in-flight work, deletes the project's stored files and every project-scoped row through a crash-resumable purge (immutability guards stay enabled, allowed only for the purged project), keeps the spend ledger, and a sidebar dialog with counts, progress and retry. Completeness test over every table with `project_id`. Migration `0015`.
+**Next action.** Lane `task-071-project-delete` (backend, then UI), independent QA, merge second after rebase on TASK-070.
+**Evidence.** none yet
