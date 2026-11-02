@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Title } from "@mantine/core";
 import { ArrowLeft, Boxes, CircleCheck, Compass, Minus, Pencil } from "lucide-react";
-import { Chip, EmptyState, ErrorState, KeyValue, KeyValueList, LoadingState, type ChipSpec } from "../../design";
+import { Callout, Chip, EmptyState, ErrorState, KeyValue, KeyValueList, LoadingState, type ChipSpec } from "../../design";
 import { ExploreWorkspace } from "../../app/shell/ExploreWorkspace";
 import { ProjectTabs, SECTION_LABEL } from "../../app/shell/ProjectTabs";
 import { SourcesPanel } from "../uploads/SourcesPanel";
 import { getProject, updateProject } from "./api";
-import { bumpProjectList } from "./listVersion";
+import { bumpProjectList, useProjectListVersion } from "./listVersion";
 import { ReconstructionPanel } from "../pipeline/ReconstructionPanel";
 import { ProjectForm } from "./ProjectForm";
 import { keyString, projectKeys, saveSelectedProjectId, type Project, type Section } from "./keys";
@@ -88,6 +88,15 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
     );
   }, [projectId, replace]);
 
+  // The sidebar's delete dialog bumps the list version when a deletion starts/fails: re-read the state.
+  const listVersion = useProjectListVersion();
+  const seenVersion = useRef(listVersion);
+  useEffect(() => {
+    if (seenVersion.current === listVersion) return;
+    seenVersion.current = listVersion;
+    refreshProject();
+  }, [listVersion, refreshProject]);
+
   const missing = state.kind === "error" && state.error.status === 404;
   useEffect(() => {
     if (state.kind === "ready") saveSelectedProjectId(projectId);
@@ -164,6 +173,7 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
                 />
               </div>
             </div>
+            {(state.data.deletion_state ?? "none") === "none" && (
             <Button
               variant="default"
               size="xs"
@@ -173,7 +183,17 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
             >
               Edit project details
             </Button>
+            )}
           </div>
+          {(state.data.deletion_state ?? "none") !== "none" && (
+            <Callout tone={state.data.deletion_state === "failed" ? "danger" : "warning"} role="status" title={state.data.deletion_state === "failed" ? "Deletion failed" : "Deleting…"}>
+              <p>
+                {state.data.deletion_state === "failed"
+                  ? `${state.data.deletion_error ?? "The deletion failed."} Use “Retry deleting project” in the sidebar to resume.`
+                  : "This project is being deleted. Uploads, runs and edits are disabled."}
+              </p>
+            </Callout>
+          )}
           <div className={styles.card}>
             <KeyValueList>
               <KeyValue term="Description">
@@ -189,7 +209,7 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
               </KeyValue>
             </KeyValueList>
           </div>
-          {editing && (
+          {editing && (state.data.deletion_state ?? "none") === "none" && (
             <div className={styles.card}>
               <ProjectForm
                 key={state.data.project_id}
@@ -209,7 +229,12 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
             <Title order={4} id="section-title" className={styles.panelTitle}>
               {SECTION_LABEL[section]}
             </Title>
-            {section === "sources" && (
+            {(state.data.deletion_state ?? "none") !== "none" && (
+              <EmptyState title="Unavailable while the project is being deleted">
+                <p>Uploads, reconstruction runs and edits are disabled for this project.</p>
+              </EmptyState>
+            )}
+            {(state.data.deletion_state ?? "none") === "none" && section === "sources" && (
               <>
                 <SourcesPanel
                   projectId={projectId}
@@ -219,7 +244,7 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
                 />
               </>
             )}
-            {section === "reconstruction" &&
+            {(state.data.deletion_state ?? "none") === "none" && section === "reconstruction" &&
               (state.data.latest_source_revision_id === null ? (
                 <Unavailable section="reconstruction" project={state.data} />
               ) : (
@@ -229,7 +254,7 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
                   onOpenSource={openSource}
                 />
               ))}
-            {section === "explore" && (
+            {(state.data.deletion_state ?? "none") === "none" && section === "explore" && (
               <ExploreWorkspace stage={<Unavailable section="explore" project={state.data} />} />
             )}
           </section>
