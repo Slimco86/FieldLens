@@ -21,6 +21,7 @@ from sqlalchemy import delete, func, insert, select, text, tuple_, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.config import Settings
+from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.persistence import models as m
 from fieldlens.persistence.session import session_scope
@@ -286,9 +287,11 @@ class ExtractionRunner:
         settings: Settings,
         owner: str,
         is_dead_owner: Any,
+        root_guard: StorageRootGuard | None = None,
     ) -> None:
         self._factory = factory
         self._store = store
+        self._root_guard = root_guard
         self._settings = settings
         self.owner = owner
         self._is_dead_owner = is_dead_owner
@@ -332,6 +335,8 @@ class ExtractionRunner:
 
     def run_once(self) -> bool:
         self.recover_once()
+        if self._root_guard is not None and not self._root_guard.serves_database():
+            return False  # wrong storage root: never record healthy originals as missing
         with session_scope(self._factory) as session:
             enqueue_missing(session)
         claim = self._claim()
