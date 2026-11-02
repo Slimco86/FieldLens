@@ -1639,14 +1639,14 @@ the slice letter and `Slice` keeps the plan's original string.
 | Assignee | agent:fieldlens-rag |
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
-| Spec | specs/PROCESSING_FLOW.md |
+| Spec | specs/DOCUMENT_IDENTIFICATION.md |
 | Version | none |
 | Parent | FL-022 |
 | Slice | FL-022-E |
 
 **Outcome.** Documents without identity or label are classified (model route only; OCR deferred to TASK-060); the label is proposed with evidence, user labels win, and extraction runs through the label's agent step on the existing harness.
-**Owner amendment 2026-11-02 (loose first slice, TASK-041 waived):** a non-native PDF is sent through the manually triggered, confirmed processing run; the model assigns a category or at least a tag description (classification failure falls back to category `others`) and must find a wellbore identity (the minimum). No identity yields a non-blocking warning, not a blocking error. Results are proposals with page/quote evidence, never accepted facts. Spec `specs/DOCUMENT_IDENTIFICATION.md` (to be written before dispatch).
-**Next action.** Write the spec, then dispatch after TASK-070 merges (needs reliable storage): classification/identity schema, stub-provider tests, then one bounded live check inside the USD 5 total (PROCESSING_FLOW D7).
+**Owner amendment 2026-11-02 (loose first slice, TASK-041 waived):** a non-native PDF is sent through the manually triggered, confirmed processing run; the model assigns a category or at least a tag description (classification failure falls back to category `others`) and must find a wellbore identity (the minimum). No identity yields a non-blocking warning, not a blocking error. Results are proposals with page/quote evidence, never accepted facts. Spec `specs/DOCUMENT_IDENTIFICATION.md` (written 2026-11-02, approved).
+**Next action.** Dispatch after TASK-070 merges (needs reliable storage): classification/identity schema, stub-provider tests, then one bounded live check inside the USD 5 total (PROCESSING_FLOW D7).
 **Evidence.** none yet
 
 ### TASK-056 · Per-wellbore, per-category data exposure API and readiness gate (PF-6, PF-8)
