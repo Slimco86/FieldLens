@@ -153,7 +153,6 @@ export function DeleteProjectDialog({ project, onClose, onStateChange, onDeleted
   }
 
   const title = `Delete project “${name}”`;
-  const busy = phase.kind === "deleting";
   return (
     <Modal.Root
       opened
@@ -162,8 +161,8 @@ export function DeleteProjectDialog({ project, onClose, onStateChange, onDeleted
       transitionProps={{ duration: 0 }}
       trapFocus
       returnFocus
-      closeOnEscape={!busy}
-      closeOnClickOutside={false}
+      closeOnEscape
+      closeOnClickOutside
       aria-labelledby="delete-project-title"
       aria-describedby="delete-project-warning"
     >
@@ -171,7 +170,7 @@ export function DeleteProjectDialog({ project, onClose, onStateChange, onDeleted
       <Modal.Content>
         <div className={styles.head}>
           <Modal.Title id="delete-project-title">{title}</Modal.Title>
-          {!busy && <Modal.CloseButton aria-label="Close delete dialog" />}
+          <Modal.CloseButton aria-label="Close delete dialog" />
         </div>
         <Modal.Body>
           <div className={styles.stack}>
@@ -248,8 +247,17 @@ export function DeleteProjectDialog({ project, onClose, onStateChange, onDeleted
 
             {phase.kind === "deleting" && (
               <div role="status" aria-live="polite" className={styles.progress}>
-                <LoadingState label="Deleting… cancelling work and removing files. You can keep working in other projects." />
+                <LoadingState label="Deleting… cancelling work and removing files. This can take a while." />
+                <p>
+                  Closing this dialog does not stop the deletion. It keeps running; the project shows “Deleting…” in the
+                  sidebar, where “Deletion status” reopens this view.
+                </p>
                 {pollNote !== null && <p>{pollNote}</p>}
+                <div className={styles.actions}>
+                  <Button type="button" variant="default" onClick={onClose}>
+                    Continue in background
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -257,7 +265,7 @@ export function DeleteProjectDialog({ project, onClose, onStateChange, onDeleted
               <>
                 <Callout tone="danger" role="alert" title="Deletion failed">
                   <p>{phase.error}</p>
-                  <p>Nothing further was changed. Retry to resume the deletion.</p>
+                  <p>The deletion did not finish. Retry to continue; already-removed files stay removed.</p>
                 </Callout>
                 {formError !== null && (
                   <Callout tone="danger" role="alert">

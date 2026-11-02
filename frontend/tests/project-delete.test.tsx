@@ -141,8 +141,7 @@ describe("project deletion dialog", () => {
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/Type the project name/), "Alpha");
     await user.click(within(dialog).getByRole("button", { name: "Delete project" }));
-    expect(await within(dialog).findByText(/Deleting…/)).toBeInTheDocument();
-    expect(within(dialog).getByRole("status")).toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByRole("status")).toHaveTextContent(/Deleting…/));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(), { timeout: 6000 });
     await waitFor(() => expect(screen.queryByRole("button", { name: "Open project Alpha" })).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Open project Beta" })).toBeInTheDocument();
@@ -188,4 +187,59 @@ describe("project deletion dialog", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("status")).toHaveTextContent(/Deleting…/);
   });
+
+  it("can be dismissed while deleting: Escape/Continue close it, focus returns, and the badge reopens it", async () => {
+    let started = false;
+    install((url, init) => {
+      if (url.startsWith("/api/v1/projects?")) return page(project(A, "Alpha", started ? { deletion_state: "deleting" } : {}));
+      if (url === `/api/v1/projects/${A}/deletion-preview`) return json(preview);
+      if (init?.method === "DELETE") {
+        started = true;
+        return json({ project_id: A, deletion_state: "deleting", deletion_requested_at: "2026-11-02T12:00:00Z", deletion_error: null }, 202);
+      }
+      if (url === `/api/v1/projects/${A}`) return json(project(A, "Alpha", { deletion_state: "deleting" }));
+    });
+    const user = userEvent.setup();
+    const dialog = await openDialog(user);
+    const trigger = screen.getByRole("button", { name: "Delete project Alpha" });
+    await user.type(within(dialog).getByLabelText(/Type the project name/), "Alpha");
+    await user.click(within(dialog).getByRole("button", { name: "Delete project" }));
+    expect(await within(dialog).findByText(/does not stop the deletion/i)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/keep working in other projects/i)).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+    await user.click(screen.getByRole("button", { name: "Deletion status of project Alpha" }));
+    const again = await screen.findByRole("dialog");
+    await user.click(within(again).getByRole("button", { name: "Continue in background" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByText("Deleting…")).toBeInTheDocument();
+  });
+
+  it("uses accurate failure wording", async () => {
+    install((url) => {
+      if (url.startsWith("/api/v1/projects?")) return page(project(A, "Alpha", { deletion_state: "deleting" }));
+      if (url === `/api/v1/projects/${A}`) return json(project(A, "Alpha", { deletion_state: "failed", deletion_error: "late failure" }));
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Deletion status of project Alpha" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/already-removed files stay removed/i, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(within(dialog).queryByText(/nothing further was changed/i)).not.toBeInTheDocument();
+  }, 10000);
+
+  it("cleans up selection when a background deletion finishes with the dialog closed", async () => {
+    window.localStorage.setItem("fieldlens.selectedProjectId", A);
+    window.location.hash = "#/";
+    let gone = false;
+    install((url) => {
+      if (url.startsWith("/api/v1/projects?")) return page(...(gone ? [] : [project(A, "Alpha", { deletion_state: "deleting" })]));
+    });
+    render(<App />);
+    expect(await screen.findByText("Deleting…")).toBeInTheDocument();
+    gone = true;
+    await waitFor(() => expect(screen.queryByText("Deleting…")).not.toBeInTheDocument(), { timeout: 6000 });
+    expect(window.localStorage.getItem("fieldlens.selectedProjectId")).toBeNull();
+  }, 10000);
 });

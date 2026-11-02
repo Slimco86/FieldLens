@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActionIcon, Button, NavLink, Tooltip } from "@mantine/core";
 import { FolderKanban, Plus, Trash2, X } from "lucide-react";
 import { Callout, Chip, EmptyState, ErrorState, LoadingState } from "../../design";
@@ -24,6 +24,9 @@ export function ProjectSidebar() {
     String(version),
   );
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const trigger = useRef<HTMLElement | null>(null);
+  const labelRef = useRef<HTMLParagraphElement | null>(null);
+  const deletingSeen = useRef<Set<string>>(new Set());
   const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
   const [more, setMore] = useState<{ forKey: string; items: Project[]; next: string | null } | null>(null);
   const [moreError, setMoreError] = useState<Failure | null>(null);
@@ -38,17 +41,47 @@ export function ProjectSidebar() {
   const next = extra ? extra.next : (first?.page.next_cursor ?? null);
   const empty = first !== null && items.length === 0;
 
-  function onDeleted(projectId: string) {
-    clearSelectedProjectIdIf(projectId);
-    setRemoved((prev) => new Set(prev).add(projectId));
+  // Return focus to the invoking button; if it is gone (deleted project), to the list label.
+  function restoreFocus() {
+    window.requestAnimationFrame(() => {
+      const el = trigger.current;
+      (el !== null && el.isConnected ? el : labelRef.current)?.focus();
+    });
+  }
+
+  function closeDialog() {
     setDeleteTarget(null);
+    restoreFocus();
+  }
+
+  function onDeleted(projectId: string, fromDialog = true) {
+    clearSelectedProjectIdIf(projectId);
+    deletingSeen.current.delete(projectId);
+    setRemoved((prev) => (prev.has(projectId) ? prev : new Set(prev).add(projectId)));
+    if (fromDialog) setDeleteTarget(null);
+    let navigated = false;
     if (openProjectId === projectId) {
       const another = items.find((p) => p.project_id !== projectId && p.deletion_state !== "deleting");
       if (another) navigate({ kind: "project", projectId: another.project_id, section: "sources" });
       else navigate({ kind: "home" });
+      navigated = another !== undefined;
     }
+    if (fromDialog && !navigated) restoreFocus();
     bumpProjectList();
   }
+
+  // A deletion continued in the background finishes while the dialog is closed: the list refresh
+  // no longer contains the project, so clean up selection exactly as the dialog would.
+  const firstItems = first?.items ?? null;
+  useEffect(() => {
+    if (firstItems === null) return;
+    const ids = new Set(firstItems.map((p) => p.project_id));
+    for (const id of [...deletingSeen.current]) {
+      if (!ids.has(id)) onDeleted(id, false);
+    }
+    for (const p of firstItems) if (p.deletion_state === "deleting") deletingSeen.current.add(p.project_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstItems]);
 
   // The create form is open on the home view; opening a project folds it away (one "Name" field at a time).
   const openProjectId = route.kind === "project" ? route.projectId : null;
@@ -79,7 +112,9 @@ export function ProjectSidebar() {
   return (
     <section aria-label="Project management">
       <div className={styles.head}>
-        <p className={styles.label}>Projects</p>
+        <p className={styles.label} ref={labelRef} tabIndex={-1}>
+          Projects
+        </p>
         <Button
           size="compact-sm"
           variant={formOpen ? "default" : "light"}
@@ -150,7 +185,10 @@ export function ProjectSidebar() {
                           ? `Deletion status of project ${p.name}`
                           : `Retry deleting project ${p.name}`
                     }
-                    onClick={() => setDeleteTarget(p)}
+                    onClick={(e) => {
+                      trigger.current = e.currentTarget;
+                      setDeleteTarget(p);
+                    }}
                   >
                     <Trash2 size={16} aria-hidden="true" />
                   </ActionIcon>
@@ -176,9 +214,9 @@ export function ProjectSidebar() {
         <DeleteProjectDialog
           key={deleteTarget.project_id}
           project={deleteTarget}
-          onClose={() => setDeleteTarget(null)}
+          onClose={closeDialog}
           onStateChange={bumpProjectList}
-          onDeleted={onDeleted}
+          onDeleted={(id) => onDeleted(id)}
         />
       )}
     </section>
