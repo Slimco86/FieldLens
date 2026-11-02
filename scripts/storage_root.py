@@ -57,7 +57,11 @@ def run(
         if typed is None:
             out(f"This binds database {database} to storage root {store.root}.")
             out("Originals are not moved or deleted. Files stored under another root stay there.")
-            typed = prompt(f"Type the database name ({database}) to continue: ")
+            try:
+                typed = prompt(f"Type the database name ({database}) to continue: ")
+            except EOFError:
+                out("aborted: no confirmation was entered")
+                return 1
         if typed != database:
             out("aborted: confirmation did not match the database name")
             return 1

@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import pytest
 from sqlalchemy import Engine, text
 from sqlalchemy.engine import URL
 
@@ -198,3 +199,55 @@ def test_ac7_attribution_and_application_name(
             .all()
         )
     assert any(n.startswith("fieldlens:lane-x:") for n in names)
+
+
+def test_d1_all_failed_unbound_database_is_healed_without_adopt(
+    migrated_url: URL, tmp_path: Path, engine: Engine
+) -> None:
+    """Incident shape: every document failed, no identity row, no marker on the root."""
+    api = make_api(migrated_url, tmp_path / "root")
+    pid, docs = _ingest(api, [("log.las", LAS.encode()), ("n.txt", TEXT)])
+    for d in docs:
+        _force_failed(engine, str(d["document_id"]))
+    with engine.begin() as c:
+        c.execute(text("delete from extraction_run"))
+        c.execute(text("delete from storage_root_identity"))
+    (tmp_path / "root" / root_guard.MARKER_NAME).unlink()
+    fresh = make_api(migrated_url, tmp_path / "root")
+    first = fresh.worker.heal_once()
+    assert first.ran and first.restored == 2
+    assert {d["storage_state"] for d in fresh.documents(pid)} == {"stored"}
+    assert fresh.client.get("/ready").status_code == 200
+    again = fresh.worker.heal_once()
+    assert again.restored == 0
+    with engine.connect() as c:
+        runs = c.execute(text("select count(*) from extraction_run")).scalar_one()
+    assert runs == 2
+
+
+def test_d1_empty_root_never_binds_on_zero_evidence(
+    migrated_url: URL, tmp_path: Path, engine: Engine
+) -> None:
+    api = make_api(migrated_url, tmp_path / "root")
+    pid, docs = _ingest(api, [("n.txt", TEXT)])
+    _force_failed(engine, str(docs[0]["document_id"]))
+    with engine.begin() as c:
+        c.execute(text("delete from storage_root_identity"))
+    other = make_api(migrated_url, tmp_path / "empty")
+    assert other.worker.heal_once().ran is False
+    assert other.client.get("/ready").status_code == 503
+
+
+def test_d5_mismatch_log_is_throttled_process_wide(
+    migrated_url: URL, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    writer = make_api(migrated_url, tmp_path / "root-a")
+    _ingest(writer, [("n.txt", TEXT)])
+    foreign = make_api(migrated_url, tmp_path / "root-b")
+    root_guard._last_logged = float("-inf")
+    with caplog.at_level("ERROR", logger="fieldlens.evidence.root_guard"):
+        foreign.worker.run_once()
+        foreign.worker.extraction.run_once()
+        foreign.client.get("/ready")
+        foreign.upload(writer.project(), [("m.txt", TEXT)])
+    assert sum("storage_root_mismatch" in r.getMessage() for r in caplog.records) == 1

@@ -42,3 +42,18 @@ def test_adopt_requires_typed_confirmation_then_rebinds(
     assert storage_root.run(["status"], out=lines.append) == 0
     assert (new_root / ".fieldlens-root-id").is_file()
     assert "password" not in " ".join(lines).lower()
+
+
+def test_adopt_aborts_cleanly_on_stdin_eof(
+    migrated_url: URL, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        storage_root, "get_settings", lambda: settings_for(migrated_url, storage_root=tmp_path)
+    )
+
+    def eof(_p: str) -> str:
+        raise EOFError
+
+    lines: list[str] = []
+    assert storage_root.run(["adopt"], prompt=eof, out=lines.append) == 1
+    assert any("aborted" in line for line in lines)

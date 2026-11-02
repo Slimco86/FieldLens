@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,7 +29,7 @@ from sqlalchemy import func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from fieldlens.evidence.storage import BlobStore
+from fieldlens.evidence.storage import BlobStore, VerifyOutcome
 from fieldlens.persistence import models as m
 from fieldlens.persistence.session import session_scope
 
@@ -91,29 +92,34 @@ def _db_identity(session: Session) -> str | None:
     return None if value is None else str(value)
 
 
-def _stored_samples(session: Session) -> list[str]:
-    return list(
-        session.execute(
-            select(m.source_document.c.storage_key)
-            .join(
-                m.document_processing,
-                m.document_processing.c.document_id == m.source_document.c.document_id,
-            )
-            .where(m.document_processing.c.storage_state == "stored")
-            .order_by(m.source_document.c.created_at.desc())
-            .limit(SAMPLE_SIZE)
+def _stored_samples(session: Session) -> list[tuple[str, str, int]]:
+    """Recent originals (stored or failed) as (key, sha256, size). Failed ones count: their
+    bytes are exactly what the heal pass verifies, and a database whose files were all marked
+    failed by a stale server has no stored document left to sample."""
+    rows = session.execute(
+        select(
+            m.source_document.c.storage_key,
+            m.source_document.c.sha256,
+            m.source_document.c.size_bytes,
         )
-        .scalars()
-        .all()
-    )
+        .join(
+            m.document_processing,
+            m.document_processing.c.document_id == m.source_document.c.document_id,
+        )
+        .where(m.document_processing.c.storage_state.in_(("stored", "failed")))
+        .order_by(m.source_document.c.created_at.desc())
+        .limit(SAMPLE_SIZE)
+    ).all()
+    return [(str(r[0]), str(r[1]), int(r[2])) for r in rows]
 
 
-def _readable_sample(store: BlobStore, keys: list[str]) -> bool:
-    for key in keys:
+def _readable_sample(store: BlobStore, samples: list[tuple[str, str, int]]) -> bool:
+    """True only when a sampled original verifies (size and SHA-256) under this root."""
+    for key, sha, size in samples:
         try:
-            if store.path_for(key).is_file():
+            if store.verify(key, sha, size).outcome is VerifyOutcome.OK:
                 return True
-        except ValueError:
+        except (ValueError, OSError):
             continue
     return False
 
@@ -194,6 +200,21 @@ def adopt(factory: sessionmaker[Session], store: BlobStore) -> UUID:
     return root_id
 
 
+_log_lock = threading.Lock()
+_last_logged = float("-inf")
+
+
+def _may_log(now: float) -> bool:
+    """At most one mismatch log per LOG_EVERY_SECONDS for the whole process (every component
+    owns a guard, so a per-guard throttle would repeat the line)."""
+    global _last_logged
+    with _log_lock:
+        if now - _last_logged < LOG_EVERY_SECONDS:
+            return False
+        _last_logged = now
+        return True
+
+
 class StorageRootGuard:
     """``serves_database()`` is True only when this process's root has the database's identity."""
 
@@ -210,7 +231,6 @@ class StorageRootGuard:
         self.lane = lane
         self._checked_at = float("-inf")
         self._status = RootStatus(True)
-        self._logged_at = float("-inf")
 
     @property
     def store(self) -> BlobStore:
@@ -226,8 +246,7 @@ class StorageRootGuard:
             return self._status.ok
         self._status = evaluate(self._factory, self._store)
         self._checked_at = now
-        if not self._status.ok and now - self._logged_at >= LOG_EVERY_SECONDS:
-            self._logged_at = now
+        if not self._status.ok and _may_log(now):
             logger.error(
                 "%s: storage root %s is not this database's root (%s); this process will not "
                 "claim, verify or fail any stored file (run `uv run python scripts/storage_root.py "

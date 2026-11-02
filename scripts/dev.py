@@ -121,6 +121,8 @@ class Procs(Protocol):
 
     def signal_group(self, pid: int, sig: int) -> None: ...
 
+    def descendants(self, pid: int) -> set[int]: ...
+
 
 class Http(Protocol):
     def status(self, url: str) -> int | None: ...
@@ -203,6 +205,23 @@ class RealProcs:
         except OSError:
             return None
         return [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
+
+    def descendants(self, pid: int) -> set[int]:
+        parents: dict[int, int] = {}
+        for entry in Path("/proc").iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                stat = (entry / "stat").read_text(encoding="utf-8", errors="replace")
+                parents[int(entry.name)] = int(stat.rsplit(")", 1)[1].split()[1])
+            except (OSError, ValueError, IndexError):
+                continue
+        found: set[int] = set()
+        frontier = {pid}
+        while frontier:
+            frontier = {c for c, p in parents.items() if p in frontier and c not in found}
+            found |= frontier
+        return found
 
     def signal_group(self, pid: int, sig: int) -> None:
         try:
@@ -1166,10 +1185,11 @@ def foreign_api_connections(ctx: Context, compose: Compose, database: str | None
     if done.returncode != 0:
         return []
     own_pid = api_process(ctx).pid()
+    own = {own_pid} | ctx.services.procs.descendants(own_pid) if own_pid is not None else set()
     found: list[str] = []
     for line in done.stdout.splitlines():
         name, _, count = line.rpartition("|")
-        if own_pid is not None and name.endswith(f":{own_pid}"):
+        if any(name.endswith(f":{pid}") for pid in own):
             continue
         label = name or "unidentified client (older FieldLens code?)"
         found.append(f"{label} x{count}")

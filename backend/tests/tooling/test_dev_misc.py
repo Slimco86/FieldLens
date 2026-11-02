@@ -270,6 +270,24 @@ def test_status_and_restart_warn_about_unmanaged_api_connections(tmp_path: Path)
     assert not any("not managed" in line for line in quiet.out)
 
 
+def test_status_excludes_own_api_child_but_warns_for_foreign(tmp_path: Path) -> None:
+    world, root = make_world(tmp_path)
+    assert run_dev(world, root, "up") == 0
+    wrapper = next(pid for pid, argv in world.procs.items() if "uvicorn" in argv or "uv" in argv)
+    world.children[wrapper] = [wrapper + 1000]
+    world.pg_state = "healthy"
+    world.activity = [f"fieldlens:main:{wrapper + 1000}|4", "fieldlens:main:12345|1"]
+    world.out.clear()
+    assert run_dev(world, root, "status") == 0
+    text = "\n".join(world.out)
+    assert f"{wrapper + 1000}" not in text
+    assert "fieldlens:main:12345 x1" in text
+    world.activity = [f"fieldlens:main:{wrapper + 1000}|4"]
+    world.out.clear()
+    assert run_dev(world, root, "status") == 0
+    assert "not managed by this lane" not in "\n".join(world.out)
+
+
 # ---------------------------------------------------------------------------- DV-11
 
 
