@@ -94,6 +94,7 @@ def build_processing_router() -> APIRouter:
                 project_id,
                 body.documents,
                 body.idempotency_key,
+                page_bound=rt.step.max_pages_per_document,
             ),
         )
         return out
@@ -160,6 +161,7 @@ def build_processing_router() -> APIRouter:
                 rt.step.name,
                 project_id,
                 run_id,
+                rt.step.max_pages_per_document,
             ),
         )
         return out

@@ -26,6 +26,7 @@ from fieldlens.config import Settings
 from fieldlens.contracts.errors import ContractError, ErrorCode
 from fieldlens.contracts.imports import DocumentCategory, ExtractionState
 from fieldlens.contracts.processing import (
+    DocumentModelRead,
     DocumentProcessingState,
     DocumentProcessingStateList,
     DocumentProcessingStatus,
@@ -45,6 +46,7 @@ from fieldlens.contracts.processing import (
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.persistence import models as m
 from fieldlens.processing import tables as t
+from fieldlens.processing.identity_store import load_model_reads
 from fieldlens.processing.steps import Pricing, quantize
 from fieldlens.reconstruction import tables as reconstruction_tables
 
@@ -221,6 +223,7 @@ def create_estimate(
     selections: Sequence[ProcessingDocumentSelection],
     idempotency_key: str | None,
     retry_of: UUID | None = None,
+    page_bound: int | None = None,
 ) -> ProcessingRun:
     if (
         session.execute(
@@ -254,7 +257,7 @@ def create_estimate(
             refusals.append({**base, "reason": "unreadable_pdf", "code": exc.code})
             continue
         if sel.pages is None:
-            if pages > cap:
+            if pages > cap and page_bound is None:
                 refusals.append(
                     {
                         **base,
@@ -281,6 +284,8 @@ def create_estimate(
         if pages == 0:
             refusals.append({**base, "reason": "empty_pdf", "page_count": 0})
             continue
+        if page_bound is not None:
+            end = min(end, start + page_bound - 1)  # the step reads no more: neither does the bill
         planned.append((doc, pages, start, end))
     if refusals:
         raise _refused(
@@ -398,6 +403,14 @@ def confirm_run(
             estimated_usd=str(run.estimated_usd),
         )
     remaining = remaining_budget(session, settings)
+    run_cap = settings.processing_run_cap_usd
+    if run_cap is not None and run.estimated_usd > run_cap:
+        raise _conflict(
+            "the estimate exceeds the per-run spend cap",
+            "run_cap_exceeded",
+            estimated_usd=str(run.estimated_usd),
+            run_cap_usd=str(run_cap),
+        )
     if run.estimated_usd > remaining:
         raise _conflict(
             "the estimate exceeds the remaining budget",
@@ -484,6 +497,7 @@ def retry_run(
     step: str,
     project_id: UUID,
     run_id: UUID,
+    page_bound: int | None = None,
 ) -> ProcessingRun:
     """A retry is a *new estimate* for the retryable documents; it spends only after confirm."""
     run = _lock_run(session, project_id, run_id)
@@ -509,7 +523,17 @@ def retry_run(
         for r in rows
     ]
     return create_estimate(
-        session, settings, counter, pricing, provider, step, project_id, selections, None, run_id
+        session,
+        settings,
+        counter,
+        pricing,
+        provider,
+        step,
+        project_id,
+        selections,
+        None,
+        run_id,
+        page_bound,
     )
 
 
@@ -517,7 +541,8 @@ def retry_run(
 def _estimate_dto(session: Session, settings: Settings, run: Any) -> ProcessingEstimate:
     live = run.status == "estimated"
     remaining = remaining_budget(session, settings) if live else run.remaining_budget_usd
-    fits = run.estimated_usd <= remaining
+    run_cap = settings.processing_run_cap_usd
+    fits = run.estimated_usd <= remaining and (run_cap is None or run.estimated_usd <= run_cap)
     return ProcessingEstimate(
         pages=run.estimated_pages,
         route=ProcessingRoute(run.route),
@@ -578,6 +603,7 @@ def get_run(session: Session, settings: Settings, project_id: UUID, run_id: UUID
                 failure_code=ProcessingFailureCode(d.failure_code) if d.failure_code else None,
                 failure_message=d.failure_message,
                 retryable=d.retryable,
+                cache_hit=d.cache_hit,
                 finished_at=d.finished_at,
             )
             for d in docs
@@ -647,6 +673,7 @@ def _state_text(
     no_parser: bool,
     provider: str | None,
     failure: str | None,
+    model_read: DocumentModelRead | None = None,
 ) -> str:
     if status is DocumentProcessingStatus.NOT_STARTED:
         if no_parser:
@@ -659,6 +686,13 @@ def _state_text(
     if status is DocumentProcessingStatus.RUNNING:
         return "model processing running"
     if status is DocumentProcessingStatus.PROCESSED:
+        if model_read is not None:
+            label = "unclassified" if model_read.unclassified else model_read.category.value
+            ids = len(model_read.identities)
+            found = f"{ids} wellbore identit{'y' if ids == 1 else 'ies'} proposed"
+            return f"model read finished: category {label}; " + (
+                found if ids else "no wellbore identity found"
+            )
         if provider == "stub":
             return "stub processing finished; no data was extracted"
         return "model processing finished"
@@ -706,6 +740,7 @@ def document_states(
     ):
         last[r.document_id] = r  # newest wins
     items: list[DocumentProcessingState] = []
+    reads = load_model_reads(session, project_id, ids)
     for doc in sorted(docs.values(), key=lambda d: (d.original_filename, str(d.document_id))):
         native = doc.extraction_state or ExtractionState.PENDING_EXTRACTION.value
         pages: int | None = None
@@ -748,6 +783,7 @@ def document_states(
                         no_parser,
                         entry.provider if entry else None,
                         entry.failure_code if entry else None,
+                        reads.get(doc.document_id),
                     )
                 ),
                 processable=processable,
@@ -757,6 +793,7 @@ def document_states(
                 processing_status=status,
                 last_run_id=entry.run_id if entry else None,
                 retryable=bool(entry and entry.retryable),
+                model_read=reads.get(doc.document_id),
             )
         )
     return DocumentProcessingStateList(
