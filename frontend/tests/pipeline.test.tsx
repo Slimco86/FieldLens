@@ -294,7 +294,7 @@ describe("Reconstruction list (AC-2, AC-3, AC-4)", () => {
     render(panel(P, open));
     const row = (await screen.findAllByRole("row"))[1]!;
     const files = within(row).getByRole("list", { name: "Source files of 15/9-F-12" });
-    expect(files).toHaveTextContent("Trajectory: traj.csv (12 trajectory_station; first at kind text, line 2)");
+    expect(files).toHaveTextContent("Trajectory: traj.csv (12 trajectory_station; first at line 2)");
     await userEvent.click(within(files).getByRole("link", { name: "Open traj.csv in Sources" }));
     expect(open).toHaveBeenCalledWith(D1);
     expect(await rowOf(/Well F-12/)).toHaveTextContent("No source file carries data");
@@ -311,6 +311,36 @@ describe("Reconstruction list (AC-2, AC-3, AC-4)", () => {
     const list = screen.getByRole("list", { name: "Gaps, conflicts and findings of 15/9-F-12 PILOT" });
     expect(list).toHaveTextContent("DEPTH_UNIT_CONFLICT");
     expect(within(pilot).getByRole("button", { name: "Hide details of 15/9-F-12 PILOT" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("groups gate warnings by code with the wellbores they name", async () => {
+    const f = f12();
+    const warn = (id: string) => ({ code: "BLOCK_NOT_STATED", message: "No block stated.", wellbore_id: id });
+    const gate = { ...f.gate, warnings: [warn("b4"), warn("b2"), warn("b4")] };
+    install({}, { ...f.routes, "GET /identity/start-gate": () => json(gate) });
+    render(panel());
+    const list = await screen.findByRole("list", { name: "Gate warnings" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+    expect(list).toHaveTextContent("Wellbores: F-12, 15/9-F-12 PILOT.");
+  });
+
+  it("shows only human source locators, never ids or kinds", async () => {
+    const f = f12();
+    const ex = f.exposure as unknown as { wells: { wellbores: { categories: { groups: { sample: { locator: unknown }[] }[] }[] }[] }[] };
+    ex.wells[0]!.wellbores[1]!.categories[0]!.groups[0]!.sample[0]!.locator = { kind: "pdf", document_id: D1, page: 4, table: 2 };
+    install({}, { ...f.routes, "GET /identity/exposure": () => json(f.exposure) });
+    render(panel());
+    const files = await screen.findByRole("list", { name: "Source files of 15/9-F-12" });
+    expect(files).toHaveTextContent("first at page 4, table 2");
+    expect(files.textContent).not.toContain(D1);
+    expect(files.textContent).not.toContain("kind");
+  });
+
+  it("gives the panel a landmark name distinct from the tab section", async () => {
+    install();
+    render(panel());
+    expect(await screen.findByRole("region", { name: "Wellbores and processing" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Reconstruction" })).not.toBeInTheDocument();
   });
 
   it("shows truncation notices in the detail row", async () => {
@@ -367,15 +397,36 @@ describe("Process and Process all (AC-5, AC-6)", () => {
     expect(gate).toHaveTextContent("NO_VALIDATED_TRAJECTORY");
   });
 
-  it("says when nothing needs processing instead of requesting an estimate", async () => {
+  it("disables Process with a reason when the wellbore's files are all read by native parsers", async () => {
     const m = install({}, {
+      ...f12().routes,
+      "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "traj.csv", { no_native_parser: false, native_state: "extracted" })] }),
+    });
+    render(panel());
+    const row = (await screen.findAllByRole("row"))[1]!;
+    await waitFor(() => expect(row).toHaveTextContent("Nothing to process: data comes from native parsers"));
+    expect(within(row).queryByRole("button", { name: /^Process/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Process all ready wellbores (1)" })).toBeDisabled();
+    expect(estimates(m)).toHaveLength(0);
+  });
+
+  it("disables Process with a reason when everything is already processed", async () => {
+    install({}, {
       ...f12().routes,
       "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "traj.csv", { processing_status: "processed" })] }),
     });
     render(panel());
+    const row = (await screen.findAllByRole("row"))[1]!;
+    await waitFor(() => expect(row).toHaveTextContent("Nothing to process: no document needs processing"));
+  });
+
+  it("reuses an existing unconfirmed estimate for the same documents instead of creating another", async () => {
+    const existing = runBody({ run_id: RUN2, created_at: "2026-11-01T09:00:00Z" });
+    const m = install({ [RUN2]: existing }, f12().routes);
+    render(panel());
     await userEvent.click(await screen.findByRole("button", { name: "Process 15/9-F-12" }));
-    expect(await screen.findByText("No document needs processing for the selected wellbore(s).")).toBeInTheDocument();
-    expect(screen.getByText("traj.csv: already processed")).toBeInTheDocument();
+    expect(await screen.findByText(/An estimate for these documents already exists/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Confirm and start run/ })).toBeEnabled();
     expect(estimates(m)).toHaveLength(0);
   });
 

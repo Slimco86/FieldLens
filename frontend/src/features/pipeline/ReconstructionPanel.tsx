@@ -34,7 +34,7 @@ export function ReconstructionPanel({
     <section aria-labelledby="pipeline-title" className={styles.panel}>
       <div className={styles.head}>
         <Title order={5} id="pipeline-title">
-          Reconstruction
+          Wellbores and processing
         </Title>
         <Button
           size="xs"

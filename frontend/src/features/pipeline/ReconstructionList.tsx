@@ -9,6 +9,8 @@ import { toFailure, useScopedResource, type Failure } from "../projects/scope";
 import {
   getExposure,
   getProcessingDocuments,
+  getRun,
+  listRuns,
   getStartGate,
   requestEstimate,
   type DocumentProcessingState,
@@ -32,11 +34,13 @@ export const CATEGORY_LABEL: Record<Category["category"], string> = {
   other: "Other",
 };
 
-/** Short source locator text built only from keys the server wrote; nothing is interpreted. */
+const HUMAN_LOCATOR_KEYS = new Set(["page", "sheet", "table", "row", "cell", "column", "line", "line_start", "line_end", "curve"]);
+
+/** Short source locator text from the human-readable keys the server wrote (ids and kinds are never shown); nothing is interpreted. */
 export function locatorText(loc: Record<string, unknown> | undefined): string {
   if (loc === undefined) return "no locator";
   const parts = Object.entries(loc)
-    .filter(([, v]) => v !== null && typeof v !== "object")
+    .filter(([k, v]) => HUMAN_LOCATOR_KEYS.has(k) && v !== null && typeof v !== "object")
     .map(([k, v]) => `${k} ${String(v)}`);
   return parts.length === 0 ? "no locator" : parts.join(", ").slice(0, 160);
 }
@@ -99,7 +103,12 @@ export interface Selection {
   selection: ProcessingDocumentSelection[];
   /** Why some carried documents are not part of the estimate (already processed, running, not processable, over the page cap). */
   skipped: string[];
+  /** Set when nothing is selected: why (native parsers already read it, or another reason). */
+  reason: string | null;
 }
+
+export const NATIVE_ONLY_REASON = "Nothing to process: data comes from native parsers";
+const NO_DOCS_REASON = "Nothing to process: no document needs processing";
 
 const BUSY = new Set<DocumentProcessingState["processing_status"]>(["queued", "running"]);
 
@@ -114,10 +123,12 @@ export function chooseDocuments(ids: string[], states: DocumentProcessingState[]
     else if (d.processing_status === "processed") skipped.push(`${d.original_filename}: already processed`);
     else if (BUSY.has(d.processing_status)) skipped.push(`${d.original_filename}: already queued or running`);
     else if (!d.processable) skipped.push(`${d.original_filename}: not processable${d.not_processable_reason === null ? "" : ` (${d.not_processable_reason})`}`);
+    else if (!d.no_native_parser) skipped.push(`${d.original_filename}: read by a native parser; no model processing needed`);
     else if (d.over_page_cap) skipped.push(`${d.original_filename}: over the page cap; choose a page range under Document processing below`);
     else selection.push({ document_id: id, pages: null });
   }
-  return { selection, skipped };
+  const nativeOnly = ids.length > 0 && ids.every((id) => byId.get(id)?.no_native_parser === false);
+  return { selection, skipped, reason: selection.length > 0 ? null : nativeOnly ? NATIVE_ONLY_REASON : NO_DOCS_REASON };
 }
 
 /** Every unmet code the server reported (gate reasons and unmet conditions). */
@@ -138,6 +149,18 @@ function FindingList({ label, items }: { label: string; items: Finding[] }) {
       ))}
     </ul>
   );
+}
+
+/** One entry per code (the server repeats it per wellbore) with the wellbores it names; per-wellbore text stays in the detail rows. */
+export function groupWarnings(items: Reason[], names: Map<string, string>): { code: string; message: string; wellbores: string[] }[] {
+  const out = new Map<string, { code: string; message: string; wellbores: string[] }>();
+  for (const w of items) {
+    const g = out.get(w.code) ?? { code: w.code, message: w.message, wellbores: [] };
+    const n = w.wellbore_id === null || w.wellbore_id === undefined ? undefined : names.get(w.wellbore_id);
+    if (n !== undefined && !g.wellbores.includes(n)) g.wellbores.push(n);
+    out.set(w.code, g);
+  }
+  return [...out.values()];
 }
 
 function Reasons({ label, items, kind }: { label: string; items: Reason[]; kind: string }) {
@@ -256,6 +279,7 @@ interface Props {
 export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEstimated }: Props) {
   const exposure = useScopedResource(keyString(["recon", "exposure", projectId, refreshKey]), (signal) => getExposure(projectId, signal));
   const gate = useScopedResource(keyString(["recon", "gate", projectId, refreshKey]), (signal) => getStartGate(projectId, signal));
+  const docStates = useScopedResource(keyString(["recon", "pdocs", projectId, refreshKey]), (signal) => getProcessingDocuments(projectId, signal));
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [pending, setPending] = useState<string | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -274,6 +298,15 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEsti
   const gateData = gate.state.kind === "ready" && gate.state.data.project_id === projectId ? gate.state.data : null;
   const rows = useMemo(() => (data === null ? [] : buildRows(data, gateData)), [data, gateData]);
   const readyRows = rows.filter((r) => r.ready === true);
+  const docItems = docStates.state.kind === "ready" && docStates.state.data.project_id === projectId ? docStates.state.data.items : null;
+  /** Why a wellbore has nothing to estimate, from the loaded document states; `null` when it has a candidate (or states are unknown). */
+  const nothingFor = (targets: WellboreRow[]): string | null => {
+    if (docItems === null) return null; // unknown: the click re-reads and checks again
+    const ids = [...new Set(targets.flatMap(documentIdsOf))];
+    if (ids.length === 0) return "Nothing to process: no source file carries data for it";
+    return chooseDocuments(ids, docItems).reason;
+  };
+  const allNothing = readyRows.length > 0 ? nothingFor(readyRows) : null;
 
   /** Estimate only: fresh document states are read at click time; nothing is confirmed or spent here. */
   const process = async (targets: WellboreRow[], name: string) => {
@@ -289,14 +322,33 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEsti
       const docs = await getProcessingDocuments(projectId, new AbortController().signal);
       if (!alive.current) return;
       if (docs.project_id !== projectId) throw new Error("The document answer belonged to another project and was dropped.");
-      const { selection, skipped } = chooseDocuments(ids, docs.items);
+      const { selection, skipped, reason } = chooseDocuments(ids, docs.items);
       if (selection.length === 0) {
         setNotice(
           ids.length === 0
             ? ["No source file carries data for the selected wellbore(s), so there is nothing to estimate."]
-            : ["No document needs processing for the selected wellbore(s).", ...skipped],
+            : [reason ?? NO_DOCS_REASON, ...skipped],
         );
         return;
+      }
+      // Reuse an existing unconfirmed estimate for exactly this document set instead of creating another.
+      const wanted = selection.map((d) => d.document_id).sort().join(",");
+      const existing = await listRuns(projectId, new AbortController().signal);
+      if (!alive.current) return;
+      const candidates = existing.items.filter((r) => r.status === "estimated").sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5);
+      for (const c of candidates) {
+        const full = await getRun(projectId, c.run_id, new AbortController().signal);
+        if (!alive.current) return;
+        const same =
+          full.project_id === projectId &&
+          full.status === "estimated" &&
+          full.documents.map((d) => d.document_id).sort().join(",") === wanted &&
+          full.documents.every((d) => d.pages.page_start === 1 && d.pages.page_end === d.page_count);
+        if (same) {
+          setNotice(["An estimate for these documents already exists and is shown below; no new estimate was requested."]);
+          onEstimated(full.run_id);
+          return;
+        }
       }
       const key = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
       const run = await requestEstimate(projectId, selection, key);
@@ -374,7 +426,14 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEsti
       )}
       {gateData !== null && gateData.warnings.length > 0 && (
         <Callout tone="warning" label="Gate warnings">
-          <Reasons label="Gate warnings" items={gateData.warnings} kind="Warning" />
+          <ul className={styles.list} aria-label="Gate warnings">
+            {groupWarnings(gateData.warnings, new Map(rows.map((r) => [r.wellboreId, r.wellboreName]))).map((g) => (
+              <li key={g.code}>
+                <strong>Warning</strong> <code>{g.code}</code> {g.message}
+                {g.wellbores.length > 0 && <> Wellbores: {g.wellbores.join(", ")}.</>}
+              </li>
+            ))}
+          </ul>
         </Callout>
       )}
       {data !== null && rows.length === 0 && (
@@ -386,12 +445,18 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEsti
         <>
           <div className={styles.actions}>
             <Button
-              disabled={readyRows.length === 0 || pending !== null}
+              disabled={readyRows.length === 0 || allNothing !== null || pending !== null}
+              aria-describedby={allNothing !== null ? "rc-all-reason" : undefined}
               loading={pending === "all"}
               onClick={() => void process(readyRows, "all")}
             >
               Process all ready wellbores ({readyRows.length})
             </Button>
+            {allNothing !== null && (
+              <span className={styles.note} id="rc-all-reason">
+                {allNothing}
+              </span>
+            )}
             <span className={styles.note}>
               Requests a free estimate for the documents that carry these wellbores&rsquo; data and are not processed yet.
               Nothing starts or is spent until you confirm the estimate below. Today a run is a stub step: it is not
@@ -475,7 +540,9 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEsti
                           <SourcesCell row={r} projectId={projectId} onOpenSource={onOpenSource} />
                         </Table.Td>
                         <Table.Td>
-                          {r.ready === true ? (
+                          {r.ready === true && nothingFor([r]) !== null ? (
+                            <span className={styles.note}>{nothingFor([r])}</span>
+                          ) : r.ready === true ? (
                             <Button
                               size="xs"
                               aria-label={`Process ${r.wellboreName}`}
