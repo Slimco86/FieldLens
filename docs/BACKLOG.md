@@ -1921,6 +1921,27 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Blocked on TASK-068 contracts.
 **Evidence.** none yet
 
+### TASK-070 · Storage-root identity marker for all blob-reading workers
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P1 |
+| Tags | backend |
+| Depends on | TASK-066 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/RECONSTRUCTION_RUN.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-R |
+
+**Outcome.** Replace the 8-most-recent heuristic of the TASK-066 guard with a persisted root-identity marker (DB row and `<root>/.fieldlens-root-id`) that every blob-reading worker compares before claiming work. Closes the QA-066 gaps: no protection before the first stored original, stall after an intentional wipe, global rather than project-scoped sample.
+**Next action.** Needs a short spec amendment; schedule after TASK-069.
+**Evidence.** QA-066 report (PASS with Medium findings), 2026-11-02.
+
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 
 | Field | Value |
