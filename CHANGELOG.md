@@ -8,6 +8,29 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.33.0 - 2026-11-02
+
+- **TASK-068 reconstruction run API:** `/api/v1/projects/{id}/reconstruction-runs` with estimate, a separate confirm
+  (one confirm covers a bulk estimate), list/detail, cancel and retry (retry returns a new estimate). Runs are
+  persisted (migration `0013_reconstruction_runs`), bounded to 2 concurrent, duplicate start returns the active run,
+  interrupted runs are recovered as `interrupted`. Stages: `gather` and `assemble` are deterministic and produce a draft
+  summary with coverage, evidence references, unresolved items and conflicts; `extract` and `identify` report
+  `not_available` until the agent steps exist, so every run ends `partial`, never `succeeded`. The USD 5 cap is shared
+  with processing runs; no live model call path.
+- **TASK-069 Reconstruct actions (UI-18):** the Reconstruction tab has an active Reconstruct button per ready wellbore
+  and "Reconstruct all ready wellbores (n)": estimate dialog (per-wellbore split, USD total, remaining cap, stub with no
+  live calls, 500-page cap, unavailable stages), then a separate Confirm. Rows show run state and stage progress with
+  Cancel and Retry; a partial run reads as partial and its draft is labelled as not the published 3D/chart twin.
+- **TASK-067 table cleanup:** the Sources column carries category headings with record counts (each file once per
+  category, human-readable locators); "Records per category" and the Document processing pane (which showed
+  "Processed" for stub runs with no data and no spend) are removed.
+- **TASK-066 PDF `source_missing` root cause:** a backend process sharing the database but using a different storage
+  root claimed verification, extraction and processing work, found healthy originals missing and marked them
+  `source_missing`. Workers now claim work only when a recently stored original is readable under their own storage
+  root. Known gaps (TASK-070): no protection before the first stored original exists, and an intentional wipe of the
+  newest originals stalls new work. Affected files recover with Re-run extraction (409 means re-upload). Completion
+  PDFs still yield no data until label-driven extraction (TASK-055).
+
 ## 0.32.0 - 2026-11-02
 
 - **TASK-063 (UI-16) Slim Sources tab and Reconstruction tab:** the Sources tab returns to the project header with

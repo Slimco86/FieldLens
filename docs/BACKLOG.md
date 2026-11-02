@@ -1842,7 +1842,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, ingestion |
 | Depends on | TASK-064 |
@@ -1850,20 +1850,20 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-02 |
 | Sprint | Hackathon |
 | Spec | specs/RECONSTRUCTION_RUN.md |
-| Version | none |
+| Version | 0.33.0 |
 | Parent | FL-016 |
 | Slice | FL-016-N |
 
 **Outcome.** Owner report (2026-11-01 23:44): a freshly uploaded `15-9-F-11 B_Completion log.pdf` (label Completion equipment) still shows "Extraction failed (source_missing): stored original is not readable" with Stored (hash-verified), although the document list shows its page count. Find the real cause using the real files and the real runtime (read-only inspection of the owner's runtime and storage metadata, no document contents, no writes) and fix it; the TASK-064 storage-root hypothesis is not sufficient. A PDF either extracts or reports a specific honest reason.
-**Next action.** Lane `task-066-pdf-source-missing`.
-**Evidence.** none yet
+**Next action.** Root-identity marker follow-up is TASK-070; owner restarts with `./dev restart` and re-runs extraction on affected files.
+**Evidence.** Guard so a wrong-storage-root process no longer claims verification, extraction or processing work (`root_guard.py`); QA-066 PASS with Medium findings (no protection on a fresh DB, global sample) tracked as TASK-070. Release 0.33.0 (`9f60267`).
 
 ### TASK-067 · Reconstruction table: records merged into Sources, Document processing pane removed (UI-17)
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend |
 | Depends on | TASK-063 |
@@ -1871,20 +1871,20 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/RECONSTRUCTION_RUN.md |
-| Version | none |
+| Version | 0.33.0 |
 | Parent | FL-016 |
 | Slice | FL-016-O |
 
 **Outcome.** Owner feedback (2026-11-01 23:44): drop the "Records per category" column and show each category once in the Sources column with its record count; remove the Document processing pane and the stub run list from the UI (it shows "Processed" with no data and no spend); the Action column no longer says "Nothing to process" (the start action arrives with TASK-069; until then show nothing misleading).
-**Next action.** Lane `task-067-reconstruction-table`.
-**Evidence.** none yet
+**Next action.** None.
+**Evidence.** Records merged into Sources headings, Document processing pane removed; QA-067 PASS in a real browser (2 Low nits fixed in TASK-069). Release 0.33.0 (`7f4f329`).
 
 ### TASK-068 · Per-wellbore reconstruction run API: estimate, confirm, stages S1..S4 (RR-1..RR-5)
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-054, TASK-056, TASK-057 |
@@ -1892,20 +1892,20 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/RECONSTRUCTION_RUN.md |
-| Version | none |
+| Version | 0.33.0 |
 | Parent | FL-016 |
 | Slice | FL-016-P |
 
 **Outcome.** A persisted reconstruction run per ready wellbore (bulk start for all ready), estimate then separate confirm, cancel, retry, idempotent duplicate start, stages S1 gather and S4 assemble deterministic, S2 extract and S3 identify reported `not_available` until their agent steps exist (the run is `partial`, never `succeeded`), USD 5 cap and no live call by default.
-**Next action.** Lane `task-068-reconstruction-run-api`; contracts first so TASK-069 can start.
-**Evidence.** none yet
+**Next action.** Agent extract/identify stages arrive with TASK-055.
+**Evidence.** Reconstruction run API with migration 0013; QA-068 PASS, 1323 backend tests, no live call path. Release 0.33.0 (`da23082`).
 
 ### TASK-069 · Reconstruct buttons, bulk start and run detail in the Reconstruction tab (RR-6, RR-8)
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend |
 | Depends on | TASK-067, TASK-068 |
@@ -1913,13 +1913,13 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/RECONSTRUCTION_RUN.md |
-| Version | none |
+| Version | 0.33.0 |
 | Parent | FL-016 |
 | Slice | FL-016-Q |
 
 **Outcome.** Reconstruct per ready wellbore and Reconstruct all ready wellbores with estimate, separate confirm and per-stage progress; honest labels for stub and not-available stages.
-**Next action.** Blocked on TASK-068 contracts.
-**Evidence.** none yet
+**Next action.** Merge-proposal review UI is TASK-065; live agent stages TASK-055.
+**Evidence.** Per-wellbore and bulk Reconstruct with estimate/confirm, run state and draft detail; QA-069 PASS in a real browser (axe clean on the three tabs), 3 Low defects repaired in `aa68ac7`, 195 vitest. Release 0.33.0.
 
 ### TASK-070 · Storage-root identity marker for all blob-reading workers
 
