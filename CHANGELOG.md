@@ -8,6 +8,22 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.36.0 - 2026-11-02
+
+- **TASK-055 model-assisted identity for PDFs without a native profile:** the Sources panel shows "No native parser; model
+  processing available" with a **Process with model...** action that uses the estimate -> confirm flow. The model reads a
+  bounded page sample (default 5, `PROCESSING_MODEL_PAGES`) and records a category and tags plus wellbore identity
+  proposals with page and quote, shown as "Model-read, unverified". A failed or missing classification falls back to
+  "Others (unclassified)" (`general_report` + tag `unclassified`) without failing; no identity gives a non-blocking
+  warning. A user category always wins; a model suggestion replaces the document's earlier model suggestion and keeps
+  native ones. A name is accepted only when it appears in its quote as a whole token (a sidetrack quote cannot validate
+  the parent bore; unicode dashes and spaces are handled). Proposals link to a wellbore only on exact normalized key,
+  otherwise stay unresolved. Results are cached by document and prompt version (no provider call on a hit). Typed
+  retryable failures for refusal, truncation, malformed output and provider error; document text is data only (no
+  tools). `PROCESSING_PROVIDER=meta` fails closed without key, rates and `PROCESSING_RUN_CAP_USD`.
+  **Migration 0016** adds `document_model_result` and `document_identity_proposal` (covered by project deletion).
+  Verified offline with the stub provider only; the live Meta run is pending owner authorization.
+
 ## 0.35.0 - 2026-11-02
 
 - **TASK-071 project deletion:** a sidebar "Delete project" dialog shows what will be removed (counts, stored files) and

@@ -1632,7 +1632,7 @@ the slice letter and `Slice` keeps the plan's original string.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | agent, ingestion |
 | Depends on | TASK-054, TASK-070 |
@@ -1640,14 +1640,14 @@ the slice letter and `Slice` keeps the plan's original string.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/DOCUMENT_IDENTIFICATION.md |
-| Version | none |
+| Version | 0.36.0 |
 | Parent | FL-022 |
 | Slice | FL-022-E |
 
 **Outcome.** Documents without identity or label are classified (model route only; OCR deferred to TASK-060); the label is proposed with evidence, user labels win, and extraction runs through the label's agent step on the existing harness.
 **Owner amendment 2026-11-02 (loose first slice, TASK-041 waived):** a non-native PDF is sent through the manually triggered, confirmed processing run; the model assigns a category or at least a tag description (classification failure falls back to category `others`) and must find a wellbore identity (the minimum). No identity yields a non-blocking warning, not a blocking error. Results are proposals with page/quote evidence, never accepted facts. Spec `specs/DOCUMENT_IDENTIFICATION.md` (written 2026-11-02, approved).
-**Next action.** Dispatch after TASK-070 merges (needs reliable storage): classification/identity schema, stub-provider tests, then one bounded live check inside the USD 5 total (PROCESSING_FLOW D7).
-**Evidence.** none yet
+**Next action.** Owner-authorized bounded live run (AC-11, <= 2 documents, per-run cap; needs MODEL_API_KEY, owner-confirmed token rates and `FIELDLENS_LIVE_META=1`) is NOT yet run; the live path (`processing_provider=meta`) is unverified. Follow-ups: model tags are not tracked separately from user tags; a native suggestion equal to an earlier model suggestion is replaced with it; the cache key omits provider/model; no config-driven stub model step for a fully live e2e; a lowercase single letter or bare digit after a wellbore name still validates the shorter name; `./dev` does not isolate a lane when `FIELDLENS_DATABASE_URL` is exported.
+**Evidence.** QA-055 PASS after two repair rounds (D1 token-bounded identity quote match; D2 stale unclassified tag; D3 replacing suggestions; D5 warning text; D1b/D1c unicode and suffix handling); 1428 backend tests, 243 Vitest, e2e 30 passed with only the known UI-2/UI-10 failures; offline stub provider only, no Meta call; merged `e609774`, release 0.36.0.
 
 ### TASK-056 · Per-wellbore, per-category data exposure API and readiness gate (PF-6, PF-8)
 
