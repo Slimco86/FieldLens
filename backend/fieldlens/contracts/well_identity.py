@@ -37,7 +37,10 @@ class ResolvedWellbore(ContractModel):
 
 class ResolvedWell(ContractModel):
     well_id: UUID
-    name: str = Field(description="Canonical block-qualified name, e.g. '15/9-F-11'.")
+    name: str = Field(
+        description="Wellbore well name as stated: block-qualified '15/9-F-11', or a block-less "
+        "label such as 'F-12' (block not stated, never invented)."
+    )
     record_count: int = Field(ge=0)
     document_count: int = Field(ge=0)
     wellbores: list[ResolvedWellbore]

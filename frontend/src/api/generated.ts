@@ -3894,7 +3894,7 @@ export interface components {
             document_count: number;
             /**
              * Name
-             * @description Canonical block-qualified name, e.g. '15/9-F-11'.
+             * @description Wellbore well name as stated: block-qualified '15/9-F-11', or a block-less label such as 'F-12' (block not stated, never invented).
              */
             name: string;
             /** Record Count */

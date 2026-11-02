@@ -200,6 +200,13 @@ def resolve_wellbore(
         ).first()
         return (found.wellbore_id, None) if found else (None, "no such wellbore in the project")
     suffix = f" {bore.suffix}" if bore.suffix else ""
+    exact = session.execute(
+        select(wb.c.wellbore_id).where(
+            wb.c.project_id == project_id, wb.c.wellbore_key == bore.wellbore_name
+        )
+    ).first()
+    if exact is not None:  # D9: a block-less wellbore named exactly as written wins
+        return exact.wellbore_id, None
     rows = session.execute(
         select(wb.c.wellbore_id, wb.c.wellbore_key).where(wb.c.project_id == project_id)
     ).all()

@@ -14,6 +14,7 @@ from uuid import UUID
 import pytest
 
 from fieldlens.identity.resolver import resolve_project
+from fieldlens.merge_proposals.blocking import build_dataset
 from fieldlens.persistence.session import session_scope
 from tests.retrieval.support import World
 
@@ -49,11 +50,24 @@ def test_real_statoil_actual_exports_gate(world: World) -> None:
     r = world.api.upload(pid, files, parent=world.api.latest(pid))
     assert r.status_code in (200, 201, 202), r.text
     _settle(world, pid)
-    # The exports name the well only as "F-12"/"F-5" (no block): identity needs a block-qualified
-    # source in the project (resolver rule), so alone they stay unresolved and the gate says so.
+    # D9 (TASK-061): the exports name the well only as "F-12"/"F-5" (no block). Each is a
+    # block-less wellbore named as written; the gate opens with warnings, nothing invented.
     alone = world.api.client.get(f"/api/v1/projects/{pid}/identity/start-gate").json()
-    assert alone["can_start"] is False
-    assert [u["code"] for u in alone["unmet"]] == ["NO_WELLBORE_IDENTIFIED"]
+    assert alone["can_start"] is True and alone["unmet"] == []
+    per = {w["wellbore_name"]: w for w in alone["wellbores"]}
+    assert sorted(per) == ["F-12", "F-5"]
+    for w in per.values():
+        codes = {x["code"] for x in w["warnings"]}
+        assert w["trajectory_validated"] is True, w["unmet"]
+        assert {"BLOCK_NOT_STATED", "SURVEY_STATUS_UNSTATED"} <= codes
+        if w["location_state"] == "located":
+            assert "SURFACE_LOCATION_MISSING" not in codes
+        else:
+            assert w["unlocated"] is True and codes & {
+                "SURFACE_LOCATION_MISSING",
+                "SURFACE_LOCATION_INCOMPLETE",
+            }
+    print({n: (w["trajectory_validated"], w["location_state"]) for n, w in per.items()})
     qualified = ROOT / QUALIFYING
     if not qualified.is_file():
         pytest.skip("the perforation table is not in the local data subset")
@@ -64,14 +78,14 @@ def test_real_statoil_actual_exports_gate(world: World) -> None:
     _settle(world, pid)
     g = world.api.client.get(f"/api/v1/projects/{pid}/identity/start-gate").json()
     names = {w["wellbore_name"]: w for w in g["wellbores"]}
-    print({n: (w["trajectory_validated"], w["location_state"]) for n, w in names.items()})
-    print([x["code"] for x in g["warnings"]])
     assert g["can_start"] is True and g["unmet"] == []
-    for name in ("15/9-F-12", "15/9-F-5"):
-        w = names[name]
-        assert w["trajectory_validated"] is True, w["unmet"]
-        assert w["trajectory_sets"][0]["survey_status"] == "unstated"
-        codes = {x["code"] for x in w["warnings"]}
-        assert "SURVEY_STATUS_UNSTATED" in codes
-        assert w["unlocated"] is False and w["location_state"] == "located", w["warnings"]
-        assert "SURFACE_LOCATION_MISSING" not in codes
+    # separate wellbores: the block-less ones keep their trajectories, nothing merged silently
+    assert {"F-12", "F-5", "15/9-F-12", "15/9-F-5"} <= set(names)
+    for name in ("F-12", "F-5"):
+        assert names[name]["trajectory_validated"] is True
+    with session_scope(world.factory) as session:
+        ds = build_dataset(session, UUID(pid))
+    pairs = {(b.target.key, c.party.key) for b in ds.blocks for c in b.members}
+    assert ("15/9-F-12", "F-12") in pairs and ("15/9-F-5", "F-5") in pairs
+    assert ("15/9-F-12", "F-5") not in pairs and ("15/9-F-5", "F-12") not in pairs
+    assert world.sql("SELECT count(*) FROM identity_merge")[0][0] == 0

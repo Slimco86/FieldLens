@@ -107,7 +107,8 @@ def designator_pattern(d: Designator, *, allow_short: bool) -> re.Pattern[str]:
         block = rf"0*{b1}\s*[/_]\s*0*{b2}\s*-\s*"
         body = rf"(?:{block}{slot}|{slot})" if allow_short else rf"{block}{slot}"
     else:
-        body = slot
+        # A block-less spelling is not a fragment of a block-qualified one ("15/9-F-12").
+        body = rf"(?<!\d/\d-)(?<!\d/\d\d-)(?<!\d\d/\d-)(?<!\d\d/\d\d-){slot}"
     if d.suffix:
         tail = rf"[\s\-_]?{re.escape(d.suffix)}(?![A-Za-z0-9])"
     else:

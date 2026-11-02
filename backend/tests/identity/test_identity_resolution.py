@@ -175,7 +175,8 @@ def test_resolution_is_idempotent_with_stable_ids(world: World) -> None:
 def test_identity_scope_never_merges_or_crosses_projects(world: World) -> None:
     a, b = world.project("A"), world.project("B")
     world.add_doc(a, "a.dat", [_perf("NO 15/9-F-12", "15/9-F-12", None, 1, 2)])
-    # project B writes F-12 only unqualified: it must NOT borrow project A's block
+    # project B writes F-12 only unqualified: it must NOT borrow project A's block (D9: it is a
+    # block-less wellbore named as written)
     world.add_doc(
         b,
         "b.dat",
@@ -185,8 +186,8 @@ def test_identity_scope_never_merges_or_crosses_projects(world: World) -> None:
     _resolve(world, b)
     la, lb = _listing(world, a), _listing(world, b)
     assert [w["name"] for w in la["wells"]] == ["15/9-F-12"]
-    assert lb["wells"] == []
-    assert lb["unresolved"][0]["reason"] == "unqualified_label"
+    assert [w["name"] for w in lb["wells"]] == ["F-12"]
+    assert lb["unresolved"] == []
     # a wellbore id of project A is a 404 under project B
     wid = la["wells"][0]["wellbores"][0]["wellbore_id"]
     ok = world.api.client.get(f"/api/v1/projects/{a}/identity/wellbores/{wid}/evidence")
@@ -209,25 +210,26 @@ def test_ambiguous_label_is_a_finding_and_creates_no_row(world: World) -> None:
     )
     out = _resolve(world, pid)
     listing = _listing(world, pid)
-    assert out.identity_findings >= 2
-    assert sorted(_bores(listing)) == ["15/9-F-12", "16/1-F-12"]
-    assert [w["name"] for w in listing["wells"]] == ["15/9-F-12", "16/1-F-12"]
+    assert out.identity_findings >= 1
+    # D9: the unqualified F-12 is its own block-less wellbore; it never joins either block
+    assert sorted(_bores(listing)) == ["15/9-F-12", "16/1-F-12", "F-12"]
+    assert [w["name"] for w in listing["wells"]] == ["15/9-F-12", "16/1-F-12", "F-12"]
     reasons = {g["reason"] for g in listing["unresolved"]}
-    assert reasons == {"ambiguous"} and listing["unresolved_record_count"] == 2
+    assert reasons == {"ambiguous"} and listing["unresolved_record_count"] == 1
     issues = world.sql(
         "SELECT code, severity, record_ordinals, blocked_operations FROM extraction_issue "
         "WHERE code = 'IDENTITY_MISMATCH'"
     )
-    assert len(issues) == 2 and {i.severity for i in issues} == {"warning"}
-    assert sorted(o for i in issues for o in i.record_ordinals) == [2, 3]
+    assert len(issues) == 1 and {i.severity for i in issues} == {"warning"}
+    assert sorted(o for i in issues for o in i.record_ordinals) == [3]
     # idempotent: findings are replaced, not duplicated
     _resolve(world, pid)
     assert (
-        world.sql("SELECT count(*) FROM extraction_issue WHERE code='IDENTITY_MISMATCH'")[0][0] == 2
+        world.sql("SELECT count(*) FROM extraction_issue WHERE code='IDENTITY_MISMATCH'")[0][0] == 1
     )
 
 
-def test_unqualified_spelling_joins_a_single_qualified_well(world: World) -> None:
+def test_unqualified_spelling_stays_a_separate_blockless_wellbore(world: World) -> None:
     pid = world.project()
     world.add_doc(
         pid,
@@ -239,8 +241,8 @@ def test_unqualified_spelling_joins_a_single_qualified_well(world: World) -> Non
     )
     _resolve(world, pid)
     bores = _bores(_listing(world, pid))
-    assert sorted(bores) == ["15/9-F-12", "15/9-F-12 A"], "F-12 and F-12 A stay distinct"
-    assert bores["15/9-F-12 A"]["parent_wellbore_id"] == bores["15/9-F-12"]["wellbore_id"]
+    assert sorted(bores) == ["15/9-F-12", "F-12 A"], "no silent join; F-12 A is a bore of its own"
+    assert bores["F-12 A"]["parent_wellbore_id"] is None
 
 
 def test_wellbore_evidence_documents_and_locators(world: World) -> None:
