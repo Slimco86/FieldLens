@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -142,20 +143,38 @@ def _squash(value: str) -> str:
     return normalize_text(value).replace(" ", "")
 
 
+_DASHES = re.compile("[\u2010-\u2015\u2212]")
+_WRAP = re.compile(r"-[^\S\n]*\n\s*")
+_SOFT_HYPHEN = re.compile("\u00ad\\s*")
+# a sidetrack/bore suffix token: letter+digits (T2, B1) or ONE uppercase letter in the original
+# text (A, B). ``I`` is excluded (numeral/pronoun); a sentence-initial ``A`` stays a suffix.
+_SUFFIX = r"(?:[A-Za-z]\d+|(?-i:[A-HJ-Z]))(?![A-Za-z0-9])"
+
+
+def _fold(value: str) -> str:
+    """Case-preserving normal form: NFKC, unicode dashes -> ``-``, soft hyphens and hyphenated
+    line wraps joined, every unicode space run -> one space."""
+    text = unicodedata.normalize("NFKC", value)
+    text = _SOFT_HYPHEN.sub("", _DASHES.sub("-", text))
+    return _SPACE.sub(" ", _WRAP.sub("-", text)).strip()
+
+
 def name_in_quote(name: str, quote: str) -> bool:
     """The name occurs in the quote as a whole token: case/whitespace-flexible, and neither
-    preceded by a name character nor continued by one (more digits, ``-x``/``/x``, or a sidetrack
-    suffix such as `` A`` / `` T2``), so a quote about ``15/9-F-12 A`` never supports ``15/9-F-12``.
+    preceded by a name character nor continued by one (more digits, ``-x``/``/x``, a spaced dash
+    or slash plus suffix, or a sidetrack suffix such as `` A`` / `` T2``), so a quote about
+    ``15/9-F-12 A`` never supports ``15/9-F-12`` while ``15/9-F-12 a producer`` does.
     """
-    tokens = normalize_text(name).split(" ")
+    tokens = _fold(name).split(" ")
     if not tokens or not tokens[0]:
         return False
     body = r"\s+".join(re.escape(t) for t in tokens)
     pattern = (
-        rf"(?<![a-z0-9/\-]){body}"
-        r"(?![a-z0-9])(?![/\-][a-z0-9])(?!\s+[a-z]\d*(?![a-z0-9]))"
+        rf"(?<![A-Za-z0-9/\-]){body}"
+        r"(?![A-Za-z0-9])(?![/\-][A-Za-z0-9])"
+        rf"(?!\s+{_SUFFIX})(?!\s*[/\-]\s*{_SUFFIX})"
     )
-    return re.search(pattern, normalize_text(quote)) is not None
+    return re.search(pattern, _fold(quote), re.IGNORECASE) is not None
 
 
 def validate(data: Mapping[str, Any], pages: Mapping[int, str]) -> ModelOutcome:

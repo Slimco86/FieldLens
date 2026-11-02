@@ -134,12 +134,16 @@ def store_result(
                 schema_version=SCHEMA_VERSION,
             )
         )
-    _suggest_classification(session, project_id, document_id, outcome)
+    _suggest_classification(session, project_id, document_id, outcome, result_id)
     return True
 
 
 def _suggest_classification(
-    session: Session, project_id: UUID, document_id: UUID, outcome: ModelOutcome
+    session: Session,
+    project_id: UUID,
+    document_id: UUID,
+    outcome: ModelOutcome,
+    result_id: UUID,
 ) -> None:
     """Model category -> ``suggested_categories`` and tags. ``user_categories`` and its origin are
     never touched, so a user's label always wins; no classification event is written."""
@@ -154,9 +158,25 @@ def _suggest_classification(
     tags_now, suggested_now, user_now = (list(x or []) for x in existing)
     has_category = bool(user_now or [c for c in suggested_now if c != FALLBACK_CATEGORY])
     suggestions = list(suggested_now)
-    if not outcome.unclassified or not has_category:
+    if not outcome.unclassified:
+        # replace what earlier model results of this document suggested (readable from the
+        # stored results); native/user-origin suggestions stay
+        earlier = set(
+            session.execute(
+                select(dmr.c.category).where(
+                    dmr.c.project_id == project_id,
+                    dmr.c.document_id == document_id,
+                    dmr.c.result_id != result_id,
+                )
+            )
+            .scalars()
+            .all()
+        )
+        suggestions = [c for c in suggestions if c not in earlier]
         if outcome.category not in suggestions:
-            suggestions.append(outcome.category)  # added; native/user-origin ones are kept
+            suggestions.append(outcome.category)
+    elif not has_category and outcome.category not in suggestions:
+        suggestions.append(outcome.category)
     merged = list(tags_now)
     if not outcome.unclassified or has_category:
         # a category exists (now or from before): a stale fallback tag goes, none is added

@@ -695,7 +695,7 @@ def test_d3_d2_suggestions_are_added_and_stale_unclassified_tag_is_removed(
     monkeypatch.setattr("fieldlens.processing.identity_store.PROMPT_VERSION", "doc-identity-t2")
     assert m.run("other.pdf")["status"] == "succeeded"
     _, suggested, tags, _, _ = m.classification("other.pdf")
-    assert "trajectory" in suggested and "general_report" in suggested  # added, none overwritten
+    assert suggested == ["trajectory"]  # the earlier model fallback is replaced (D3b)
     assert "unclassified" not in tags and {"x", "y"} <= set(tags)
 
 
@@ -737,3 +737,77 @@ def test_d4_cache_key_omits_provider_and_model_by_design(migrated_url: URL, tmp_
     object.__setattr__(m.world.rt.step._config, "model", "another-model")  # type: ignore[attr-defined]
     again = m.run("wellbore.pdf")
     assert again["documents"][0]["cache_hit"] is True and len(m.provider.calls) == 1
+
+
+# -- QA-055 D1b/D1c: lower-case words, unicode forms, spaced dash suffixes -------------------------
+@pytest.mark.parametrize(
+    ("name", "quote", "ok"),
+    [
+        ("15/9-F-12", "Wellbore 15/9-F-12 a producer", True),  # lower-case word, not a suffix
+        ("15/9-F-12", "Well 15/9-F-12 I completed", True),
+        ("15/9-F-12", "Wellbore 15/9-F-12 B1 summary", False),  # letter+digit stays a suffix
+        ("15/9-F-12", "Wellbore 15/9-F-12 b1 summary", False),
+        ("15/9-F-12", "Wellbore 15/9-F-12 A summary", False),  # uppercase A stays conservative
+        ("15/9-F-12", "Well 15/9-F-12 -A", False),
+        ("15/9-F-12", "Well 15/9-F-12 \u2013 A", False),
+        ("15/9-F-12", "Well 15/9-F-12 \u2014 T2", False),
+        ("15/9-F-12", "Well 15/9-F-12 / A", False),
+        ("15/9-F-12", "Well 15/9-F-12 - a producer", True),  # a spaced dash then a plain word
+        ("15/9-F-12", "Well 15/9-F-12 \u2013 completion", True),
+        ("15/9\u2010F\u201112", "Well 15/9-F-12 completed", True),  # unicode hyphens in the name
+        ("15/9-F-12", "Well 15/9\u2013F\u22121\u20122 completed", False),  # F-1 then 2: not equal
+        ("15/9-F-12", "Well 15/9\u2013F\u201312 completed", True),
+        ("15/9-F-12", "Well\u00a015/9-F-12\u202fcompleted", True),
+        ("15/9-F-12 B", "Well 15/9-F-12\u00a0B completed", True),
+        ("15/9-F-12", "Well 15/9-F-\n12 completed", True),  # hyphen + newline wrap
+        ("15/9-F-12", "Well 15/9-F\u00ad-12 completed", True),  # soft hyphen
+        ("15/9-F-1", "Well 15/9-F-\n12 completed", False),  # never loose enough for F-1 vs F-12
+        ("15/9-F-1", "Well 15/9\u2013F\u201312 completed", False),
+    ],
+)
+def test_d1b_d1c_unicode_case_and_spaced_suffix_rules(name: str, quote: str, ok: bool) -> None:
+    assert ir.name_in_quote(name, quote) is ok
+
+
+# -- QA-055 D3b: model-origin suggestions are replaced, native/user ones kept ------------------
+def test_d3b_later_model_result_replaces_the_earlier_model_suggestion(
+    migrated_url: URL, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [answer("trajectory", [], []), answer("well_logs", [], []), answer(None, [], [])],
+    )
+    doc = UUID(m.world.docs["other.pdf"])
+    with session_scope(m.world.api.client.app.state.session_factory) as s:
+        s.execute(
+            text(
+                "UPDATE document_classification SET suggested_categories = "
+                "ARRAY['geology_reservoir'] WHERE document_id = :d"
+            ),
+            {"d": doc},
+        )  # a native-origin suggestion
+    assert m.run("other.pdf")["status"] == "succeeded"
+    assert m.classification("other.pdf")[1] == ["geology_reservoir", "trajectory"]
+
+    monkeypatch.setattr("fieldlens.processing.identity_store.PROMPT_VERSION", "doc-identity-t2")
+    assert m.run("other.pdf")["status"] == "succeeded"
+    assert m.classification("other.pdf")[1] == ["geology_reservoir", "well_logs"]
+
+    # a later fallback keeps the real suggestions and adds neither tag nor general_report
+    monkeypatch.setattr("fieldlens.processing.identity_store.PROMPT_VERSION", "doc-identity-t3")
+    assert m.run("other.pdf")["status"] == "succeeded"
+    _, suggested, tags, _, _ = m.classification("other.pdf")
+    assert suggested == ["geology_reservoir", "well_logs"] and "unclassified" not in tags
+
+
+def test_d3b_earlier_fallback_general_report_is_dropped_by_a_real_category(
+    migrated_url: URL, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    m = build_model(migrated_url, tmp_path, [answer(None, [], []), answer("trajectory", [], [])])
+    assert m.run("other.pdf")["status"] == "succeeded"
+    assert m.classification("other.pdf")[1] == ["general_report"]
+    monkeypatch.setattr("fieldlens.processing.identity_store.PROMPT_VERSION", "doc-identity-t2")
+    assert m.run("other.pdf")["status"] == "succeeded"
+    _, suggested, tags, _, _ = m.classification("other.pdf")
+    assert suggested == ["trajectory"] and "unclassified" not in tags
