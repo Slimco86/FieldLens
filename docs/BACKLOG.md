@@ -1837,6 +1837,90 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Spec amendment for the review UI, owner approval, then a lane.
 **Evidence.** none yet
 
+### TASK-066 · New completion PDFs still fail with `source_missing` while storage reads hash-verified
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend, ingestion |
+| Depends on | TASK-064 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-02 |
+| Sprint | Hackathon |
+| Spec | specs/RECONSTRUCTION_RUN.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-N |
+
+**Outcome.** Owner report (2026-11-01 23:44): a freshly uploaded `15-9-F-11 B_Completion log.pdf` (label Completion equipment) still shows "Extraction failed (source_missing): stored original is not readable" with Stored (hash-verified), although the document list shows its page count. Find the real cause using the real files and the real runtime (read-only inspection of the owner's runtime and storage metadata, no document contents, no writes) and fix it; the TASK-064 storage-root hypothesis is not sufficient. A PDF either extracts or reports a specific honest reason.
+**Next action.** Lane `task-066-pdf-source-missing`.
+**Evidence.** none yet
+
+### TASK-067 · Reconstruction table: records merged into Sources, Document processing pane removed (UI-17)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-063 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/RECONSTRUCTION_RUN.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-O |
+
+**Outcome.** Owner feedback (2026-11-01 23:44): drop the "Records per category" column and show each category once in the Sources column with its record count; remove the Document processing pane and the stub run list from the UI (it shows "Processed" with no data and no spend); the Action column no longer says "Nothing to process" (the start action arrives with TASK-069; until then show nothing misleading).
+**Next action.** Lane `task-067-reconstruction-table`.
+**Evidence.** none yet
+
+### TASK-068 · Per-wellbore reconstruction run API: estimate, confirm, stages S1..S4 (RR-1..RR-5)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend |
+| Depends on | TASK-054, TASK-056, TASK-057 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/RECONSTRUCTION_RUN.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-P |
+
+**Outcome.** A persisted reconstruction run per ready wellbore (bulk start for all ready), estimate then separate confirm, cancel, retry, idempotent duplicate start, stages S1 gather and S4 assemble deterministic, S2 extract and S3 identify reported `not_available` until their agent steps exist (the run is `partial`, never `succeeded`), USD 5 cap and no live call by default.
+**Next action.** Lane `task-068-reconstruction-run-api`; contracts first so TASK-069 can start.
+**Evidence.** none yet
+
+### TASK-069 · Reconstruct buttons, bulk start and run detail in the Reconstruction tab (RR-6, RR-8)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-067, TASK-068 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/RECONSTRUCTION_RUN.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-Q |
+
+**Outcome.** Reconstruct per ready wellbore and Reconstruct all ready wellbores with estimate, separate confirm and per-stage progress; honest labels for stub and not-available stages.
+**Next action.** Blocked on TASK-068 contracts.
+**Evidence.** none yet
+
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 
 | Field | Value |
