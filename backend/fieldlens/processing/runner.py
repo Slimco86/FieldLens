@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.config import Settings
 from fieldlens.contracts.processing import ProcessingFailureCode
+from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.persistence import models as m
 from fieldlens.persistence.session import session_scope
 from fieldlens.processing import tables as t
@@ -72,7 +73,9 @@ class ProcessingRunner:
         step: ProcessingStep,
         owner: str,
         is_dead_owner: Any,
+        root_guard: StorageRootGuard | None = None,
     ) -> None:
+        self._root_guard = root_guard
         self._factory = factory
         self._counter = counter
         self._settings = settings
@@ -166,6 +169,8 @@ class ProcessingRunner:
     # -- execution --------------------------------------------------------------------------
     def run_once(self) -> bool:
         self.recover_once()
+        if self._root_guard is not None and not self._root_guard.serves_database():
+            return False  # wrong storage root: leave the confirmed run queued
         claim = self._claim()
         if claim is None:
             return False

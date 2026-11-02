@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.config import Settings
+from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.jobs.repository import new_owner
 from fieldlens.processing.runner import ProcessingRunner
@@ -63,5 +64,6 @@ def build_runtime(
         chosen_step,
         owner,
         lambda other: is_dead_owner(other, owner),
+        StorageRootGuard(factory, store),
     )
     return ProcessingRuntime(counter, chosen_provider, chosen_step, runner)

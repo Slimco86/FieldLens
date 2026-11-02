@@ -64,6 +64,26 @@ def test_processing_runs_start_without_label(world: World) -> None:
     assert "no data was extracted" in after["state_text"]  # a stub run never looks like real work
 
 
+def test_wrong_root_runner_leaves_confirmed_run_queued(world: World) -> None:
+    """TASK-066 follow-up: a process whose storage root holds none of the database's originals
+    must not claim (and fail) a confirmed processing run; the right-root runner finishes it."""
+    from fieldlens.evidence.storage import BlobStore
+    from fieldlens.processing.runtime import build_runtime
+
+    run = world.estimate("scan.pdf").json()
+    assert world.confirm(run).status_code == 202
+    app = world.api.client.app
+    foreign = build_runtime(
+        app.state.session_factory,
+        BlobStore(world.api.storage.parent / "foreign-root"),
+        app.state.settings,
+    )
+    assert foreign.runner.run_once() is False
+    assert world.get(run["run_id"])["status"] == "queued"
+    assert world.drain() == 1
+    assert world.get(run["run_id"])["status"] == "succeeded"
+
+
 def test_processing_estimate_confirm(world: World) -> None:
     r = world.estimate("scan.pdf", "report.pdf")
     assert r.status_code == 201
