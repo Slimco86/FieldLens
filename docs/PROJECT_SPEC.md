@@ -143,7 +143,7 @@ is recorded. A prerecorded or cached demo alone does not verify live integration
 Human developer and AI coding assistants; no existing application context may be
 assumed. The project owner is available in this conversation for scope decisions.
 The main agent plans, delegates and integrates. Implementation subagents use
-one feature branch at a time in the shared checkout under the
+one feature branch and linked worktree per independent feature, in parallel, under the
 [development workflow](DEVELOPMENT_WORKFLOW.md);
 the [approved agent roster](../.github/agents/README.md) assigns Astra xhigh to
 global orchestration, Terra low to exact low-risk work, Sonnet medium to substantive
@@ -181,7 +181,7 @@ Initial decisions dated 2026-10-26; additions dated explicitly below.
 | Three-tier equipment rendering policy | Show incomplete information honestly rather than silently omitting or fabricating |
 | Separate feature specs before implementation | Iterative, bounded, testable delivery |
 | Historical perforation events, state and footage (2026-10-27) | Changes across completion/production/injection history must be inspectable |
-| Serial feature branches in one checkout (2026-10-28) | Main-session orchestration, one subagent writer at a time; supersedes October 27 parallel worktrees while preserving model/tool gates |
+| Parallel feature worktrees (2026-11-01, confirmed 2026-11-02) | Main-session orchestration, one subagent writer per linked worktree and `./dev` lane; supersedes the October 28 serial rule while preserving model/tool gates |
 | Major/minor/patch version and changelog discipline (2026-10-27) | Breaking/features/fixes-docs assessed for each accepted integration |
 | Inspect real samples before final architecture (2026-10-27) | Source probes inform the completed architecture; pilot mappings/feasibility remain gated rather than invented. Source-independent contracts do not assert pilot readiness |
 | Indie track, public repository and three-minute recorded demo (2026-10-27) | Owner-confirmed submission constraints; full authenticated rules still need review |

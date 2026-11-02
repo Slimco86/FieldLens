@@ -28,7 +28,7 @@ preflight and independent QA at `2af22aa`; 0.5.0 is integrated at `3e748d9`.
 TASK-006 is next, subject to its fresh profile/resource preflight.
 Owner amendment at 14:47 EDT: run each feature on its own branch in
 `/home/slimco/code/FieldLens`, with subagents launched from the main session,
-one writer at a time. No additional worktrees; preserve the old allocation inactive.
+one writer at a time. *(Historical: superseded by the 2026-11-01/02 parallel-worktree policy in the workflow.)*
 The [global DAG](architecture-fieldlens-1.md) remains authoritative.
 Local TASK-FN/PRJ/UP identifiers below are steps inside those global tasks.
 

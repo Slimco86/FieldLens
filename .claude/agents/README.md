@@ -4,7 +4,7 @@ Approved 2026-10-27. These are Claude Code development subagents (`.claude/agent
 application's Meta RAG agents. Copilot equivalents live in `.github/agents/`; the
 two sets are maintained separately. The [FL-001 spec](../../docs/specs/DEVELOPMENT_AGENTS.md) records
 approval and verification; the [workflow](../../docs/DEVELOPMENT_WORKFLOW.md)
-governs serial feature branches, tests and integration.
+governs parallel feature worktrees, tests and integration.
 
 ## Roster and model defaults
 
@@ -77,14 +77,15 @@ and only the relevant spec/skill sections before acting.
 
 - Require backlog/spec approval, exact objective and stop condition, base commit,
   owned files/contracts, actual checks, external-data permissions and resource
-  limits. All roles use the assigned shared checkout; tests still need isolated
-  databases/ports/output directories.
+  limits. All roles use their assigned lane worktree; each lane needs its own
+  database/ports/output directories (`./dev` lane).
 - Before writing, verify assigned absolute checkout, branch and base ancestry.
   Check for unrelated dirty work and ownership conflicts. An agent file does not
-  set `cwd` or switch a branch. The owner-approved checkout is
-  `/home/slimco/code/FieldLens`; one feature and one writer are active at a time.
-  Never switch branches or edit preserved worktrees. The orchestrator pauses
-  writes during worker turns and switches branches only after workers/helpers stop.
+  set `cwd` or switch a branch. Each feature has its own linked worktree under
+  `/home/slimco/code/FieldLens-worktrees/<lane>` with one writer; work only in the assigned
+  worktree. Never switch branches, edit another lane's worktree or touch preserved
+  inactive worktrees. The orchestrator creates, merges and removes worktrees after the
+  lane's worker and checks stop.
 - Implement only the approved slice, keep existing behavior and trace requirements
   to tests. Source records, normalized claims, deterministic computations and
   display geometry stay separate. Missing engineering evidence blocks affected

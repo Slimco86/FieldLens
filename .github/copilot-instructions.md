@@ -52,7 +52,7 @@ conversation support that reconstruction rather than a pre-authored scene.
   Define outcome, boundaries, inputs, data/contracts, failure behavior, measurable
   acceptance criteria, tests, and unresolved decisions. Agree these with the owner.
 - A draft spec is not implementation approval. Each delegated assignment is one
-  verifiable vertical slice; execute one feature at a time. Update the spec
+  verifiable vertical slice; independent slices run in parallel (one per worktree). Update the spec
   when evidence changes. Documentation-only corrections do not require a feature spec.
 - Maintain requirement-to-test traceability. Mark a feature verified only after
   its acceptance checks pass; distinguish mocks, cached replays, and live results.
@@ -64,7 +64,7 @@ conversation support that reconstruction rather than a pre-authored scene.
   for a demonstrated requirement. Do not scaffold infrastructure or download the
   full Volve release merely because it appears in a research inventory.
 
-## Serial development and delivery
+## Parallel development and delivery
 
 - Follow [the development workflow](../docs/DEVELOPMENT_WORKFLOW.md):
   backlog/spec approval -> feature branch/delegation -> implementation -> tests ->
@@ -76,9 +76,12 @@ conversation support that reconstruction rather than a pre-authored scene.
   re-verify the repaired candidate, then finish the authorized commit/merge cycle
   only when every required check passes. A coding handoff is not completion.
 - The main agent owns planning, dependencies, delegation, review and integration.
-  Delegate implementation from the main session to configured subagents in the
-  current checkout, one feature branch and one writer at a time. Do not create
-  additional worktrees. Record base commits, file/contract ownership and checks.
+  Delegate implementation from the main session to configured subagents. Independent
+  features run **in parallel**, each in its own linked worktree under
+  `/home/slimco/code/FieldLens-worktrees/<lane>` on its own `feature/*` branch with one
+  writer per worktree and its own `./dev` lane (database, storage root, ports). The
+  orchestrator creates the worktrees; record base commits, non-overlapping file/contract
+  ownership and checks per lane.
   Use the approved [agent roster and routing policy](agents/README.md).
 - Keep the main session on **GPT-6 Astra / xhigh** for global orchestration.
   Route fully specified low-risk tests/boilerplate to **GPT-6.1 Terra / low**;
@@ -99,17 +102,20 @@ conversation support that reconstruction rather than a pre-authored scene.
   integration and actual profile preflight. F-12's missing tally does not block
   these synthetic-source slices; G1 and live-provider acceptance remain separate.
 - A feature branch does not isolate databases, ports, secrets, processes or API
-  budgets. Isolate those resources explicitly. The orchestrator alone switches
-  branches, after workers and branch-bound checks/helpers stop. Subagents must
-  not modify another checkout, merge the integration branch, or independently
-  edit global release metadata. Pause orchestrator writes during worker edits.
+  budgets. Isolate those resources explicitly (one `./dev` lane per worktree, never
+  the application/demo database). Only the orchestrator creates, merges and removes
+  worktrees, after the lane's worker and checks stop. Subagents stay in their assigned
+  worktree, never merge the integration branch, and never edit global release metadata.
+  `VERSION`, `CHANGELOG`, the contract registry/generated client and the Alembic head
+  are serialized across lanes: pre-assign migration numbers, and the next branch to
+  merge rebases onto the new head and re-runs its checks.
 - The orchestrator finalizes [VERSION](../VERSION) and
   [CHANGELOG](../CHANGELOG.md) before every accepted change is integrated:
   breaking change = major, new feature = minor, fix/docs = patch. Assess compatibility
   even before 1.0; one integration gets one bump, not another for its merge commit.
 - Feature branches include tested work, related documentation and a proposed
-  changelog entry/bump in their handoff. Allocate final versions serially against
-  the latest integration tip; revalidate if that tip moves.
+  changelog entry/bump in their handoff. Allocate final versions serially at merge time
+  against the latest integration tip; revalidate if that tip moves.
 - Mark backlog items done only after integration is confirmed and evidence recorded.
   Preserve existing inactive worktrees; never force-remove them. No automatic push, publication
   or destructive Git operation is authorized by this workflow.

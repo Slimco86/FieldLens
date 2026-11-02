@@ -8,6 +8,13 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.33.1 - 2026-11-02
+
+- **Docs:** the delivery policy is parallel development routes in parallel linked worktrees (one writer, branch and
+  `./dev` lane per independent feature; shared release metadata, contracts and migration head serialized at merge).
+  Replaced the stale "one writer / one feature at a time / no additional worktrees" wording across the instruction files,
+  agent profiles and registry, workflow, README and plan documents.
+
 ## 0.33.0 - 2026-11-02
 
 - **TASK-068 reconstruction run API:** `/api/v1/projects/{id}/reconstruction-runs` with estimate, a separate confirm

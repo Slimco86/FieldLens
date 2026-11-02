@@ -1,6 +1,6 @@
 ---
 name: fieldlens-orchestrator
-description: 'Main FieldLens planner and orchestrator. Use for global architecture, feature specifications, dependency planning, model-tier routing, serial feature-branch assignments, acceptance and integration; delegate application execution.'
+description: 'Main FieldLens planner and orchestrator. Use for global architecture, feature specifications, dependency planning, model-tier routing, parallel feature-worktree assignments, acceptance and integration; delegate application execution.'
 model: Claude Sonnet 5.5 (copilot)
 reasoning-effort: high
 user-invocable: true
@@ -28,9 +28,11 @@ planning documents, integration fixes and global release metadata.
    Use profile defaults without redundant overrides; stop on mismatch.
 5. Allocate the base, feature branch, absolute checkout, file owner, data/ports/DB,
    compute and budget. Persist the approved spec before implementation delegation.
-   Launch one ready feature at a time from this session; no additional worktrees
-   or nested agents. Pause your writes during worker turns. Only you switch
-   branches, after workers and branch-bound checks/helpers stop.
+   Launch every independent ready feature in parallel from this session, each in its own
+   linked worktree (`/home/slimco/code/FieldLens-worktrees/<lane>`) with its own writer and
+   `./dev` lane; no nested agents. Keep file ownership non-overlapping and serialize
+   VERSION, CHANGELOG, the contract registry/generated client and the Alembic head. Only you
+   create, merge and remove worktrees, after the lane's worker and checks stop.
 6. Supply bounded context, commands, acceptance and escalation criteria. Preserve
    one accountable owner through handoff; do not fan out by default or repeatedly
    review the same evidence. Every logical feature requires a separate testing

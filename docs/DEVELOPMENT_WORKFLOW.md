@@ -1,4 +1,4 @@
-# Development workflow: one feature branch, one shared checkout
+# Development workflow: parallel feature worktrees
 
 Adopted 2026-10-27 from the owner's requirements. This governs **development
 agents**, not the application's Meta reconstruction/exploration harness. The approved
@@ -7,6 +7,10 @@ boundaries and host activation checks. See [FL-001](specs/DEVELOPMENT_AGENTS.md)
 for configuration versus runtime verification. The same policy applies when the
 work is driven from Claude Code; see [section 9](#9-claude-code-harness) for its
 agent, model and activation equivalents (registry: [.claude/agents](../.claude/agents/README.md)).
+
+**Current policy (owner, 2026-11-02 at 09:58 EST):** parallel development routes in parallel linked worktrees are
+the intended strategy; any remaining "one writer / one checkout / serial" wording in older sections or specs means one
+writer *per worktree* and is superseded by the amendment below.
 
 **Owner amendment, 2026-11-01 at 14:26 EST (supersedes the two-task cap and the 2026-10-28 serial rule):** run
 as many independent tasks in parallel as their file ownership allows, each in its own linked worktree under
@@ -28,7 +32,7 @@ branch to merge rebases its migration onto the new head and re-runs checks). Onl
 creates, merges and removes worktrees, after the worker and its checks stop; legacy worktrees stay
 untouched. Independent QA, version/changelog finalization and the authorized merge still apply.
 
-**Owner amendment, 2026-10-28 at 14:47 EDT:** develop one feature at a time in
+**Owner amendment, 2026-10-28 at 14:47 EDT (superseded by the parallel-worktree policy above; kept as history):** develop one feature at a time in
 `/home/slimco/code/FieldLens`, on its own branch, with subagents launched by the
 main orchestrator session. This replaces parallel worktree dispatch. Preserve
 existing worktrees inactive; do not create or remove them for this workflow.
@@ -65,8 +69,8 @@ that these packets have been integrated or that a profile/runtime has been verif
   agrees contracts, allocates the feature branch/resources, delegates implementation,
   reviews results, coordinates tests and owns integration/release metadata.
   Uses GPT-6 Astra with xhigh effort; it is not a default implementation worker.
-- **Implementation subagent:** implements its assigned slice in the shared checkout
-  on the orchestrator-selected feature branch as the sole active writer,
+- **Implementation subagent:** implements its assigned slice in its own linked worktree
+  on the orchestrator-selected feature branch as the sole writer of that worktree,
   tests it, updates feature-specific documentation, commits and returns a handoff.
   It does not switch branches, edit another checkout or merge the integration branch.
 - **Reviewer/tester:** a separate configured agent independently verifies every
@@ -98,7 +102,7 @@ resume state. `cancelled` requires an explicit owner decision and retained ratio
 | Backlog definition | Assign a stable ID, outcome, priority, owner and actual prerequisite IDs. Separate mandatory scope from optional extensions. |
 | Feature spec | Define scope, input/output contracts, evidence, failures, numerical thresholds, tests and shared-file ownership. Get owner approval; a draft is not ready. |
 | Ready / scheduling | All hard prerequisites are integrated; agreed interfaces/resources exist. Record role/tier rationale, verify profile/model/effort/tools, and record the integration base commit, feature branch, absolute checkout path and pre-existing dirty files before delegation. |
-| Implementation | One active feature branch and one writer in the shared checkout. The orchestrator pauses its writes until the worker returns. Build a complete bounded slice; update its own spec and related documentation. Escalate scope or shared-contract changes. |
+| Implementation | One feature branch, worktree and writer per lane; independent lanes run in parallel. The orchestrator does not write inside a lane while its worker runs. Build a complete bounded slice; update its own spec and related documentation. Escalate scope or shared-contract changes. |
 | Test | A separate agent checks all acceptance criteria plus affected type/build gates on a stable candidate. Record exact commands, commit, environment, fixtures and live/stub status. Return failures to the implementer and independently re-verify fixes. Failed or unrun required tests block integration. |
 | Commit / handoff | Commit tested feature work and related docs; send the contract below. Suggest a bump/changelog entry without allocating a final version. |
 | Integration preparation | Main agent incorporates latest target changes, resolves shared edits, delegates combined checks and finalizes version/changelog/docs before the integration commit/merge. Re-verify affected behavior if the tested candidate changes. |
@@ -117,14 +121,14 @@ subset and which live/mock provider mode each checkpoint uses; partial acceptanc
 cannot mark a complete feature or final demo verified. Review the checkpoint
 before widening scope so identity, temporal or UX drift is visible early.
 
-## 3. Dependency-aware serial execution
+## 3. Dependency-aware parallel execution
 
 - Model real prerequisites, not just list order. Split foundational shared schema,
   API and asset-ID contracts into small approved work before dependent implementers
   need them. Coordinate migration identifiers and generated client ownership.
-- Independent slices remain eligible in the DAG but execute sequentially, not
-  concurrently. Finish, test and integrate the active feature before starting
-  another. For partially dependent work, record frozen interfaces and allowed
+- Independent slices execute concurrently, one worktree each, when their file
+  ownership does not overlap. A dependent slice waits for its prerequisite to be
+  integrated. For partially dependent work, record frozen interfaces and allowed
   stubs explicitly; live-dependent acceptance still requires integrated prerequisites.
 - Tests using mocks do not satisfy live database/provider/feature acceptance.
   Rerun dependent checks against the integrated implementation before merging.
@@ -175,24 +179,24 @@ Keep `.blend` sources/reviewed scripts separate from runtime GLB and engineering
 records. Terra may run a reviewed deterministic export/check, not design its mesh.
 No new agent, Blender service or runtime code execution is implied.
 
-## 4. Shared checkout and resource isolation
+## 4. Worktrees and resource isolation
 
 Current integration branch is `master`; confirm it before each assignment. Do not
 assume a branch called `main`, or dispatch implementation against uncommitted contracts.
 Persist the approved spec/contract at the recorded base before the agent starts.
 
 Naming convention: branch `feature/<slice>-<slug>` (or `fix/` / `docs/` as appropriate)
-in `/home/slimco/code/FieldLens`. Use a new unoccupied branch name if a preserved
+in `/home/slimco/code/FieldLens-worktrees/<lane>`. Use a new unoccupied branch name if a preserved
 worktree already owns the original name; never force-checkout that branch.
 
 Before creating/switching branches, check Git status and existing branches/worktrees.
 Preserve pending work; do not stash, commit or discard unrelated changes implicitly.
-Only the orchestrator switches branches, after all workers and branch-bound
-tests/watchers/servers have stopped. Never switch while a worker is still running.
+Only the orchestrator creates, merges and removes worktrees and switches the primary checkout's branch,
+after the affected lane's worker and branch-bound tests/watchers/servers have stopped.
 Before the first write, the subagent verifies its actual working directory and
 branch against the assignment; a mismatch blocks work.
-Launch subagents from the main session with that same checkout and branch.
-Use one writer at a time, including orchestrator documentation edits. QA and
+Launch each subagent from the main session with its lane's worktree and branch.
+Use one writer per worktree, including orchestrator edits to that lane. QA and
 read-only reviewers run against a stable candidate after the implementation turn.
 
 Sequential branches still share the host. They do **not** isolate:
@@ -207,8 +211,8 @@ Sequential branches still share the host. They do **not** isolate:
 - **Data/secrets:** provide minimal authorized read access; never commit/copy
   credentials indiscriminately. Immutable source files may be shared read-only;
   generated outputs/caches must be isolated or revision-keyed and concurrency-safe.
-- **Compute/API credit:** one active implementation worker and one heavy workload
-  on this WSL host. Reserve the shared Meta budget; each feature does not get USD 150.
+- **Compute/API credit:** parallel lanes share one WSL host: keep at most one heavy
+  workload (large parse, full test sweep, live-model run) at a time across lanes. Reserve the shared Meta budget; each feature does not get USD 150.
 
 Subagents must not push, tag, publish, force-rewrite branches, or merge `master`
 without explicit orchestration/authorization. Repository instructions do not
@@ -252,8 +256,8 @@ risks. Do not mark another agent's dependency done based on a message alone.
 
 ## 6. Integration and version allocation
 
-The main agent integrates the active feature before assigning the next feature
-branch. Only it allocates the next version.
+The main agent integrates tested lanes one at a time (first ready, first merged). Only it allocates the next
+version; the next lane rebases on the new tip and re-runs its checks.
 
 1. Receive the tested feature commits and handoff. Confirm the target base, scoped
    changes, acceptance evidence and prerequisite commits.

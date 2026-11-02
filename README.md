@@ -30,7 +30,7 @@ The owner confirmed hybrid project uploads, explicit reconstruction review/
 publication and upload limits on October 28. F-12 generic/unlocated equipment
 and real discrepancies are intentional, visibly labelled demo cases.
 The owner approved the first three implementation packets and then switched
-development to one feature branch at a time in this checkout. The old foundation
+development to parallel feature worktrees (owner amendment, November 2). The old foundation
 worktree is preserved inactive; worker editing-tool exposure has varied by invocation;
 see the [activation record](docs/BACKLOG.md#first-packet-execution-approval-and-activation-blocker).
 Local source access is established; final pilot qualification, package compatibility
@@ -333,7 +333,7 @@ Verified versions and requirement-to-test evidence are recorded in
 - [Data quality](docs/specs/DATA_QUALITY.md): evidence-linked warnings/errors,
   generic limitations and affected-output blocking without hiding valid records.
 - [Implementation sequence](plan/architecture-fieldlens-1.md): 32 explicit tasks,
-  dependency DAG, serial feature ownership and deadline checkpoints.
+  dependency DAG, per-lane feature ownership and deadline checkpoints.
 - [First implementation packets](plan/feature-foundation-workspace-1.md):
   foundation -> project lifecycle -> uploads/jobs, with planned files, tests,
   isolated resources, handoffs and stop conditions.
@@ -370,9 +370,9 @@ Verified versions and requirement-to-test evidence are recorded in
 ## Delivery workflow
 
 The main agent plans and orchestrates; implementation subagents launch from that
-session and work sequentially in the current checkout, one feature branch and
-one writer at a time, on approved dependency-ready specs. No new worktrees.
-Only the orchestrator switches branches after workers/checks/helpers stop.
+session and work in parallel, one linked worktree, `feature/*` branch, writer and `./dev` lane
+per independent feature, on approved dependency-ready specs. Only the orchestrator
+creates, merges and removes worktrees, after the lane's worker and checks stop.
 Each integration requires
 tests, related documentation, and an assessed major/minor/patch update before merge.
 After integration, the orchestrator reconciles the backlog. Select

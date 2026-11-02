@@ -81,7 +81,7 @@ None. Base is `master` at `c14cff4` (0.5.0).
   environments; other keys in `.env` are ignored by code.
 - Delegation: `fieldlens-backend` (config/persistence/test infrastructure;
   interconnected, security-sensitive), one writer on branch
-  `feature/fl-018-dev-environment` from `c14cff4` in `/home/slimco/code/FieldLens`.
+  `feature/fl-018-dev-environment` from `c14cff4` in `/home/slimco/code/FieldLens` *(historical; current policy is one writer per lane worktree)*.
   Independent `fieldlens-qa` acceptance follows. The dirty
   `.github/copilot-instructions.md` is the orchestrator's and is excluded.
 

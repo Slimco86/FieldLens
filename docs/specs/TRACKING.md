@@ -186,7 +186,7 @@ transition (action-required events carry the 🔴 ACTION NEEDED marker per NT-6)
 
 ### 4.6 Delegation
 
-`fieldlens-backend`, serial feature branches from the then-current `master`, one writer,
+`fieldlens-backend`, feature branches from the then-current `master`, one writer per worktree,
 separate `fieldlens-qa` per slice: `feature/fl-020-a-notify`, `feature/fl-020-b-ledger`,
 `feature/fl-020-c-taiga-sync`. Owned paths per slice: A `scripts/notify.py`,
 `scripts/toolenv.py`, `backend/tests/tooling/test_notify*.py`, `.env.example`, `init_env.py`

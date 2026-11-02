@@ -8,9 +8,10 @@
 > **Extension:** FL-013 Blender skill/workflow statically verified; integration pending.
 > **Approval:** Owner confirmed 10 specialists plus orchestrator and effort defaults
 > in the 2026-10-27 preparation conversation.
-> **Scheduling amendment:** Owner approved one feature branch at a time in the
-> existing checkout, with subagents launched by the main session, October 28 at
-> 14:47 EDT. No new worktrees; existing worktrees remain inactive and preserved.
+> **Scheduling amendment (current):** Owner approved parallel feature worktrees (one linked
+> worktree, branch, writer and `./dev` lane per independent feature, launched by the main
+> session), November 1 at 14:26 EST and confirmed November 2 at 09:58 EST; this supersedes
+> the October 28 14:47 EDT one-branch-at-a-time rule (kept below as history).
 > **Zero-Question Score:** 0 unowned questions; host activation remains a verification gate.
 
 ## How to Read This Spec
@@ -45,9 +46,9 @@ Outcome score: 3; static configuration alone does not prove runtime selection.
   `[Validated: owner approval; capability/cost assumptions are not benchmarks]`
 - Shared routing/preflight/handoff policy, relevant existing skills, no nested
   worker delegation and dependency/resource isolation. `[Validated: owner/workflow]`
-- Serial feature execution in the main checkout: one writer, no worker branch
-  switches, no concurrent orchestrator writes; finish/integrate before the next
-  feature. `[Validated: owner amendment, 2026-10-28]`
+- Parallel feature execution: one writer per linked worktree, no worker branch switches,
+  non-overlapping file ownership, serialized release metadata/contracts/migration head.
+  `[Validated: owner amendment, 2026-11-01, confirmed 2026-11-02; supersedes 2026-10-28 serial rule]`
 - Reconcile FL-000 against actual commit `e8b156a`; propose a new version for this
   opt-in developer capability, without claiming a merge. `[Validated: Git evidence]`
 - FL-013 adds an offline Blender equipment-authoring skill to the existing 3D role,
@@ -88,7 +89,7 @@ Route uncertainty and engineering risk upward rather than lowering acceptance.
 | DA-5 | Edge case | Missing profile/model/effort, wrong checkout/branch, unapproved contract or unavailable required tool blocks the assignment; no silent fallback or continuation under an unverified model. | 3 | [Validated: owner/workflow]; preflight scenario review |
 | DA-6 | Non-behavioral | No worker body exceeds 6,000 characters, shared policy is linked rather than copied wholesale, and assignments record bounds and usage when available (otherwise explicitly unavailable). | 3 | [Validated: approved cost-conscious setup]; static bounds and handoff check |
 | DA-7 | Dependency | Before feature delegation, host discovery resolves the chosen profile and runtime metadata confirms its model/effort; required tool access is checked. Static validation, self-reported model names and documentation are not substitutes. | 3 | [Verified for the recreated backend and independent QA: host Sonnet/medium, actual editing/discovery and browser/test use; main returned to Astra/xhigh at 16:59 EDT]; repeat host smoke/trace for each assignment |
-| DA-8 | Behavioral | The assignment uses the active feature branch in `/home/slimco/code/FieldLens`; only one writer runs, no worker switches branches, and the orchestrator waits for workers/checks/helpers before a branch switch. No new worktree is created or existing dirty worktree removed. | 3 | [Validated: owner serial-workflow amendment]; Git status, assignment and execution checks |
+| DA-8 | Behavioral | Each assignment uses its own linked worktree and branch under `/home/slimco/code/FieldLens-worktrees/<lane>`; one writer per worktree, no worker switches branches or edits another lane, and the orchestrator waits for the lane's worker/checks/helpers before merging or removing a worktree. Existing dirty or inactive worktrees are never removed. | 3 | [Validated: owner parallel-worktree amendment]; Git status, assignment and execution checks |
 | DA-9 | Behavioral | Every logical feature is tested by a different agent from its implementer. The orchestrator delegates acceptance/integration checks, routes fixes back and obtains independent re-verification before the authorized commit/merge and backlog completion. | 3 | [Validated: owner clarification October 28, 17:12 EDT]; separate-agent verdict and integration evidence |
 
 Definition of done: DA-1 through DA-6, DA-8 and DA-9 pass, DA-7 is recorded for activation, and

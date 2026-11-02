@@ -58,8 +58,8 @@ launch-time assignment only after prerequisite interfaces/source subsets freeze.
   At most one active code worker; one heavy test/parser/build workload at a time.
 - **GUD-001**: Do not start a task until its explicit dependencies are integrated,
   its spec approved and its profile/model/tools/resources verified.
-- **PAT-001**: Freeze shared contracts first, use one feature branch at a time in
-  the shared checkout, and serialize all writers, tests and integration.
+- **PAT-001**: Freeze shared contracts first, run independent features in parallel linked
+  worktrees (one writer each), and serialize release metadata, shared contracts, the migration head and merges.
 
 ## 2. Implementation Steps
 
@@ -222,7 +222,7 @@ give each task a separate database and do not remove its volume during worker
 cleanup. Native service use requires an explicit equivalent isolated configuration.
 
 Root manifests/lockfiles, migration head, shared Pydantic schemas, generated TS,
-app composition and global release files have **one writer at a time**.
+app composition and global release files have **one writer at a time across lanes** (serialized at merge).
 Feature workers own isolated modules from their specs. Schema changes are reviewed
 and integrated first; regenerate clients before dependent tests. No worker merges,
 pushes, publishes, edits another tree or spawns workers.
