@@ -82,12 +82,25 @@ export function RunCell({
 
 const MAX_EVIDENCE = 5;
 
+/** One entry per file: the server may return several references to the same file; their locators are combined. */
+export function groupEvidence(refs: ReconstructionEvidenceRef[]): { document_id: string; filename: string | null; locators: string[] }[] {
+  const out = new Map<string, { document_id: string; filename: string | null; locators: string[] }>();
+  for (const e of refs) {
+    const cur = out.get(e.document_id) ?? { document_id: e.document_id, filename: e.filename, locators: [] };
+    const loc = locatorText(e.locator);
+    if (loc !== "no locator" && !cur.locators.includes(loc)) cur.locators.push(loc);
+    out.set(e.document_id, cur);
+  }
+  return [...out.values()];
+}
+
 function Evidence({ refs, truncated, onOpenSource }: { refs: ReconstructionEvidenceRef[]; truncated?: boolean; onOpenSource: (id: string) => void }) {
   if (refs.length === 0) return null;
+  const files = groupEvidence(refs);
   return (
     <ul className={styles.list} aria-label="Evidence references">
-      {refs.slice(0, MAX_EVIDENCE).map((e, i) => (
-        <li key={`${e.document_id}-${i}`}>
+      {files.slice(0, MAX_EVIDENCE).map((e) => (
+        <li key={e.document_id}>
           <a
             href="#sources"
             aria-label={`Open ${e.filename ?? "file"} in Sources`}
@@ -99,13 +112,13 @@ function Evidence({ refs, truncated, onOpenSource }: { refs: ReconstructionEvide
             {e.filename ?? "Source file"}
           </a>{" "}
           <span className={styles.note}>
-            (document {e.document_id.slice(0, 8)}; {locatorText(e.locator)})
+            (document {e.document_id.slice(0, 8)}; {e.locators.length === 0 ? "no locator recorded" : e.locators.slice(0, 5).join("; ")})
           </span>
         </li>
       ))}
-      {(refs.length > MAX_EVIDENCE || truncated === true) && (
+      {(files.length > MAX_EVIDENCE || truncated === true) && (
         <li className={styles.note}>
-          {refs.length > MAX_EVIDENCE ? `${refs.length - MAX_EVIDENCE} more reference(s) are not listed here. ` : ""}
+          {files.length > MAX_EVIDENCE ? `${files.length - MAX_EVIDENCE} more file(s) are not listed here. ` : ""}
           {truncated === true && "The server limits evidence per category; counts stay exact."}
         </li>
       )}

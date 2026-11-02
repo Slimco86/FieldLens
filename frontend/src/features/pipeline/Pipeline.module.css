@@ -123,3 +123,10 @@
 .facts dd {
   margin: 0;
 }
+.dialogHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fl-space-md);
+  padding: var(--fl-space-md);
+}

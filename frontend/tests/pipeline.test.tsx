@@ -4,6 +4,7 @@ import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "./render";
+import { groupEvidence } from "../src/features/pipeline/RunViews";
 import { ReconstructionPanel } from "../src/features/pipeline/ReconstructionPanel";
 
 const P = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -484,6 +485,45 @@ describe("Reconstruct: duplicate start and errors", () => {
     expect(alert).toHaveTextContent("Nothing was started or spent");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(posts(m, "/confirm")).toHaveLength(0);
+  });
+
+  it("includes the server's per-wellbore refusal reason in the 422 alert", async () => {
+    install([], {
+      ...f12().routes,
+      "POST /reconstruction-runs/estimates": () =>
+        json({ error: { code: "VALIDATION_ERROR", message: "Not ready", request_id: "req-9", details: { refusals: [{ wellbore_name: "15/9-F-12", reason: "not_ready", gate_reasons: [{ code: "X", message: "No validated trajectory" }] }] } } }, 422),
+    });
+    render(panel());
+    await userEvent.click(await screen.findByRole("button", { name: "Reconstruct 15/9-F-12" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("15/9-F-12: No validated trajectory");
+  });
+
+  it("keeps focus on the Reconstruct button after a failed estimate", async () => {
+    install([], {
+      ...f12().routes,
+      "POST /reconstruction-runs/estimates": () => Promise.reject(new TypeError("fetch failed")) as unknown as Response,
+    });
+    render(panel());
+    const btn = await screen.findByRole("button", { name: "Reconstruct 15/9-F-12" });
+    await userEvent.click(btn);
+    await screen.findByRole("alert");
+    await waitFor(() => expect(btn).toHaveFocus());
+  });
+
+  it("adds no banner landmark inside the estimate dialog", async () => {
+    install([], f12().routes);
+    render(panel());
+    const dlg = await openDialog();
+    expect(dlg.querySelector("header")).toBeNull();
+    expect(within(dlg).getByRole("heading", { name: /Reconstruction estimate for/ })).toBeInTheDocument();
+  });
+
+  it("groups evidence references per file with combined locators", () => {
+    const ref = (document_id: string, loc: Record<string, unknown>) => ({ document_id, filename: "traj.csv", locator: loc }) as never;
+    const out = groupEvidence([ref("d1", { line_start: 26, line_end: 26 }), ref("d1", { line_start: 30, line_end: 30 }), ref("d1", { line_start: 26, line_end: 26 }), ref("d2", {})]);
+    expect(out).toHaveLength(2);
+    expect(out[0]?.locators).toEqual(["line 26", "line 30"]);
+    expect(out[1]?.locators).toEqual([]);
   });
 
   it("shows a network failure on estimate as an alert", async () => {

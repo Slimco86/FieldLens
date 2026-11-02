@@ -3,6 +3,7 @@ import { Button, Table, Title } from "@mantine/core";
 import { ChevronDown, ChevronUp, CircleCheck, CircleHelp, CircleX, Info, RefreshCw } from "lucide-react";
 import { Callout, Chip, EmptyState, ErrorState, LoadingState } from "../../design";
 import { routeHash } from "../../app/shell/route";
+import { ApiError } from "../../api/client";
 import type { components } from "../../api/generated";
 import { keyString } from "../projects/keys";
 import { toFailure, useScopedResource, type Failure } from "../projects/scope";
@@ -233,6 +234,25 @@ interface Props {
   onOpenSource: (documentId: string) => void;
 }
 
+/** Adds the server's per-wellbore refusal reasons (422 not_ready) to the message when the response carries them. */
+function withReason(f: Failure, e: unknown): Failure {
+  const details = e instanceof ApiError ? e.details : null;
+  const refusals = details?.refusals;
+  if (!Array.isArray(refusals)) return f;
+  const parts = refusals.flatMap((r: unknown) => {
+    if (typeof r !== "object" || r === null) return [];
+    const o = r as { wellbore_name?: unknown; reason?: unknown; gate_reasons?: unknown };
+    const why = Array.isArray(o.gate_reasons)
+      ? o.gate_reasons.map((g: { message?: unknown }) => (typeof g?.message === "string" ? g.message : "")).filter(Boolean).join("; ")
+      : typeof o.reason === "string"
+        ? o.reason
+        : "";
+    const name = typeof o.wellbore_name === "string" ? `${o.wellbore_name}: ` : "";
+    return why === "" ? [] : [`${name}${why}`];
+  });
+  return parts.length === 0 ? f : { ...f, message: `${f.message} (${parts.join(" | ")})` };
+}
+
 export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Props) {
   const exposure = useScopedResource(keyString(["recon", "exposure", projectId, refreshKey]), (signal) => getExposure(projectId, signal));
   const gate = useScopedResource(keyString(["recon", "gate", projectId, refreshKey]), (signal) => getStartGate(projectId, signal));
@@ -270,6 +290,13 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
   const readyRows = rows.filter((r) => r.ready === true);
   const runItems = runs.state.kind === "ready" ? runs.state.data.items.filter((r) => r.project_id === projectId) : null;
   const latest = useMemo(() => latestByWellbore(runItems ?? []), [runItems]);
+  // The "started" notice is only true while something is running; clear it when the active runs finish.
+  const anyActive = (runItems ?? []).some(isActive);
+  const wasActive = useRef(false);
+  useEffect(() => {
+    if (wasActive.current && !anyActive) setNotice((n) => (n !== null && n.startsWith("Reconstruction started") ? null : n));
+    wasActive.current = anyActive;
+  }, [anyActive]);
 
   /** Estimate only; opens the confirm dialog. A double click sends one request (one in flight, repeats within a second ignored). */
   const startEstimate = async (ids: string[] | null, scope: string) => {
@@ -288,6 +315,7 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
         // Duplicate start: the server returns the active run(s); show them, do not error.
         setNotice("Every selected wellbore already has an active run. It is shown in the list; nothing new was started.");
         setVersion((n) => n + 1);
+        restoreFocus();
       } else {
         setConfirmFailure(null);
         setPendingScope(scope);
@@ -295,11 +323,18 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
         setPending(est);
       }
     } catch (e) {
-      if (current.current === projectId) setFailure(toFailure(e));
+      if (current.current === projectId) setFailure(withReason(toFailure(e), e));
+      restoreFocus();
     } finally {
       lock.current = false;
       if (current.current === projectId) setStarting(null);
     }
+  };
+
+  /** The trigger is disabled while the request runs, which drops focus to the body; put it back. */
+  const restoreFocus = () => {
+    const el = trigger.current;
+    if (el !== null) window.setTimeout(() => el.isConnected && !el.matches(":disabled") && el.focus(), 50);
   };
 
   /** Close the dialog and give focus back to the control that opened it. */
@@ -331,6 +366,7 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
     setFailure(null);
     try {
       await cancelReconstructionRun(projectId, runId);
+      setNotice(null);
       if (current.current === projectId) setVersion((n) => n + 1);
     } catch (e) {
       if (current.current === projectId) setFailure(toFailure(e));

@@ -30,16 +30,15 @@ export function EstimateDialog({ estimate, scope, confirming, failure, onConfirm
   ];
   const blocked = !estimate.confirmable || !estimate.fits_budget || fresh.length === 0;
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={`Reconstruction estimate for ${scope}`}
-      size="lg"
-      transitionProps={{ duration: 0 }}
-      closeButtonProps={{ "aria-label": "Close estimate" }}
-      trapFocus
-      returnFocus
-    >
+    <Modal.Root opened onClose={onClose} size="lg" transitionProps={{ duration: 0 }} trapFocus returnFocus>
+      <Modal.Overlay />
+      <Modal.Content>
+        {/* A div, not Modal.Header: that renders <header>, which axe reports as a second banner landmark. */}
+        <div className={styles.dialogHead}>
+          <Modal.Title>{`Reconstruction estimate for ${scope}`}</Modal.Title>
+          <Modal.CloseButton aria-label="Close estimate" />
+        </div>
+        <Modal.Body>
       <div className={styles.nested}>
         <Callout tone="info">
           <p>
@@ -132,6 +131,8 @@ export function EstimateDialog({ estimate, scope, confirming, failure, onConfirm
           </Button>
         </div>
       </div>
-    </Modal>
+        </Modal.Body>
+      </Modal.Content>
+    </Modal.Root>
   );
 }
