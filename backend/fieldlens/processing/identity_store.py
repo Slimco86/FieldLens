@@ -33,8 +33,10 @@ from fieldlens.contracts.processing import (
 from fieldlens.persistence import models as m
 from fieldlens.processing import tables as t
 from fieldlens.processing.identity_read import (
+    FALLBACK_CATEGORY,
     PROMPT_VERSION,
     SCHEMA_VERSION,
+    UNCLASSIFIED_TAG,
     ModelOutcome,
 )
 
@@ -143,21 +145,32 @@ def _suggest_classification(
     never touched, so a user's label always wins; no classification event is written."""
     dc = m.document_classification
     existing = session.execute(
-        select(dc.c.tags)
+        select(dc.c.tags, dc.c.suggested_categories, dc.c.user_categories)
         .where(dc.c.project_id == project_id, dc.c.document_id == document_id)
         .with_for_update()
-    ).scalar_one_or_none()
+    ).one_or_none()
     if existing is None:
         return
-    merged = list(existing)
+    tags_now, suggested_now, user_now = (list(x or []) for x in existing)
+    has_category = bool(user_now or [c for c in suggested_now if c != FALLBACK_CATEGORY])
+    suggestions = list(suggested_now)
+    if not outcome.unclassified or not has_category:
+        if outcome.category not in suggestions:
+            suggestions.append(outcome.category)  # added; native/user-origin ones are kept
+    merged = list(tags_now)
+    if not outcome.unclassified or has_category:
+        # a category exists (now or from before): a stale fallback tag goes, none is added
+        merged = [t for t in merged if t != UNCLASSIFIED_TAG]
     for tag in outcome.tags:
+        if tag == UNCLASSIFIED_TAG and has_category:
+            continue
         if tag not in merged and len(merged) < MAX_TAGS_PER_DOCUMENT:
             merged.append(tag)
     session.execute(
         update(dc)
         .where(dc.c.project_id == project_id, dc.c.document_id == document_id)
         .values(
-            suggested_categories=[outcome.category],
+            suggested_categories=suggestions,
             tags=merged,
             classification_method=CLASSIFICATION_METHOD,
             classification_version=PROMPT_VERSION,

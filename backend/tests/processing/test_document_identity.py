@@ -314,7 +314,9 @@ def test_ac4_no_identity_is_a_non_blocking_warning(migrated_url: URL, tmp_path: 
     read = m.read("wellbore.pdf")
     assert read["identities"] == [] and read["category"] == "trajectory"
     assert [w["code"] for w in read["warnings"]] == ["no_wellbore_identity"]
-    assert read["warnings"][0]["message"] == "no wellbore identity found"
+    assert (
+        read["warnings"][0]["message"] == "The model quoted no wellbore name from the pages read."
+    )
     assert m.count("document_identity_proposal") == 0
     assert m.world.states()["wellbore.pdf"]["state_text"].endswith("no wellbore identity found")
     assert m.classification("wellbore.pdf")[1] == ["trajectory"]  # category and tags kept
@@ -633,3 +635,105 @@ def test_validation_is_pure_bounded_and_deduplicates() -> None:
     assert len(out.identities) == 1 and out.identities[0].normalized_key == "15/9-F-12 B"
     assert [w["code"] for w in out.warnings] == ["identity_invalid"]
     assert ir.neutralize("a <<<b>>> c") == "a < < <b> > > c"
+
+
+# -- QA-055 D1: token-bounded name match ---------------------------------------------------------
+@pytest.mark.parametrize(
+    ("name", "quote", "ok"),
+    [
+        ("15/9-F-12", "Sidetrack 15/9-F-12 A summary", False),  # parent vs sidetrack suffix
+        ("15/9-F-12", "Sidetrack 15/9-F-12 T2 summary", False),
+        ("15/9-F-12", "Sidetrack 15/9-F-12-A summary", False),
+        ("15/9-F-1", "Wellbore 15/9-F-12 completion", False),  # truncated digits
+        ("F-1", "Short name F-12 appears", False),
+        ("9-F-12", "Wellbore 15/9-F-12 completion", False),  # inside a longer designator
+        ("NO 15/9-F-12", "Well NO 15/9-F-12 is the subject", True),  # preceding prefix is fine
+        ("15/9-F-12", "Well NO 15/9-F-12 is the subject", True),
+        ("15/9-F-12 B", "Wellbore 15/9-F-12 B completion summary", True),
+        ("15/9-F-12 b", "WELLBORE 15/9-F-12   B, completion", True),  # case/whitespace flexible
+        ("15/9-F-12", "Wellbore 15/9-F-12. Completion summary", True),
+        ("15/9-F-12", "(15/9-F-12) completion summary", True),
+        ("F-12", "the log of F-12", True),
+    ],
+)
+def test_d1_name_must_occur_in_the_quote_as_a_whole_token(name: str, quote: str, ok: bool) -> None:
+    assert ir.name_in_quote(name, quote) is ok
+    out = ir.validate(
+        {"category": "trajectory", "identities": [ident(name, quote)]}, {1: f"x {quote} y"}
+    )
+    assert bool(out.identities) is ok
+    if not ok:
+        assert [w["code"] for w in out.warnings][0] == "identity_invalid"
+
+
+def test_d1_parent_name_with_sidetrack_quote_is_never_linked(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    files = {"wellbore.pdf": pages_of("wellbore", 2, {1: ["Sidetrack 15/9-F-12 A summary"]})}
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [answer(identities=[ident("15/9-F-12", "Sidetrack 15/9-F-12 A summary")])],
+        files=files,
+    )
+    seed_wellbore(m, "15/9-F-12")
+    assert m.run("wellbore.pdf")["status"] == "succeeded"
+    read = m.read("wellbore.pdf")
+    assert read["identities"] == [] and m.count("document_identity_proposal") == 0
+    assert {w["code"] for w in read["warnings"]} == {"identity_invalid", "no_wellbore_identity"}
+
+
+# -- QA-055 D2/D3/D5 -----------------------------------------------------------------------------
+def test_d3_d2_suggestions_are_added_and_stale_unclassified_tag_is_removed(
+    migrated_url: URL, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    m = build_model(migrated_url, tmp_path, [answer(None, ["x"], []), answer("trajectory", ["y"])])
+    assert m.run("other.pdf")["status"] == "succeeded"
+    _, suggested, tags, _, _ = m.classification("other.pdf")
+    assert suggested == ["general_report"] and set(tags) == {"x", "unclassified"}
+
+    monkeypatch.setattr("fieldlens.processing.identity_store.PROMPT_VERSION", "doc-identity-t2")
+    assert m.run("other.pdf")["status"] == "succeeded"
+    _, suggested, tags, _, _ = m.classification("other.pdf")
+    assert "trajectory" in suggested and "general_report" in suggested  # added, none overwritten
+    assert "unclassified" not in tags and {"x", "y"} <= set(tags)
+
+
+def test_d3_d2_a_fallback_never_adds_tag_or_suggestion_when_a_category_exists(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    m = build_model(migrated_url, tmp_path, [answer(None, [], [])])
+    item = next(
+        d
+        for d in m.world.api.documents(m.world.project_id)
+        if d["original_filename"] == "other.pdf"
+    )
+    r = m.world.api.client.patch(
+        f"/api/v1/projects/{m.world.project_id}/documents/{item['document_id']}/classification",
+        json={
+            "categories": ["trajectory"],
+            "tags": [],
+            "expected_metadata_version": item["classification"]["metadata_version"],
+        },
+        headers=m.world.api.headers,
+    )
+    assert r.status_code == 200, r.text
+    assert m.run("other.pdf")["status"] == "succeeded"
+    user, suggested, tags, origin, _ = m.classification("other.pdf")
+    assert user == ["trajectory"] and origin == "user_override"
+    assert suggested == [] and "unclassified" not in tags
+
+
+def test_d5_no_identity_warning_text_does_not_repeat_the_ui_heading() -> None:
+    message = ir.no_identity_warning()["message"]
+    assert "no wellbore identity found" not in message.lower()
+
+
+# -- QA-055 D4: accepted per spec ----------------------------------------------------------------
+def test_d4_cache_key_omits_provider_and_model_by_design(migrated_url: URL, tmp_path: Path) -> None:
+    m = build_model(migrated_url, tmp_path, [answer(), answer("trajectory")])
+    assert m.run("wellbore.pdf")["status"] == "succeeded"
+    # another model for the same revision, prompt and schema: the stored result is reused
+    object.__setattr__(m.world.rt.step._config, "model", "another-model")  # type: ignore[attr-defined]
+    again = m.run("wellbore.pdf")
+    assert again["documents"][0]["cache_hit"] is True and len(m.provider.calls) == 1

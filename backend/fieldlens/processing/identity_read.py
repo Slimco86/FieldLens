@@ -142,6 +142,22 @@ def _squash(value: str) -> str:
     return normalize_text(value).replace(" ", "")
 
 
+def name_in_quote(name: str, quote: str) -> bool:
+    """The name occurs in the quote as a whole token: case/whitespace-flexible, and neither
+    preceded by a name character nor continued by one (more digits, ``-x``/``/x``, or a sidetrack
+    suffix such as `` A`` / `` T2``), so a quote about ``15/9-F-12 A`` never supports ``15/9-F-12``.
+    """
+    tokens = normalize_text(name).split(" ")
+    if not tokens or not tokens[0]:
+        return False
+    body = r"\s+".join(re.escape(t) for t in tokens)
+    pattern = (
+        rf"(?<![a-z0-9/\-]){body}"
+        r"(?![a-z0-9])(?![/\-][a-z0-9])(?!\s+[a-z]\d*(?![a-z0-9]))"
+    )
+    return re.search(pattern, normalize_text(quote)) is not None
+
+
 def validate(data: Mapping[str, Any], pages: Mapping[int, str]) -> ModelOutcome:
     """Server-side validation against the page text actually sent. Pure; never raises."""
     raw_category = data.get("category")
@@ -180,7 +196,7 @@ def validate(data: Mapping[str, Any], pages: Mapping[int, str]) -> ModelOutcome:
         if normalize_text(quote) not in normalized_pages[page]:
             dropped["quote"] += 1  # the quote is not in the page text the model was given
             continue
-        if _squash(name) not in _squash(quote):
+        if not name_in_quote(name, quote):
             dropped["invalid"] += 1  # the quote does not support the name
             continue
         key = (kind, _squash(name), page)
@@ -225,7 +241,7 @@ def validate(data: Mapping[str, Any], pages: Mapping[int, str]) -> ModelOutcome:
 def no_identity_warning() -> dict[str, Any]:
     return {
         "code": ModelReadWarningCode.NO_WELLBORE_IDENTITY.value,
-        "message": "no wellbore identity found",
+        "message": "The model quoted no wellbore name from the pages read.",
         "count": 1,
     }
 
