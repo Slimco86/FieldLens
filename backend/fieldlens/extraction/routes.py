@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import Field
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import OperationalError
 
 from fieldlens import security
@@ -18,6 +19,8 @@ from fieldlens.contracts.extraction import (
     ExtractionRequeue,
     RequeueOutcome,
 )
+from fieldlens.evidence.storage import BlobStore, VerifyOutcome
+from fieldlens.persistence import models as m
 from fieldlens.persistence.session import session_scope
 
 from . import views
@@ -90,8 +93,19 @@ def build_extraction_router() -> APIRouter:
             bool, Query(description="Explicit retry of a failed/unsupported run")
         ] = False,
     ) -> ExtractionRequeue:
+        store: BlobStore = request.app.state.blob_store
+        unreadable: list[str] = []
+
         def work(session: Any) -> ExtractionRequeue:
             views.require_document(session, project_id, document_id)
+            if retry or _storage_state(session, project_id, document_id) != "stored":
+                reason = _reverify_original(session, store, project_id, document_id)
+                if reason is not None:
+                    unreadable.append(reason)
+                    return ExtractionRequeue(
+                        outcome=RequeueOutcome.UNCHANGED,
+                        report=views.report(session, project_id, document_id),
+                    )
             queued = requeue_document(session, project_id, document_id, retry=retry)
             session.flush()
             return ExtractionRequeue(
@@ -99,7 +113,59 @@ def build_extraction_router() -> APIRouter:
                 report=views.report(session, project_id, document_id),
             )
 
-        out: ExtractionRequeue = _db(request, work)
+        out: ExtractionRequeue = _db(request, work)  # commits the corrected storage state
+        if unreadable:
+            raise ContractError(
+                ErrorCode.CONFLICT,
+                "The stored original of this file is not readable "
+                f"({unreadable[0]}); re-upload this file to extract it again.",
+                409,
+                {"reason": "source_unreadable", "check": unreadable[0], "recovery": "re-upload"},
+            )
         return out
 
     return router
+
+
+def _storage_state(session: Any, project_id: UUID, document_id: UUID) -> str | None:
+    state = session.execute(
+        select(m.document_processing.c.storage_state).where(
+            m.document_processing.c.project_id == project_id,
+            m.document_processing.c.document_id == document_id,
+        )
+    ).scalar_one_or_none()
+    return None if state is None else str(state)
+
+
+def _reverify_original(
+    session: Any, store: BlobStore, project_id: UUID, document_id: UUID
+) -> str | None:
+    """Re-read the stored original and make the storage state match reality: restore ``stored``
+    when the bytes verify again, otherwise record ``quarantined``. Returns the failed check
+    (e.g. ``missing``) or None when the bytes verify."""
+    doc = session.execute(
+        select(
+            m.source_document.c.storage_key,
+            m.source_document.c.sha256,
+            m.source_document.c.size_bytes,
+        ).where(
+            m.source_document.c.project_id == project_id,
+            m.source_document.c.document_id == document_id,
+        )
+    ).one()
+    result = store.verify(doc.storage_key, doc.sha256, doc.size_bytes)
+    ok = result.outcome is VerifyOutcome.OK
+    session.execute(
+        update(m.document_processing)
+        .where(
+            m.document_processing.c.project_id == project_id,
+            m.document_processing.c.document_id == document_id,
+            m.document_processing.c.storage_state != "pending_verification",
+        )
+        .values(
+            storage_state="stored" if ok else "quarantined",
+            detail=None if ok else f"verification_{result.outcome.value}",
+            updated_at=func.now(),
+        )
+    )
+    return None if ok else result.outcome.value

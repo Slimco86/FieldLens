@@ -441,10 +441,18 @@ class ExtractionRunner:
             ).one()
         path = self._store.path_for(doc.storage_key)
         if not path.is_file():
-            self._finalize_failed(claim, "source_missing", "stored original is not readable")
+            self._finalize_failed(
+                claim,
+                "source_missing",
+                "stored original is not readable; re-upload this file",
+            )
+            self._mark_unreadable(claim, "source_missing")
             return
         if sha256_file(path) != doc.sha256:
-            self._finalize_failed(claim, "content_hash_mismatch", "stored bytes differ from hash")
+            self._finalize_failed(
+                claim, "content_hash_mismatch", "stored bytes differ from hash; re-upload this file"
+            )
+            self._mark_unreadable(claim, "content_hash_mismatch")
             return
         profiles = registry.detect(path, doc.format_family, doc.original_filename)
         if not profiles:
@@ -464,6 +472,20 @@ class ExtractionRunner:
         if lost.is_set():
             raise FenceLost("lease lost")
         self._finalize_ok(claim, profile.name, profile.version, profile.method, output)
+
+    def _mark_unreadable(self, claim: RunClaim, reason: str) -> None:
+        """The original could not be read now, so the earlier "stored" verdict is stale: the
+        storage badge must stop claiming hash-verified bytes (state ``quarantined``)."""
+        with session_scope(self._factory) as session:
+            session.execute(
+                update(m.document_processing)
+                .where(m.document_processing.c.document_id == claim.document_id)
+                .values(
+                    storage_state="quarantined",
+                    detail=f"verification_{reason}",
+                    updated_at=func.now(),
+                )
+            )
 
     # -- finalization -----------------------------------------------------------------------
     def _fenced(self, session: Session, claim: RunClaim, **values: Any) -> None:
