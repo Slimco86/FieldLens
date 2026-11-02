@@ -33,6 +33,7 @@ from fieldlens.contracts.exposure import (
     WellExposure,
 )
 from fieldlens.identity import service as identity_service
+from fieldlens.identity.labels import parse_bore_label
 from fieldlens.identity.resolver import RESOLVER_VERSION
 
 from . import rules
@@ -368,6 +369,17 @@ def wellbore_exposure(
         if r.validation_state not in rules.BAD_STATES and rules.surface_location_usable(attrs):
             located = True
     warnings: list[GateReason] = []
+    parsed_name = parse_bore_label(name)
+    if parsed_name is not None and parsed_name.block is None:
+        warnings.append(
+            GateReason(
+                code="BLOCK_NOT_STATED",
+                message="The source names this wellbore without a block (as written); no block "
+                "is invented. It is a separate wellbore until a merge proposal unifies it with "
+                "a block-qualified name, which needs your acceptance.",
+                wellbore_id=wellbore_id,
+            )
+        )
     if not located:
         warnings.append(
             GateReason(
@@ -461,9 +473,10 @@ def build_gate(
         GateCondition(
             code="WELLBORE_IDENTIFIED",
             met=bool(wellbores),
-            message="At least one well and wellbore is identified."
+            message="At least one well and wellbore is identified (block-less labels count "
+            "as written)."
             if wellbores
-            else "No well and wellbore has been identified yet.",
+            else "No well or wellbore label has been identified yet.",
         ),
         GateCondition(
             code="VALIDATED_TRAJECTORY",
@@ -478,7 +491,8 @@ def build_gate(
         unmet.append(
             GateReason(
                 code="NO_WELLBORE_IDENTIFIED",
-                message="No well and wellbore has been identified yet.",
+                message="No well or wellbore label (with or without a block, e.g. 15/9-F-12 or "
+                "F-12) was found in the extracted records yet.",
             )
         )
     elif not qualifying:

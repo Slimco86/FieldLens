@@ -43,8 +43,9 @@ interfaces, `BudgetLedger`/`WorkUnit`, `SourceReader` for quote verification.
 
 - **Target**: an existing resolved wellbore (`wellbore` row) that remains.
 - **Member**: a name proposed to denote the target. Kind `label` (a raw source label that the resolver could not turn into
-  a wellbore: `not_a_well`, `unqualified_label`, `ambiguous`) or kind `wellbore` (another resolved wellbore, for example a
-  different spelling of the block `15/09-F-12` for `15/9-F-12`).
+  a wellbore: `not_a_well`, `ambiguous`) or kind `wellbore` (another resolved wellbore, for example a
+  different spelling of the block `15/09-F-12` for `15/9-F-12`, or, since TASK-061/D9, a block-less wellbore `F-12`
+  beside the block-qualified `15/9-F-12`; the pair is proposed once, with the block-qualified wellbore as target).
 - **Designator**: block (optional), well slot (`F-12`), suffix (`A`, `T2`, none). Parsed from a label by
   `merge_proposals.designator.extract_designator`; a label with no extractable slot has no designator.
 - **Block** (blocking unit): one target plus the members whose designator is guard-compatible with it.

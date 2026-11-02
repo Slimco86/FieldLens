@@ -158,8 +158,8 @@ def build_dataset(session: Session, project_id: UUID, *, max_blocks: int = MAX_B
     well_slot_count: dict[str, set[str]] = {}
     for key in bores:
         d = designator_of(key)
-        if d is not None:
-            well_slot_count.setdefault(d.slot, set()).add(d.block or "")
+        if d is not None and d.block:
+            well_slot_count.setdefault(d.slot, set()).add(d.block)
     blocks: list[Block] = []
     for key in sorted(bores):
         target = Party.wellbore(bores[key], key)
@@ -178,6 +178,10 @@ def build_dataset(session: Session, project_id: UUID, *, max_blocks: int = MAX_B
         ]
         for cand in pool:
             if (key, cand.party.kind, cand.party.key) in excluded:
+                continue
+            cd = cand.party.designator
+            if td.block is None and cand.party.kind == "wellbore" and cd is not None and cd.block:
+                # D9: the pair is proposed once, with the block-qualified wellbore as target.
                 continue
             checks = guards.evaluate(target, [cand.party], merges, in_project_keys=set(bores))
             if guards.failed(checks):

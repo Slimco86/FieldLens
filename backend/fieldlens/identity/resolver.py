@@ -7,9 +7,10 @@ write (``resolve_project``). No model call, no guess:
   else ``well_name``) using the shared rule in :mod:`fieldlens.identity.labels`; field-level
   names such as ``Volve F`` are skipped;
 * the structured ``well_key`` and every other parseable label of the SAME record must name the
-  same well; an unqualified spelling (``F-12``) joins a block-qualified one only when exactly one
-  qualified well in the project has that short name; a contradiction or several candidates are
-  ``ambiguous``: no row, no link, an ``IDENTITY_MISMATCH`` finding on the affected run;
+  same well; an unqualified label (``F-12``) is its own wellbore named as written (block not
+  stated, D9) and never joins a block-qualified ``15/9-F-12`` by itself (an accepted merge proposal
+  unifies them); a contradiction inside one record is ``ambiguous``: no row, no link, an
+  ``IDENTITY_MISMATCH`` finding on the affected run;
 * a suffixed bore (``F-11 B``) is a distinct wellbore whose parent is the well's base wellbore
   when that base wellbore is itself observed (a name-based link, not a verified drilling
   relationship); ``F-12``, ``F-12 A``, ``F-12 H`` never merge;
@@ -110,22 +111,7 @@ def _labels(subject: dict[str, Any]) -> list[tuple[str, BoreLabel]]:
     return out
 
 
-def _tails(subjects: list[dict[str, Any]]) -> dict[str, set[str]]:
-    """Short slot (``F-12``) -> qualified well names the project's subjects write."""
-    found: dict[str, set[str]] = defaultdict(set)
-    for subject in subjects:
-        candidates = [b for _, b in _labels(subject)]
-        key = _str(subject.get("well_key"))
-        parsed_key = parse_bore_label(key) if key else None
-        if parsed_key is not None:
-            candidates.append(parsed_key)
-        for bore in candidates:
-            if bore.block:
-                found[bore.well_slot].add(bore.well_name)
-    return found
-
-
-def resolve_subject(subject: dict[str, Any], tails: dict[str, set[str]]) -> Outcome:
+def resolve_subject(subject: dict[str, Any]) -> Outcome:
     labels = _labels(subject)
     key = _str(subject.get("well_key"))
     parsed_key = parse_bore_label(key) if key else None
@@ -152,20 +138,10 @@ def resolve_subject(subject: dict[str, Any], tails: dict[str, set[str]]) -> Outc
         well = next(iter(qualified))
         block = well.rsplit("-" + bore.well_slot, 1)[0]
         return Resolved(BoreLabel(block, bore.well_slot, bore.suffix))
-    candidates = sorted(tails.get(bore.well_slot, ()))
-    if len(candidates) == 1:
-        block = candidates[0].rsplit("-" + bore.well_slot, 1)[0]
-        return Resolved(BoreLabel(block, bore.well_slot, bore.suffix))
-    if len(candidates) > 1:
-        return Unresolved(
-            "ambiguous",
-            f"{bore.well_slot} exists in several blocks of this project: " + ", ".join(candidates),
-            True,
-        )
-    return Unresolved(
-        "unqualified_label",
-        f"{bore.well_slot} has no block qualifier and no block-qualified source names it",
-    )
+    # D9: an unqualified label (``F-12``) is a valid wellbore name exactly as written. It is its
+    # own wellbore (block not stated, never invented) even when another source writes
+    # ``15/9-F-12``; only an accepted merge proposal unifies them.
+    return Resolved(BoreLabel(None, bore.well_slot, bore.suffix))
 
 
 @dataclass
@@ -212,17 +188,12 @@ def current_subject_groups(session: Session, project_id: UUID) -> list[SubjectGr
         .group_by(er.c.subject, er.c.run_id, er.c.document_id, er.c.kind, ru.c.profile_name)
     ).all()
     by_subject: dict[str, SubjectGroup] = {}
-    subjects: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        sk = json.dumps(row.subject, sort_keys=True)
-        subjects[sk] = row.subject
-    tails = _tails(list(subjects.values()))
     for row in rows:
         sk = json.dumps([row.subject, row.profile_name], sort_keys=True)
         group = by_subject.get(sk)
         if group is None:
             group = by_subject[sk] = SubjectGroup(
-                row.subject, resolve_subject(row.subject, tails), profile=row.profile_name
+                row.subject, resolve_subject(row.subject), profile=row.profile_name
             )
         group.records += row.n
         group.kinds[row.kind] = group.kinds.get(row.kind, 0) + row.n

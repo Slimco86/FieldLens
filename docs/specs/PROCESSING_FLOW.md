@@ -65,7 +65,9 @@ Labels and tags are hints for stages 2 and 4, never a precondition and never evi
 - **D9 [Validated, 2026-11-01 16:39]** A name as written in a source (for example `F-12`, `F-5`) is a valid wellbore
   identity even without a block or well key. If it differs from a fully qualified name (`15/9-F-12`) it is a separate
   wellbore until stage 4 detects that they are one entity and the user accepts the merge; the data is then unified.
-  The resolver never invents a block, and an unqualified label never merges silently (TASK-061).
+  The resolver never invents a block, and an unqualified label never merges silently (TASK-061). Implemented: the
+  resolver no longer joins an unqualified label to a qualified one (even when only one block exists); the wellbore is
+  named as written and exposure carries the warning `BLOCK_NOT_STATED`.
 - **D6 [Validated]** Sources that name the same entity differently are reconciled by an AI refinement step (stage 4)
   whose proposals the user reviews. Hard guards stay deterministic (well and wellbore are distinct; no merge across
   different wellbore designators without source support); nothing merges silently.
@@ -152,5 +154,8 @@ Read-only, no migration. `GET /api/v1/projects/{id}/identity/exposure` (all well
 - Real-record check (opt-in `local_data`, `backend/tests/identity/test_local_data_exposure.py`): the Volve F-12 and F-5 ACTUAL
   Statoil exports through the real upload/extraction/identity path give `survey_status` `unstated` (passes with
   `SURVEY_STATUS_UNSTATED`) and a sourced `well_surface_location` (`located`, no unlocated flag); no key mismatch. The
-  exports name the well only as `F-12`/`F-5`, so identity resolves them only beside a block-qualified source (here the
-  perforation table); alone they are unresolved and the gate says `NO_WELLBORE_IDENTIFIED`.
+  exports name the well only as `F-12`/`F-5`. Since TASK-061 (D9) each is a block-less wellbore named as written
+  (`F-12`, `F-5`; block not stated, never invented), alone they open the gate with the warning `BLOCK_NOT_STATED`
+  (plus `SURVEY_STATUS_UNSTATED`); beside the perforation table (`15/9-F-12`, `15/9-F-5`) they stay separate wellbores
+  and merge-proposal candidates appear; nothing merges without user acceptance. `NO_WELLBORE_IDENTIFIED` now means no
+  parseable well or wellbore label at all.
