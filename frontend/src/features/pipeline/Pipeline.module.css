@@ -94,3 +94,7 @@
   font-family: var(--fl-font-mono, monospace);
   overflow-wrap: anywhere;
 }
+.readyRow {
+  background: var(--fl-tone-success-bg);
+  box-shadow: inset var(--fl-space-xs) 0 0 var(--fl-tone-success-border);
+}

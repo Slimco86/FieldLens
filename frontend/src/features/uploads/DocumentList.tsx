@@ -166,10 +166,12 @@ function DocumentRow({
   onSaved,
   selected,
   onToggle,
+  highlighted,
 }: {
   projectId: string;
   doc: SourceDocumentItem;
   onSaved: () => void;
+  highlighted: boolean;
   selected: boolean;
   onToggle: (on: boolean) => void;
 }) {
@@ -193,7 +195,11 @@ function DocumentRow({
   };
   return (
     <>
-      <Table.Tr className={selected ? styles.selected : undefined}>
+      <Table.Tr
+        id={`source-file-${doc.document_id}`}
+        tabIndex={highlighted ? -1 : undefined}
+        className={selected || highlighted ? styles.selected : undefined}
+      >
         <Table.Td>
           <Checkbox
             aria-label={`Select ${doc.original_filename}`}
@@ -321,9 +327,11 @@ interface ListProps {
   /** Changes when the revision's status/counts change, forcing a silent refresh. */
   version: string;
   polling: boolean;
+  /** A file the Reconstruction tab asked to show: its row is scrolled to, focused and marked when loaded. */
+  focusDocumentId?: string | null;
 }
 
-export function DocumentList({ projectId, revisionId, version, polling }: ListProps) {
+export function DocumentList({ projectId, revisionId, version, polling, focusDocumentId = null }: ListProps) {
   const { state, reload } = usePolled<DocumentPage>(
     `docs/${projectId}/${revisionId}`,
     (signal) => listDocuments(projectId, revisionId, signal),
@@ -335,6 +343,14 @@ export function DocumentList({ projectId, revisionId, version, polling }: ListPr
   const [loadingMore, setLoadingMore] = useState(false);
   const ctl = useRef<AbortController | null>(null);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const ready = state.kind === "ready";
+  useEffect(() => {
+    if (focusDocumentId === null || !ready) return;
+    const row = document.getElementById(`source-file-${focusDocumentId}`);
+    if (row === null) return;
+    row.scrollIntoView?.({ block: "center" });
+    row.focus();
+  }, [focusDocumentId, ready]);
 
   if (state.kind === "loading") return <LoadingState label="Loading files…" status />;
   if (state.kind === "error") {
@@ -428,6 +444,7 @@ export function DocumentList({ projectId, revisionId, version, polling }: ListPr
                 projectId={projectId}
                 doc={d}
                 onSaved={reload}
+                highlighted={focusDocumentId === d.document_id}
                 selected={selectedIds.has(d.document_id)}
                 onToggle={(on) => {
                   const next = new Set(selectedIds);
