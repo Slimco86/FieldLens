@@ -1774,6 +1774,48 @@ the slice letter and `Slice` keeps the plan's original string.
 **Next action.** Closed as diagnosis only; no code change.
 **Evidence.** Diagnosis on 0.26.0: all 2,474 real Volve PDFs through the real upload and extraction path on a throwaway DB: 0 failed (2,369 unsupported with no native parser, 49 Compass survey reports succeeded/partial, 54 in-batch duplicates not stored, 2 over the 128 MiB upload limit: `Discovery_report.pdf` and its copy). The owner's report matches stale 0.24 state (inferred, 0.24 was not run). Latent risk, not reproduced: a PDF that matches the Compass survey detector but lacks a "TVD Reference" page would be stored as failed (`profile_mismatch`). If old failed rows persist, an explicit retry re-queues them.
 
+### TASK-063 · Slim Sources tab and Reconstruction tab with per-wellbore processing (UI-16)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-053, TASK-056, TASK-061 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/RECONSTRUCTION_TAB.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-K |
+
+**Outcome.** Owner feedback (2026-11-01 22:29): the Overview and pipeline panel bloat the Sources tab. Sources returns to header, tabs, upload, source revision and revision files (with per-file re-run). A Reconstruction tab lists identified wells and wellbores, ready ones first and highlighted, with a Sources column (files per wellbore) instead of Present/Validation, a per-wellbore Process action and a Process-all-ready action over the existing estimate and separate confirm flow.
+**Next action.** Lane `task-063-reconstruction-tab` (agent:fieldlens-frontend); independent QA with a browser pass on seeded Volve data; owner checkpoint.
+**Evidence.** none yet
+
+### TASK-064 · "Extraction failed (source_missing): stored original is not readable" on re-run extraction
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend, ingestion |
+| Depends on | none |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-02 |
+| Sprint | Hackathon |
+| Spec | specs/PROCESSING_FLOW.md |
+| Version | none |
+| Parent | FL-016 |
+| Slice | FL-016-L |
+
+**Outcome.** Owner report (2026-11-01 22:29, running 0.30/0.31 on his own DB): `COMPLETION_REPORT_2.PDF` re-run extraction still fails with `source_missing: stored original is not readable` although storage shows hash-verified. TASK-062 only covered fresh uploads, so this is a different failure: the stored original is not found at extraction time (likely the storage root or paths resolved differently between the process that stored the file and the one extracting, e.g. another checkout/worktree or a changed `.local` root, or a stale path in the DB). Diagnose and fix so re-run works, or so the failure is honest and recoverable (e.g. re-upload prompt), without touching the owner's data.
+**Next action.** Lane `task-064-source-missing` (agent:fieldlens-backend).
+**Evidence.** none yet
+
 ### TASK-060 · OCR versus model page-read benchmark for scanned-document classification
 
 | Field | Value |
