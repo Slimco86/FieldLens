@@ -2700,7 +2700,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | done |
 | Priority | P1 |
 | Tags | backend, frontend |
 | Depends on | none |
@@ -2708,10 +2708,10 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/PROJECT_DELETION.md |
-| Version | none |
+| Version | 0.35.0 |
 | Parent | FL-016 |
 | Slice | FL-016-D |
 
 **Outcome.** Typed-name-confirmed `DELETE /api/v1/projects/{id}`: cancels in-flight work, deletes the project's stored files and every project-scoped row through a crash-resumable purge (immutability guards stay enabled, allowed only for the purged project), keeps the spend ledger, and a sidebar dialog with counts, progress and retry. Completeness test over every table with `project_id`. Migration `0015`.
-**Next action.** Lane `task-071-project-delete` (backend, then UI), independent QA, merge second after rebase on TASK-070.
-**Evidence.** none yet
+**Next action.** None. Follow-ups: running extraction runs are marked superseded and waited on, not cancelled mid-run; a genuinely running job was not caught mid-run in QA.
+**Evidence.** QA-071 PASS after two repair rounds (nav e2e regression, dialog trap, focus, failed wording, shell.spec assertion) and an integration pass on top of 0.34.0 (migration 0015 re-chained onto 0014; purge honors the storage-root identity guard; 1357 backend tests, 216 Vitest, e2e 29 passed with only the known UI-2/UI-10 failures); merged `2e6fe9b`, release 0.35.0.

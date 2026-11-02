@@ -8,6 +8,17 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.35.0 - 2026-11-02
+
+- **TASK-071 project deletion:** a sidebar "Delete project" dialog shows what will be removed (counts, stored files) and
+  requires typing the exact project name. `GET /api/v1/projects/{id}/deletion-preview` and
+  `DELETE /api/v1/projects/{id}` (202, `confirm_name_mismatch` 422, idempotent retry). The project becomes read-only
+  while `deletion_state` is `deleting`; a crash-resumable purge drains jobs, deletes `projects/<id>/` and every
+  project-scoped row in one transaction (immutability guards stay enabled, lifted only for the purged project), checks the
+  storage-root identity first, and keeps the spend ledger. A failed purge shows Retry. A completeness test covers every
+  table with `project_id`. **Migration 0015** adds `project.deletion_state` and `deletion_storage_purged_at`.
+  Known limits: running extraction runs are marked superseded and waited on rather than cancelled.
+
 ## 0.34.0 - 2026-11-02
 
 - **TASK-070 storage integrity:** files are only Stored or Failed ("stored copy missing or damaged"); the word
