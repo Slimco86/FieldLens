@@ -8,6 +8,7 @@ test.beforeEach(async ({ page }) => blockExternal(page));
 
 test("AC-8: a Failed file shows the stated message, Retry restores it, no quarantine wording", async ({ page }) => {
   const name = unique("StorageIntegrity");
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await createProject(page, name, "storage integrity e2e");
   await page.getByRole("button", { name: `Open project ${name}` }).click();
@@ -50,7 +51,15 @@ test("AC-8: a Failed file shows the stated message, Retry restores it, no quaran
   await expect(page.getByLabel("Choose files")).toBeVisible(); // the upload control is the re-upload route
   await expect(page.locator("body")).not.toContainText(/quarant/i);
 
-  await page.getByRole("button", { name: /Retry storage verification for wells\.csv/ }).click();
+  await expect(page.getByText("Not available: stored copy missing or damaged")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(/verification_missing|Extracted with/);
+  const msg = page.getByText("Failed: stored copy missing or damaged.");
+  const clipped = await msg.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+  expect(clipped, "Failed text wraps inside the Storage column at 1440px").toBe(false);
+  const retry = page.getByRole("button", { name: /Retry storage verification for wells\.csv/ });
+  await retry.focus();
+  await expect(retry).toBeFocused();
+  await retry.click();
   await expect(page.getByText(/Restored: the stored copy verified/)).toBeVisible();
   await expect(page.getByText("Failed: stored copy missing or damaged.")).toHaveCount(0);
   expect(retries).toBe(1);

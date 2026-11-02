@@ -5,6 +5,7 @@ import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
 import { render } from "./render";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DocumentList } from "../src/features/uploads/DocumentList";
 import { SourcesPanel } from "../src/features/uploads/SourcesPanel";
 import { MAX_FILE_BYTES } from "../src/features/uploads/api";
 
@@ -701,8 +702,41 @@ describe("failed storage (AC-8)", () => {
     panel(R1);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: /Retry storage verification/ }));
-    expect(await screen.findByText(/Stored copy is unreadable; re-upload this file\..*Re-upload this file with the upload control/)).toBeInTheDocument();
+    expect(await screen.findByText("Stored copy is unreadable; re-upload this file.")).toBeInTheDocument();
     expect(screen.getByLabelText("Choose files")).toBeInTheDocument();
+  });
+
+  it("clears the re-upload alert once the document becomes Stored, and shows one sentence", async () => {
+    let stored = false;
+    install((url, init) => {
+      if (url.includes("/source-revisions")) return json(page(revision()));
+      if (url.includes("/documents?")) return json(page(stored ? document() : failedDoc()));
+      if (url.endsWith(`/documents/${D1}/storage/retry`))
+        return json(envelope("CONFLICT", "The stored copy is missing or damaged; re-upload this file to repair it.", { reason: "stored_copy_unreadable", recovery: "re-upload" }), 409);
+      void init;
+    });
+    const view = render(<DocumentList projectId={P} revisionId={R1} version="1" polling={false} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Retry storage verification for wells\.csv/ }));
+    const text = await screen.findByText(/re-upload this file to repair it/);
+    expect(text.textContent?.match(/re-upload/gi)).toHaveLength(1);
+    stored = true;
+    view.rerender(<DocumentList projectId={P} revisionId={R1} version="2" polling={false} />);
+    expect(await screen.findByText("Stored (hash-verified)")).toBeInTheDocument();
+    expect(screen.queryByText(/re-upload this file to repair it/)).toBeNull();
+  });
+
+  it("does not claim extraction results or print internal codes for a Failed file", async () => {
+    install((url) => {
+      if (url.includes("/source-revisions")) return json(page(revision({ failed_count: 1 })));
+      if (url.includes("/documents?"))
+        return json(page({ ...failedDoc(), extraction_state: "extracted_with_issues", processing_detail: "verification_missing" }));
+    });
+    panel(R1);
+    const row = await screen.findByRole("row", { name: /wells\.csv/ });
+    expect(within(row).getByText("Not available: stored copy missing or damaged")).toBeInTheDocument();
+    expect(row).not.toHaveTextContent(/Extracted with|verification_missing/);
+    expect(within(row).getByRole("button", { name: /Retry storage verification for wells\.csv/ })).toBeEnabled();
   });
 
   it("explains a storage root mismatch (503)", async () => {

@@ -119,7 +119,7 @@ export function describeStorageError(err: unknown): string | null {
   const reason = err.details?.["reason"];
   if (err.status === 503 && reason === "storage_root_mismatch") return STORAGE_ROOT_MISMATCH_MESSAGE;
   if (err.status === 409 && (reason === "stored_copy_unreadable" || reason === "source_unreadable" || err.details?.["recovery"] === "re-upload")) {
-    return `${err.message} ${REUPLOAD_MESSAGE}`;
+    return /re-?upload/i.test(err.message) ? err.message : `${err.message} ${REUPLOAD_MESSAGE}`;
   }
   if (err.status === 409 && reason === "verification_pending") {
     return "Storage verification is still running for this file; try again shortly.";

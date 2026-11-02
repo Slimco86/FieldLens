@@ -202,7 +202,7 @@ function StorageRecovery({
     }
   }
   return (
-    <div className={styles.stack}>
+    <div className={`${styles.stack} ${styles.wrapText}`}>
       {failed && (
         <>
           <div className={styles.small}>{doc.storage_message ?? FAILED_DEFAULT}</div>
@@ -245,6 +245,9 @@ function DocumentRow({
   onToggle: (on: boolean) => void;
 }) {
   const [retryOutcome, setRetryOutcome] = useState<RetryOutcome | null>(null);
+  useEffect(() => {
+    if (doc.storage_state !== "failed") setRetryOutcome((o) => (o !== null && !o.ok ? null : o));
+  }, [doc.storage_state]);
   const [editing, setEditing] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const detailId = `details-${doc.document_id}`;
@@ -289,14 +292,20 @@ function DocumentRow({
         </Table.Td>
         <Table.Td>
           <StatusChip kind="storage" value={doc.storage_state} label={STORAGE_LABEL[doc.storage_state]} />
-          {(doc.storage_state === "failed" || retryOutcome !== null) && (
-            <StorageRecovery projectId={projectId} doc={doc} onChanged={onSaved} outcome={retryOutcome} setOutcome={setRetryOutcome} />
+          {(doc.storage_state === "failed" || (retryOutcome !== null && retryOutcome.ok)) && (
+            <StorageRecovery projectId={projectId} doc={doc} onChanged={onSaved} outcome={doc.storage_state === "failed" || retryOutcome?.ok === true ? retryOutcome : null} setOutcome={setRetryOutcome} />
           )}
         </Table.Td>
         <Table.Td>
-          <StatusChip kind="extraction" value={doc.extraction_state} label={EXTRACTION_LABEL[doc.extraction_state]} />
-          {doc.processing_detail !== null && doc.processing_detail !== undefined && (
-            <div className={`${styles.small} ${styles.muted}`}>{doc.processing_detail}</div>
+          {doc.storage_state === "failed" ? (
+            <span className={styles.muted}>Not available: stored copy missing or damaged</span>
+          ) : (
+            <>
+              <StatusChip kind="extraction" value={doc.extraction_state} label={EXTRACTION_LABEL[doc.extraction_state]} />
+              {doc.processing_detail !== null && doc.processing_detail !== undefined && (
+                <div className={`${styles.small} ${styles.muted}`}>{doc.processing_detail}</div>
+              )}
+            </>
           )}
         </Table.Td>
         <Table.Td>
