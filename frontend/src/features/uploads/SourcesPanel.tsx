@@ -65,6 +65,8 @@ interface Props {
   latestRevisionId: string | null;
   /** Ask the project view to re-read the project (its latest-revision pointer may have changed). */
   onProjectChanged: () => void;
+  /** A file to scroll to and focus in the file table (set by a link from the Reconstruction tab). */
+  focusDocumentId?: string | null;
 }
 
 function RevisionStatus({ r }: { r: SourceRevisionSummary }) {
@@ -76,7 +78,7 @@ function RevisionStatus({ r }: { r: SourceRevisionSummary }) {
   );
 }
 
-export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: Props) {
+export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged, focusDocumentId = null }: Props) {
   const { state, reload } = usePolled<SourceRevisionPage>(
     `revisions/${projectId}`,
     (signal) => listRevisions(projectId, signal),
@@ -256,6 +258,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged }: 
             revisionId={selected.source_revision_id}
             version={versionOf(selected)}
             polling={isRevisionActive(selected)}
+            focusDocumentId={focusDocumentId}
           />
         </section>
       )}

@@ -7,7 +7,7 @@ import { ProjectTabs, SECTION_LABEL } from "../../app/shell/ProjectTabs";
 import { SourcesPanel } from "../uploads/SourcesPanel";
 import { getProject, updateProject } from "./api";
 import { bumpProjectList } from "./listVersion";
-import { PipelineSlot, ProjectOverviewSlot } from "./OverviewSlot";
+import { ReconstructionPanel } from "../pipeline/ReconstructionPanel";
 import { ProjectForm } from "./ProjectForm";
 import { keyString, projectKeys, saveSelectedProjectId, type Project, type Section } from "./keys";
 import { useActionScope, useScopedResource } from "./scope";
@@ -29,7 +29,7 @@ export function prerequisite(section: Section, project: Project): string {
     case "reconstruction":
       return project.latest_source_revision_id === null
         ? "Reconstruction requires an imported source revision. This project has none."
-        : "Reconstruction is not available in this build.";
+        : ""; // rendered by ReconstructionPanel
     case "explore":
       return project.active_model_revision_id === null
         ? "Explore requires a published model revision. This project has none."
@@ -62,7 +62,19 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
   const heading = useRef<HTMLHeadingElement | null>(null);
   const refresh = useRef<AbortController | null>(null);
   const [editing, setEditing] = useState(false);
+  // A file the Reconstruction tab asked to show in Sources; consumed by the file table.
+  const [focusDocument, setFocusDocument] = useState<string | null>(null);
+  const openSource = useCallback(
+    (documentId: string) => {
+      setFocusDocument(documentId);
+      onSection("sources");
+    },
+    [onSection],
+  );
   useEffect(() => () => refresh.current?.abort(), []);
+  useEffect(() => {
+    if (section !== "sources") setFocusDocument(null);
+  }, [section]);
   // Re-read the project (latest-revision pointer) without a loading flash; stale answers are dropped.
   const refreshProject = useCallback(() => {
     refresh.current?.abort();
@@ -199,16 +211,24 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
             </Title>
             {section === "sources" && (
               <>
-                <ProjectOverviewSlot projectId={projectId} revisionId={state.data.latest_source_revision_id} />
-                <PipelineSlot projectId={projectId} revisionId={state.data.latest_source_revision_id} />
                 <SourcesPanel
                   projectId={projectId}
                   latestRevisionId={state.data.latest_source_revision_id}
                   onProjectChanged={refreshProject}
+                  focusDocumentId={focusDocument}
                 />
               </>
             )}
-            {section === "reconstruction" && <Unavailable section="reconstruction" project={state.data} />}
+            {section === "reconstruction" &&
+              (state.data.latest_source_revision_id === null ? (
+                <Unavailable section="reconstruction" project={state.data} />
+              ) : (
+                <ReconstructionPanel
+                  projectId={projectId}
+                  revisionId={state.data.latest_source_revision_id}
+                  onOpenSource={openSource}
+                />
+              ))}
             {section === "explore" && (
               <ExploreWorkspace stage={<Unavailable section="explore" project={state.data} />} />
             )}

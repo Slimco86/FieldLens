@@ -344,7 +344,18 @@ export function parseRange(r: Range | undefined, pageCount: number | null): { ok
   return { ok: true, pages: { page_start: s, page_end: e } };
 }
 
-export function ProcessingPanel({ projectId, refreshKey, onChanged }: { projectId: string; refreshKey: number; onChanged: () => void }) {
+export function ProcessingPanel({
+  projectId,
+  refreshKey,
+  onChanged,
+  openRunId = null,
+}: {
+  projectId: string;
+  refreshKey: number;
+  onChanged: () => void;
+  /** A run created elsewhere (a wellbore's Process); shown here with its separate confirm. */
+  openRunId?: string | null;
+}) {
   const docs = usePolled(
     keyString(["pipeline", "pdocs", projectId, refreshKey]),
     (signal) => getProcessingDocuments(projectId, signal),
@@ -374,7 +385,10 @@ export function ProcessingPanel({ projectId, refreshKey, onChanged }: { projectI
     () => [...runItems].sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.run_id ?? null,
     [runItems],
   );
-  const shownRun = viewRun ?? newest;
+  const shownRun = viewRun ?? openRunId ?? newest;
+  useEffect(() => {
+    if (openRunId !== null) setViewRun(openRunId);
+  }, [openRunId]);
 
   const toggle = (id: string, on: boolean) => {
     const next = new Set(effective);
