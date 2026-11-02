@@ -5,7 +5,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "./render";
 import { ReconstructionPanel } from "../src/features/pipeline/ReconstructionPanel";
-import { chooseDocuments } from "../src/features/pipeline/ReconstructionList";
 
 const P = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const Q = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -252,7 +251,6 @@ function f12(extra: Record<string, unknown> = {}) {
   });
   return { gate, exposure, routes: { "GET /identity/start-gate": () => json(gate), "GET /identity/exposure": () => json(exposure) } };
 }
-const estimates = (m: Mock) => m.calls.filter((c) => c.method === "POST" && c.url.endsWith("/estimates"));
 const rowOf = async (name: RegExp) => (await screen.findAllByRole("row")).find((r) => name.test(r.textContent ?? ""))!;
 
 describe("Reconstruction list (AC-2, AC-3, AC-4)", () => {
@@ -276,25 +274,26 @@ describe("Reconstruction list (AC-2, AC-3, AC-4)", () => {
     expect(screen.getAllByText("Block not stated")).toHaveLength(1);
   });
 
-  it("has Sources and no Present or Validation column; counts per category", async () => {
+  it("has Sources and no Present, Validation or Records column; one heading per category with its count (RR-7)", async () => {
     install({}, f12().routes);
     render(panel());
     await screen.findByRole("region", { name: "Identified wellbores table" });
     const heads = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(heads).toEqual(["Wellbore", "Readiness", "Records per category", "Sources", "Action"]);
-    expect(screen.queryByRole("columnheader", { name: /Present|Validation/ })).not.toBeInTheDocument();
+    expect(heads).toEqual(["Wellbore", "Readiness", "Sources", "Action"]);
     const ready = (await screen.findAllByRole("row"))[1]!;
-    expect(ready).toHaveTextContent("Trajectory: 120");
-    expect(ready).not.toHaveTextContent("Logs: 0");
+    const cats = within(ready).getByRole("list", { name: "Source files of 15/9-F-12" });
+    expect(cats).toHaveTextContent("Trajectory - 120 records");
+    expect(cats.textContent!.match(/Trajectory/g)).toHaveLength(1);
+    expect(ready).not.toHaveTextContent("Logs");
   });
 
-  it("lists the files per category with the first locator and links to the file in Sources", async () => {
+  it("lists the files under their category with own count and first locator, linking to Sources", async () => {
     install({}, f12().routes);
     const open = vi.fn();
     render(panel(P, open));
     const row = (await screen.findAllByRole("row"))[1]!;
-    const files = within(row).getByRole("list", { name: "Source files of 15/9-F-12" });
-    expect(files).toHaveTextContent("Trajectory: traj.csv (12 trajectory_station; first at line 2)");
+    const files = within(row).getByRole("list", { name: "Trajectory files of 15/9-F-12" });
+    expect(files).toHaveTextContent("traj.csv (12 trajectory_station; first at line 2)");
     await userEvent.click(within(files).getByRole("link", { name: "Open traj.csv in Sources" }));
     expect(open).toHaveBeenCalledWith(D1);
     expect(await rowOf(/Well F-12/)).toHaveTextContent("No source file carries data");
@@ -339,7 +338,7 @@ describe("Reconstruction list (AC-2, AC-3, AC-4)", () => {
   it("gives the panel a landmark name distinct from the tab section", async () => {
     install();
     render(panel());
-    expect(await screen.findByRole("region", { name: "Wellbores and processing" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Identified wellbores" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Reconstruction" })).not.toBeInTheDocument();
   });
 
@@ -354,125 +353,45 @@ describe("Reconstruction list (AC-2, AC-3, AC-4)", () => {
   });
 });
 
-describe("Process and Process all (AC-5, AC-6)", () => {
-  it("estimates for the wellbore's documents, then needs a separate confirm", async () => {
+describe("Reconstruct actions (RR-7, RR-8)", () => {
+  it("shows a disabled Reconstruct button with its description on ready rows and none on others", async () => {
     const m = install({}, f12().routes);
     render(panel());
-    await userEvent.click(await screen.findByRole("button", { name: "Process 15/9-F-12" }));
-    expect(await screen.findByRole("button", { name: /Confirm and start run/ })).toBeEnabled();
-    expect(estimates(m)).toHaveLength(1);
-    expect(estimates(m)[0]!.body).toMatchObject({ documents: [{ document_id: D1, pages: null }] });
-    expect(m.calls.some((c) => c.url.endsWith("/confirm"))).toBe(false);
-    expect(screen.getByText(/Nothing has been spent/)).toBeInTheDocument();
+    const ready = (await screen.findAllByRole("row"))[1]!;
+    const btn = within(ready).getByRole("button", { name: "Reconstruct" });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription("Reconstruction start arrives in the next update");
+    const pilot = await rowOf(/PILOT/);
+    expect(within(pilot).queryByRole("button", { name: "Reconstruct" })).not.toBeInTheDocument();
+    expect(pilot).toHaveTextContent("Not available: not ready");
+    expect(pilot).toHaveTextContent("TRAJECTORY_PLANNED_ONLY");
+    expect(m.calls.filter((c) => c.method !== "GET")).toEqual([]);
   });
 
-  it("sends one estimate request on a double click", async () => {
-    const m = install({}, f12().routes);
+  it("shows a disabled bulk button with the ready count", async () => {
+    install({}, f12().routes);
     render(panel());
-    await userEvent.dblClick(await screen.findByRole("button", { name: "Process 15/9-F-12" }));
-    await screen.findByRole("button", { name: /Confirm and start run/ });
-    expect(estimates(m)).toHaveLength(1);
+    const all = await screen.findByRole("button", { name: "Reconstruct all ready wellbores (1)" });
+    expect(all).toBeDisabled();
+    expect(all).toHaveAccessibleDescription(/Reconstruction start arrives in the next update/);
   });
 
-  it("process all ready wellbores estimates over the ready wellbores' documents only", async () => {
+  it("has no Process action, no Document processing pane, no run list and never says Processed", async () => {
     const m = install({}, f12().routes);
-    render(panel());
-    const all = await screen.findByRole("button", { name: "Process all ready wellbores (1)" });
-    await userEvent.dblClick(all);
-    await screen.findByRole("button", { name: /Confirm and start run/ });
-    expect(estimates(m)).toHaveLength(1);
-    expect(estimates(m)[0]!.body).toMatchObject({ documents: [{ document_id: D1 }] });
-    expect((estimates(m)[0]!.body as { documents: unknown[] }).documents).toHaveLength(1); // PILOT's D2 is not ready
+    const { container } = render(panel());
+    await screen.findByRole("region", { name: "Identified wellbores table" });
+    expect(screen.queryByRole("button", { name: /Process/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Document processing")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nothing to process/)).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/Processed|stub processing/);
+    expect(m.calls.some((c) => c.url.includes("/processing/"))).toBe(false);
   });
 
-  it("a non-ready wellbore has no Process action and shows the server reason; no ready wellbore disables Process all", async () => {
+  it("says start is not available yet, with no OCR and no merge review", async () => {
     install();
     render(panel());
-    const row = await rowOf(/F-11 B/);
-    expect(within(row).queryByRole("button", { name: /^Process/ })).not.toBeInTheDocument();
-    expect(row).toHaveTextContent("TRAJECTORY_PLANNED_ONLY");
-    expect(row).toHaveTextContent("Only a planned survey exists.");
-    expect(screen.getByRole("button", { name: "Process all ready wellbores (0)" })).toBeDisabled();
-    const gate = screen.getByText(/No wellbore is ready to process/).closest("[role=status]")!;
-    expect(gate).toHaveTextContent("NO_VALIDATED_TRAJECTORY");
-  });
-
-  it("keeps Process enabled for a natively parsed PDF with a page count and posts the estimate (regression)", async () => {
-    const m = install({}, {
-      ...f12().routes,
-      "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "compass.pdf", { no_native_parser: false, native_state: "extracted", page_count: 8 })] }),
-    });
-    render(panel());
-    const btn = await screen.findByRole("button", { name: "Process 15/9-F-12" });
-    await waitFor(() => expect(btn).toBeEnabled());
-    expect(screen.getByRole("button", { name: "Process all ready wellbores (1)" })).toBeEnabled();
-    await userEvent.click(btn);
-    await screen.findByRole("button", { name: /Confirm and start run/ });
-    expect(estimates(m)[0]!.body).toMatchObject({ documents: [{ document_id: D1, pages: null }] });
-  });
-
-  it("disables Process with a reason when every source file is not processable (text-native, not a PDF)", async () => {
-    const m = install({}, {
-      ...f12().routes,
-      "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "traj.csv", { no_native_parser: false, native_state: "extracted", processable: false, page_count: null, not_processable_reason: "not_a_pdf" })] }),
-    });
-    render(panel());
-    const row = (await screen.findAllByRole("row"))[1]!;
-    await waitFor(() => expect(row).toHaveTextContent("Nothing to process: data comes from native parsers"));
-    expect(within(row).queryByRole("button", { name: /^Process/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Process all ready wellbores (1)" })).toBeDisabled();
-    expect(estimates(m)).toHaveLength(0);
-  });
-
-  it("disables Process with a reason when everything is already processed", async () => {
-    install({}, {
-      ...f12().routes,
-      "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "traj.csv", { processing_status: "processed" })] }),
-    });
-    render(panel());
-    const row = (await screen.findAllByRole("row"))[1]!;
-    await waitFor(() => expect(row).toHaveTextContent("Nothing to process: no document needs processing"));
-  });
-
-  it("reuses an existing unconfirmed estimate for the same documents instead of creating another", async () => {
-    const existing = runBody({ run_id: RUN2, created_at: "2026-11-01T09:00:00Z" });
-    const m = install({ [RUN2]: existing }, f12().routes);
-    render(panel());
-    await userEvent.click(await screen.findByRole("button", { name: "Process 15/9-F-12" }));
-    expect(await screen.findByText(/An estimate for these documents already exists/)).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /Confirm and start run/ })).toBeEnabled();
-    expect(estimates(m)).toHaveLength(0);
-  });
-
-  it("creates a new estimate when the open one covers a different document set", async () => {
-    const other = runBody({ run_id: RUN2, created_at: "2026-11-01T09:00:00Z", documents: [runDoc({ document_id: D2 })] });
-    const m = install({ [RUN2]: other }, f12().routes);
-    render(panel());
-    await userEvent.click(await screen.findByRole("button", { name: "Process 15/9-F-12" }));
-    await screen.findByRole("button", { name: /Confirm and start run/ });
-    expect(estimates(m)).toHaveLength(1);
-    expect(screen.queryByText(/already exists/)).not.toBeInTheDocument();
-  });
-
-  it("shows a rejected estimate with request id and spends nothing", async () => {
-    install({}, { ...f12().routes, "POST /processing/runs/estimates": () => err(422, "BUDGET_EXCEEDED", "Over budget.") });
-    render(panel());
-    await userEvent.click(await screen.findByRole("button", { name: "Process 15/9-F-12" }));
-    const alert = (await screen.findByText(/The estimate was not created: Over budget\./)).closest("[role=alert]")!;
-    expect(alert).toHaveTextContent("BUDGET_EXCEEDED");
-    expect(alert).toHaveTextContent("Request ID: req-123");
-    expect(alert).toHaveTextContent("Nothing was started or spent");
-  });
-
-  it("chooseDocuments skips processed, busy, unprocessable and over-cap documents", () => {
-    const st = (id: string, over: Record<string, unknown>) => docState(id, `${id}.pdf`, over) as unknown as Parameters<typeof chooseDocuments>[1][number];
-    const out = chooseDocuments(
-      ["a", "b", "c", "d", "e", "f"],
-      [st("a", { no_native_parser: false }), st("b", { processing_status: "processed" }), st("c", { processing_status: "running" }), st("d", { processable: false, not_processable_reason: "quarantined" }), st("e", { over_page_cap: true })],
-    );
-    expect(out.selection).toEqual([{ document_id: "a", pages: null }]);
-    expect(out.skipped).toHaveLength(5);
-    expect(out.skipped.join("|")).toMatch(/quarantined/);
+    expect(await screen.findByText(/Starting a reconstruction is not\s+available yet/)).toBeInTheDocument();
+    expect(screen.getAllByText(/no OCR/).length).toBeGreaterThan(0);
   });
 });
 
@@ -481,7 +400,7 @@ describe("Reconstruction list states (AC-7)", () => {
     install({}, { "GET /identity/exposure": () => json(EXPOSURE({ wells: [] })) });
     render(panel());
     expect(await screen.findByText("No wellbore identified")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Process all ready/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Reconstruct all ready/ })).not.toBeInTheDocument();
   });
 
   it("shows a failing endpoint with request id and retries", async () => {
@@ -495,14 +414,14 @@ describe("Reconstruction list states (AC-7)", () => {
     expect(await screen.findByRole("region", { name: "Identified wellbores table" })).toBeInTheDocument();
   });
 
-  it("never offers Process when readiness could not be read", async () => {
+  it("never offers Reconstruct when readiness could not be read", async () => {
     install({}, { ...f12().routes, "GET /identity/start-gate": () => err(500, "INTERNAL", "gate down") });
     render(panel());
     const alert = (await screen.findByText(/Readiness could not be loaded.*gate down/)).closest("[role=alert]")!;
     expect(alert).toHaveTextContent("req-123");
     expect(screen.getAllByText("Readiness unknown").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /^Process 15/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Process all ready wellbores (0)" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Reconstruct" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reconstruct all ready wellbores (0)" })).toBeDisabled();
   });
 
   it("states stale identities and unresolved records", async () => {
@@ -510,130 +429,6 @@ describe("Reconstruction list states (AC-7)", () => {
     render(panel());
     expect(await screen.findByText(/Stored identities are out of date/)).toBeInTheDocument();
     expect(screen.getByText(/4 record\(s\) have no resolved wellbore/)).toBeInTheDocument();
-  });
-});
-
-describe("processing: estimate, confirm, start", () => {
-  it("defaults to no-native-parser documents, estimates, then needs a separate confirm", async () => {
-    const m = install();
-    render(panel());
-    const est = await screen.findByRole("button", { name: /Request estimate for 1 document/ });
-    expect(screen.getByRole("checkbox", { name: "scan.pdf" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "native.pdf" })).not.toBeChecked();
-    expect(screen.getAllByText(/No label \(allowed\)/).length).toBeGreaterThan(0);
-
-    await userEvent.click(est);
-    const confirm = await screen.findByRole("button", { name: /Confirm and start run \(USD 0.0300\)/ });
-    const post = m.calls.find((c) => c.method === "POST" && c.url.endsWith("/estimates"))!;
-    expect(post.body).toMatchObject({ documents: [{ document_id: D1, pages: null }] });
-    expect(m.calls.some((c) => c.url.endsWith("/confirm"))).toBe(false); // an estimate never confirms
-    const facts = screen.getByRole("group", { name: "Estimate" });
-    expect(facts).toHaveTextContent("3");
-    expect(facts).toHaveTextContent("1,500 input, 300 output");
-    expect(facts).toHaveTextContent("USD 4.9700 of USD 5.0000 total");
-    expect(screen.getByText(/Stub provider/)).toBeInTheDocument();
-    expect(within(facts).getByText(/no OCR/)).toBeInTheDocument();
-
-    await userEvent.click(confirm);
-    await waitFor(() => expect(m.calls.find((c) => c.url.endsWith("/confirm"))?.body).toEqual({ estimated_usd: "0.0300" }));
-    expect(await screen.findByRole("status", { name: "Run status" })).toHaveTextContent("Queued");
-    expect(screen.getByRole("button", { name: "Cancel run" })).toBeEnabled();
-  });
-
-  it("disables confirm when the estimate does not fit the budget", async () => {
-    const m = install({}, {
-      "POST /processing/runs/estimates": () => {
-        m.runs[RUN] = runBody({}, { fits_budget: false, confirmable: false, remaining_budget_usd: "0.0100" });
-        return json(m.runs[RUN], 201);
-      },
-    });
-    render(panel());
-    await userEvent.click(await screen.findByRole("button", { name: /Request estimate/ }));
-    const confirm = await screen.findByRole("button", { name: /Confirm and start run/ });
-    expect(confirm).toBeDisabled();
-    expect(screen.getByText(/does not fit the remaining budget/)).toBeInTheDocument();
-  });
-
-  it("shows the server's rejection of a stale confirm with code and request id, and spends nothing", async () => {
-    const m = install({}, {
-      "POST /processing/runs/estimates": () => {
-        m.runs[RUN] = runBody();
-        return json(m.runs[RUN], 201);
-      },
-      [`POST /processing/runs/${RUN}/confirm`]: () => err(409, "ESTIMATE_STALE", "The estimate changed."),
-    });
-    render(panel());
-    await userEvent.click(await screen.findByRole("button", { name: /Request estimate/ }));
-    await userEvent.click(await screen.findByRole("button", { name: /Confirm and start run/ }));
-    const alert = await screen.findByText(/The action was rejected: The estimate changed./);
-    expect(alert.closest("[role=alert]")).toHaveTextContent("ESTIMATE_STALE");
-    expect(alert.closest("[role=alert]")).toHaveTextContent("Request ID: req-123");
-    expect(alert.closest("[role=alert]")).toHaveTextContent("Nothing was started or spent");
-  });
-
-  it("shows an estimate rejection (page cap) as an error", async () => {
-    install({}, { "POST /processing/runs/estimates": () => err(422, "PAGE_RANGE_REQUIRED", "Document has more than 500 pages.") });
-    render(panel());
-    await userEvent.click(await screen.findByRole("button", { name: /Request estimate/ }));
-    expect(await screen.findByText(/The estimate was rejected: Document has more than 500 pages./)).toBeInTheDocument();
-  });
-
-  it("requires a valid page range for an over-cap document before calling the API", async () => {
-    const m = install({}, {
-      "GET /processing/documents": () => json({ ...DOCS(), items: [docState(D1, "big.pdf", { over_page_cap: true, page_count: 900 })] }),
-    });
-    render(panel());
-    await userEvent.click(await screen.findByRole("button", { name: /Request estimate/ }));
-    expect(await screen.findByText(/big.pdf: enter both page numbers/)).toBeInTheDocument();
-    expect(m.calls.some((c) => c.url.endsWith("/estimates"))).toBe(false);
-    await userEvent.type(screen.getByLabelText("First page of big.pdf"), "1");
-    await userEvent.type(screen.getByLabelText("Last page of big.pdf"), "501");
-    await userEvent.click(screen.getByRole("button", { name: /Request estimate/ }));
-    expect(await screen.findByText(/at most 500 pages per run/)).toBeInTheDocument();
-    await userEvent.clear(screen.getByLabelText("Last page of big.pdf"));
-    await userEvent.type(screen.getByLabelText("Last page of big.pdf"), "500");
-    await userEvent.click(screen.getByRole("button", { name: /Request estimate/ }));
-    await waitFor(() => expect(m.calls.find((c) => c.url.endsWith("/estimates"))?.body).toMatchObject({
-      documents: [{ document_id: D1, pages: { page_start: 1, page_end: 500 } }],
-    }));
-  });
-
-  it("starts without a label and with an empty selection disabled", async () => {
-    install();
-    render(panel());
-    await userEvent.click(await screen.findByRole("checkbox", { name: "scan.pdf" }));
-    expect(screen.getByRole("button", { name: /Request estimate for 0 document/ })).toBeDisabled();
-  });
-});
-
-describe("processing: cancel, retry, failure honesty", () => {
-  it("cancels a running run", async () => {
-    const m = install({ [RUN]: runBody({ status: "running", documents: [runDoc({ state: "running", pages_done: 1 })] }) });
-    render(panel());
-    expect(await screen.findByText("1 / 3 pages")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Cancel run" }));
-    await waitFor(() => expect(m.calls.some((c) => c.method === "POST" && c.url.endsWith("/cancel"))).toBe(true));
-    expect(await screen.findByRole("status", { name: "Run status" })).toHaveTextContent("Cancelled");
-  });
-
-  it("never shows an interrupted run as success and retry needs its own confirm", async () => {
-    const m = install({
-      [RUN]: runBody({
-        status: "interrupted", error_code: "interrupted", error_message: "The server restarted.",
-        documents: [runDoc({ state: "interrupted", retryable: true, failure_code: "interrupted", failure_message: "stopped at page 2", pages_done: 2 })],
-      }),
-    });
-    render(panel());
-    const status = await screen.findByRole("status", { name: "Run status" });
-    expect(status).toHaveTextContent("Interrupted: not completed");
-    expect(status).not.toHaveTextContent("Succeeded");
-    expect(screen.getByText(/did not complete successfully/)).toBeInTheDocument();
-    expect(screen.queryByText("Processed")).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: /Request retry estimate for 1 document/ }));
-    expect(await screen.findByRole("button", { name: /Confirm and start run/ })).toBeEnabled();
-    expect(m.calls.some((c) => c.url.endsWith("/confirm"))).toBe(false);
-    expect(m.calls.some((c) => c.method === "POST" && c.url.endsWith("/retry"))).toBe(true);
   });
 });
 
@@ -664,51 +459,5 @@ describe("empty and honest wording", () => {
     expect(screen.getByText("Reconstruction is unavailable")).toBeInTheDocument();
   });
 
-  it("says a run is a stub step, not reconstruction", async () => {
-    install();
-    render(panel());
-    expect(await screen.findByText(/it is not reconstruction/)).toBeInTheDocument();
-    expect(screen.getAllByText(/no OCR/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/merge review is not\s+yet available/).length).toBeGreaterThan(0);
-  });
 });
 
-describe("QA repair (D1 and cosmetics)", () => {
-  it("labels the remaining budget live only while estimated, otherwise as an estimate-time snapshot", async () => {
-    install({ [RUN]: runBody() });
-    const view = render(panel());
-    const facts = await screen.findByRole("group", { name: "Estimate" });
-    expect(facts).toHaveTextContent("Remaining budget");
-    expect(facts).not.toHaveTextContent("estimate time");
-    view.unmount();
-    for (const status of ["queued", "running", "succeeded", "cancelled"] as const) {
-      install({ [RUN]: runBody({ status }) });
-      const v = render(panel());
-      const g = await screen.findByRole("group", { name: "Estimate" });
-      expect(g).toHaveTextContent("Remaining at estimate time");
-      expect(g).toHaveTextContent("not the current budget");
-      expect(g).not.toHaveTextContent(/Remaining budget/);
-      v.unmount();
-    }
-  });
-
-  it("does not repeat the failure code when the message already says it", async () => {
-    install({ [RUN]: runBody({ status: "cancelled", error_code: "cancelled", error_message: "cancelled by the user" }) });
-    render(panel());
-    const note = await screen.findByText(/did not complete successfully/);
-    expect(note.textContent).toBe("This run did not complete successfully. cancelled by the user Documents that did not finish are not processed.");
-  });
-
-  it("gives every input in the panel an accessible name", async () => {
-    install({ [RUN]: runBody({ status: "running", documents: [runDoc({ state: "running", pages_done: 1 })] }) }, {
-      "GET /processing/documents": () => json({ ...DOCS(), items: [...DOCS().items, docState(D2, "big.pdf", { over_page_cap: true, page_count: 900 })] }),
-    });
-    const { container } = render(panel());
-    await screen.findByLabelText("First page of big.pdf");
-    await screen.findByText("1 / 3 pages");
-    const unnamed = [...container.querySelectorAll("input, progress, select, textarea")].filter(
-      (el) => (el.getAttribute("aria-label") ?? "") === "" && (el.id === "" || container.querySelector(`label[for="${el.id}"]`) === null),
-    );
-    expect(unnamed).toEqual([]);
-  });
-});

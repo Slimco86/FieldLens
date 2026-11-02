@@ -104,7 +104,7 @@ describe("Reconstruction tab in the project (AC-2, AC-3)", () => {
     install();
     render(<Harness initial="reconstruction" />);
     const link = await screen.findByRole("link", { name: "Open traj.csv in Sources" });
-    expect(screen.getByText("Process all ready wellbores (1)")).toBeInTheDocument();
+    expect(screen.getByText("Reconstruct all ready wellbores (1)")).toBeInTheDocument();
     await userEvent.click(link);
     await screen.findByRole("table", { name: "Files in this source revision" });
     await waitFor(() => expect(document.getElementById(`source-file-${D1}`)).toHaveFocus());
@@ -118,6 +118,6 @@ describe("Reconstruction tab in the project (AC-2, AC-3)", () => {
     ));
     render(<Harness initial="reconstruction" />);
     expect(await screen.findByText(/requires an imported source revision/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Process/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Reconstruct( all.*)?$|^Process/ })).not.toBeInTheDocument();
   });
 });

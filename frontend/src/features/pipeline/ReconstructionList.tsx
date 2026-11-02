@@ -1,21 +1,12 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Button, Table, Title } from "@mantine/core";
 import { ChevronDown, ChevronUp, CircleCheck, CircleHelp, CircleX, Info, RefreshCw } from "lucide-react";
 import { Callout, Chip, EmptyState, ErrorState, LoadingState } from "../../design";
 import { routeHash } from "../../app/shell/route";
 import type { components } from "../../api/generated";
 import { keyString } from "../projects/keys";
-import { toFailure, useScopedResource, type Failure } from "../projects/scope";
-import {
-  getExposure,
-  getProcessingDocuments,
-  getRun,
-  listRuns,
-  getStartGate,
-  requestEstimate,
-  type DocumentProcessingState,
-  type ProcessingDocumentSelection,
-} from "./api";
+import { useScopedResource } from "../projects/scope";
+import { getExposure, getStartGate } from "./api";
 import styles from "./Pipeline.module.css";
 
 type S = components["schemas"];
@@ -56,7 +47,6 @@ export function categoryNotices(c: Category): string[] {
   return out;
 }
 
-const REPEAT_GUARD_MS = 1000;
 const READY = { tone: "success", icon: CircleCheck } as const;
 const NOT_READY = { tone: "neutral", icon: CircleX } as const;
 const UNKNOWN = { tone: "unknown", icon: CircleHelp } as const;
@@ -92,43 +82,6 @@ export function buildRows(exposure: S["ProjectExposure"], gate: S["StartGate"] |
     }),
   );
   return [...rows.filter((r) => r.ready === true), ...rows.filter((r) => r.ready !== true)];
-}
-
-/** Documents carrying a wellbore's data (from exposure groups, by document id), de-duplicated in first-seen order. */
-export function documentIdsOf(row: WellboreRow): string[] {
-  return [...new Set(row.categories.flatMap((c) => c.groups.map((g) => g.document_id)))];
-}
-
-export interface Selection {
-  selection: ProcessingDocumentSelection[];
-  /** Why some carried documents are not part of the estimate (already processed, running, not processable, over the page cap). */
-  skipped: string[];
-  /** Set when nothing is selected: why (native parsers already read it, or another reason). */
-  reason: string | null;
-}
-
-export const NATIVE_ONLY_REASON = "Nothing to process: data comes from native parsers";
-const NO_DOCS_REASON = "Nothing to process: no document needs processing";
-
-const BUSY = new Set<DocumentProcessingState["processing_status"]>(["queued", "running"]);
-
-/** Chooses documents that carry the wellbores' data and still need processing. Over-cap documents need a page range, so they are skipped here. */
-export function chooseDocuments(ids: string[], states: DocumentProcessingState[]): Selection {
-  const byId = new Map(states.map((d) => [d.document_id, d]));
-  const selection: ProcessingDocumentSelection[] = [];
-  const skipped: string[] = [];
-  for (const id of ids) {
-    const d = byId.get(id);
-    if (d === undefined) skipped.push(`${id}: not in the latest source revision`);
-    else if (d.processing_status === "processed") skipped.push(`${d.original_filename}: already processed`);
-    else if (BUSY.has(d.processing_status)) skipped.push(`${d.original_filename}: already queued or running`);
-    else if (!d.processable) skipped.push(`${d.original_filename}: not processable${d.not_processable_reason === null ? "" : ` (${d.not_processable_reason})`}`);
-    else if (d.over_page_cap) skipped.push(`${d.original_filename}: over the page cap; choose a page range under Document processing below`);
-    else selection.push({ document_id: id, pages: null });
-  }
-  // `processable` is the server's verdict (a readable PDF that can be estimated now); a native parser does not exclude a file.
-  const nativeOnly = ids.length > 0 && ids.every((id) => byId.get(id)?.processable === false);
-  return { selection, skipped, reason: selection.length > 0 ? null : nativeOnly ? NATIVE_ONLY_REASON : NO_DOCS_REASON };
 }
 
 /** Every unmet code the server reported (gate reasons and unmet conditions). */
@@ -221,46 +174,35 @@ function CategoryDetail({ c }: { c: Category }) {
 }
 
 function SourcesCell({ row, projectId, onOpenSource }: { row: WellboreRow; projectId: string; onOpenSource: (documentId: string) => void }) {
-  const cats = row.categories.filter((c) => c.groups.length > 0);
+  const cats = row.categories.filter((c) => c.groups.length > 0 || c.record_count > 0);
   if (cats.length === 0) return <span>No source file carries data for this wellbore.</span>;
   return (
     <ul className={styles.list} aria-label={`Source files of ${row.wellboreName}`}>
       {cats.map((c) => (
         <li key={c.category}>
-          <strong>{CATEGORY_LABEL[c.category]}:</strong>{" "}
-          {c.groups.map((g, i) => (
-            <Fragment key={`${g.run_id}-${g.kind}`}>
-              {i > 0 && "; "}
-              <a
-                href={routeHash({ kind: "project", projectId, section: "sources" })}
-                aria-label={`Open ${g.filename} in Sources`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  onOpenSource(g.document_id);
-                }}
-              >
-                {g.filename}
-              </a>{" "}
-              <span className={styles.note}>
-                ({g.record_count.toLocaleString("en-US")} {g.kind}
-                {g.sample[0] !== undefined && <>; first at {locatorText(g.sample[0].locator)}</>})
-              </span>
-            </Fragment>
-          ))}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function RecordCounts({ row }: { row: WellboreRow }) {
-  const nonzero = row.categories.filter((c) => c.record_count > 0);
-  if (nonzero.length === 0) return <span>No records</span>;
-  return (
-    <ul className={styles.list} aria-label={`Records of ${row.wellboreName}`}>
-      {nonzero.map((c) => (
-        <li key={c.category}>
-          {CATEGORY_LABEL[c.category]}: {c.record_count.toLocaleString("en-US")}
+          <strong>
+            {CATEGORY_LABEL[c.category]} - {c.record_count.toLocaleString("en-US")} {c.record_count === 1 ? "record" : "records"}
+          </strong>
+          <ul className={styles.list} aria-label={`${CATEGORY_LABEL[c.category]} files of ${row.wellboreName}`}>
+            {c.groups.map((g) => (
+              <li key={`${g.run_id}-${g.kind}`}>
+                <a
+                  href={routeHash({ kind: "project", projectId, section: "sources" })}
+                  aria-label={`Open ${g.filename} in Sources`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenSource(g.document_id);
+                  }}
+                >
+                  {g.filename}
+                </a>{" "}
+                <span className={styles.note}>
+                  ({g.record_count.toLocaleString("en-US")} {g.kind}
+                  {g.sample[0] !== undefined && <>; first at {locatorText(g.sample[0].locator)}</>})
+                </span>
+              </li>
+            ))}
+          </ul>
         </li>
       ))}
     </ul>
@@ -272,97 +214,16 @@ interface Props {
   refreshKey: number;
   /** Switch to the Sources tab and show this file. */
   onOpenSource: (documentId: string) => void;
-  /** A new estimate exists (nothing spent); the run view shows it with its separate confirm. */
-  onEstimated: (runId: string) => void;
 }
 
-export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEstimated }: Props) {
+export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Props) {
   const exposure = useScopedResource(keyString(["recon", "exposure", projectId, refreshKey]), (signal) => getExposure(projectId, signal));
   const gate = useScopedResource(keyString(["recon", "gate", projectId, refreshKey]), (signal) => getStartGate(projectId, signal));
-  const docStates = useScopedResource(keyString(["recon", "pdocs", projectId, refreshKey]), (signal) => getProcessingDocuments(projectId, signal));
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  const [pending, setPending] = useState<string | null>(null);
-  const [failure, setFailure] = useState<Failure | null>(null);
-  const [notice, setNotice] = useState<string[] | null>(null);
-  const lock = useRef(false);
-  const lastStart = useRef(0);
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-
   const data = exposure.state.kind === "ready" && exposure.state.data.project_id === projectId ? exposure.state.data : null;
   const gateData = gate.state.kind === "ready" && gate.state.data.project_id === projectId ? gate.state.data : null;
   const rows = useMemo(() => (data === null ? [] : buildRows(data, gateData)), [data, gateData]);
   const readyRows = rows.filter((r) => r.ready === true);
-  const docItems = docStates.state.kind === "ready" && docStates.state.data.project_id === projectId ? docStates.state.data.items : null;
-  /** Why a wellbore has nothing to estimate, from the loaded document states; `null` when it has a candidate (or states are unknown). */
-  const nothingFor = (targets: WellboreRow[]): string | null => {
-    if (docItems === null) return null; // unknown: the click re-reads and checks again
-    const ids = [...new Set(targets.flatMap(documentIdsOf))];
-    if (ids.length === 0) return "Nothing to process: no source file carries data for it";
-    return chooseDocuments(ids, docItems).reason;
-  };
-  const allNothing = readyRows.length > 0 ? nothingFor(readyRows) : null;
-
-  /** Estimate only: fresh document states are read at click time; nothing is confirmed or spent here. */
-  const process = async (targets: WellboreRow[], name: string) => {
-    // A double click sends one request: one in flight at a time, and a click right after one is a repeat.
-    if (lock.current || Date.now() - lastStart.current < REPEAT_GUARD_MS) return;
-    lock.current = true;
-    lastStart.current = Date.now();
-    setPending(name);
-    setFailure(null);
-    setNotice(null);
-    try {
-      const ids = [...new Set(targets.flatMap(documentIdsOf))];
-      const docs = await getProcessingDocuments(projectId, new AbortController().signal);
-      if (!alive.current) return;
-      if (docs.project_id !== projectId) throw new Error("The document answer belonged to another project and was dropped.");
-      const { selection, skipped, reason } = chooseDocuments(ids, docs.items);
-      if (selection.length === 0) {
-        setNotice(
-          ids.length === 0
-            ? ["No source file carries data for the selected wellbore(s), so there is nothing to estimate."]
-            : [reason ?? NO_DOCS_REASON, ...skipped],
-        );
-        return;
-      }
-      // Reuse an existing unconfirmed estimate for exactly this document set instead of creating another.
-      const wanted = selection.map((d) => d.document_id).sort().join(",");
-      const existing = await listRuns(projectId, new AbortController().signal);
-      if (!alive.current) return;
-      const candidates = existing.items.filter((r) => r.status === "estimated").sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5);
-      for (const c of candidates) {
-        const full = await getRun(projectId, c.run_id, new AbortController().signal);
-        if (!alive.current) return;
-        const same =
-          full.project_id === projectId &&
-          full.status === "estimated" &&
-          full.documents.map((d) => d.document_id).sort().join(",") === wanted &&
-          full.documents.every((d) => d.pages.page_start === 1 && d.pages.page_end === d.page_count);
-        if (same) {
-          setNotice(["An estimate for these documents already exists and is shown below; no new estimate was requested."]);
-          onEstimated(full.run_id);
-          return;
-        }
-      }
-      const key = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-      const run = await requestEstimate(projectId, selection, key);
-      if (!alive.current) return;
-      if (skipped.length > 0) setNotice(["Some documents are not part of this estimate:", ...skipped]);
-      onEstimated(run.run_id);
-    } catch (err) {
-      if (alive.current) setFailure(toFailure(err));
-    } finally {
-      lock.current = false;
-      if (alive.current) setPending(null);
-    }
-  };
-
   const reloadAll = () => {
     exposure.reload();
     gate.reload();
@@ -444,52 +305,22 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEsti
       {data !== null && rows.length > 0 && (
         <>
           <div className={styles.actions}>
-            <Button
-              disabled={readyRows.length === 0 || allNothing !== null || pending !== null}
-              aria-describedby={allNothing !== null ? "rc-all-reason" : undefined}
-              loading={pending === "all"}
-              onClick={() => void process(readyRows, "all")}
-            >
-              Process all ready wellbores ({readyRows.length})
+            <Button disabled aria-describedby="rc-all-reason">
+              Reconstruct all ready wellbores ({readyRows.length})
             </Button>
-            {allNothing !== null && (
-              <span className={styles.note} id="rc-all-reason">
-                {allNothing}
-              </span>
-            )}
-            <span className={styles.note}>
-              Requests a free estimate for the documents that carry these wellbores&rsquo; data and are not processed yet.
-              Nothing starts or is spent until you confirm the estimate below. Today a run is a stub step: it is not
-              reconstruction, there is no OCR, and merge review is not available.
+            <span className={styles.note} id="rc-all-reason">
+              Reconstruction start arrives in the next update. Nothing starts or is spent from this page yet. There is no
+              OCR and merge review is not available.
             </span>
           </div>
-          {failure !== null && (
-            <Callout tone="danger" role="alert">
-              <p>
-                The estimate was not created: {failure.message}
-                {failure.code !== null && <> (<code>{failure.code}</code>)</>}. Nothing was started or spent.
-              </p>
-              {failure.requestId !== null && <p>Request ID: {failure.requestId}</p>}
-            </Callout>
-          )}
-          {notice !== null && (
-            <Callout tone="info" role="status">
-              <ul className={styles.list}>
-                {notice.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
-            </Callout>
-          )}
           {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard-scrollable region */}
           <div className={styles.scroll} role="region" aria-label="Identified wellbores table" tabIndex={0}>
             <Table captionSide="top">
-              <Table.Caption>Identified wells and wellbores, ready to process first</Table.Caption>
+              <Table.Caption>Identified wells and wellbores, ready first</Table.Caption>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th scope="col">Wellbore</Table.Th>
                   <Table.Th scope="col">Readiness</Table.Th>
-                  <Table.Th scope="col">Records per category</Table.Th>
                   <Table.Th scope="col">Sources</Table.Th>
                   <Table.Th scope="col">Action</Table.Th>
                 </Table.Tr>
@@ -534,24 +365,18 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEsti
                           {r.ready === null && <p className={styles.note}>The start gate could not be read.</p>}
                         </Table.Td>
                         <Table.Td>
-                          <RecordCounts row={r} />
-                        </Table.Td>
-                        <Table.Td>
                           <SourcesCell row={r} projectId={projectId} onOpenSource={onOpenSource} />
                         </Table.Td>
                         <Table.Td>
-                          {r.ready === true && nothingFor([r]) !== null ? (
-                            <span className={styles.note}>{nothingFor([r])}</span>
-                          ) : r.ready === true ? (
-                            <Button
-                              size="xs"
-                              aria-label={`Process ${r.wellboreName}`}
-                              disabled={pending !== null}
-                              loading={pending === r.wellboreId}
-                              onClick={() => void process([r], r.wellboreId)}
-                            >
-                              Process
-                            </Button>
+                          {r.ready === true ? (
+                            <>
+                              <Button size="xs" disabled aria-describedby={`rc-start-${r.wellboreId}`}>
+                                Reconstruct
+                              </Button>
+                              <span className="fl-sr-only" id={`rc-start-${r.wellboreId}`}>
+                                Reconstruction start arrives in the next update
+                              </span>
+                            </>
                           ) : (
                             <span className={styles.note}>Not available: not ready</span>
                           )}
@@ -559,7 +384,7 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource, onEsti
                       </Table.Tr>
                       {expanded && (
                         <Table.Tr id={detailId}>
-                          <Table.Td colSpan={5}>
+                          <Table.Td colSpan={4}>
                             <Reasons label={`Warnings of ${r.wellboreName}`} items={r.gate.warnings} kind="Warning" />
                             <ul className={styles.list} aria-label={`Gaps, conflicts and findings of ${r.wellboreName}`}>
                               {r.categories.map((c) => (
