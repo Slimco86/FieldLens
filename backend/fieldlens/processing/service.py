@@ -46,6 +46,7 @@ from fieldlens.evidence.storage import BlobStore
 from fieldlens.persistence import models as m
 from fieldlens.processing import tables as t
 from fieldlens.processing.steps import Pricing, quantize
+from fieldlens.reconstruction import tables as reconstruction_tables
 
 pr, prd = t.processing_run, t.processing_run_document
 ZERO = Decimal("0")
@@ -119,7 +120,21 @@ def remaining_budget(session: Session, settings: Settings) -> Decimal:
     held = session.execute(
         select(func.coalesce(func.sum(pr.c.confirmed_usd), 0)).where(pr.c.status.in_(ACTIVE_RUN))
     ).scalar_one()
-    return max(quantize(settings.processing_total_cap_usd - Decimal(ledger) - Decimal(held)), ZERO)
+    rr = (
+        reconstruction_tables.reconstruction_run
+    )  # reconstruction runs share the one cap (TASK-068)
+    held_reconstruction = session.execute(
+        select(func.coalesce(func.sum(rr.c.confirmed_usd), 0)).where(rr.c.status.in_(ACTIVE_RUN))
+    ).scalar_one()
+    return max(
+        quantize(
+            settings.processing_total_cap_usd
+            - Decimal(ledger)
+            - Decimal(held)
+            - Decimal(held_reconstruction)
+        ),
+        ZERO,
+    )
 
 
 # -- documents --------------------------------------------------------------------------------

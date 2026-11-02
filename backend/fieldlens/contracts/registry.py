@@ -32,6 +32,7 @@ from . import (
     processing,
     projects,
     quality,
+    reconstruction,
     retrieval,
     series,
     system,
@@ -59,6 +60,7 @@ _MODULES = (
     well_identity,
     exposure,
     merge_proposals,
+    reconstruction,
 )
 
 

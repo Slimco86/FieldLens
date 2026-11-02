@@ -37,6 +37,8 @@ from fieldlens.persistence.session import create_db_engine, create_session_facto
 from fieldlens.processing.routes import build_processing_router
 from fieldlens.processing.runtime import build_runtime
 from fieldlens.projects import build_projects_router
+from fieldlens.reconstruction.routes import build_reconstruction_router
+from fieldlens.reconstruction.runtime import build_runtime as build_reconstruction_runtime
 from fieldlens.retrieval.embedder import EmbedderProvider
 from fieldlens.retrieval.routes import build_retrieval_router
 from fieldlens.retrieval.search import RetrievalService
@@ -220,7 +222,12 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         processing = app.state.processing
         if processing is not None and settings.job_worker_enabled:
             processing.runner.start()
+        reconstruction = app.state.reconstruction
+        if reconstruction is not None and settings.job_worker_enabled:
+            reconstruction.runner.start()
         yield
+        if reconstruction is not None:
+            reconstruction.runner.stop()
         if processing is not None:
             processing.runner.stop()
         if worker is not None:
@@ -268,6 +275,11 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         if app.state.session_factory is not None
         else None
     )
+    app.state.reconstruction = (
+        build_reconstruction_runtime(app.state.session_factory, settings)
+        if app.state.session_factory is not None
+        else None
+    )
     app.state.activity_log = (
         ActivityLog(app.state.session_factory) if app.state.session_factory is not None else None
     )
@@ -301,6 +313,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_merge_proposals_router())
     app.include_router(build_series_router())
     app.include_router(build_processing_router())
+    app.include_router(build_reconstruction_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
