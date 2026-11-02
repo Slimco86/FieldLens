@@ -1,12 +1,26 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Table, Title } from "@mantine/core";
 import { ChevronDown, ChevronUp, CircleCheck, CircleHelp, CircleX, Info, RefreshCw } from "lucide-react";
 import { Callout, Chip, EmptyState, ErrorState, LoadingState } from "../../design";
 import { routeHash } from "../../app/shell/route";
 import type { components } from "../../api/generated";
 import { keyString } from "../projects/keys";
-import { useScopedResource } from "../projects/scope";
-import { getExposure, getStartGate } from "./api";
+import { toFailure, useScopedResource, type Failure } from "../projects/scope";
+import { usePolled } from "../uploads/usePolled";
+import {
+  cancelReconstructionRun,
+  confirmReconstructionEstimate,
+  getExposure,
+  getStartGate,
+  listReconstructionRuns,
+  requestReconstructionEstimate,
+  retryReconstructionRun,
+  type ReconstructionEstimate,
+} from "./api";
+import { EstimateDialog } from "./EstimateDialog";
+import { locatorText } from "./locator";
+import { RunCell, RunDetail } from "./RunViews";
+import { isActive, latestByWellbore } from "./runs";
 import styles from "./Pipeline.module.css";
 
 type S = components["schemas"];
@@ -25,16 +39,7 @@ export const CATEGORY_LABEL: Record<Category["category"], string> = {
   other: "Other",
 };
 
-const HUMAN_LOCATOR_KEYS = new Set(["page", "sheet", "table", "row", "cell", "column", "line", "line_start", "line_end", "curve"]);
-
-/** Short source locator text from the human-readable keys the server wrote (ids and kinds are never shown); nothing is interpreted. */
-export function locatorText(loc: Record<string, unknown> | undefined): string {
-  if (loc === undefined) return "no locator";
-  const parts = Object.entries(loc)
-    .filter(([k, v]) => HUMAN_LOCATOR_KEYS.has(k) && v !== null && typeof v !== "object")
-    .map(([k, v]) => `${k} ${String(v)}`);
-  return parts.length === 0 ? "no locator" : parts.join(", ").slice(0, 160);
-}
+export { locatorText };
 
 export function categoryNotices(c: Category): string[] {
   const out: string[] = [];
@@ -173,39 +178,51 @@ function CategoryDetail({ c }: { c: Category }) {
   );
 }
 
+/** One entry per file within a category: record counts of its groups are combined; the first human locator is shown. */
+export function filesOf(c: Category): { document_id: string; filename: string; records: number; first: Record<string, unknown> | undefined }[] {
+  const out = new Map<string, { document_id: string; filename: string; records: number; first: Record<string, unknown> | undefined }>();
+  for (const g of c.groups) {
+    const cur = out.get(g.document_id) ?? { document_id: g.document_id, filename: g.filename, records: 0, first: undefined };
+    cur.records += g.record_count;
+    cur.first ??= g.sample[0]?.locator;
+    out.set(g.document_id, cur);
+  }
+  return [...out.values()];
+}
+
 function SourcesCell({ row, projectId, onOpenSource }: { row: WellboreRow; projectId: string; onOpenSource: (documentId: string) => void }) {
   const cats = row.categories.filter((c) => c.groups.length > 0 || c.record_count > 0);
   if (cats.length === 0) return <span>No source file carries data for this wellbore.</span>;
   return (
-    <ul className={styles.list} aria-label={`Source files of ${row.wellboreName}`}>
+    <div aria-label={`Source files of ${row.wellboreName}`} role="group">
       {cats.map((c) => (
-        <li key={c.category}>
-          <strong>
+        <div key={c.category}>
+          <h6 className={styles.catHeading}>
             {CATEGORY_LABEL[c.category]} - {c.record_count.toLocaleString("en-US")} {c.record_count === 1 ? "record" : "records"}
-          </strong>
+          </h6>
           <ul className={styles.list} aria-label={`${CATEGORY_LABEL[c.category]} files of ${row.wellboreName}`}>
-            {c.groups.map((g) => (
-              <li key={`${g.run_id}-${g.kind}`}>
+            {filesOf(c).map((f) => (
+              <li key={f.document_id}>
                 <a
                   href={routeHash({ kind: "project", projectId, section: "sources" })}
-                  aria-label={`Open ${g.filename} in Sources`}
+                  aria-label={`Open ${f.filename} in Sources`}
                   onClick={(e) => {
                     e.preventDefault();
-                    onOpenSource(g.document_id);
+                    onOpenSource(f.document_id);
                   }}
                 >
-                  {g.filename}
+                  {f.filename}
                 </a>{" "}
                 <span className={styles.note}>
-                  ({g.record_count.toLocaleString("en-US")} {g.kind}
-                  {g.sample[0] !== undefined && <>; first at {locatorText(g.sample[0].locator)}</>})
+                  ({f.records.toLocaleString("en-US")} {f.records === 1 ? "record" : "records"}
+                  {f.first !== undefined && <>; first at {locatorText(f.first)}</>})
                 </span>
               </li>
             ))}
           </ul>
-        </li>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 
@@ -220,13 +237,131 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
   const exposure = useScopedResource(keyString(["recon", "exposure", projectId, refreshKey]), (signal) => getExposure(projectId, signal));
   const gate = useScopedResource(keyString(["recon", "gate", projectId, refreshKey]), (signal) => getStartGate(projectId, signal));
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const [version, setVersion] = useState(0);
+  const runs = usePolled(
+    keyString(["recon", "runs", projectId, refreshKey]),
+    (signal) => listReconstructionRuns(projectId, signal),
+    (d) => d.items.some(isActive),
+    String(version),
+  );
+  const [pending, setPending] = useState<ReconstructionEstimate | null>(null);
+  const [pendingScope, setPendingScope] = useState("");
+  const [pendingProject, setPendingProject] = useState<string | null>(null);
+  const [starting, setStarting] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmFailure, setConfirmFailure] = useState<Failure | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busyRun, setBusyRun] = useState<string | null>(null);
+  const lock = useRef(false);
+  const lastStart = useRef(0);
+  const trigger = useRef<HTMLElement | null>(null);
+  const current = useRef(projectId);
+  useEffect(() => {
+    current.current = projectId;
+    return () => {
+      current.current = "";
+    };
+  }, [projectId]);
+
   const data = exposure.state.kind === "ready" && exposure.state.data.project_id === projectId ? exposure.state.data : null;
   const gateData = gate.state.kind === "ready" && gate.state.data.project_id === projectId ? gate.state.data : null;
   const rows = useMemo(() => (data === null ? [] : buildRows(data, gateData)), [data, gateData]);
   const readyRows = rows.filter((r) => r.ready === true);
+  const runItems = runs.state.kind === "ready" ? runs.state.data.items.filter((r) => r.project_id === projectId) : null;
+  const latest = useMemo(() => latestByWellbore(runItems ?? []), [runItems]);
+
+  /** Estimate only; opens the confirm dialog. A double click sends one request (one in flight, repeats within a second ignored). */
+  const startEstimate = async (ids: string[] | null, scope: string) => {
+    if (lock.current || Date.now() - lastStart.current < 1000) return;
+    trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    lock.current = true;
+    lastStart.current = Date.now();
+    setStarting(scope);
+    setFailure(null);
+    setNotice(null);
+    try {
+      const est = await requestReconstructionEstimate(projectId, ids);
+      if (current.current !== projectId) return;
+      if (est.project_id !== projectId) throw new Error("The estimate belonged to another project and was dropped.");
+      if (est.estimate_id === null) {
+        // Duplicate start: the server returns the active run(s); show them, do not error.
+        setNotice("Every selected wellbore already has an active run. It is shown in the list; nothing new was started.");
+        setVersion((n) => n + 1);
+      } else {
+        setConfirmFailure(null);
+        setPendingScope(scope);
+        setPendingProject(projectId);
+        setPending(est);
+      }
+    } catch (e) {
+      if (current.current === projectId) setFailure(toFailure(e));
+    } finally {
+      lock.current = false;
+      if (current.current === projectId) setStarting(null);
+    }
+  };
+
+  /** Close the dialog and give focus back to the control that opened it. */
+  const closeDialog = () => {
+    setPending(null);
+    const el = trigger.current;
+    if (el !== null) window.setTimeout(() => el.isConnected && el.focus(), 0);
+  };
+
+  const confirm = async () => {
+    if (pending === null || pending.estimate_id === null || confirming) return;
+    setConfirming(true);
+    setConfirmFailure(null);
+    try {
+      await confirmReconstructionEstimate(projectId, pending.estimate_id, pending.total_estimated_usd);
+      if (current.current !== projectId) return;
+      closeDialog();
+      setNotice("Reconstruction started. Progress is shown per wellbore; runs end partial until agent steps exist.");
+      setVersion((n) => n + 1);
+    } catch (e) {
+      if (current.current === projectId) setConfirmFailure(toFailure(e));
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const cancelRun = async (runId: string) => {
+    setBusyRun(runId);
+    setFailure(null);
+    try {
+      await cancelReconstructionRun(projectId, runId);
+      if (current.current === projectId) setVersion((n) => n + 1);
+    } catch (e) {
+      if (current.current === projectId) setFailure(toFailure(e));
+    } finally {
+      setBusyRun(null);
+    }
+  };
+
+  const retryRun = async (runId: string, scope: string) => {
+    trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setBusyRun(runId);
+    setFailure(null);
+    try {
+      const est = await retryReconstructionRun(projectId, runId);
+      if (current.current !== projectId) return;
+      if (est.project_id !== projectId) throw new Error("The estimate belonged to another project and was dropped.");
+      setConfirmFailure(null);
+      setPendingScope(scope);
+      setPendingProject(projectId);
+      setPending(est);
+    } catch (e) {
+      if (current.current === projectId) setFailure(toFailure(e));
+    } finally {
+      setBusyRun(null);
+    }
+  };
+
   const reloadAll = () => {
     exposure.reload();
     gate.reload();
+    setVersion((n) => n + 1);
   };
   const toggle = (id: string) => {
     const next = new Set(open);
@@ -305,14 +440,46 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
       {data !== null && rows.length > 0 && (
         <>
           <div className={styles.actions}>
-            <Button disabled aria-describedby="rc-all-reason">
+            <Button
+              disabled={readyRows.length === 0 || starting !== null}
+              loading={starting === "all ready wellbores"}
+              aria-describedby="rc-all-reason"
+              onClick={() => void startEstimate(null, "all ready wellbores")}
+            >
               Reconstruct all ready wellbores ({readyRows.length})
             </Button>
             <span className={styles.note} id="rc-all-reason">
-              Reconstruction start arrives in the next update. Nothing starts or is spent from this page yet. There is no
-              OCR and merge review is not available.
+              Requests a free estimate first; nothing starts or is spent until you confirm it. Today runs end partial:
+              there is no OCR, no agent extraction and merge review is not available.
             </span>
           </div>
+          {failure !== null && (
+            <Callout tone="danger" role="alert">
+              <p>
+                The request failed: {failure.message}
+                {failure.code !== null && <> (<code>{failure.code}</code>)</>}. Nothing was started or spent.
+              </p>
+              {failure.requestId !== null && <p>Request ID: {failure.requestId}</p>}
+            </Callout>
+          )}
+          {notice !== null && (
+            <Callout tone="info" role="status">
+              <p>{notice}</p>
+            </Callout>
+          )}
+          {runs.state.kind === "error" && (
+            <ErrorState
+              message={`Run state could not be loaded: ${runs.state.error.message}`}
+              requestId={runs.state.error.requestId}
+              onRetry={runs.reload}
+              retryLabel="Retry loading run state"
+            />
+          )}
+          {runs.state.kind === "ready" && runs.state.refreshError !== null && (
+            <Callout tone="warning" role="alert">
+              <p>Refreshing run state failed: {runs.state.refreshError.message}. The list below may be out of date.</p>
+            </Callout>
+          )}
           {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard-scrollable region */}
           <div className={styles.scroll} role="region" aria-label="Identified wellbores table" tabIndex={0}>
             <Table captionSide="top">
@@ -329,6 +496,7 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
                 {rows.map((r) => {
                   const expanded = open.has(r.wellboreId);
                   const detailId = `rc-detail-${r.wellboreId}`;
+                  const run = latest.get(r.wellboreId);
                   return (
                     <Fragment key={r.wellboreId}>
                       <Table.Tr className={r.ready === true ? styles.readyRow : undefined}>
@@ -368,15 +536,26 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
                           <SourcesCell row={r} projectId={projectId} onOpenSource={onOpenSource} />
                         </Table.Td>
                         <Table.Td>
+                          {run !== undefined && (
+                            <RunCell
+                              run={run}
+                              busy={busyRun === run.run_id}
+                              detailsOpen={expanded}
+                              onDetails={() => toggle(r.wellboreId)}
+                              onCancel={() => void cancelRun(run.run_id)}
+                              onRetry={() => void retryRun(run.run_id, r.wellboreName)}
+                            />
+                          )}
                           {r.ready === true ? (
-                            <>
-                              <Button size="xs" disabled aria-describedby={`rc-start-${r.wellboreId}`}>
-                                Reconstruct
-                              </Button>
-                              <span className="fl-sr-only" id={`rc-start-${r.wellboreId}`}>
-                                Reconstruction start arrives in the next update
-                              </span>
-                            </>
+                            <Button
+                              size="xs"
+                              disabled={starting !== null || (run !== undefined && isActive(run))}
+                              loading={starting === r.wellboreName}
+                              aria-label={`Reconstruct ${r.wellboreName}`}
+                              onClick={() => void startEstimate([r.wellboreId], r.wellboreName)}
+                            >
+                              Reconstruct
+                            </Button>
                           ) : (
                             <span className={styles.note}>Not available: not ready</span>
                           )}
@@ -385,6 +564,7 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
                       {expanded && (
                         <Table.Tr id={detailId}>
                           <Table.Td colSpan={4}>
+                            {run !== undefined && <RunDetail run={run} onOpenSource={onOpenSource} />}
                             <Reasons label={`Warnings of ${r.wellboreName}`} items={r.gate.warnings} kind="Warning" />
                             <ul className={styles.list} aria-label={`Gaps, conflicts and findings of ${r.wellboreName}`}>
                               {r.categories.map((c) => (
@@ -407,6 +587,16 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
           Refresh wellbores
         </Button>
       </div>
+      {pending !== null && pendingProject === projectId && (
+        <EstimateDialog
+          estimate={pending}
+          scope={pendingScope}
+          confirming={confirming}
+          failure={confirmFailure}
+          onConfirm={() => void confirm()}
+          onClose={closeDialog}
+        />
+      )}
     </section>
   );
 }

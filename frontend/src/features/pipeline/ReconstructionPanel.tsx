@@ -6,8 +6,8 @@ import { ReconstructionList } from "./ReconstructionList";
 import styles from "./Pipeline.module.css";
 
 /**
- * Reconstruction tab (UI-17, TASK-067): the identified wellbores (ready first) with their source files.
- * The Reconstruct buttons are disabled until the run API is wired (TASK-069).
+ * Reconstruction tab (UI-18, TASK-069): the identified wellbores (ready first) with their source files.
+ * Reconstruct per wellbore and for all ready wellbores (estimate, separate confirm, run state and draft).
  */
 export function ReconstructionPanel({
   projectId,
@@ -45,8 +45,10 @@ export function ReconstructionPanel({
       </div>
       <Callout tone="info">
         <p>
-          Parsing and indexing of supported files run automatically after upload. Starting a reconstruction is not
-          available yet: it arrives in the next update. This build has no OCR and merge review is not yet available.
+          Parsing and indexing of supported files run automatically after upload. Reconstruct requests an estimate first
+          and starts only after you confirm it. Today a run gathers and assembles a <strong>draft</strong> summary and ends
+          partial: agent extraction and merge identification are not available yet, there is no OCR, and the published 3D
+          model and charts are a later feature.
         </p>
       </Callout>
       <ReconstructionList
