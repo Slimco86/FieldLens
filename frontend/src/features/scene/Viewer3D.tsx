@@ -24,7 +24,8 @@ export interface ViewerOptions {
 
 export interface ViewerCommands {
   fitAll(): void;
-  fitSurface(): void;
+  /** Wellhead, surface facilities and the top of the hole (the default first view). */
+  fitWellhead(): void;
   fitUnlocated(): void;
   focus(id: string): void;
   zoom(factor: number): void;
@@ -272,6 +273,8 @@ function buildAssets(model: SceneModel, options: ViewerOptions): BuiltAssets {
   return { root, lib, anchors, bounds };
 }
 
+const WELLHEAD_VIEW_DEPTH_M = 45;
+
 interface ViewTarget {
   center: THREE.Vector3;
   radius: number;
@@ -356,9 +359,11 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
     };
     commands.current = {
       fitAll: () => frame.go(sphereOf(built.bounds)),
-      fitSurface: () => {
+      fitWellhead: () => {
         const b = boundsOf((e) => e.zone === "surface" || e.kind === "wellhead" || e.kind === "christmas_tree");
         if (b.isEmpty()) b.set(new THREE.Vector3(-10, 0, -10), new THREE.Vector3(10, 6, 10));
+        // Include the top of the hole so the first cased metres are in view.
+        b.expandByPoint(new THREE.Vector3(0, -WELLHEAD_VIEW_DEPTH_M, 0));
         frame.go({ ...sphereOf(b), keepDirection: false });
       },
       fitUnlocated: () => {
@@ -403,7 +408,7 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
   useEffect(() => {
     if (ctl === null) return;
     first.current = true;
-    commands.current?.fitAll();
+    commands.current?.fitWellhead();
   }, [model.path, ctl, commands]);
 
   // Profiling/test probe (only when the page sets the flag before load).

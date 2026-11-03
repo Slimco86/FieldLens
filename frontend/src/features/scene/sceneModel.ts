@@ -361,3 +361,13 @@ export function placementText(el: SceneElement): string {
   }
   return `Unlocated${p.reason ? `: ${p.reason}` : ""}`;
 }
+
+/**
+ * Default radius exaggeration for a hole of this length (labelled in the UI). Deep wells need
+ * little exaggeration because the hole is long; short ones need more to be seen at all.
+ */
+export function defaultExaggeration(mdMaxM: number): number {
+  if (mdMaxM >= 2500) return 5;
+  if (mdMaxM >= 1500) return 10;
+  return 20;
+}

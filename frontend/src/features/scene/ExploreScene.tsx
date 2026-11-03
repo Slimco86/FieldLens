@@ -6,7 +6,7 @@ import { useScopedResource } from "../projects/scope";
 import { generateAssetSpec, getAssetSpec, type VisualAssetSpecRecord } from "./api";
 import { ComponentList } from "./ComponentList";
 import { Inspector } from "./Inspector";
-import { buildSceneModel, locatedMdMax, KIND_LABEL, placementText, type SceneModel } from "./sceneModel";
+import { buildSceneModel, defaultExaggeration, locatedMdMax, KIND_LABEL, placementText, type SceneModel } from "./sceneModel";
 import { trajectoryFor } from "./trajectorySource";
 import { WellPath } from "./trajectory";
 import { webgl2Available } from "./webgl";
@@ -15,7 +15,7 @@ import styles from "./Scene.module.css";
 
 const Viewer3D = lazy(() => import("./Viewer3D"));
 
-const EXAGGERATIONS = [1, 5, 10, 20, 50, 100, 200, 500] as const;
+const EXAGGERATIONS = [1, 5, 8, 10, 20, 50, 100, 200, 500] as const;
 const SURFACE_SCALES = [1, 2, 4] as const;
 
 interface WellboreRef {
@@ -150,7 +150,8 @@ interface SceneBodyProps {
 }
 
 function SceneBody({ record, wellbore, picker, generateButton, genError }: SceneBodyProps) {
-  const [exaggeration, setExaggeration] = useState<number>(20);
+  const [exaggeration, setExaggeration] = useState<number>(() => defaultExaggeration(locatedMdMax(record.spec)));
+  const [view, setView] = useState<"wellhead" | "whole" | "unlocated" | "selection">("wellhead");
   const [surfaceScale, setSurfaceScale] = useState<number>(1);
   const [cutaway, setCutaway] = useState(true);
   const [labels, setLabels] = useState<LabelMode>("all");
@@ -174,29 +175,33 @@ function SceneBody({ record, wellbore, picker, generateButton, genError }: Scene
   const options: ViewerOptions = { exaggeration, surfaceScale, cutaway, labels, depthMarks };
   const select = useCallback((id: string | null) => {
     setSelectedId(id);
-    if (id !== null) commands.current?.focus(id);
+    if (id !== null) {
+      setView("selection");
+      commands.current?.focus(id);
+    }
   }, []);
   const selected = selectedId === null ? null : (model.byId.get(selectedId) ?? null);
 
   const toolbar = (
     <div className={styles.toolbar} role="toolbar" aria-label="Scene controls">
       {picker}
-      <button type="button" onClick={() => commands.current?.fitAll()}>
-        Fit well
+      <button type="button" aria-pressed={view === "whole"} onClick={() => { setView("whole"); commands.current?.fitAll(); }}>
+        Fit whole well
+      </button>
+      <button type="button" aria-pressed={view === "wellhead"} onClick={() => { setView("wellhead"); commands.current?.fitWellhead(); }}>
+        Wellhead
       </button>
       <button
         type="button"
         onClick={() => {
           setSelectedId(null);
-          commands.current?.fitAll();
+          setView("wellhead");
+          commands.current?.fitWellhead();
         }}
       >
         Reset
       </button>
-      <button type="button" onClick={() => commands.current?.fitSurface()}>
-        Surface
-      </button>
-      <button type="button" onClick={() => commands.current?.fitUnlocated()} disabled={model.unlocated.length === 0}>
+      <button type="button" onClick={() => { setView("unlocated"); commands.current?.fitUnlocated(); }} disabled={model.unlocated.length === 0}>
         Unlocated
       </button>
       <button type="button" aria-label="Zoom in" onClick={() => commands.current?.zoom(0.8)}>
@@ -284,7 +289,7 @@ function SceneBody({ record, wellbore, picker, generateButton, genError }: Scene
     <div className={styles.view}>
       {toolbar}
       {notes}
-      <div className={styles.stageCol}>
+      <div className={styles.stageCol} data-testid="scene-stage" data-view={view} data-exaggeration={exaggeration}>
         {gl && lost === 0 ? (
           <Suspense fallback={<LoadingState label="Loading 3D view" />}>
             <Viewer3D

@@ -16,6 +16,7 @@ interface Probe {
 const SHOTS = process.env["FIELDLENS_SCENE_SHOTS"];
 
 test.use({ launchOptions: { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] } });
+test.setTimeout(90_000);
 test.use({ viewport: { width: 1920, height: 1080 } });
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -58,6 +59,20 @@ for (const file of CASES) {
     const px = await page.evaluate(() => (window as unknown as { __fieldlensSceneProbe: Probe }).__fieldlensSceneProbe.nonBlank());
     expect(px.different).toBeGreaterThan(150);
 
+    // Default view: wellhead + surface facilities + top of hole, with depth-scaled exaggeration.
+    const stage = page.getByTestId("scene-stage");
+    await expect(stage).toHaveAttribute("data-view", "wellhead");
+    await expect(page.getByRole("toolbar", { name: "Scene controls" }).getByRole("button", { name: "Wellhead", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Fit whole well" })).toBeVisible();
+    if (file === "f14-dimensioned") await expect(stage).toHaveAttribute("data-exaggeration", "5");
+    await expect(page.getByTestId("scene-notes")).toContainText("exaggerated");
+    if (SHOTS !== undefined) {
+      mkdirSync(SHOTS, { recursive: true });
+      await page.getByTestId("scene-canvas-wrap").scrollIntoViewIfNeeded();
+      await page.waitForTimeout(1500);
+      await page.getByTestId("scene-canvas-wrap").screenshot({ path: join(SHOTS, `default-${file}.png`) });
+    }
+
     const first = page.locator("button[data-element-id]").first();
     await first.click();
     await expect(page.getByTestId("inspector-label")).toHaveText((await first.innerText()).split("\n")[0]!.trim());
@@ -67,11 +82,11 @@ for (const file of CASES) {
       mkdirSync(SHOTS, { recursive: true });
       await page.getByTestId("scene-label-layer").waitFor({ state: "attached" });
       await page.waitForTimeout(1500);
-      await page.getByRole("button", { name: "Fit well" }).click();
+      await page.getByRole("button", { name: "Fit whole well" }).click();
       await page.getByTestId("scene-canvas-wrap").scrollIntoViewIfNeeded();
       await page.waitForTimeout(1500);
       await page.getByTestId("scene-canvas-wrap").screenshot({ path: join(SHOTS, `${file}.png`) });
-      await page.getByRole("button", { name: "Surface" }).click();
+      await page.getByRole("toolbar", { name: "Scene controls" }).getByRole("button", { name: "Wellhead", exact: true }).click();
       await page.waitForTimeout(1500);
       await page.getByTestId("scene-canvas-wrap").screenshot({ path: join(SHOTS, `${file}-surface.png`) });
       const un = page.getByRole("button", { name: "Unlocated", exact: true });

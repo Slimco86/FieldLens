@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { VisualAssetSpec } from "../src/features/scene/sceneModel";
-import { buildSceneModel, COMPONENT_KINDS, isSurfaceKind, locatedMdMax } from "../src/features/scene/sceneModel";
+import { defaultExaggeration, buildSceneModel, COMPONENT_KINDS, isSurfaceKind, locatedMdMax } from "../src/features/scene/sceneModel";
 import { WellPath } from "../src/features/scene/trajectory";
 import { ComponentList } from "../src/features/scene/ComponentList";
 import { Inspector } from "../src/features/scene/Inspector";
@@ -68,6 +68,15 @@ describe("spec -> scene mapping", () => {
     );
     expect(path.available).toBe(true);
     expect(path.mdMax).toBe(2000);
+  });
+});
+
+describe("default exaggeration", () => {
+  it("scales down with well length", () => {
+    expect(defaultExaggeration(3400)).toBe(5);
+    expect(defaultExaggeration(2000)).toBe(10);
+    expect(defaultExaggeration(300)).toBe(20);
+    expect(defaultExaggeration(3400)).toBeLessThan(defaultExaggeration(300));
   });
 });
 
