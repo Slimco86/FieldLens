@@ -3181,7 +3181,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | fix |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, 3d |
 | Depends on | TASK-089 |
@@ -3189,10 +3189,10 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_POLISH.md |
-| Version | |
+| Version | 0.52.1 |
 | Parent | FL-023 |
 | Slice | FL-023-R |
 
 **Outcome.** At the default field-view zoom every reconstructed trajectory is a clearly visible line (screen-space minimum width), not a faint dotted trace; selected-radius semantics are unchanged.
-**Next action.** Lane H; found by the integrated browser pass on 0.52.0 (overview tubes sub-pixel).
-**Evidence.** None yet.
+**Next action.** Owner manual check of the look and click-to-select on the thin line.
+**Evidence.** Merged 0.52.1 (61b1c1d). Implementer: lint, typecheck, 407 vitest tests and build pass; +1 draw call for the whole field. Independent browser QA was stopped at the owner's request; not visually verified, picking only unit-tested.

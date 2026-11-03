@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.52.1 - 2026-11-03
+
+- **TASK-093 Field-view trajectories stay visible at overview zoom.** The integrated browser pass showed the tubes as faint dotted lines at the default zoom. Each field-view trajectory now also has a 3 px screen-space minimum-width line (one merged `LineSegments2` for the whole field, +1 draw call; picking selects the well); the world-space tube is unchanged and covers the line when zoomed in. Lint, typecheck, 407 vitest tests and build pass; not browser-verified (owner testing manually).
+
 ## 0.52.0 - 2026-11-03
 
 - **TASK-090 Wellbore view always shows a wellhead, drops unlocated blocks and joins the trace to the well hole.** Unlocated components are no longer drawn (the tray is gone) but stay in the component list and inspector and remain selectable. A generic default wellhead (labelled "default, generic: not from the sources", not a component, not counted) stands at the origin whenever the spec has no placed wellhead; a christmas tree always stands on a wellhead. The trace starts at the well head using the backend's derived, display-only `tie_in` (vertical or bent arc, labelled "Derived tie-in, display only (not surveyed)"); MD/TVD depth records and formation-top overlays are unchanged, components above the first station are placed by MD along the tie-in, and station counts use real stations only. The dead "Unlocated" view button was removed. Not browser-verified (visual look of the junction and default wellhead). Known low edges: a tie-in whose last point is within 1 mm of the first station could leave a zero-length segment; a wellhead component placed at depth suppresses the default surface wellhead.
