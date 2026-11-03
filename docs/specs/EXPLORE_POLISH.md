@@ -130,8 +130,8 @@ Owner: fieldlens-geospatial. Paths: `wellpath/service.py`, `contracts/trajectory
 ### G (TASK-092) Material fidelity, blended highlight, wellhead detail, items 9, 10, 11 (wellhead)
 | ID | Criterion |
 |---|---|
-| G-1 | Distinct material roles with different roughness/metalness and clearer colour separation: cement matte, casing brushed steel, tubing lighter metal, painted equipment matte, perforations bright; nothing uniformly glossy. |
-| G-2 | Selection highlight blends with the object colour (a lerp/tint plus reduced emissive, target about 30-40 %), the base colour stays readable; non-selected context optionally dimmed. |
+| G-1 | Distinct material roles with different roughness/metalness and clearer colour separation: cement matte, casing brushed steel, tubing lighter metal, painted equipment matte, perforations bright; nothing uniformly glossy. The `cement` and `openHole` roles are defined and available in the material table/palette but are not yet consumed by any component kind (no `ComponentKind` exists for them; no consumer is invented here). |
+| G-2 | Selection highlight blends with the object colour (a lerp/tint plus reduced emissive, target about 30-40 %), the base colour stays readable; non-selected context optionally dimmed (`setDimmed` is an available helper, not yet wired into any viewer). Warm roles near the amber accent use a cool tint so every role reaches a linear-RGB selection distance of at least 0.25. |
 | G-3 | Procedural multi-colour wellhead (body, valves/handwheels, flanges, bolts) in both field glyph and single view; no new GLB, no per-frame allocation, resources disposed. |
 | G-4 | Existing scene tests green; draw-call/triangle count of the default scene does not grow more than 20 % (measured). |
 Owner: fieldlens-3d-motion. Paths: `scene/resources.ts`, `primitives.ts`, `design/scenePalette.ts` only.

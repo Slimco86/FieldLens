@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { scenePalette, type MaterialRole } from "../src/design/scenePalette";
 import { buildElement } from "../src/features/scene/primitives";
-import { MATERIAL_ROLES, SceneResources, blendedHighlightColor, materialSpec, setDimmed, setHighlighted } from "../src/features/scene/resources";
+import { MATERIAL_ROLES, SceneResources, blendedHighlightColor, materialSpec, nearHighlightHue, setDimmed, setHighlighted } from "../src/features/scene/resources";
 import { buildSceneModel, locatedMdMax, type VisualAssetSpec } from "../src/features/scene/sceneModel";
 import { WellPath } from "../src/features/scene/trajectory";
 
@@ -45,6 +45,8 @@ const effective = (m: THREE.MeshStandardMaterial): THREE.Color => {
   c.b = Math.min(1, c.b + m.emissive.b * m.emissiveIntensity);
   return c;
 };
+/** Euclidean distance in linear RGB (the working space of THREE.Color). */
+const linDist = (a: THREE.Color, b: THREE.Color): number => Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
 const lum = (c: THREE.Color): number => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 const ratio = (a: THREE.Color, b: THREE.Color): number => {
   const [x, y] = [lum(a), lum(b)];
@@ -108,6 +110,10 @@ describe("material roles (G-1)", () => {
     expect(deltaE(new THREE.Color(scenePalette.rubber), bg)).toBeGreaterThan(8);
   });
 
+  it("steelDark parts keep >= 3:1 contrast against the fog tint", () => {
+    expect(ratio(new THREE.Color(scenePalette.steelDark), new THREE.Color(scenePalette.fog))).toBeGreaterThanOrEqual(3);
+  });
+
   it("generic variants stay matte-ish and keep the labelled illustrative distinction", () => {
     const lib = new SceneResources();
     const real = lib.mat("steel", false);
@@ -132,15 +138,23 @@ describe("blended highlight (G-2)", () => {
     expect(base.getHex()).toBe(new THREE.Color(scenePalette.paintBlue).getHex()); // input untouched
   });
 
+  it("warm roles near the amber accent get the cool tint, others the amber one", () => {
+    const warm = new THREE.Color(scenePalette.perforation);
+    expect(nearHighlightHue(warm)).toBe(true);
+    expect(nearHighlightHue(new THREE.Color(scenePalette.paintBlue))).toBe(false);
+    const hl = new THREE.Color(scenePalette.highlightCool);
+    expect(linDist(blendedHighlightColor(warm), hl)).toBeLessThan(linDist(warm, hl));
+  });
+
   it("keeps the base readable (never beyond the accent) yet clearly different", () => {
     const lib = new SceneResources();
     for (const r of MATERIAL_ROLES) {
       for (const generic of [false, true]) {
         const base = lib.mat(r, generic, false);
         const sel = lib.mat(r, generic, true);
-        const dSel = deltaE(effective(base), effective(sel));
-        expect(dSel, `${r}/${generic} visible`).toBeGreaterThan(8);
-        expect(dSel, `${r}/${generic} stays between base and accent`).toBeLessThan(deltaE(effective(base), new THREE.Color(scenePalette.highlight)) + 25);
+        const dSel = linDist(effective(base), effective(sel));
+        expect(dSel, `${r}/${generic} visible`).toBeGreaterThanOrEqual(0.25);
+        expect(dSel, `${r}/${generic} stays a tint, not a replacement`).toBeLessThan(1.2);
         expect(sel.emissiveIntensity).toBeLessThanOrEqual(0.3);
         expect(sel.emissive.getHex()).not.toBe(new THREE.Color(scenePalette.highlight).getHex());
         expect(base.emissiveIntensity).toBe(0);

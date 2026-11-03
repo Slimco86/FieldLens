@@ -45,9 +45,27 @@ export const HIGHLIGHT_EMISSIVE = 0.28;
 /** Share of the dim colour mixed into non-selected context when dimming is on. */
 export const DIM_BLEND = 0.35;
 
-/** Selected colour: the base lerped toward the highlight accent. Pure; the input is not modified. */
-export function blendedHighlightColor(base: THREE.Color, amount = HIGHLIGHT_BLEND): THREE.Color {
-  return base.clone().lerp(new THREE.Color(scenePalette.highlight), amount);
+/** Cool-tint blend used for roles whose own hue is close to the amber accent (an amber tint would barely change them). */
+export const HIGHLIGHT_BLEND_COOL = 0.5;
+
+const _hsl = { h: 0, s: 0, l: 0 };
+
+/** True when the base is a saturated warm colour near the highlight hue, where an amber tint is nearly invisible. */
+export function nearHighlightHue(base: THREE.Color): boolean {
+  const hl = new THREE.Color(scenePalette.highlight).getHSL({ h: 0, s: 0, l: 0 });
+  base.getHSL(_hsl);
+  const d = Math.abs(_hsl.h - hl.h);
+  return Math.min(d, 1 - d) < 0.1 && _hsl.s > 0.3;
+}
+
+/**
+ * Selected colour: the base lerped toward the highlight accent (or toward the cool tint when the base is
+ * already close to amber). Pure; the input is not modified.
+ */
+export function blendedHighlightColor(base: THREE.Color, amount?: number): THREE.Color {
+  const warm = nearHighlightHue(base);
+  const target = new THREE.Color(warm ? scenePalette.highlightCool : scenePalette.highlight);
+  return base.clone().lerp(target, amount ?? (warm ? HIGHLIGHT_BLEND_COOL : HIGHLIGHT_BLEND));
 }
 
 export type GeoKey = "cyl" | "cylLow" | "box" | "sphere" | "cone" | "dome" | "disc";
