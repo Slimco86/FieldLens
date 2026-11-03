@@ -8,6 +8,19 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.41.0 - 2026-11-03
+
+- **TASK-078 the first 3D view: a labelled equipment viewer in Explore.** It renders a wellbore's visual asset spec with
+  downhole and surface primitives (casing, tubing, packer, pump, plug, wellhead, Christmas tree, choke, manifold,
+  separator, tank, flowline and more), every element labelled, with orbit, selection by click or keyboard list, fly-to,
+  and an inspector showing label, kind, placement, representation, evidence and visual reference.
+- It opens on the wellhead with surface facilities; "Fit whole well" shows the full depth. Casing radius is exaggerated
+  for visibility (5x for deep wells, labelled). Components without supported placement sit in a separate "Unlocated"
+  tray, never at an invented depth. A permanent "Illustrative visual - not an engineering model" badge is shown; with no
+  survey the trajectory is a vertical line labelled "trajectory unavailable".
+- Lazy-loaded chunk (the main bundle has no WebGL code), on-demand frame loop, resources disposed on unmount, list
+  fallback when WebGL2 is unavailable. New dependencies: three, @react-three/fiber, @react-three/drei.
+
 ## 0.40.0 - 2026-11-03
 
 - **TASK-076 reconstruction in plain stages with wellbore merge review.** The run now has five stages: Collect sources,

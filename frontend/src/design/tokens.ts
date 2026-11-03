@@ -1,3 +1,5 @@
+import { scenePalette } from "./scenePalette";
+
 // Single source of design values (UI-1). Application styles reference these only through the
 // Mantine theme or the `--fl-*` CSS variables generated below; literal colors and off-scale pixel
 // values outside this folder fail `tests/tokens.test.ts`.
@@ -141,6 +143,9 @@ export function cssVariables(): Record<string, string> {
     v[`--fl-evidence-${key}-fg`] = t.fg;
     v[`--fl-evidence-${key}-bg`] = t.bg;
     v[`--fl-evidence-${key}-border`] = t.border;
+  }
+  for (const [k, val] of Object.entries(scenePalette)) {
+    v[`--fl-scene-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`] = val;
   }
   for (const [k, val] of Object.entries(fontSize)) v[`--fl-font-size-${k}`] = px(val);
   for (const [k, val] of Object.entries(space)) v[`--fl-space-${k}`] = px(val);
