@@ -7,24 +7,48 @@ interface MatSpec {
   roughness: number;
 }
 
+/**
+ * Material roles with physically distinct finishes (TASK-092): bare metals are metallic but never mirror-like,
+ * paints are satin dielectrics, rubber and cement are matte. Colours come from `scenePalette` only.
+ */
 const SPEC: Record<MaterialRole, MatSpec> = {
-  steel: { color: scenePalette.steel, metalness: 0.85, roughness: 0.35 },
-  steelDark: { color: scenePalette.steelDark, metalness: 0.8, roughness: 0.45 },
-  steelBright: { color: scenePalette.steelBright, metalness: 0.9, roughness: 0.25 },
-  casing: { color: scenePalette.casing, metalness: 0.75, roughness: 0.42 },
-  rubber: { color: scenePalette.rubber, metalness: 0.05, roughness: 0.92 },
-  brass: { color: scenePalette.brass, metalness: 0.9, roughness: 0.3 },
-  paintBlue: { color: scenePalette.paintBlue, metalness: 0.25, roughness: 0.45 },
-  paintRed: { color: scenePalette.paintRed, metalness: 0.25, roughness: 0.45 },
-  paintYellow: { color: scenePalette.paintYellow, metalness: 0.2, roughness: 0.5 },
-  paintGreen: { color: scenePalette.paintGreen, metalness: 0.25, roughness: 0.45 },
-  paintCream: { color: scenePalette.paintCream, metalness: 0.15, roughness: 0.55 },
-  paintOrange: { color: scenePalette.paintOrange, metalness: 0.25, roughness: 0.45 },
-  paintGrey: { color: scenePalette.paintGrey, metalness: 0.3, roughness: 0.5 },
-  perforation: { color: scenePalette.perforation, metalness: 0.1, roughness: 0.5 },
+  steel: { color: scenePalette.steel, metalness: 0.8, roughness: 0.45 },
+  steelDark: { color: scenePalette.steelDark, metalness: 0.75, roughness: 0.55 },
+  steelBright: { color: scenePalette.steelBright, metalness: 0.9, roughness: 0.34 },
+  casing: { color: scenePalette.casing, metalness: 0.8, roughness: 0.5 },
+  rubber: { color: scenePalette.rubber, metalness: 0, roughness: 0.95 },
+  brass: { color: scenePalette.brass, metalness: 0.85, roughness: 0.38 },
+  paintBlue: { color: scenePalette.paintBlue, metalness: 0, roughness: 0.55 },
+  paintRed: { color: scenePalette.paintRed, metalness: 0, roughness: 0.55 },
+  paintYellow: { color: scenePalette.paintYellow, metalness: 0, roughness: 0.58 },
+  paintGreen: { color: scenePalette.paintGreen, metalness: 0, roughness: 0.55 },
+  paintCream: { color: scenePalette.paintCream, metalness: 0, roughness: 0.6 },
+  paintOrange: { color: scenePalette.paintOrange, metalness: 0, roughness: 0.55 },
+  paintGrey: { color: scenePalette.paintGrey, metalness: 0.05, roughness: 0.6 },
+  perforation: { color: scenePalette.perforation, metalness: 0.05, roughness: 0.4 },
   concrete: { color: scenePalette.concrete, metalness: 0, roughness: 0.95 },
+  cement: { color: scenePalette.cement, metalness: 0, roughness: 0.92 },
+  openHole: { color: scenePalette.openHole, metalness: 0, roughness: 0.9 },
   genericGrey: { color: scenePalette.genericGrey, metalness: 0.1, roughness: 0.7 },
 };
+
+/** Every role, for tests and legends. */
+export const MATERIAL_ROLES = Object.keys(SPEC) as MaterialRole[];
+
+/** Base finish of a role (before the generic/illustrative adjustment). */
+export const materialSpec = (role: MaterialRole): Readonly<MatSpec> => SPEC[role];
+
+/** Share of the highlight colour mixed into the object's own colour when selected. */
+export const HIGHLIGHT_BLEND = 0.35;
+/** Emissive uses the object's own hue at this low intensity, so the selected object is lifted but stays readable. */
+export const HIGHLIGHT_EMISSIVE = 0.28;
+/** Share of the dim colour mixed into non-selected context when dimming is on. */
+export const DIM_BLEND = 0.35;
+
+/** Selected colour: the base lerped toward the highlight accent. Pure; the input is not modified. */
+export function blendedHighlightColor(base: THREE.Color, amount = HIGHLIGHT_BLEND): THREE.Color {
+  return base.clone().lerp(new THREE.Color(scenePalette.highlight), amount);
+}
 
 export type GeoKey = "cyl" | "cylLow" | "box" | "sphere" | "cone" | "dome" | "disc";
 
@@ -82,21 +106,28 @@ export class SceneResources {
     return g;
   }
 
-  /** Material for a role; `generic` desaturates it toward neutral grey so illustrative shapes read as generic. */
-  mat(role: MaterialRole, generic = false, highlighted = false): THREE.MeshStandardMaterial {
-    const key = `${role}|${generic ? 1 : 0}|${highlighted ? 1 : 0}`;
+  /**
+   * Material for a role; `generic` desaturates it toward neutral grey so illustrative shapes read as generic.
+   * `highlighted` blends the colour toward the highlight accent (plus a faint emissive in the object's own hue);
+   * `dimmed` darkens it toward the fog tint for unselected context. All variants are cached and disposed with the library.
+   */
+  mat(role: MaterialRole, generic = false, highlighted = false, dimmed = false): THREE.MeshStandardMaterial {
+    const key = `${role}|${generic ? 1 : 0}|${highlighted ? 1 : 0}|${dimmed && !highlighted ? 1 : 0}`;
     let m = this.materials.get(key) as THREE.MeshStandardMaterial | undefined;
     if (m === undefined) {
       const s = SPEC[role];
       const color = new THREE.Color(s.color);
       if (generic && role !== "perforation") color.lerp(new THREE.Color(scenePalette.genericMix), 0.62);
+      const own = color.clone();
+      if (highlighted) color.copy(blendedHighlightColor(own));
+      else if (dimmed) color.lerp(new THREE.Color(scenePalette.fog), DIM_BLEND);
       m = new THREE.MeshStandardMaterial({
         color,
         metalness: generic ? s.metalness * 0.5 : s.metalness,
         roughness: generic ? Math.max(s.roughness, 0.6) : s.roughness,
         side: THREE.DoubleSide,
-        emissive: highlighted ? new THREE.Color(scenePalette.highlight) : new THREE.Color(0x000000),
-        emissiveIntensity: highlighted ? 0.55 : 0,
+        emissive: highlighted ? own : new THREE.Color(0x000000),
+        emissiveIntensity: highlighted ? HIGHLIGHT_EMISSIVE : 0,
       });
       this.materials.set(key, m);
     }
@@ -149,7 +180,7 @@ export class SceneResources {
   }
 }
 
-/** Swap a group's role-tagged materials between normal and highlighted variants. */
+/** Swap a group's role-tagged materials between normal and highlighted variants (cached; no allocation after first use). */
 export function setHighlighted(group: THREE.Object3D, lib: SceneResources, on: boolean): void {
   group.traverse((o) => {
     const key = o.userData["matKey"] as string | undefined;
@@ -157,5 +188,19 @@ export function setHighlighted(group: THREE.Object3D, lib: SceneResources, on: b
     const mesh = o as THREE.Mesh;
     const [role, generic] = key.split("|") as [MaterialRole, string];
     mesh.material = lib.mat(role, generic === "1", on);
+  });
+}
+
+/**
+ * Optionally dim unselected context (darkened colour, no transparency, so no sorting cost). Call once per
+ * selection change, never per frame; apply `setHighlighted` to the selected group afterwards.
+ */
+export function setDimmed(group: THREE.Object3D, lib: SceneResources, on: boolean): void {
+  group.traverse((o) => {
+    const key = o.userData["matKey"] as string | undefined;
+    if (key === undefined) return;
+    const mesh = o as THREE.Mesh;
+    const [role, generic] = key.split("|") as [MaterialRole, string];
+    mesh.material = lib.mat(role, generic === "1", false, on);
   });
 }
