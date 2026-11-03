@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.45.0 - 2026-11-03
+
+- **TASK-085 S5 "Design 3D asset" uses all sources.** F-5 no longer reports "no equipment data". S5 builds components deterministically from the native parser records (casing points, tubular assemblies/components, wellbore geometry sections, BHA runs, perforation intervals) with printed dimensions and record evidence, plus model-read candidates, plus a bounded, cached equipment sweep of the wellbore's documents (PDF pages read with the existing candidate harness; survey/trajectory/production/log PDFs are skipped; no USD gate of its own; per-document failures isolated; transient failures re-read next time). A casing shoe at the end of its string is folded into one labelled component with both records as evidence; intervention tools (BHA run, running tool, spear) are not drawn and are named in the stage message; conflicting source dimensions are shown generic with a note. Without a model the spec is built from structured records only; the model only labels. Missing or conflicting dimensions stay generic and never enter engineering calculations.
+
 ## 0.44.1 - 2026-11-03
 
 - **TASK-084 fix: reconstruction S3 "Match wellbores" failed `output_truncated` on real Meta.** S3 and S5 ran at the provider's default (high) reasoning effort, which used up the output bound. They now run at low effort, a truncated reply is retried once with minimal effort and a doubled bound in the same reservation, the failed stage records the real tokens and USD, and the message reads "The model ran out of output space; try again (a retry was already attempted)" (code `output_truncated`).

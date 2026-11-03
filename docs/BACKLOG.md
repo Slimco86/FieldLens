@@ -3013,7 +3013,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | bug |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-079 |
@@ -3021,10 +3021,10 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.45.0 |
 | Parent | FL-023 |
 | Slice | FL-023-J |
 
 **Outcome.** S5 builds components from natively parsed equipment records (casing, tubulars, wellbore geometry sections, BHA, perforations) plus model-read candidates; "no equipment data" only when both are empty.
-**Next action.** Worker in a worktree (`feature/task-085-structured-equipment`).
-**Evidence.** Owner live run: F-5 has 14 equipment records (casing_point, tubular_assembly/component, wb_geometry_section, bha_run) but S5 reported "no equipment data" because it reads only `extraction_candidate` rows.
+**Next action.** None; live re-run of F-5/F-12 by the owner.
+**Evidence.** Owner live run: F-5 has 14 equipment records (casing_point, tubular_assembly/component, wb_geometry_section, bha_run) but S5 reported "no equipment data" because it reads only `extraction_candidate` rows. Merged 0.45.0: independent QA round 2 PASS on head e37d36f (full backend 1626 passed, ruff/mypy clean, F-5 scratch-DB run gave 13 labelled components, duplicates folded) plus a cosmetic fix 140ee20 naming skipped intervention tools. Fake provider only; real-PDF sweep and live Meta unverified.
