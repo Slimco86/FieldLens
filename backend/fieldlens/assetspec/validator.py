@@ -8,6 +8,7 @@ is repaired, defaulted or guessed. URLs are only checked as strings; nothing is 
 from __future__ import annotations
 
 import json
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -132,7 +133,36 @@ def _range_problem(
     return None
 
 
+_ALLOWED_CONTROL = frozenset("\n\r\t")
+
+
+def has_control_char(value: Any) -> bool:
+    """True when any string (key or value) holds a control character other than newline/tab."""
+    if isinstance(value, str):
+        return any(unicodedata.category(c) == "Cc" and c not in _ALLOWED_CONTROL for c in value)
+    if isinstance(value, dict):
+        return any(has_control_char(k) or has_control_char(v) for k, v in value.items())
+    if isinstance(value, list):
+        return any(has_control_char(v) for v in value)
+    return False
+
+
 def validate_spec(
+    raw: Mapping[str, Any] | str | bytes,
+    *,
+    md_range_m: tuple[float, float] | None = None,
+    max_bytes: int = MAX_SPEC_BYTES,
+) -> ValidationOutcome:
+    """Validate an untrusted spec; invalid components are dropped with findings."""
+    try:
+        return _validate(raw, md_range_m=md_range_m, max_bytes=max_bytes)
+    except RecursionError:
+        return ValidationOutcome(
+            None, [_finding(FindingCode.HEADER_INVALID, "document is nested too deeply")]
+        )
+
+
+def _validate(
     raw: Mapping[str, Any] | str | bytes,
     *,
     md_range_m: tuple[float, float] | None = None,
@@ -162,6 +192,10 @@ def validate_spec(
         return ValidationOutcome(None, [_finding(FindingCode.HEADER_INVALID, "not an object")])
 
     header = {k: v for k, v in doc.items() if k not in _HEADER_DROP}
+    if has_control_char(header):
+        return ValidationOutcome(
+            None, [_finding(FindingCode.HEADER_INVALID, "control character in the header")]
+        )
     try:
         base = VisualAssetSpec.model_validate({**header, "components": [], "findings": []})
     except ValidationError as exc:
@@ -188,6 +222,11 @@ def validate_spec(
     for index, item in enumerate(items):
         cid = item.get("id") if isinstance(item, dict) and isinstance(item.get("id"), str) else None
         cid = cid[:64] if cid else None
+        if has_control_char(item):
+            findings.append(
+                _finding(FindingCode.CONTROL_CHARACTER, "control character", index=index, cid=None)
+            )
+            continue
         kind = item.get("kind") if isinstance(item, dict) else None
         if kind not in {k.value for k in ComponentKind}:
             findings.append(

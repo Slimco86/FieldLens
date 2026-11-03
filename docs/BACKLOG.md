@@ -2845,7 +2845,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-041 |
@@ -2853,13 +2853,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.38.0 |
 | Parent | FL-023 |
 | Slice | FL-023-B |
 
-**Outcome.** Typed declarative asset spec (registered primitive kinds, MD placement or unlocated, evidence, illustrative label), server validation, migration 0019, fixtures, stub designer.
-**Next action.** Awaiting owner review; lane C (0.40.0); merge first so lane D can start.
-**Evidence.** none yet; planning only (2026-11-02).
+**Outcome.** Typed declarative asset spec (registered primitive kinds incl. surface facilities, MD/unlocated/surface placement, mandatory labels, evidence, illustrative label), server validation, per-wellbore revision history (latest valid is current, no accept step), migration 0019, fixtures, stub designer.
+**Next action.** Wire `service.invalidate_current` into TASK-076 merge/revert; live designer is TASK-079.
+**Evidence.** Independent QA PASS at 4ca5f2b (three low defects found and fixed, re-verified); backend 1506 passed with 4 env-induced processing failures from the exported Meta variables (not touched by this lane); ruff, mypy strict, check:contracts clean. Stub designer only; no live Meta.
 
 ### TASK-078 · R3F foundation, primitive library and single-wellbore 3D view
 

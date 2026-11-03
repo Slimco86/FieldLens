@@ -222,3 +222,55 @@ def test_no_draft_or_accepted_status() -> None:
     raw = _rich()
     raw["status"] = "accepted"
     assert validate_spec(raw).spec is None
+
+
+@pytest.mark.parametrize("label", ["\u200b\u200b", "\u200b \u00a0\u2028", "\ufeff", "\u202e"])
+def test_invisible_only_label_is_rejected(label: str) -> None:
+    raw = _rich()
+    raw["components"][2]["label"] = label
+    assert _codes(raw) == [FindingCode.LABEL_EMPTY]
+    raw["components"][2]["label"] = "\u200bCasing"  # a visible character is enough
+    assert _codes(raw) == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["label", "confidence_note", "evidence.quote", "visual_reference.url", "visual_reference.note"],
+)
+def test_control_characters_are_rejected_in_every_string(path: str) -> None:
+    for bad in ("a\x00b", "a\x07b", "a\x1fb"):
+        raw = _rich()
+        comp = raw["components"][1]  # christmas tree: has evidence + visual_reference + note
+        target: Any = comp
+        *parents, leaf = path.split(".")
+        for p in parents:
+            target = target[p][0] if isinstance(target[p], list) else target[p]
+        target[leaf] = bad if leaf != "url" else "https://example.org/" + bad
+        out = validate_spec(raw)
+        assert [f.code for f in out.findings] == [FindingCode.CONTROL_CHARACTER], (path, bad)
+        assert out.spec is not None and len(out.spec.components) == len(raw["components"]) - 1
+
+
+def test_control_character_in_header_or_newline_in_quote() -> None:
+    raw = _rich()
+    raw["generator"]["model"] = "m\x00"
+    out = validate_spec(raw)
+    assert out.spec is None and out.findings[0].code == FindingCode.HEADER_INVALID
+    raw = _rich()
+    raw["components"][0]["evidence"][0]["quote"] = "line one\nline two\ttab"
+    assert _codes(raw) == []  # ordinary whitespace controls are fine
+
+
+def test_deeply_nested_json_is_a_finding_not_a_crash() -> None:
+    deep = "[" * 100_000 + "]" * 100_000
+    out = validate_spec(deep)
+    assert out.spec is None and out.findings[0].code == FindingCode.HEADER_INVALID
+    obj = '{"components": ' + deep + "}"
+    assert validate_spec(obj).spec is None
+    nested: Any = {}
+    cur = nested
+    for _ in range(5000):
+        cur["a"] = {}
+        cur = cur["a"]
+    assert validate_spec({**_rich(), "extra": nested}).spec is None
+    assert validate_spec(b"\xff\xfe").spec is None
