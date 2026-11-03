@@ -56,6 +56,7 @@ from fieldlens.retrieval.routes import build_retrieval_router
 from fieldlens.retrieval.search import RetrievalService
 from fieldlens.series.routes import build_series_router
 from fieldlens.series.service import SeriesService
+from fieldlens.wellpath.routes import build_trajectory_router
 
 _STATUS_CODES: dict[int, ErrorCode] = {
     403: ErrorCode.FORBIDDEN,
@@ -407,6 +408,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_processing_router())
     app.include_router(build_reconstruction_router())
     app.include_router(build_asset_spec_router())
+    app.include_router(build_trajectory_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:

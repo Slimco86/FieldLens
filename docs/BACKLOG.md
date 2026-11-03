@@ -2971,7 +2971,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P1 |
 | Tags | backend, geospatial, frontend |
 | Depends on | TASK-078, TASK-080 |
@@ -2979,10 +2979,52 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.44.0 |
 | Parent | FL-023 |
 | Slice | FL-023-H |
 
 **Outcome.** The wellbore and field views draw the wellbore's real validated survey (deterministic min-curvature local offsets with CRS/datum and depth reference preserved) instead of the labelled vertical placeholder, through a read-only project-scoped route.
-**Next action.** Needs a feature spec (route contract, CRS and datum handling, planned vs as-built, units, local render origin, field-view positions from validated coordinates) and owner approval; the engineering/trajectory module already exists.
-**Evidence.** Found by integrated QA (D6): `trajectoryFor()` reads only a test hook, so every wellbore shows the labelled vertical placeholder even when trajectory stations exist.
+**Next action.** Open for the owner: should a filename/title saying ACTUAL count as an as-built statement (today the trace reads "status not stated"); live visual check of the first-station stub.
+**Evidence.** Independent QA PASS on `64fa4e3` against a scratch copy of the real data: F-5/F-12/F-14 Survey Report PDF sets draw (F-5 97 stations MD 145.9-3792 m, end TVD 3246.43 m = source, max TVD diff 0.005 m, surface E 435050.94 N 6478558.87 ED50/UTM 31N); an independent min-curvature implementation matches the route end point to the last digit; backend 309 passed, ruff/mypy clean, frontend vitest 339, build clean. Not run: browser screenshot, Playwright; WITSML sets were not selected on real data (F-14 WITSML is invalid stations).
+
+### TASK-084 · S3/S5 run at default reasoning effort and truncate (live-run finding F1)
+
+| Field | Value |
+|---|---|
+| Type | bug |
+| Status | done |
+| Priority | P0 |
+| Tags | backend, rag |
+| Depends on | TASK-076 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | 0.44.1 |
+| Parent | FL-023 |
+| Slice | FL-023-I |
+
+**Outcome.** S3 (and S5) no longer fail `output_truncated` on real Meta: low reasoning effort, a retry with a larger bound, real tokens recorded on failure and a readable failure message.
+**Next action.** Owner live re-run on F-5/F-12. Minor follow-ups: unknown usage on a truncated reply shows as 0 tokens (should be unknown); the S3 output bound is fixed (2048, doubled on retry) rather than sized to block count; max_attempts=2 leaves no headroom for a 429 plus a truncation.
+**Evidence.** Independent QA PASS on `d7228d7`: full backend 1590 passed, ruff/mypy clean; scenarios truncate-once, truncate-twice, truncation then 429/5xx, cancel, re-run without re-spend all pass with one settled reservation; shared runner/budget change does not alter S2, harness or chat callers. Fake provider only: whether low/minimal effort avoids truncation on real Muse Spark is not measured.
+
+### TASK-085 · S5 designs from structured equipment records (live-run finding F2)
+
+| Field | Value |
+|---|---|
+| Type | bug |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend |
+| Depends on | TASK-079 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-J |
+
+**Outcome.** S5 builds components from natively parsed equipment records (casing, tubulars, wellbore geometry sections, BHA, perforations) plus model-read candidates; "no equipment data" only when both are empty.
+**Next action.** Worker in a worktree (`feature/task-085-structured-equipment`).
+**Evidence.** Owner live run: F-5 has 14 equipment records (casing_point, tubular_assembly/component, wb_geometry_section, bha_run) but S5 reported "no equipment data" because it reads only `extraction_candidate` rows.

@@ -53,6 +53,7 @@ from .provider import (
 
 logger = logging.getLogger(__name__)
 DEFAULT_BACKOFF_S = 0.5
+TRUNCATION_RETRY_CAP = 8192
 
 
 @dataclass(frozen=True)
@@ -176,16 +177,24 @@ class WorkUnit:
 
     # -- one provider step (with at most one retry) -------------------------------------------
     def step(
-        self, messages: Sequence[Message], *, effort: Effort | None = None
+        self,
+        messages: Sequence[Message],
+        *,
+        effort: Effort | None = None,
+        max_output_tokens: int | None = None,
     ) -> ProviderResponse:
-        """One provider step. ``effort`` overrides the unit default for this call only."""
+        """One provider step. ``effort``/``max_output_tokens`` override the unit's for this call."""
         if self.reservation is None:
             raise ReservationNotOpen("work unit is not open")
         request = ProviderRequest(
             model=self._model,
             messages=tuple(messages),
             tools=tuple(self._tools.values()),
-            max_output_tokens=self.limits.max_output_tokens,
+            max_output_tokens=(
+                max_output_tokens
+                if max_output_tokens is not None
+                else self.limits.max_output_tokens
+            ),
             effort=effort if effort is not None else self._effort,
         )
         retry_of: int | None = None
@@ -237,6 +246,32 @@ class WorkUnit:
                 )
                 raise
             return self._accept(response, rid, number, int((self._clock() - began) * 1000))
+
+    def step_retry_truncated(
+        self,
+        messages: Sequence[Message],
+        *,
+        effort: Effort | None = None,
+        retry_effort: Effort = "minimal",
+        retry_cap: int = TRUNCATION_RETRY_CAP,
+    ) -> ProviderResponse:
+        """``step`` and, if the output was truncated, ONE more step in this same unit/reservation
+        with twice the output bound (at most ``retry_cap``) and ``retry_effort``. A second
+        truncation (or no room left in the unit's bounds) raises the truncation error."""
+        try:
+            return self.step(messages, effort=effort)
+        except ProviderTruncated as first:
+            bigger = min(retry_cap, self.limits.max_output_tokens * 2)
+            try:
+                return self.step(messages, effort=retry_effort, max_output_tokens=bigger)
+            except RequestLimitExceeded:
+                raise first from None
+
+    def token_usage(self) -> tuple[int, int]:
+        """Input/output tokens the provider reported for every attempt of this unit so far."""
+        if self.reservation is None:
+            return 0, 0
+        return self._ledger.attempt_tokens(self.reservation.reservation_id)
 
     def _can_retry(self, exc: AssistantError) -> bool:
         wait = getattr(exc, "retry_after_s", None)

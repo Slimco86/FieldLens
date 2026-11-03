@@ -111,14 +111,18 @@ function markersOf(model: SceneModel): FieldMarker[] {
 
 /**
  * Builds the plan. `trajectoryOf` supplies validated survey stations when an API provides them
- * (today none does, so wells draw the labelled vertical placeholder like the single view).
+ * (a well without one draws the labelled vertical placeholder with `reasonOf`, like the single view).
  */
-export function buildFieldPlan(inputs: readonly FieldWellInput[], trajectoryOf: (id: string) => TrajectoryInput | null = () => null): FieldPlan {
+export function buildFieldPlan(
+  inputs: readonly FieldWellInput[],
+  trajectoryOf: (id: string) => TrajectoryInput | null = () => null,
+  reasonOf: (id: string) => string = () => "no survey is available for this wellbore",
+): FieldPlan {
   const built = inputs.map((w) => {
     if (w.spec.kind !== "ready") return { w, model: null as SceneModel | null, depth: 0 };
     const mdMax = Math.max(locatedMdMax(w.spec.spec), 100);
     const traj = trajectoryOf(w.id);
-    const path = traj !== null ? WellPath.fromTrajectory(traj, mdMax) : WellPath.unavailable(mdMax, "no survey is wired to this view");
+    const path = traj !== null ? WellPath.fromTrajectory(traj, mdMax) : WellPath.unavailable(mdMax, reasonOf(w.id));
     return { w, model: buildSceneModel(w.spec.spec, path), depth: depthOf(path) };
   });
   const maxDepth = Math.max(0, ...built.map((b) => b.depth));

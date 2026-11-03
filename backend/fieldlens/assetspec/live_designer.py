@@ -35,7 +35,7 @@ from fieldlens.assistant.runner import RequestLimits, WorkUnit
 from fieldlens.contracts.asset_spec import SURFACE_KINDS, ComponentKind, VisualAssetSpecRecord
 from fieldlens.contracts.errors import ContractError
 from fieldlens.identity.resolver import known_md_max
-from fieldlens.merge_proposals.proposer import failure_reason
+from fieldlens.merge_proposals.proposer import failure_reason, failure_text
 
 from . import designer, service
 from .merge_sources import reconcile
@@ -122,7 +122,7 @@ class DesignerConfig:
             max_reserved_usd=Decimal("0.25"),
         )
     )
-    effort: Any = None
+    effort: Any = "low"
 
 
 @dataclass
@@ -492,11 +492,10 @@ class LiveDesigner:
         tin = tout = 0
         try:
             with unit:
-                response = unit.step(messages)
+                response = unit.step_retry_truncated(messages)
             closed = unit.closed
             usd = closed.committed_usd if closed is not None else usd
-            if response.usage:
-                tin, tout = response.usage.input_tokens or 0, response.usage.output_tokens or 0
+            tin, tout = unit.token_usage()
             raw = parse_output(response.text())
         except Exception as exc:  # noqa: BLE001 - every failure maps to a stable reason
             if not isinstance(exc, AssistantError | OutputError):
@@ -506,6 +505,10 @@ class LiveDesigner:
                 usd = closed.committed_usd if closed is not None else usd
             except Exception:  # noqa: BLE001
                 log.exception("asset design settle failed")
+            try:
+                tin, tout = unit.token_usage()
+            except Exception:  # noqa: BLE001
+                log.exception("asset design token read failed")
             reason = "malformed_output" if isinstance(exc, OutputError) else failure_reason(exc)
             if reason == "reservation_state":
                 return DesignOutcome(
@@ -516,7 +519,7 @@ class LiveDesigner:
                 )
             return DesignOutcome(
                 False,
-                f"3D design stopped: {reason}; the current 3D model is unchanged",
+                f"3D design stopped: {failure_text(reason)}; the current 3D model is unchanged",
                 reason,
                 {**counts, **(sweep.counts() if sweep else {})},
                 usd + sweep_usd,

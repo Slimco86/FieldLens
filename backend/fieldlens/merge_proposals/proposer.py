@@ -60,9 +60,17 @@ class ProposerConfig:
             max_reserved_usd=Decimal("0.10"),
         )
     )
-    effort: Any = None
+    effort: Any = "low"
     max_blocks_per_call: int = MAX_BLOCKS_PER_CALL
     max_calls: int = MAX_CALLS
+
+
+TRUNCATED_MESSAGE = "The model ran out of output space; try again (a retry was already attempted)"
+
+
+def failure_text(reason: str) -> str:
+    """Readable text for a stable failure code (the code itself stays the identifier)."""
+    return TRUNCATED_MESSAGE if reason == "output_truncated" else reason
 
 
 def failure_reason(exc: BaseException) -> str:
@@ -210,7 +218,12 @@ class MergeProposer:
 
     @staticmethod
     def _failed(
-        index: int, blocks: int, reason: str, attempts: int, cost: Decimal | None
+        index: int,
+        blocks: int,
+        reason: str,
+        attempts: int,
+        cost: Decimal | None,
+        tokens: tuple[int, int] | None = None,
     ) -> dict[str, Any]:
         return {
             "index": index,
@@ -218,8 +231,8 @@ class MergeProposer:
             "reason": reason,
             "blocks": blocks,
             "attempts": attempts,
-            "input_tokens": None,
-            "output_tokens": None,
+            "input_tokens": tokens[0] if tokens and attempts else None,
+            "output_tokens": tokens[1] if tokens and attempts else None,
             "cost_usd": str(cost) if cost is not None else None,
         }
 
@@ -256,11 +269,12 @@ class MergeProposer:
         cost: Decimal | None = None
         try:
             with unit:
-                response = unit.step(messages)
+                response = unit.step_retry_truncated(messages)
             closed = unit.closed
             cost = closed.committed_usd if closed is not None else None
             raw = parse_output(response.text())
-            usage = response.usage
+            tok_in, tok_out = unit.token_usage()
+            has_usage = response.usage is not None
             local: list[ValidProposal] = []
             local_drops: Counter[str] = Counter()
             for group in raw.groups:
@@ -294,8 +308,8 @@ class MergeProposer:
                     "reason": None,
                     "blocks": len(included),
                     "attempts": unit.attempts,
-                    "input_tokens": usage.input_tokens if usage else None,
-                    "output_tokens": usage.output_tokens if usage else None,
+                    "input_tokens": tok_in if has_usage else None,
+                    "output_tokens": tok_out if has_usage else None,
                     "cost_usd": str(cost) if cost is not None else None,
                 }
             )
@@ -307,6 +321,11 @@ class MergeProposer:
                 cost = closed.committed_usd if closed is not None else None
             except Exception:  # noqa: BLE001
                 log.exception("merge proposal settle failed")
+            tokens: tuple[int, int] | None = None
+            try:
+                tokens = unit.token_usage()
+            except Exception:  # noqa: BLE001
+                log.exception("merge proposal token read failed")
             calls.append(
-                self._failed(index, len(included), failure_reason(exc), unit.attempts, cost)
+                self._failed(index, len(included), failure_reason(exc), unit.attempts, cost, tokens)
             )
