@@ -161,7 +161,7 @@ def test_model_cannot_invent_refs_numbers_or_catalog_without_reference(world: Wo
 )
 def test_failures_leave_current_spec_untouched(world: World, response: Any, reason: str) -> None:
     pid, wb = _wb(world)
-    d, _ = _designer(world, [_reply(*GOOD), response])
+    d, _ = _designer(world, [_reply(*GOOD), response, response])  # truncation is retried once
     assert d.design(pid, wb, "a").ok
     before = _current(world, pid, wb)
     out = d.design(pid, wb, "b")
@@ -201,6 +201,29 @@ def test_cancel_before_call_stops_and_keeps_current(world: World) -> None:
     out = d.design(pid, wb, "c", tok)
     assert out.cancelled and not out.ok
     assert provider.calls == []  # no call was made
+
+
+TRUNC = Usage(input_tokens=700, output_tokens=4096)
+
+
+def test_s5_truncated_once_then_answers(world: World) -> None:
+    pid, wb = _wb(world)
+    d, provider = _designer(world, [truncated_response('{"components":[', TRUNC), _reply(*GOOD)])
+    out = d.design(pid, wb, "a")
+    assert out.ok, out
+    assert (provider.calls[0].effort, provider.calls[0].max_output_tokens) == ("low", 4096)
+    assert (provider.calls[1].effort, provider.calls[1].max_output_tokens) == ("minimal", 8192)
+    assert out.input_tokens == 700 + 500 and out.output_tokens == 4096 + 100
+
+
+def test_s5_truncated_twice_fails_readably_with_tokens(world: World) -> None:
+    pid, wb = _wb(world)
+    d, provider = _designer(world, [truncated_response("{", TRUNC), truncated_response("{", TRUNC)])
+    result = DesignAssetExecutor(d).run(_ctx(world, pid, wb))
+    assert result.state == "failed" and result.error_code == "output_truncated"
+    assert "ran out of output space" in (result.message or "")
+    assert result.input_tokens == 1400 and result.output_tokens == 8192
+    assert result.usd > 0 and len(provider.calls) == 2
 
 
 # -- executor / bulk -----------------------------------------------------------------------

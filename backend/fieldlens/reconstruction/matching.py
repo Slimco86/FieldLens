@@ -20,7 +20,7 @@ from fieldlens.assistant.provider import CancelToken
 from fieldlens.contracts.reconstruction import ReconstructionStageKind, ReconstructionStageName
 from fieldlens.merge_proposals import tables as mp
 from fieldlens.merge_proposals.blocking import build_dataset
-from fieldlens.merge_proposals.proposer import MergeProposer
+from fieldlens.merge_proposals.proposer import MergeProposer, failure_text
 from fieldlens.reconstruction.stages import StageContext, StagePlan, StageResult, StageStop
 
 STUB_REASON = "stub_provider"
@@ -163,7 +163,7 @@ class MatchWellboresExecutor:
         if run.state in ("failed", "partial"):
             return StageResult(
                 "failed",
-                message=f"matching stopped: {run.reason or 'provider failure'}; "
+                message=f"matching stopped: {failure_text(run.reason or 'provider failure')}; "
                 "proposals already stored are kept",
                 error_code=(run.reason or "provider_failure")[:48],
                 counts=counts,

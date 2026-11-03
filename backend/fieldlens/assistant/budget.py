@@ -371,6 +371,17 @@ class BudgetLedger:
         with session_scope(self._factory) as s:
             return self._attempt_total(s, reservation_id)[0]
 
+    def attempt_tokens(self, reservation_id: UUID) -> tuple[int, int]:
+        """Provider-reported (input, output) tokens summed over the reservation's attempts."""
+        with session_scope(self._factory) as s:
+            row = s.execute(
+                select(
+                    func.coalesce(func.sum(provider_attempt.c.input_tokens), 0),
+                    func.coalesce(func.sum(provider_attempt.c.output_tokens), 0),
+                ).where(provider_attempt.c.reservation_id == reservation_id)
+            ).one()
+        return int(row[0]), int(row[1])
+
     @staticmethod
     def _known_billed(s: Session, reservation_id: UUID) -> Decimal:
         total = s.execute(
