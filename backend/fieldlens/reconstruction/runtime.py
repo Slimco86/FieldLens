@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from fieldlens.assetspec.live_designer import LiveDesigner
 from fieldlens.config import Settings
 from fieldlens.jobs.repository import new_owner
 from fieldlens.merge_proposals.proposer import MergeProposer
@@ -30,11 +31,14 @@ def build_runtime(
     executors: Sequence[StageExecutor] | None = None,
     reader: DocumentReader | None = None,
     proposer: MergeProposer | None = None,
+    designer: LiveDesigner | None = None,
 ) -> ReconstructionRuntime:
     """S2/S3 are ``stubbed`` without a reader/proposer; no default here can make a live call."""
     invalidation.install()
     chosen = (
-        list(executors) if executors is not None else default_executors(settings, reader, proposer)
+        list(executors)
+        if executors is not None
+        else default_executors(settings, reader, proposer, designer)
     )
     owner = new_owner()
     runner = ReconstructionRunner(

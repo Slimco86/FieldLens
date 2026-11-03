@@ -1,8 +1,8 @@
 """Reconstruction stages S1..S5: the executor interface and the deterministic S1/S4 (TASK-068, 076).
 
 ``StageExecutor`` is the seam: S2 *Read documents* (TASK-055 model read, ``reading.py``) and S3
-*Match wellbores* (TASK-057 proposals, ``matching.py``) are agent steps; S5 *Design 3D asset* is a
-:class:`NotAvailableExecutor` until TASK-079. A stage on the stub provider is ``stubbed`` and a
+*Match wellbores* (TASK-057 proposals, ``matching.py``) and S5 *Design 3D asset* (TASK-079,
+``design_stage.py``) are agent steps. A stage on the stub provider is ``stubbed`` and a
 stage without an implementation is ``not_available``: either makes the run ``partial`` and never
 success. S1 and S4 are pure functions of stored exposure/gate data: nothing here calls a model,
 and no summary entry carries a value without a source reference.
@@ -21,6 +21,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from fieldlens.assetspec.live_designer import LiveDesigner
 from fieldlens.config import Settings
 from fieldlens.contracts.exposure import (
     CategoryExposure,
@@ -191,6 +192,7 @@ DESIGN_NOT_WIRED = "asset_design_not_wired"
 
 
 def design_executor() -> NotAvailableExecutor:
+    """Legacy placeholder (pre-TASK-079); kept for tests of the not-available path."""
     return NotAvailableExecutor(
         ReconstructionStageName.DESIGN,
         ReconstructionStageKind.AGENT,
@@ -205,8 +207,10 @@ def default_executors(
     settings: Settings,
     reader: DocumentReader | None = None,
     proposer: MergeProposer | None = None,
+    designer: LiveDesigner | None = None,
     reader_scope: Callable[[Session, UUID], ReadScope] = read_scope,
 ) -> list[StageExecutor]:
+    from fieldlens.reconstruction.design_stage import DesignAssetExecutor
     from fieldlens.reconstruction.matching import MatchWellboresExecutor
     from fieldlens.reconstruction.reading_stage import ReadDocumentsExecutor
 
@@ -215,7 +219,7 @@ def default_executors(
         ReadDocumentsExecutor(reader, settings.processing_model_pages, reader_scope),
         MatchWellboresExecutor(proposer),
         AssembleExecutor(),
-        design_executor(),
+        DesignAssetExecutor(designer),
     ]
 
 

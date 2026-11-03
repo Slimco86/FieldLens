@@ -188,6 +188,16 @@ class Settings(BaseSettings):
     reconstruction_concurrency: int = Field(2, ge=1, le=2)
     """Runs executing at once (RECONSTRUCTION_RUN.md: bounded concurrency of at most two)."""
 
+    # S5 visual-reference research (TASK-079). OFF by default; only equipment name hints leave the
+    # application. Loop/step limits, no USD limit (owner decision).
+    visual_research_backend: str = "off"
+    """``off`` is the only backend shipped; a search backend is plugged in through the
+    :class:`~fieldlens.assetspec.research.SearchBackend` protocol."""
+    visual_research_max_queries: int = Field(6, ge=1, le=20)
+    visual_research_max_pages: int = Field(10, ge=1, le=30)
+    visual_research_deadline_s: float = Field(120.0, gt=0, le=600)
+    """Per component."""
+
     local_data_root: Path | None = None
     """Opt-in read-only root of the local Volve subset (tests only); unset => local_data skips."""
 
