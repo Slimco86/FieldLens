@@ -193,6 +193,14 @@ class Settings(BaseSettings):
     visual_research_backend: str = "off"
     """``off`` is the only backend shipped; a search backend is plugged in through the
     ``SearchBackend`` protocol of the asset-spec research module."""
+
+    @field_validator("visual_research_backend")
+    @classmethod
+    def _research_backend_known(cls, value: str) -> str:
+        if value not in ("off",):
+            raise ValueError("FIELDLENS_VISUAL_RESEARCH_BACKEND must be one of: off")
+        return value
+
     visual_research_max_queries: int = Field(6, ge=1, le=20)
     visual_research_max_pages: int = Field(10, ge=1, le=30)
     visual_research_deadline_s: float = Field(120.0, gt=0, le=600)

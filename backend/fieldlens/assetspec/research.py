@@ -43,6 +43,7 @@ DEFAULT_DEADLINE_S = 120.0
 MAX_PAGE_BYTES = 512 * 1024
 MAX_REDIRECTS = 3
 FETCH_TIMEOUT_S = 10.0
+FETCH_TOTAL_S = 20.0
 ALLOWED_PORTS = (80, 443)
 TEXT_TYPES = ("text/html", "text/plain", "application/xhtml+xml")
 LABEL = "External visual reference, not evidence of installation."
@@ -85,7 +86,7 @@ class FetchedPage:
 
 
 class PageFetcher(Protocol):
-    def fetch(self, url: str) -> FetchedPage: ...
+    def fetch(self, url: str, cancelled: Callable[[], bool] = ...) -> FetchedPage: ...
 
 
 Resolver = Callable[[str, int], list[str]]
@@ -96,10 +97,26 @@ def system_resolver(host: str, port: int) -> list[str]:
     return sorted({str(i[4][0]) for i in infos})
 
 
+_BLOCKED_V6 = tuple(
+    ipaddress.ip_network(n)
+    for n in (
+        "::/96",  # IPv4-compatible (and ::, ::1)
+        "::ffff:0:0/96",  # IPv4-mapped
+        "::ffff:0:0:0/96",  # SIIT translated
+        "64:ff9b::/96",  # NAT64
+        "64:ff9b:1::/48",  # local-use NAT64
+        "2002::/16",  # 6to4
+        "2001::/32",  # Teredo
+    )
+)
+
+
 def _public(address: str) -> bool:
     ip = ipaddress.ip_address(address.split("%")[0])
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
+    if isinstance(ip, ipaddress.IPv6Address):
+        # transition/embedding forms can hide a private IPv4: reject them outright
+        if any(ip in net for net in _BLOCKED_V6):
+            return False
     return ip.is_global and not ip.is_multicast
 
 
@@ -142,14 +159,23 @@ class SafeHttpFetcher:
         resolver: Resolver = system_resolver,
         transport: httpx.BaseTransport | None = None,
         timeout_s: float = FETCH_TIMEOUT_S,
+        total_s: float = FETCH_TOTAL_S,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
+        self._total = total_s
+        self._clock = clock
         self._resolver = resolver
         self._transport = transport
         self._timeout = timeout_s
 
-    def fetch(self, url: str) -> FetchedPage:
+    def fetch(self, url: str, cancelled: Callable[[], bool] = lambda: False) -> FetchedPage:
         current = url
+        deadline = self._clock() + self._total
         for _ in range(MAX_REDIRECTS + 1):
+            if cancelled():
+                raise UrlRejected("cancelled")
+            if self._clock() >= deadline:
+                raise UrlRejected("fetch time budget exceeded")
             host, port, scheme, addrs = check_url(current, self._resolver)
             pinned = urlsplit(current)._replace(
                 netloc=f"[{addrs[0]}]:{port}" if ":" in addrs[0] else f"{addrs[0]}:{port}"
@@ -187,12 +213,27 @@ class SafeHttpFetcher:
                     body = bytearray()
                     for chunk in resp.iter_bytes():
                         body.extend(chunk)
+                        if self._clock() >= deadline:
+                            raise UrlRejected("fetch time budget exceeded")
+                        if cancelled():
+                            raise UrlRejected("cancelled")
                         if len(body) > cap:
                             raise UrlRejected("response too large")
                     if is_image:
                         return FetchedPage(current, ctype, image=bytes(body))
                     return FetchedPage(current, ctype, text=bytes(body).decode("utf-8", "replace"))
         raise UrlRejected("too many redirects")
+
+
+def image_matches(content_type: str, data: bytes) -> bool:
+    """Magic-number check: the bytes must be what the content type claims."""
+    if content_type == "image/png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/jpeg":
+        return data.startswith(b"\xff\xd8\xff")
+    if content_type == "image/webp":
+        return data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    return False
 
 
 class ImageSink(Protocol):
@@ -209,6 +250,8 @@ class FileImageSink:
     def store(self, content_type: str, data: bytes) -> dict[str, Any]:
         if content_type not in IMAGE_CONTENT_TYPES or not 0 < len(data) <= MAX_IMAGE_BYTES:
             raise UrlRejected("image not allowed")
+        if not image_matches(content_type, data):
+            raise UrlRejected("image content does not match its type")
         digest = hashlib.sha256(data).hexdigest()
         self._dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         target = self._dir / digest
@@ -343,7 +386,7 @@ class VisualReferenceResearcher:
                     continue
                 result.pages += 1
                 try:
-                    page = self._fetcher.fetch(hit.url)
+                    page = self._fetcher.fetch(hit.url, cancelled)
                 except UrlRejected as exc:
                     result.rejected.append(str(exc))
                     continue

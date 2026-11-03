@@ -336,6 +336,13 @@ class LiveDesigner:
             except Exception:  # noqa: BLE001
                 log.exception("asset design settle failed")
             reason = "malformed_output" if isinstance(exc, OutputError) else failure_reason(exc)
+            if reason == "reservation_state":
+                return DesignOutcome(
+                    False,
+                    "This design run already completed; start a new run to design again.",
+                    "run_already_completed",
+                    dict(counts),
+                )
             return DesignOutcome(
                 False,
                 f"3D design stopped: {reason}; the current 3D model is unchanged",

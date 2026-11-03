@@ -274,7 +274,7 @@ class FakeFetcher:
         self.urls: list[str] = []
         self.text = text
 
-    def fetch(self, url: str) -> r.FetchedPage:
+    def fetch(self, url: str, cancelled: Any = None) -> r.FetchedPage:
         self.urls.append(url)
         return r.FetchedPage(url, "text/html", self.text)
 
@@ -355,6 +355,13 @@ def test_irrelevant_page_is_not_a_reference() -> None:
         "http://169.254.169.254/latest/meta-data",
         "http://[::1]/x",
         "http://[::ffff:127.0.0.1]/x",
+        "http://[64:ff9b::7f00:1]/",
+        "http://[64:ff9b::a00:1]/",
+        "http://[64:ff9b:1::7f00:1]/",
+        "http://[::127.0.0.1]/",
+        "http://[::ffff:0:7f00:1]/",
+        "http://[2002:7f00:1::1]/",
+        "http://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/",
         "https://user:pw@example.com/x",
         "http://example.com:8080/x",
         "https://example.com/\x01x",
@@ -412,11 +419,11 @@ def test_http_fetcher_caps_size_and_content_type() -> None:
 
 
 def test_image_reference_is_stored_bounded(tmp_path: Any) -> None:
-    png = b"\x89PNG" + b"0" * 100
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 100
     hit = r.SearchHit("https://example.com/acme-x1.png", "Acme X1 packer")
 
     class Img:
-        def fetch(self, url: str) -> r.FetchedPage:
+        def fetch(self, url: str, cancelled: Any = None) -> r.FetchedPage:
             return r.FetchedPage(url, "image/png", image=png)
 
     res = r.VisualReferenceResearcher(
@@ -485,3 +492,90 @@ def test_located_part_beyond_the_md_range_becomes_unlocated(world: World) -> Non
     assert out.ok and out.counts["rebuilt_generic"] >= 1
     csg = _comps(_current(world, pid, wb))["9-5/8 in casing"]
     assert csg.placement.state == "unlocated" and csg.params is None
+
+
+def test_resolved_aaaa_and_redirect_targets_use_the_same_policy() -> None:
+    with pytest.raises(r.UrlRejected):
+        r.check_url("https://x.example/a", lambda h, p: ["64:ff9b::7f00:1"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": "http://[64:ff9b::a00:1]/x"})
+
+    with pytest.raises(r.UrlRejected):
+        r.SafeHttpFetcher(_public, httpx.MockTransport(handler)).fetch("https://example.com/a")
+
+
+class _Slow(httpx.SyncByteStream):
+    def __init__(self, clock: list[float]) -> None:
+        self._clock = clock
+
+    def __iter__(self) -> Any:
+        for _ in range(100):
+            self._clock[0] += 0.5  # one byte per 0.5 s: every read is within the per-read timeout
+            yield b"x"
+
+
+def test_slow_drip_response_hits_the_total_time_budget() -> None:
+    now = [0.0]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "text/html"}, stream=_Slow(now))
+
+    f = r.SafeHttpFetcher(
+        _public, httpx.MockTransport(handler), timeout_s=1.0, total_s=3.0, clock=lambda: now[0]
+    )
+    with pytest.raises(r.UrlRejected, match="time budget"):
+        f.fetch("https://example.com/a")
+    assert now[0] < 5.0  # stopped soon after the budget, not after 50 s
+
+
+def test_cancel_stops_an_in_flight_fetch() -> None:
+    now = [0.0]
+    calls = {"n": 0}
+
+    def cancelled() -> bool:
+        calls["n"] += 1
+        return calls["n"] > 3
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "text/html"}, stream=_Slow(now))
+
+    f = r.SafeHttpFetcher(_public, httpx.MockTransport(handler), clock=lambda: now[0])
+    with pytest.raises(r.UrlRejected, match="cancelled"):
+        f.fetch("https://example.com/a", cancelled)
+
+
+def test_image_magic_numbers_are_checked(tmp_path: Any) -> None:
+    sink = r.FileImageSink(tmp_path)
+    with pytest.raises(r.UrlRejected):
+        sink.store("image/png", b"<html>not a png</html>")
+    with pytest.raises(r.UrlRejected):
+        sink.store("image/jpeg", b"\x89PNG\r\n\x1a\n" + b"0" * 20)
+    sink.store("image/jpeg", b"\xff\xd8\xff" + b"0" * 20)
+    sink.store("image/webp", b"RIFF\x00\x00\x00\x00WEBP" + b"0" * 20)
+    # a mismatching image is not stored, the URL reference stays
+    hit = r.SearchHit("https://example.com/a.png", "Acme X1 packer")
+
+    class Fake:
+        def fetch(self, url: str, cancelled: Any = None) -> r.FetchedPage:
+            return r.FetchedPage(url, "image/png", image=b"GIF89a" + b"0" * 20)
+
+    res = r.VisualReferenceResearcher(
+        FakeBackend({"Acme X1 packer": [hit]}), Fake(), image_sink=sink, resolver=_public
+    ).research("Acme X1", "packer")
+    assert res.reference is not None and "image" not in res.reference
+
+
+def test_retrying_a_completed_run_key_says_so(world: World) -> None:
+    pid, wb = _wb(world)
+    d, _ = _designer(world, [_reply(*GOOD), _reply(*GOOD)])
+    assert d.design(pid, wb, "same-key").ok
+    again = d.design(pid, wb, "same-key")
+    assert not again.ok and "already completed" in again.message
+    assert "reservation_state" not in again.message and again.reason == "run_already_completed"
+
+
+def test_unknown_research_backend_fails_at_settings_load() -> None:
+    with pytest.raises(ValueError, match="VISUAL_RESEARCH_BACKEND"):
+        Settings(visual_research_backend="google")
+    assert Settings(visual_research_backend="off").visual_research_backend == "off"
