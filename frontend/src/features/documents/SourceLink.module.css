@@ -1,0 +1,35 @@
+.trigger {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.trigger:focus-visible {
+  outline: var(--fl-focus-ring-width) solid var(--fl-color-focus-ring);
+  outline-offset: var(--fl-focus-ring-offset);
+}
+.note {
+  color: var(--fl-color-text-muted);
+  font-size: 0.875em;
+}
+.quote {
+  display: block;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.viewer {
+  display: grid;
+  gap: var(--fl-space-sm);
+}
+.frame {
+  width: 100%;
+  height: calc(100dvh - 10rem);
+  min-height: 20rem;
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  background: var(--fl-color-surface);
+}
