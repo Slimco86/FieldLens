@@ -1,6 +1,7 @@
 import type { SceneElement } from "./sceneModel";
 import { KIND_LABEL, REPRESENTATION_LABEL, placementText } from "./sceneModel";
 import { KeyValue, KeyValueList } from "../../design";
+import type { TrajectoryState } from "./trajectorySource";
 import styles from "./Scene.module.css";
 
 const DIM_TEXT = { spec: "from spec", default: "default (illustrative)", interval: "from interval", derived: "derived" } as const;
@@ -8,11 +9,12 @@ const has = <T,>(v: T | null | undefined): v is T => v !== null && v !== undefin
 const fmt = (m: number) => `${Math.round(m * 1000) / 1000} m`;
 
 /** Details of the selected element, including every evidence reference and the visual reference. */
-export function Inspector({ element }: { element: SceneElement | null }) {
+export function Inspector({ element, survey }: { element: SceneElement | null; survey?: TrajectoryState | undefined }) {
   if (element === null) {
     return (
       <div className={styles.inspector} data-testid="inspector">
         <p className={styles.note}>Select a component in the list or the scene to see its details.</p>
+        <SurveyPanel survey={survey} />
       </div>
     );
   }
@@ -65,6 +67,42 @@ export function Inspector({ element }: { element: SceneElement | null }) {
           {has(ref.note) ? ` — ${ref.note}` : ""}
         </p>
       )}
+      <SurveyPanel survey={survey} />
     </div>
+  );
+}
+
+/** Where the drawn trace comes from, the surface location with its CRS, and the sets that were not drawn. */
+function SurveyPanel({ survey }: { survey: TrajectoryState | undefined }) {
+  if (survey === undefined) return null;
+  if (survey.kind === "loading") return <p className={styles.note}>Loading survey…</p>;
+  if (survey.kind !== "ready") {
+    return (
+      <p className={styles.note} data-testid="survey-unavailable">
+        Survey unavailable ({survey.reason}); the wellbore is drawn as a vertical placeholder, not a survey.
+      </p>
+    );
+  }
+  const i = survey.info;
+  return (
+    <section data-testid="survey-info" aria-label="Survey">
+      <h4>Survey</h4>
+      <p data-testid="survey-label">{i.label}</p>
+      <p data-testid="survey-surface">{i.surfaceText ?? "Surface location: no validated location"}</p>
+      <p className={styles.note}>{i.references}</p>
+      <p className={styles.note}>{i.counts}</p>
+      {i.others.length > 0 && (
+        <ul className={styles.evidence} data-testid="survey-others">
+          {i.others.map((o) => (
+            <li key={o}>Not drawn: {o}</li>
+          ))}
+        </ul>
+      )}
+      {i.warnings.map((w) => (
+        <p key={w} className={styles.note}>
+          {w}
+        </p>
+      ))}
+    </section>
   );
 }

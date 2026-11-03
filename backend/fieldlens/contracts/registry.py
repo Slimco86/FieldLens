@@ -37,6 +37,7 @@ from . import (
     retrieval,
     series,
     system,
+    trajectory,
     well_identity,
 )
 from .base import ContractModel
@@ -63,6 +64,7 @@ _MODULES = (
     merge_proposals,
     reconstruction,
     asset_spec,
+    trajectory,
 )
 
 

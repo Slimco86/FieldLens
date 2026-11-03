@@ -884,6 +884,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/wellbores/{wellbore_id}/trajectory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Trajectory */
+        get: operations["trajectory_api_v1_projects__project_id__wellbores__wellbore_id__trajectory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ready": {
         parameters: {
             query?: never;
@@ -6126,6 +6143,62 @@ export interface components {
          */
         TimePrecision: "instant" | "day" | "month" | "year" | "unknown";
         /**
+         * TrajectoryEvidence
+         * @description Source of a value: the document, the record and the locator inside the document.
+         */
+        TrajectoryEvidence: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Kind */
+            kind: string;
+            /** Locator */
+            locator: {
+                [key: string]: unknown;
+            };
+            /** Ordinal */
+            ordinal: number;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+        };
+        /**
+         * TrajectoryPoint
+         * @description One display point: depths in metres below the stated depth reference, offsets in metres.
+         */
+        TrajectoryPoint: {
+            /**
+             * East M
+             * @description Local east offset from the wellhead, metres.
+             */
+            east_m: number;
+            /** Md M */
+            md_m: number;
+            /**
+             * North M
+             * @description Local north offset from the wellhead, metres.
+             */
+            north_m: number;
+            /**
+             * Tvd M
+             * @description True vertical depth below the wellhead, metres (derived).
+             */
+            tvd_m: number;
+        };
+        /** TrajectoryReason */
+        TrajectoryReason: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /**
          * TrajectorySetCheck
          * @description Deterministic validity of one trajectory station set (one document run).
          */
@@ -6158,6 +6231,61 @@ export interface components {
             usable_station_count: number;
             /** Validated */
             validated: boolean;
+        };
+        /**
+         * TrajectorySetRef
+         * @description One trajectory station set (one document run) and why it was or was not drawn.
+         */
+        TrajectorySetRef: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /**
+             * Reasons
+             * @description Why the set is not drawn (data quality or not selected); empty when used.
+             */
+            reasons: components["schemas"]["TrajectoryReason"][];
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Station Count */
+            station_count: number;
+            /**
+             * Survey Status
+             * @enum {string}
+             */
+            survey_status: "planned" | "as_built" | "unstated" | "conflicting" | "not_applicable";
+            /** Used */
+            used: boolean;
+            /** Validated */
+            validated: boolean;
+        };
+        /** TrajectorySurfaceLocation */
+        TrajectorySurfaceLocation: {
+            /**
+             * Crs
+             * @description CRS / map zone text exactly as stated by the source; null when not stated.
+             */
+            crs: string | null;
+            /** Easting */
+            easting: number | null;
+            evidence: components["schemas"]["TrajectoryEvidence"];
+            /** Geodetic Datum */
+            geodetic_datum: string | null;
+            /** Latitude */
+            latitude: number | null;
+            /** Longitude */
+            longitude: number | null;
+            /** Northing */
+            northing: number | null;
+            /** Unit */
+            unit: string | null;
         };
         /**
          * UnitStatus
@@ -6506,6 +6634,91 @@ export interface components {
             well_key: string | null;
             /** Wellbore Label */
             wellbore_label: string;
+        };
+        /** WellboreTrajectory */
+        WellboreTrajectory: {
+            /**
+             * Azimuth Reference
+             * @description Azimuth reference text as stated.
+             */
+            azimuth_reference: string | null;
+            /**
+             * Crs
+             * @description CRS of the validated surface location, else null.
+             */
+            crs: string | null;
+            /**
+             * Depth Unit
+             * @default m
+             * @constant
+             */
+            depth_unit: "m";
+            /** Displayed Count */
+            displayed_count: number;
+            /** Evidence */
+            evidence: components["schemas"]["TrajectoryEvidence"][];
+            /** Geodetic Datum */
+            geodetic_datum: string | null;
+            /** Max Tvd M */
+            max_tvd_m: number;
+            /** Md Max M */
+            md_max_m: number;
+            /** Md Min M */
+            md_min_m: number;
+            /**
+             * Md Reference
+             * @description MD zero reference text as stated, else null.
+             */
+            md_reference: string | null;
+            /**
+             * Md Unit
+             * @description MD unit as stated in the source records.
+             */
+            md_unit: string | null;
+            /**
+             * Method
+             * @default minimum_curvature
+             * @constant
+             */
+            method: "minimum_curvature";
+            /**
+             * North Reference
+             * @description Normalized north the offsets are relative to; no grid/true conversion is done.
+             * @enum {string}
+             */
+            north_reference: "true" | "grid" | "magnetic";
+            /** Other Sets */
+            other_sets: components["schemas"]["TrajectorySetRef"][];
+            /** Points */
+            points: components["schemas"]["TrajectoryPoint"][];
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Source Count */
+            source_count: number;
+            /**
+             * Source Tvd Max Abs Diff M
+             * @description Largest |computed - stated| TVD over stations that state a valid TVD.
+             */
+            source_tvd_max_abs_diff_m: number | null;
+            surface_location: components["schemas"]["TrajectorySurfaceLocation"] | null;
+            survey_set: components["schemas"]["TrajectorySetRef"];
+            /**
+             * Survey Status
+             * @enum {string}
+             */
+            survey_status: "planned" | "as_built" | "unstated" | "conflicting" | "not_applicable";
+            /** Tvd Reference */
+            tvd_reference: string | null;
+            /** Warnings */
+            warnings: components["schemas"]["TrajectoryReason"][];
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
         };
         /** WellExposure */
         WellExposure: {
@@ -9907,6 +10120,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    trajectory_api_v1_projects__project_id__wellbores__wellbore_id__trajectory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                wellbore_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WellboreTrajectory"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */

@@ -4,7 +4,8 @@ import { EmptyState, KeyValue, KeyValueList, LoadingState } from "../../design";
 import { useFieldSpecs, type WellboreRef } from "./fieldData";
 import { activate, buildFieldPlan, FIELD_BADGE, summarize, type FieldPlan, type FieldWell } from "./fieldModel";
 import type { FieldCommands } from "./FieldViewer3D";
-import { trajectoryFor } from "./trajectorySource";
+import { useFieldTrajectories } from "./trajectoryData";
+import { inputOf, placeholderReason, type TrajectoryState } from "./trajectorySource";
 import { webgl2Available } from "./webgl";
 import styles from "./Scene.module.css";
 
@@ -35,9 +36,15 @@ export function FieldScene({ projectId, wellbores: listed, selectedId, onSelect,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const wellbores = useMemo(() => listed, [listKey]);
   const { specs, retry } = useFieldSpecs(projectId, wellbores);
+  const { trajectories } = useFieldTrajectories(projectId, wellbores);
   const plan: FieldPlan = useMemo(
-    () => buildFieldPlan(wellbores.map((w) => ({ id: w.id, name: w.name, spec: specs.get(w.id) ?? { kind: "loading" } })), trajectoryFor),
-    [wellbores, specs],
+    () =>
+      buildFieldPlan(
+        wellbores.map((w) => ({ id: w.id, name: w.name, spec: specs.get(w.id) ?? { kind: "loading" } })),
+        (id) => inputOf(trajectories.get(id)),
+        (id) => placeholderReason(trajectories.get(id)),
+      ),
+    [wellbores, specs, trajectories],
   );
   const summary = summarize(plan);
   const commands = useRef<FieldCommands | null>(null);
@@ -139,7 +146,7 @@ export function FieldScene({ projectId, wellbores: listed, selectedId, onSelect,
           {stage}
         </div>
       }
-      inspector={<FieldInspector well={selected} onOpen={onOpen} />}
+      inspector={<FieldInspector well={selected} onOpen={onOpen} survey={selected === null ? undefined : trajectories.get(selected.id)} />}
     />
   );
 }
@@ -214,7 +221,7 @@ function WellboreList({ plan, selectedId, onActivate, restoreFocus }: { plan: Fi
   );
 }
 
-function FieldInspector({ well, onOpen }: { well: FieldWell | null; onOpen: (id: string) => void }) {
+function FieldInspector({ well, onOpen, survey }: { well: FieldWell | null; onOpen: (id: string) => void; survey: TrajectoryState | undefined }) {
   if (well === null) {
     return (
       <div className={styles.inspector} data-testid="field-inspector">
@@ -236,7 +243,16 @@ function FieldInspector({ well, onOpen }: { well: FieldWell | null; onOpen: (id:
               {well.counts.components} ({well.counts.downhole} downhole, {well.counts.surface} surface, {well.counts.unlocated} unlocated)
             </KeyValue>
             <KeyValue term="Illustrative">{well.counts.illustrative} of {well.counts.components}</KeyValue>
-            <KeyValue term="Trajectory">{well.trajectoryAvailable ? "From survey stations" : "Unavailable: vertical placeholder line"}</KeyValue>
+            <KeyValue term="Trajectory">
+              <span data-testid="field-inspector-trajectory">
+                {well.trajectoryAvailable ? (well.model?.path.sourceLabel ?? "From survey stations") : `Unavailable: vertical placeholder line (${placeholderReason(survey)})`}
+              </span>
+            </KeyValue>
+            {survey?.kind === "ready" && survey.info.surfaceText !== null && (
+              <KeyValue term="Location">
+                <span data-testid="field-inspector-surface">{survey.info.surfaceText}</span>
+              </KeyValue>
+            )}
             <KeyValue term="Revision">{well.revision}</KeyValue>
           </>
         )}
