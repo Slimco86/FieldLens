@@ -225,10 +225,12 @@ def _ctx(world: World, pid: UUID, wb: UUID, stop: bool = False) -> StageContext:
 
 def test_executor_states_stub_success_failure_cancel(world: World) -> None:
     pid, wb = _wb(world)
-    assert DesignAssetExecutor(None).run(_ctx(world, pid, wb)).state == "stubbed"
+    # no model: the stored sources still become a spec (F2), nothing is "stubbed" away
+    assert DesignAssetExecutor(None).run(_ctx(world, pid, wb)).state == "succeeded"
+    assert _current(world, pid, wb).spec.generator.provider == "stub"
     with world.factory() as s:
         plan = DesignAssetExecutor(None).plan(s, pid)
-    assert plan.availability == "stub" and plan.new_work == 1
+    assert plan.availability == "will_run" and plan.new_work == 2  # F-99 and F-98 (perforations)
     d, _ = _designer(world, [_reply(*GOOD), refusal_response()])
     ex = DesignAssetExecutor(d)
     with world.factory() as s:

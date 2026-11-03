@@ -108,6 +108,28 @@ def store_validated(
     md_range_m: tuple[float, float] | None,
 ) -> VisualAssetSpecRecord:
     """Validate ``raw`` and, only if usable, make it the current revision (atomic)."""
+    return store_validated_checked(
+        session, project_id, wellbore_id, raw, md_range_m=md_range_m, skip_unchanged=False
+    )[0]
+
+
+def _content(spec: dict[str, Any]) -> tuple[Any, Any]:
+    """What makes two specs the same design: components and findings (not times or run ids)."""
+    return spec.get("components"), spec.get("findings")
+
+
+def store_validated_checked(
+    session: Session,
+    project_id: UUID,
+    wellbore_id: UUID,
+    raw: dict[str, Any],
+    *,
+    md_range_m: tuple[float, float] | None,
+    skip_unchanged: bool,
+) -> tuple[VisualAssetSpecRecord, bool]:
+    """As :func:`store_validated`; returns ``(record, created)``. With ``skip_unchanged`` a spec
+    whose components/findings equal the current one's creates no revision (the current record is
+    returned). A merge-invalidated or missing current spec is never "unchanged"."""
     outcome = validate_spec(raw, md_range_m=md_range_m)
     spec = outcome.spec
     if spec is None:
@@ -123,6 +145,20 @@ def store_validated(
     session.execute(
         select(m.project.c.project_id).where(m.project.c.project_id == project_id).with_for_update()
     ).first()
+    if skip_unchanged:
+        cur = (
+            session.execute(
+                select(T).where(
+                    T.c.project_id == project_id,
+                    T.c.wellbore_id == wellbore_id,
+                    T.c.state == SpecState.CURRENT.value,
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if cur is not None and _content(cur["spec"]) == _content(spec.model_dump(mode="json")):
+            return _record(cur), False
     nxt = session.execute(
         select(func.coalesce(func.max(T.c.revision), 0) + 1).where(
             T.c.project_id == project_id, T.c.wellbore_id == wellbore_id
@@ -155,7 +191,7 @@ def store_validated(
         .mappings()
         .one()
     )
-    return _record(row)
+    return _record(row), True
 
 
 def generate_stub(

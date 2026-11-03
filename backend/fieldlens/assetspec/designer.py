@@ -6,7 +6,8 @@ Depth is ``located`` only when top and bottom are printed with an explicit MD re
 the candidate has an OD, else the component is a labelled ``generic_illustrative`` without numbers.
 The candidates stay ``model_read`` evidence; the spec is visual only.
 
-Limitation: only equipment candidates (TASK-041) are used; parsed records are not yet mapped.
+Structured (natively parsed) records are converted by ``structured.py``; this module also converts
+the equipment candidates (TASK-041) and is the union point for the stub route.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ from fieldlens.persistence import models as m
 
 STUB_PROVIDER = "stub"
 STUB_MODEL = "stub-designer-1"
+STRUCTURED_PROVIDER = "structured"
+STRUCTURED_MODEL = "structured-1"
 MAX_CANDIDATES = 200
 
 _CATEGORY_KIND = {
@@ -207,10 +210,21 @@ def candidate_rows(session: Session, project_id: UUID, wellbore_id: UUID) -> lis
 
 
 def design(session: Session, project_id: UUID, wellbore_id: UUID) -> dict[str, Any]:
-    """Raw (unvalidated) spec for one wellbore; the caller validates and persists it."""
+    """Raw (unvalidated) spec for one wellbore; the caller validates and persists it.
+
+    Union of the structured records (deterministic components) and the model-read equipment
+    candidates (deterministic default form); no model call."""
+    from .structured import structured_components
+
     rows = candidate_rows(session, project_id, wellbore_id)
+    structured = structured_components(session, project_id, wellbore_id)
+    generator = (
+        {"provider": STUB_PROVIDER, "model": STUB_MODEL}
+        if rows
+        else {"provider": STRUCTURED_PROVIDER, "model": STRUCTURED_MODEL}
+    )
     return {
         **header(session, project_id, wellbore_id),
-        "generator": {"provider": STUB_PROVIDER, "model": STUB_MODEL},
-        "components": [component_for(r) for r in rows],
+        "generator": generator,
+        "components": [*structured.components, *(component_for(r) for r in rows)],
     }
