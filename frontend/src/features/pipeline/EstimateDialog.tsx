@@ -39,7 +39,7 @@ function StageRow({ s }: { s: ReconstructionStageEstimate }) {
         {s.availability === "will_run" && <Chip spec={OK} label="Will run" />}
         {s.availability === "stub" && <Chip spec={STUB} label="Stub: no model is called" />}
         {s.availability === "not_available" && (
-          <Chip spec={NO} label={s.stage === "design" ? "Available after the 3D asset feature" : "Not wired in this build"} />
+          <Chip spec={NO} label={s.stage === "design" ? "The 3D model step is not available yet" : "Not wired in this build"} />
         )}{" "}
         {s.availability === "not_available" ? (reasonText(s.reason_code) ?? s.note ?? "") : work(s)}
         {s.availability !== "not_available" && <> - estimated cost {usd(s.estimated_usd)}</>}

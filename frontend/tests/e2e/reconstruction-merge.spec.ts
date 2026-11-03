@@ -38,6 +38,7 @@ test("TASK-076: proposal is accepted then reverted from the keyboard; nothing me
   await page.getByLabel("Choose files").setInputFiles([{ name: "notes.csv", mimeType: "text/csv", buffer: Buffer.from("a,b\n1,2\n") }]);
   await page.getByRole("button", { name: "Upload 1 file(s)" }).click();
   await expect(page.getByRole("status").filter({ hasText: /Import accepted: 1 new file/ })).toBeVisible();
+  await expect(page.getByText("Ready (files stored; not extracted)")).toBeVisible({ timeout: 30_000 });
   await page.reload();
   await page.getByRole("button", { name: `Open project ${name}` }).click();
   await page.getByRole("button", { name: "Reconstruction" }).click();

@@ -373,7 +373,7 @@ describe("Reconstruct: estimate, separate confirm (RR-6)", () => {
     expect(stages).toHaveTextContent("S2 Read documents");
     expect(stages).toHaveTextContent("2 new, 1 reused from earlier results (documents)");
     expect(stages).toHaveTextContent("Proposes matches for you to review");
-    expect(stages).toHaveTextContent("Available after the 3D asset feature");
+    expect(stages).toHaveTextContent("The 3D model step is not available yet");
     expect(dlg).toHaveTextContent("Stub provider: no model will be called");
     expect(dlg).not.toHaveTextContent(/Remaining budget|total cap|Not available yet/);
     expect(posts(m, "/confirm")).toHaveLength(0);
@@ -591,8 +591,8 @@ describe("Run state and draft detail (RR-8)", () => {
     expect(row).toHaveTextContent("not a finished reconstruction");
     expect(row).toHaveTextContent("Stub run");
     const stages = within(row).getByRole("list", { name: "Stages of 15/9-F-12" });
-    expect(stages).toHaveTextContent("S3 Match wellbores: Stub run: no model was called");
-    expect(stages).toHaveTextContent("S5 Design 3D asset: Available after the 3D asset feature");
+    expect(stages).toHaveTextContent("S3 Match wellbores: Not available: no model configured (stub run)");
+    expect(stages).toHaveTextContent("S5 Design 3D asset: The 3D model step is not available yet");
     expect(stages).toHaveTextContent("S1 Collect sources: Done");
     expect(row.textContent).not.toMatch(/Processed|Succeeded|Complete/);
   });
