@@ -51,6 +51,11 @@ class TrajectorySetRef(ContractModel):
     document_id: UUID
     run_id: UUID
     filename: str
+    page: int | None = Field(
+        default=None,
+        ge=1,
+        description="First page of the set's stations when the source is a paged document (PDF).",
+    )
     survey_status: SurveyStatus
     station_count: int = Field(ge=0)
     validated: bool

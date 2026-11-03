@@ -38,7 +38,7 @@ from fieldlens.evidence.root_guard import MISMATCH, StorageRootGuard
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.extraction import build_extraction_router, build_storage_router
 from fieldlens.identity.routes import build_identity_router
-from fieldlens.ingestion import build_ingestion_router
+from fieldlens.ingestion import build_document_content_router, build_ingestion_router
 from fieldlens.jobs import JobWorker, build_jobs_router
 from fieldlens.merge_proposals.routes import build_merge_proposals_router
 from fieldlens.persistence.readiness import evaluate_readiness
@@ -396,6 +396,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(_build_system_router())
     app.include_router(build_projects_router())
     app.include_router(build_ingestion_router())
+    app.include_router(build_document_content_router())
     app.include_router(build_jobs_router())
     app.include_router(build_extraction_router())
     app.include_router(build_storage_router())

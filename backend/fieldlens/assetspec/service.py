@@ -11,6 +11,7 @@ current spec ``invalidated`` (history is kept) so a stale scene is never shown. 
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 from uuid import UUID
 
@@ -29,22 +30,28 @@ from fieldlens.contracts.errors import ContractError, ErrorCode
 from fieldlens.persistence import models as m
 
 from . import designer
+from .readable import READABLE_EVIDENCE_FIELDS, enrich_specs
 from .tables import wellbore_asset_spec as T
 from .validator import validate_spec
 
 _MD_UNIT_M = 1.0
 
 
-def _record(row: Any) -> VisualAssetSpecRecord:
-    return VisualAssetSpecRecord.model_validate(
-        {
-            "spec_id": row["spec_id"],
-            "revision": row["revision"],
-            "state": row["state"],
-            "created_at": row["created_at"],
-            "spec": row["spec"],
-        }
-    )
+def _records(session: Session, project_id: UUID, rows: list[Any]) -> list[VisualAssetSpecRecord]:
+    """Stored rows as records with readable evidence composed at read time (2 batched queries)."""
+    specs = enrich_specs(session, project_id, [r["spec"] for r in rows])
+    return [
+        VisualAssetSpecRecord.model_validate(
+            {
+                "spec_id": r["spec_id"],
+                "revision": r["revision"],
+                "state": r["state"],
+                "created_at": r["created_at"],
+                "spec": spec,
+            }
+        )
+        for r, spec in zip(rows, specs, strict=True)
+    ]
 
 
 def _require_wellbore(session: Session, project_id: UUID, wellbore_id: UUID) -> None:
@@ -72,7 +79,7 @@ def get_current(session: Session, project_id: UUID, wellbore_id: UUID) -> Visual
     )
     if row is None:
         raise ContractError(ErrorCode.NOT_FOUND, "no asset spec for this wellbore yet", 404)
-    return _record(row)
+    return _records(session, project_id, [row])[0]
 
 
 def history(session: Session, project_id: UUID, wellbore_id: UUID) -> AssetSpecHistory:
@@ -87,7 +94,7 @@ def history(session: Session, project_id: UUID, wellbore_id: UUID) -> AssetSpecH
         .mappings()
         .all()
     )
-    return AssetSpecHistory(items=[_record(r) for r in rows])
+    return AssetSpecHistory(items=_records(session, project_id, list(rows)))
 
 
 def _reject(findings: list[SpecFinding], message: str) -> ContractError:
@@ -113,9 +120,20 @@ def store_validated(
     )[0]
 
 
+def _stored(spec: dict[str, Any]) -> dict[str, Any]:
+    """The spec as persisted: read-time evidence fields (filename/locator/statement) are never
+    stored, so stored specs stay byte-compatible with those written before they existed."""
+    for component in spec.get("components") or []:
+        for ev in component.get("evidence") or []:
+            for key in READABLE_EVIDENCE_FIELDS:
+                ev.pop(key, None)
+    return spec
+
+
 def _content(spec: dict[str, Any]) -> tuple[Any, Any]:
     """What makes two specs the same design: components and findings (not times or run ids)."""
-    return spec.get("components"), spec.get("findings")
+    stripped = _stored(copy.deepcopy(spec))
+    return stripped.get("components"), stripped.get("findings")
 
 
 def store_validated_checked(
@@ -158,7 +176,7 @@ def store_validated_checked(
             .first()
         )
         if cur is not None and _content(cur["spec"]) == _content(spec.model_dump(mode="json")):
-            return _record(cur), False
+            return _records(session, project_id, [cur])[0], False
     nxt = session.execute(
         select(func.coalesce(func.max(T.c.revision), 0) + 1).where(
             T.c.project_id == project_id, T.c.wellbore_id == wellbore_id
@@ -184,14 +202,14 @@ def store_validated_checked(
                 source_revision=spec.source_revision,
                 generator_provider=spec.generator.provider,
                 generator_model=spec.generator.model,
-                spec=spec.model_dump(mode="json"),
+                spec=_stored(spec.model_dump(mode="json")),
             )
             .returning(*T.c)
         )
         .mappings()
         .one()
     )
-    return _record(row), True
+    return _records(session, project_id, [row])[0], True
 
 
 def generate_stub(

@@ -143,6 +143,23 @@ export interface paths {
         patch: operations["update_classification_api_v1_projects__project_id__documents__document_id__classification_patch"];
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/documents/{document_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Document Content */
+        get: operations["document_content_api_v1_projects__project_id__documents__document_id__content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/documents/{document_id}/extraction": {
         parameters: {
             query?: never;
@@ -2201,6 +2218,17 @@ export interface components {
              */
             document_id: string | null;
             /**
+             * Filename
+             * @default null
+             */
+            filename: string | null;
+            /**
+             * Locator
+             * @description e.g. 'page 3, table 2, row 5' or 'line 14'.
+             * @default null
+             */
+            locator: string | null;
+            /**
              * Page
              * @default null
              */
@@ -2210,6 +2238,12 @@ export interface components {
              * @default null
              */
             quote: string | null;
+            /**
+             * Statement
+             * @description Short readable statement of the source record.
+             * @default null
+             */
+            statement: string | null;
         };
         /**
          * EvidenceSearchQuery
@@ -6245,6 +6279,12 @@ export interface components {
             /** Filename */
             filename: string;
             /**
+             * Page
+             * @description First page of the set's stations when the source is a paged document (PDF).
+             * @default null
+             */
+            page: number | null;
+            /**
              * Reasons
              * @description Why the set is not drawn (data quality or not selected); empty when used.
              */
@@ -7464,6 +7504,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    document_content_api_v1_projects__project_id__documents__document_id__content_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Original PDF bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Requested byte range. */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Not modified. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Range not satisfiable. */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */

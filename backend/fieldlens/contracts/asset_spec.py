@@ -181,6 +181,14 @@ class EvidenceRef(ContractModel):
     page: int | None = Field(default=None, ge=1, le=100_000)
     quote: str | None = Field(default=None, max_length=400)
     candidate_id: UUID | None = None
+    # Readable fields, filled at read time from stored rows (never stored, never document I/O).
+    filename: str | None = Field(default=None, max_length=512)
+    locator: str | None = Field(
+        default=None, max_length=200, description="e.g. 'page 3, table 2, row 5' or 'line 14'."
+    )
+    statement: str | None = Field(
+        default=None, max_length=300, description="Short readable statement of the source record."
+    )
 
     @model_validator(mode="after")
     def _anchored(self) -> EvidenceRef:
