@@ -2757,3 +2757,24 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 **Outcome.** (D1) An abandoned re-process estimate must not regress the panel to "Not started": derive processing status from the latest started run. (D2) A stub run must not display a "Cost (actual)" figure; show it as illustrative or hide it. (D3) With a misconfigured provider, the chip/headline must not say "model processing available" while the action is disabled.
 **Next action.** Owner-approved scope pending; small single lane.
 **Evidence.** none yet
+
+### TASK-074 · Live processing blocked by unconfirmed budget balance, with the cause hidden
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | ready |
+| Priority | P0 |
+| Tags | backend, frontend |
+| Depends on | TASK-072 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/MODEL_PROCESSING_OUTCOME.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-H |
+
+**Outcome.** Owner live test of 0.37.0 (2026-11-02): every Process with model run failed `provider_error: provider_unavailable` with no usable cause. Root cause: the `processing-live` budget period has `starting_balance_usd` NULL (balance confirmation is an owner ledger action that nothing offered), so `BudgetLedger.reserve` raises `ProviderUnavailable("starting balance is not confirmed")` before any call; `map_failure` then drops the reason. Fix: (1) surface the reason (safe text, no secrets) in run failure message/outcome and server log; (2) provider_info reports `balance_unconfirmed` (or similar) before an estimate/confirm and blocks with a clear 409 naming the owner action; (3) an explicit owner command to confirm the processing balance for the live period; (4) docs. Ledger is never auto-confirmed.
+**Next action.** Lane `task-074-ledger-balance`; independent QA; patch release 0.37.1.
+**Evidence.** none yet
