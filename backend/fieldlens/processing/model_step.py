@@ -322,14 +322,17 @@ class ModelClassificationStep:
         return out
 
     def _limits(self, reserved: Decimal) -> RequestLimits:
-        """Reservation of one call == that call's pre-flight bound (TASK-075)."""
+        """Reservation of one call == its pre-flight bound x ``max_attempts`` (retry headroom).
+
+        The confirmed estimate stays the sum of single-call bounds; a transient retry can add at
+        most one more bound per call (spec section 8). Spend is still booked from attempts."""
         base = self._config.limits
         return RequestLimits(
             max_attempts=base.max_attempts,
             max_tool_calls=0,
             deadline_s=base.deadline_s,
             max_output_tokens=base.max_output_tokens,
-            max_reserved_usd=reserved,
+            max_reserved_usd=quantize(reserved * base.max_attempts),
             image_token_bound=base.image_token_bound,
             retry_backoff_s=base.retry_backoff_s,
             default_effort=base.default_effort,

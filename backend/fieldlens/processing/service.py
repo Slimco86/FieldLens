@@ -345,7 +345,7 @@ def create_estimate(
                 raise _conflict(
                     "idempotency key was used for a different selection", "idempotency_conflict"
                 )
-            return get_run(session, settings, project_id, prior.run_id)
+            return get_run(session, settings, project_id, prior.run_id, planner)
     busy = _active_documents(session, project_id, ids)
     if busy:
         raise _conflict(
@@ -605,7 +605,39 @@ def retry_run(
 
 
 # -- read models ------------------------------------------------------------------------------
-def _estimate_dto(session: Session, settings: Settings, run: Any) -> ProcessingEstimate:
+def _recompute_note(
+    session: Session, run: Any, planner: DocumentPlanner | None
+) -> tuple[int, list[int], Decimal, Decimal] | None:
+    """Estimation is local and cheap: rebuild the per-run details from the stored run + documents
+    when the in-memory cache is empty (e.g. after an API restart). No migration is needed."""
+    if planner is None:
+        return None
+    rows = session.execute(
+        select(prd.c.page_start, prd.c.page_end, m.source_document.c.storage_key)
+        .join(
+            m.source_document,
+            (m.source_document.c.project_id == prd.c.project_id)
+            & (m.source_document.c.document_id == prd.c.document_id),
+        )
+        .where(prd.c.project_id == run.project_id, prd.c.run_id == run.run_id)
+    ).all()
+    try:
+        plans = [planner(r.storage_key, r.page_start, r.page_end) for r in rows]
+    except Exception:  # unreadable now: details stay absent rather than wrong
+        return None
+    if not plans:
+        return None
+    return (
+        sum(p.calls for p in plans),
+        sorted(n for p in plans for n in p.no_text_pages),
+        plans[0].input_usd_per_mtok,
+        plans[0].output_usd_per_mtok,
+    )
+
+
+def _estimate_dto(
+    session: Session, settings: Settings, run: Any, planner: DocumentPlanner | None = None
+) -> ProcessingEstimate:
     live = run.status == "estimated"
     model_route = _is_model_route(run.step)
     if model_route:  # no spend gate and no live budget lookup on the model route (TASK-075)
@@ -616,6 +648,10 @@ def _estimate_dto(session: Session, settings: Settings, run: Any) -> ProcessingE
         fits = run.estimated_usd <= remaining and (run_cap is None or run.estimated_usd <= run_cap)
     with _NOTES_LOCK:
         note = _NOTES.get(run.run_id) if model_route else None
+    if model_route and note is None:
+        note = _recompute_note(session, run, planner)
+        if note is not None:
+            _remember(run.run_id, *note)
     return ProcessingEstimate(
         pages=run.estimated_pages,
         route=ProcessingRoute(run.route),
@@ -639,7 +675,13 @@ def _estimate_dto(session: Session, settings: Settings, run: Any) -> ProcessingE
     )
 
 
-def get_run(session: Session, settings: Settings, project_id: UUID, run_id: UUID) -> ProcessingRun:
+def get_run(
+    session: Session,
+    settings: Settings,
+    project_id: UUID,
+    run_id: UUID,
+    planner: DocumentPlanner | None = None,
+) -> ProcessingRun:
     run = session.execute(
         select(pr).where(pr.c.project_id == project_id, pr.c.run_id == run_id)
     ).first()
@@ -662,7 +704,7 @@ def get_run(session: Session, settings: Settings, project_id: UUID, run_id: UUID
         step=run.step,
         cancel_requested=run.cancel_requested,
         retry_of_run_id=run.retry_of_run_id,
-        estimate=_estimate_dto(session, settings, run),
+        estimate=_estimate_dto(session, settings, run, planner),
         confirmed_usd=run.confirmed_usd,
         actual_usd=run.actual_usd,
         attempt_no=run.attempt_no,

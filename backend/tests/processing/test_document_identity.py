@@ -497,7 +497,8 @@ def test_pe1_estimate_covers_the_runner_bound_for_a_text_dense_pdf(
     assert done["status"] == "succeeded" and len(m.provider.calls) == 1
     assert Decimal(done["actual_usd"]) <= Decimal(est["estimated_usd"])  # upper bound
     reserved = m.world.sql("SELECT reserved_usd FROM spend_reservation")[0][0]
-    assert reserved == Decimal(est["estimated_usd"])  # reservation == the call's bound
+    # reservation = the call's bound x max_attempts (retry headroom); the estimate is one attempt
+    assert reserved == Decimal(est["estimated_usd"]) * 2
 
 
 def test_pe3_a_large_selection_runs_in_sequential_chunks_one_reservation_each(
@@ -518,7 +519,7 @@ def test_pe3_a_large_selection_runs_in_sequential_chunks_one_reservation_each(
     assert len(m.provider.calls) == 3
     rows = m.world.sql("SELECT reserved_usd FROM spend_reservation ORDER BY created_at")
     assert len(rows) == 3
-    assert sum(Decimal(r[0]) for r in rows) == Decimal(est["estimated_usd"])
+    assert sum(Decimal(r[0]) for r in rows) == Decimal(est["estimated_usd"]) * 2
     sent = [m.sent_text(i) for i in range(3)]
     assert "DOCUMENT_PAGE 10>>>" in sent[0] and "DOCUMENT_PAGE 11>>>" not in sent[0]
     assert "DOCUMENT_PAGE 25>>>" in sent[2]
@@ -905,3 +906,52 @@ def test_d3b_earlier_fallback_general_report_is_dropped_by_a_real_category(
     assert m.run("other.pdf")["status"] == "succeeded"
     _, suggested, tags, _, _ = m.classification("other.pdf")
     assert suggested == ["trajectory"] and "unclassified" not in tags
+
+
+def test_d1_a_transient_connection_error_bills_nothing_and_the_retry_runs(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [errors.ProviderConnectionError("boom"), answer(identities=[])],
+        files={"dense.pdf": dense_pdf(3)},
+    )
+    run = m.world.estimate("dense.pdf", pages={"dense.pdf": (1, 3)}).json()
+    est = Decimal(run["estimate"]["estimated_usd"])
+    assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
+    done = m.world.get(run["run_id"])
+    assert done["status"] == "succeeded" and len(m.provider.calls) == 2
+    actual = Decimal(done["actual_usd"])
+    assert Decimal(0) < actual <= est  # only the answered attempt is charged
+    reserved = m.world.sql("SELECT reserved_usd FROM spend_reservation")[0][0]
+    assert Decimal(reserved) == est * 2  # retry headroom; the estimate stays one attempt
+
+
+def test_d1_retry_cost_is_bounded_by_two_attempts_per_call(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [errors.ProviderServerError("5xx"), errors.ProviderServerError("5xx"), answer()],
+        files={"dense.pdf": dense_pdf(3)},
+    )
+    run = m.world.estimate("dense.pdf", pages={"dense.pdf": (1, 3)}).json()
+    est = Decimal(run["estimate"]["estimated_usd"])
+    assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
+    done = m.world.get(run["run_id"])
+    assert done["status"] != "succeeded" and len(m.provider.calls) == 2  # never a third attempt
+    assert Decimal(done["actual_usd"]) <= est * 2
+
+
+def test_d2_estimate_details_survive_an_empty_cache(migrated_url: URL, tmp_path: Path) -> None:
+    from fieldlens.processing import service
+
+    m = build_model(migrated_url, tmp_path, [answer()], files={"dense.pdf": dense_pdf(3)})
+    run = m.world.estimate("dense.pdf", pages={"dense.pdf": (1, 3)}).json()
+    before = run["estimate"]
+    service._NOTES.clear()  # what an API restart does
+    after = m.world.get(run["run_id"])["estimate"]
+    for key in ("calls", "pages_without_text", "input_usd_per_mtok", "output_usd_per_mtok"):
+        assert after[key] == before[key] and after[key] is not None

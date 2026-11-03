@@ -136,7 +136,8 @@ export function ProcessEstimateDialog({
               <dt>Estimated cost</dt>
               <dd>
                 USD {e.estimated_usd}
-                {e.upper_bound && " (upper bound; actual is usually lower)"}
+                {e.upper_bound &&
+                  " (upper bound for one attempt per call; a retry can add at most one more bound per call; actual is usually lower)"}
               </dd>
               <dt>Rates</dt>
               <dd>

@@ -232,7 +232,7 @@ describe("model processing: no native parser", () => {
     expect(within(dialog).getByText(/8,000 input, 2,000 output/)).toBeInTheDocument();
     expect(within(dialog).getByText(/^USD 0\.007400 \(upper bound/)).toBeInTheDocument();
     expect(within(dialog).queryByText(/Remaining budget|total cap/)).not.toBeInTheDocument();
-    expect(within(dialog).getByText(/upper bound; actual is usually lower/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/upper bound for one attempt per call; a retry can add at most one more bound per call; actual is usually lower/)).toBeInTheDocument();
     expect(within(dialog).getByText(/USD 0\.30 input, USD 2\.50 output per million tokens/)).toBeInTheDocument();
     expect(within(dialog).getByText(/confirming makes live model calls/)).toBeInTheDocument();
 
