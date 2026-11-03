@@ -3867,7 +3867,7 @@ export interface components {
              * @description Model name that would run; 'stub' for the stub provider.
              */
             model: string;
-            /** @description FIELDLENS_PROCESSING_PROVIDER as set. */
+            /** @description The processing provider as requested. */
             requested: components["schemas"]["ProcessingProvider"];
             /** Spends Money */
             spends_money: boolean;

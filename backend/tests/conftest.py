@@ -17,6 +17,11 @@ from tests import live_meta_support, support
 if os.environ.get(live_meta_support.OPT_IN_VAR) == "1":
     live_meta_support.STASHED_KEY["key"] = os.environ.get("MODEL_API_KEY", "")
 os.environ["MODEL_API_KEY"] = ""
+# ...and never a live processing provider: a blank/absent request resolves to the stub, so a
+# `.env` carrying FIELDLENS_PROCESSING_PROVIDER=meta cannot make a default test build a meta runtime.
+# Live smoke tests (explicit opt-in + the live_meta marker) set what they need themselves.
+if os.environ.get(live_meta_support.OPT_IN_VAR) != "1":
+    os.environ["FIELDLENS_PROCESSING_PROVIDER"] = "stub"
 # Default tests never load the real local embedding model, even when it is installed under
 # .local: embeddings are disabled unless a test sets the provider explicitly (fake offline).
 os.environ["FIELDLENS_EMBEDDING_PROVIDER"] = "none"

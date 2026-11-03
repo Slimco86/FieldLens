@@ -22,6 +22,19 @@ from tests import support  # noqa: E402
 
 DEFAULT_API_PORT = 8101
 
+# E2E never spends provider credit, whatever the .env or the ambient environment says: a blank
+# MODEL_API_KEY wins over the real key in both, and the stub provider is forced.
+HERMETIC_PROVIDER_ENV = {
+    "FIELDLENS_PROCESSING_PROVIDER": "stub",
+    "MODEL_API_KEY": "",
+    "FIELDLENS_LIVE_META": "",
+}
+
+
+def hermetic_env(env: dict[str, str]) -> dict[str, str]:
+    """``env`` with the provider pinned to the stub (the environment the e2e API/suite receive)."""
+    return {**env, **HERMETIC_PROVIDER_ENV}
+
 
 def api_port() -> int:
     """E2E API port: ``FIELDLENS_E2E_API_PORT`` (lane runs) or the default 8101."""
@@ -69,7 +82,7 @@ def _start_api(env: dict[str, str]) -> subprocess.Popen[bytes]:
             str(API_PORT),
         ],
         cwd=ROOT,
-        env=env,
+        env=hermetic_env(env),
     )
 
 
@@ -161,7 +174,7 @@ def main() -> int:
         tempfile.TemporaryDirectory(prefix="control-", dir=storage) as control,
     ):
         support.migrate(url)
-        env = (
+        env = hermetic_env(
             os.environ
             | browser_env
             | {

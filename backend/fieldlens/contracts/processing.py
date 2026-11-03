@@ -343,7 +343,7 @@ class ProviderStatus(StrEnum):
 class ProcessingProviderInfo(ContractModel):
     """Which provider processing uses and why. Item names only: never a secret or any value."""
 
-    requested: ProcessingProvider = Field(description="FIELDLENS_PROCESSING_PROVIDER as set.")
+    requested: ProcessingProvider = Field(description="The processing provider as requested.")
     active: ProcessingProvider = Field(description="Provider that would run now.")
     model: str = Field(description="Model name that would run; 'stub' for the stub provider.")
     status: ProviderStatus

@@ -26,7 +26,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 F = op.f
-CACHE_KEY = F("uq_document_model_result_cache_key")
+CACHE_KEY = "uq_document_model_result_cache_key"  # plain string: no op.* call at import
 
 
 def upgrade() -> None:
