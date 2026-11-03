@@ -170,7 +170,7 @@ def _build_meta(
             pricing_id=pricing_id,
             pricing=model_pricing,
             model=settings.meta_model,
-            max_pages=settings.processing_model_pages,
+            pages_per_call=settings.processing_pages_per_call,
             limits=RequestLimits(
                 max_attempts=2,
                 max_tool_calls=0,

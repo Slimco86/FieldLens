@@ -138,6 +138,7 @@ def build_model(
     loop_last: bool = False,
     files: dict[str, bytes] | None = None,
     max_output_tokens: int = 300,
+    pages_per_call: int = 10,
     **settings: Any,
 ) -> Model:
     api = make_api(
@@ -182,7 +183,7 @@ def build_model(
             pricing_id=pricing_id,
             pricing=PRICING,
             model=MODEL,
-            max_pages=model_pages,
+            pages_per_call=pages_per_call,
             limits=RequestLimits(
                 max_attempts=2,
                 max_tool_calls=0,
@@ -414,14 +415,14 @@ def test_ac6_exact_normalized_key_links_and_a_near_miss_stays_unresolved(
 
 
 # -- AC-7 ---------------------------------------------------------------------------------------
-def test_ac7_pages_read_never_exceed_the_bound_or_the_confirmed_estimate(
+def test_ac7_no_range_reads_the_default_window_and_a_chosen_range_is_honoured(
     migrated_url: URL, tmp_path: Path
 ) -> None:
     m = build_model(migrated_url, tmp_path, [answer(identities=[])], model_pages=2)
-    r = m.world.estimate("long.pdf")  # 8 pages, no range: the bound applies, no 500-page refusal
+    r = m.world.estimate("long.pdf")  # 8 pages, no range: the default window, no refusal
     assert r.status_code == 201, r.text
     run = r.json()
-    assert run["estimate"]["pages"] == 2
+    assert run["estimate"]["pages"] == 2 and run["estimate"]["upper_bound"] is True
     assert run["documents"][0]["pages"] == {"page_start": 1, "page_end": 2}
     assert run["documents"][0]["page_count"] == 8
     assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
@@ -431,9 +432,12 @@ def test_ac7_pages_read_never_exceed_the_bound_or_the_confirmed_estimate(
     assert "<<<DOCUMENT_PAGE 1>>>" in sent and "<<<DOCUMENT_PAGE 2>>>" in sent
     assert "DOCUMENT_PAGE 3" not in sent and "long page 3" not in sent
 
-    # an explicit wider range is clipped the same way
+    # PE-2: the user's choice is not clipped; it is part of the idempotency fingerprint
     wide = m.world.estimate("other.pdf", pages={"other.pdf": (1, 3)})
-    assert wide.json()["estimate"]["pages"] == 2
+    assert wide.json()["estimate"]["pages"] == 3
+    again = m.world.estimate("other.pdf", pages={"other.pdf": (1, 2)}, idempotency_key="k1")
+    other = m.world.estimate("other.pdf", pages={"other.pdf": (1, 3)}, idempotency_key="k1")
+    assert again.status_code == 201 and other.status_code == 409
 
 
 def test_ac7_default_page_bound_is_five_and_configurable() -> None:
@@ -458,19 +462,104 @@ def test_ac7_exceeded_estimate_stops_with_the_existing_budget_failure(
     assert doc["pages_done"] < 3  # it stopped; it did not read on past the confirmed amount
 
 
-def test_ac7_estimate_too_small_for_the_call_stops_before_any_provider_call(
+def dense_pdf(pages: int, lines: int = 60) -> bytes:
+    """Text-dense pages (about 6 KB each): the flat 1,600 tokens/page estimate was far too low."""
+    return make_pdf(
+        [
+            PdfPage(lines=[f"dense page {i} line {j} " + "x" * 80 for j in range(lines)])
+            for i in range(1, pages + 1)
+        ]
+    )
+
+
+def test_pe1_estimate_covers_the_runner_bound_for_a_text_dense_pdf(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    """0.37.1 regression: the old constant estimate was below the pre-flight bound -> budget_stop
+    before any call. The estimate is now computed from the real text, so the run succeeds."""
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [answer(identities=[])],
+        files={"dense.pdf": dense_pdf(5)},
+        processing_input_tokens_per_page=1600,
+        processing_output_tokens_per_page=400,
+    )
+    run = m.world.estimate("dense.pdf", pages={"dense.pdf": (1, 5)}).json()
+    old_flat = (Decimal(1600) * 1 + Decimal(400) * 4) / 1_000_000 * 5
+    est = run["estimate"]
+    assert Decimal(est["estimated_usd"]) > old_flat  # the old estimate was below the bound
+    assert est["estimated_input_tokens"] > 5 * 1600 and est["estimated_output_tokens"] == 300
+    assert est["calls"] == 1 and est["pages_without_text"] == [] and est["upper_bound"] is True
+    assert Decimal(est["input_usd_per_mtok"]) == Decimal("1.00")
+    assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
+    done = m.world.get(run["run_id"])
+    assert done["status"] == "succeeded" and len(m.provider.calls) == 1
+    assert Decimal(done["actual_usd"]) <= Decimal(est["estimated_usd"])  # upper bound
+    reserved = m.world.sql("SELECT reserved_usd FROM spend_reservation")[0][0]
+    assert reserved == Decimal(est["estimated_usd"])  # reservation == the call's bound
+
+
+def test_pe3_a_large_selection_runs_in_sequential_chunks_one_reservation_each(
     migrated_url: URL, tmp_path: Path
 ) -> None:
     m = build_model(
         migrated_url,
         tmp_path,
-        [answer()],
-        processing_input_tokens_per_page=1,
-        processing_output_tokens_per_page=1,
+        [answer(), answer(category="drilling_report", identities=[]), answer(identities=[])],
+        files={"big.pdf": pages_of("big", 25, {1: [PAGE_QUOTE]})},
     )
-    run = m.run("other.pdf")
-    assert run["status"] == "failed" and run["error_code"] == "budget_stop"
-    assert m.provider.calls == [] and m.count("document_model_result") == 0
+    run = m.world.estimate("big.pdf", pages={"big.pdf": (1, 25)}).json()
+    est = run["estimate"]
+    assert est["pages"] == 25 and est["calls"] == 3
+    assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
+    done = m.world.get(run["run_id"])
+    assert done["status"] == "succeeded" and done["documents"][0]["pages_done"] == 25
+    assert len(m.provider.calls) == 3
+    rows = m.world.sql("SELECT reserved_usd FROM spend_reservation ORDER BY created_at")
+    assert len(rows) == 3
+    assert sum(Decimal(r[0]) for r in rows) == Decimal(est["estimated_usd"])
+    sent = [m.sent_text(i) for i in range(3)]
+    assert "DOCUMENT_PAGE 10>>>" in sent[0] and "DOCUMENT_PAGE 11>>>" not in sent[0]
+    assert "DOCUMENT_PAGE 25>>>" in sent[2]
+    read = m.read("big.pdf")  # deterministic merge: one result for the whole selection
+    assert read["category"] == "completion_equipment" and len(read["identities"]) == 1
+    assert m.count("document_model_result") == 1
+
+
+def test_pe3_a_failing_chunk_fails_the_document_naming_it_and_stores_nothing(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [answer(), refusal_response(USAGE)],
+        files={"big.pdf": pages_of("big", 25)},
+    )
+    run = m.run("big.pdf", pages={"big.pdf": (1, 25)})
+    doc = run["documents"][0]
+    assert run["status"] == "failed" and doc["state"] == "failed"
+    assert doc["failure_code"] == "provider_refused" and "chunk 2 of 3" in doc["failure_message"]
+    assert "pages 11-20" in doc["failure_message"]
+    assert Decimal(run["actual_usd"]) > 0  # the billed chunks are recorded
+    assert m.count("document_model_result") == 0 and m.count("document_identity_proposal") == 0
+    assert m.world.states()["big.pdf"]["model_read"] is None
+
+
+def test_pe5_pages_without_a_text_layer_are_counted_and_an_all_image_run_spends_nothing(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    m = build_model(migrated_url, tmp_path, [answer()])
+    run = m.world.estimate("blank.pdf", pages={"blank.pdf": (1, 2)}).json()
+    est = run["estimate"]
+    assert est["pages_without_text"] == [1, 2] and est["calls"] == 0
+    assert est["estimated_input_tokens"] == 0 and Decimal(est["estimated_usd"]) == 0
+    assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
+    done = m.world.get(run["run_id"])
+    assert done["status"] == "succeeded" and Decimal(done["actual_usd"]) == 0
+    assert m.provider.calls == [] and m.count("spend_reservation") == 0
+    codes = [w["code"] for w in m.read("blank.pdf")["warnings"]]
+    assert "no_text_layer" in codes
 
 
 @pytest.mark.parametrize(
@@ -515,16 +604,21 @@ def test_ac7_a_failed_document_is_retried_through_a_new_estimate_and_confirm(
     assert m.count("document_model_result") == 1
 
 
-def test_per_run_cap_makes_a_larger_estimate_unconfirmable(
+def test_pe4_no_run_or_total_cap_gates_a_confirmed_model_run(
     migrated_url: URL, tmp_path: Path
 ) -> None:
-    m = build_model(migrated_url, tmp_path, [answer()], processing_run_cap_usd=Decimal("0.02"))
-    run = m.world.estimate("long.pdf").json()  # 5 pages * 0.011 = 0.055 > cap
-    assert run["estimate"]["confirmable"] is False and run["estimate"]["fits_budget"] is False
-    r = m.world.confirm(run)
-    assert r.status_code == 409 and r.json()["error"]["details"]["reason"] == "run_cap_exceeded"
-    ok = m.world.estimate("other.pdf", pages={"other.pdf": (1, 1)}).json()  # 0.011 <= cap
-    assert ok["estimate"]["confirmable"] is True
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [answer()],
+        processing_run_cap_usd=Decimal("0.000001"),
+        processing_total_cap_usd=Decimal("0.01"),
+    )
+    run = m.world.estimate("long.pdf", pages={"long.pdf": (1, 8)}).json()
+    assert Decimal(run["estimate"]["estimated_usd"]) > Decimal("0.000001")
+    assert run["estimate"]["confirmable"] is True and run["estimate"]["fits_budget"] is True
+    assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
+    assert m.world.get(run["run_id"])["status"] == "succeeded"
 
 
 # -- AC-8 ---------------------------------------------------------------------------------------

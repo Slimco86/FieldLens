@@ -66,7 +66,7 @@ test("TASK-055: unsupported PDF -> Process -> estimate -> confirm -> model-read 
   await expect(dialog.getByText(/This is an estimate only/)).toBeVisible();
   await expect(dialog.getByText("Pages to read")).toBeVisible();
   await expect(dialog.getByText(/input,.*output/)).toBeVisible();
-  await expect(dialog.getByText(/USD [\d.]+ of USD 5(\.0+)? total cap/)).toBeVisible();
+  await expect(dialog.getByText(/Remaining budget|total cap/)).toHaveCount(0);
   const violations = (await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations;
   expect(violations).toEqual([]);
   // Escape cancels without a run; the Process action is available again and focus returns to it

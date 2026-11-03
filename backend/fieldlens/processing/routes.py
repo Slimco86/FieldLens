@@ -121,6 +121,7 @@ def build_processing_router() -> APIRouter:
                 page_bound=rt.step.max_pages_per_document,
                 force=body.force,
                 model=rt.model,
+                planner=getattr(rt.step, "plan_document", None),
             ),
         )
         return out
@@ -191,6 +192,7 @@ def build_processing_router() -> APIRouter:
                 run_id,
                 rt.step.max_pages_per_document,
                 model=rt.model,
+                planner=getattr(rt.step, "plan_document", None),
             ),
         )
         return out

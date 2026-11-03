@@ -38,6 +38,55 @@ class PageUsage:
     cost_usd: Decimal
 
 
+@dataclass(frozen=True)
+class ChunkPlan:
+    """One sequential provider call: its pages, the pages with no text layer and its pre-flight
+    bound. ``bound_usd`` is exactly the runner's per-call bound, hence also the reservation."""
+
+    pages: tuple[int, ...]
+    no_text_pages: tuple[int, ...]
+    input_tokens: int
+    output_tokens: int
+    bound_usd: Decimal
+
+    @property
+    def calls(self) -> int:
+        return 0 if len(self.no_text_pages) == len(self.pages) else 1
+
+
+@dataclass(frozen=True)
+class DocumentPlan:
+    """Estimate of one document window from its real page text (no network, no spend)."""
+
+    chunks: tuple[ChunkPlan, ...]
+    input_usd_per_mtok: Decimal
+    output_usd_per_mtok: Decimal
+
+    @property
+    def no_text_pages(self) -> list[int]:
+        return [p for c in self.chunks for p in c.no_text_pages]
+
+    @property
+    def calls(self) -> int:
+        return sum(c.calls for c in self.chunks)
+
+    @property
+    def input_tokens(self) -> int:
+        return sum(c.input_tokens for c in self.chunks)
+
+    @property
+    def output_tokens(self) -> int:
+        return sum(c.output_tokens for c in self.chunks)
+
+    @property
+    def bound_usd(self) -> Decimal:
+        return quantize(sum((c.bound_usd for c in self.chunks), Decimal(0)))
+
+
+DocumentPlanner = Callable[[str, int, int], DocumentPlan]
+"""``planner(storage_key, page_start, page_end)``; raises when the pages cannot be read."""
+
+
 class PageFailure(Exception):
     """A typed page failure; the document becomes ``failed`` with this code (retryable)."""
 
