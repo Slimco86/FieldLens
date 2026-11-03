@@ -206,3 +206,39 @@ re-groups files and invalidates the dependent draft spec.
 - **MD range.** S5 passes the wellbore's known maximum MD (`identity.resolver.known_md_max`, +5%) to the validator; a located part beyond it becomes an unlocated generic one. A wellbore with no trajectory/log range gets no check (never guessed).
 - **Not done / open.** No real search backend is shipped (needs an owner-chosen provider and key); Meta built-in web search is not
   used. No live Meta call was made (AG-10).
+
+## 16. First live-run findings (2026-11-03) and amendments
+
+Owner ran a reconstruction on F-5 and F-12 against real Meta. Findings and approved fixes (TASK-084, 085, 083):
+
+- **F1 S3 fails `output_truncated` (TASK-084).** S3 (`MergeProposer`) and S5 (`LiveDesigner`) ran with `effort=None`, i.e. the
+  provider default (`high`), so reasoning exhausted `max_output_tokens=2048` (MI-6; the S2 reader already uses `effort="low"`).
+  The failed stage also reports 0 tokens although USD was spent. Fix: `effort="low"` (configurable, same pattern as S2) for S3 and
+  S5; the S3 output bound sized to the block count; on `ProviderTruncated` retry once with a larger bound and `minimal` effort
+  before failing; record the call's real input/output tokens on the stage even when it fails; the failure message says what
+  happened and what the user can do ("The model ran out of output space; retry"). Acceptance: a fake provider that truncates
+  once then answers yields proposals; truncating twice yields a `failed` stage with tokens/USD recorded and a readable message.
+- **F2 S5 says "no equipment data" for a wellbore that has structured equipment (TASK-085).** S5 only reads
+  `extraction_candidate` rows of kind `equipment` (model-read PDF/OCR content). Natively parsed records (`casing_point`,
+  `tubular_assembly`, `tubular_component`, `wb_geometry`/`wb_geometry_section`, `bha_run`, `perforation_interval`, and similar
+  equipment-like kinds, discovered from `extracted_record` linked to the wellbore through `record_wellbore_link`) were never
+  inputs. Amendment: the designer's input is the union of (a) structured records, converted deterministically into components
+  (dimensions only from the printed attribute values with units, MD intervals as printed, evidence = the record's locator,
+  `source_dimensioned` only when dimensions are printed, otherwise generic with "Missing: ..." comments), and (b) model-read
+  equipment candidates. Structured components need no model call, so S5 produces a spec even without a live model (the stage
+  says how many components came from structured records and how many from the model). The model, when present, only labels or
+  classifies items it is given; it never adds dimensions. "No equipment data" is shown only when both sources are empty.
+  A re-run with unchanged inputs keeps the same-run-key behaviour of §15.
+- **F3 Real survey in the 3D views (TASK-083, F2's companion).** The viewers must draw the wellbore's validated survey instead of
+  the vertical placeholder. Read-only route
+  `GET /api/v1/projects/{project_id}/wellbores/{wellbore_id}/trajectory` returns: stations downsampled for display only
+  (never for any calculation; `displayed_count`/`source_count` stated), computed deterministically in double precision with
+  minimum curvature as local ENU offsets (m) from the wellhead, plus `md`/`tvd` per station, the depth reference, the azimuth
+  reference, the CRS/datum of the surface location when validated (else `null`; never assumed), the chosen trajectory set's
+  identity/evidence (document, locator, `planned`/`as_built`), and the surface location (northing/easting/units/CRS) when
+  validated. Planned and as-built are never mixed; when several sets exist the as-built, most-recent validated set is
+  used and the others are listed. A wellbore with no valid survey returns 404 `no_trajectory` and the viewer keeps the
+  labelled placeholder. The viewer labels the trace "Survey: <doc>, as-built, MD x-y m" and shows the surface location text
+  (with CRS) in the info panel. Located components (MD) are placed on the real trace, so equipment follows the survey.
+  Field view keeps the schematic grid ("not map positions") in this slice; true map positions are a follow-up.
+- **Not in scope.** Field-view map positions, formation/reservoir wrapping, any change to merge semantics.
