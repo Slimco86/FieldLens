@@ -165,9 +165,10 @@ export function ProjectSidebar() {
                     type="button"
                     label={p.name}
                     aria-label={`Open project ${p.name}`}
+                    title={p.name}
                     aria-current={active ? "page" : undefined}
                     active={active}
-                    classNames={{ body: styles.navBody, label: styles.navLabel }}
+                    classNames={{ root: styles.navRoot, body: styles.navBody, label: styles.navLabel }}
                     leftSection={<FolderKanban size={16} aria-hidden="true" />}
                     onClick={() => navigate({ kind: "project", projectId: p.project_id, section: "sources" })}
                   />
@@ -178,6 +179,7 @@ export function ProjectSidebar() {
                   <ActionIcon
                     variant="subtle"
                     color="red"
+                    className={styles.deleteButton}
                     aria-label={
                       p.deletion_state === "none"
                         ? `Delete project ${p.name}`

@@ -263,3 +263,25 @@ describe("project deletion dialog", () => {
     await waitFor(() => expect(screen.getByText("Projects", { selector: "p" })).toHaveFocus());
   }, 15000);
 });
+
+describe("inline delete control (TASK-072 AC-1)", () => {
+  it("is an icon-only sibling of the open button in the same row, with a full-name title and keyboard order", async () => {
+    const long = "A very long project name ".repeat(6).trim();
+    install((url) => {
+      if (url.startsWith("/api/v1/projects?")) return page(project(A, long));
+      return undefined;
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    const del = await screen.findByRole("button", { name: `Delete project ${long}` });
+    const open = screen.getByRole("button", { name: `Open project ${long}` });
+    expect(open).toHaveAttribute("title", long);
+    expect(open.parentElement).toBe(del.parentElement);
+    expect(open.contains(del)).toBe(false);
+    expect(del.textContent).toBe("");
+    expect(del.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    open.focus();
+    await user.tab();
+    expect(del).toHaveFocus();
+  });
+});
