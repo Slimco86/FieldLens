@@ -8,6 +8,13 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.43.1 - 2026-11-03
+
+- **TASK-082 final-QA polish.** The "illustrative" badge text now meets contrast (7.5:1); both 3D canvas wrappers have
+  a `group` role; focus returns to the wellbore list after "← Field view" and to Revert (Accept) or the proposal row
+  (Reject/Revert) in merge review; the stale shell.spec UI-2/UI-10 assertions are updated; the e2e runner always uses a
+  fresh per-run storage root (opt in to a persistent one with `FIELDLENS_E2E_STORAGE_ROOT`).
+
 ## 0.43.0 - 2026-11-03
 
 - **TASK-079 the agent now designs the 3D asset (stage S5).** For each wellbore of a reconstruction run, S5 asks the

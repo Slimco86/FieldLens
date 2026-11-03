@@ -2950,7 +2950,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P1 |
 | Tags | frontend, qa |
 | Depends on | TASK-081 |
@@ -2958,13 +2958,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.43.1 |
 | Parent | FL-023 |
 | Slice | FL-023-G |
 
 **Outcome.** Fixes the reproduced integrated-QA defects: illustrative badge contrast (D1), scene canvas role (D2), focus return after back-to-field and merge Accept/Reject/Revert (D3), stale shell.spec assertions (D4) and the e2e runner's stale storage root (D5).
-**Next action.** Worker running in a worktree; independent re-verification, then a patch release.
-**Evidence.** none yet.
+**Next action.** None.
+**Evidence.** Independent QA (two rounds; the first failed D5 as configured and a ruff format check, both repaired in 07e332b): frontend lint, typecheck, check:contracts, build and vitest 332 pass; ruff, format and mypy strict clean; tooling tests 170 pass; D1 contrast 7.48:1 (axe clean on the wellbore viewer and field view); D2 role="group"; D3 focus returns to the wellbore list item after back-to-field, and to Revert/proposal row after Accept/Reject/Revert; D4 shell.spec UI-2/UI-10 pass at 1920 and 2560; D5 reproduced with FIELDLENS_STORAGE_ROOT set and stale unmarked files, clean start, stale dir untouched, no temp leftovers; shell, field-view, scene-render, reconstruction-merge e2e 20/20. Note: one non-reproducible vitest flake in project-delete/sources-slim under load.
 
 ### TASK-083 · Real survey trajectory in the 3D views
 
