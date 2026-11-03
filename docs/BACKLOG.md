@@ -3097,7 +3097,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, 3d |
 | Depends on | TASK-085 |
@@ -3105,13 +3105,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_POLISH.md |
-| Version | |
+| Version | 0.50.0 |
 | Parent | FL-023 |
 | Slice | FL-023-N |
 
 **Outcome.** Tree, field scene and dropdown show only wellbores with an asset spec; wells placed by surface E/N when CRS/datum/unit agree; traces thick by default.
-**Next action.** Wave 3 lane D.
-**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+**Next action.** Browser-verify in the integrated pass (thicker tubes, pads, framing, unlocated row). Known: useFieldSpecs.retry can leave other loading wells stuck when fired mid-load (pre-existing); trajectories refetch on each return to the field view; layout waits for all surveys (no timeout).
+**Evidence.** Merged 0.50.0 (a706332). Independent QA PASS (code/unit level): lint, typecheck, 357 vitest, build; independent UTM layout check (centroid exact, same axis convention as trajectory.ts, mixed CRS/datum/ft fall back). Real data (read-only): surface locations exist only on the unqualified F-5/F-12/F-14 records (E 435050-435052 m, same Zone 31N/European 1950, unit m), 1-2 m apart, so the qualified bores get the surface layout after their merges are accepted. No browser run.
 
 ### TASK-090 · Wellbore view: no unlocated tray, default wellhead, connected trajectory (polish items 11, 12 frontend)
 

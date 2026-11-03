@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.50.0 - 2026-11-03
+
+- **TASK-089 Explore lists and draws only reconstructed wellbores, placed by surface location.** The Explore tree, the field view and the single-view dropdown show only wellbores with an asset spec (a 200 on the per-wellbore asset-spec read; failures stay listed with Retry; summary counts keep the total, unreconstructed, failed and loading numbers); survey reads are issued only for them. Wells are placed at E/N offsets from the centroid of the located wells (double precision, then float32) when all share the same stated CRS, datum and metre unit, otherwise the labelled schematic grid; a well with no location waits in a labelled "unlocated" row; no reprojection or CRS guessing. Pads and glyphs scale to the nearest-neighbour spacing (same-platform wells are 1-2 m apart) and the camera frames the spread and the deepest trace. Trajectory tubes use the selected-state radius by default. Not browser-verified. The qualified bores (`15/9-F-n`) carry no surface location until their short-name merge is accepted.
+
 ## 0.49.0 - 2026-11-03
 
 - **TASK-092 3D material fidelity, blended selection highlight, detailed wellhead.** Element roles now have distinct finishes and clearer colour separation (matte cement/open-hole/rubber roles, brushed casing steel, lighter tubing, satin paints) instead of uniform gloss; the selection highlight tints the object's own colour (35 % toward amber, a cool tint for warm-hued roles such as perforations, own-hue emissive at 0.28) instead of overlaying it; the procedural wellhead has a blue-grey spool, dark flanges with instanced studs and a brass ring, red/blue gate valves with contrasting handwheels and a gauge. Default f14 scene cost: -2 % triangles, +2 % draw calls. Visual look not yet browser-verified; `cement`/`openHole` roles and the `setDimmed` helper exist but no viewer consumes them yet.
