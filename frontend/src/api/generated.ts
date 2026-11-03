@@ -6328,6 +6328,46 @@ export interface components {
             unit: string | null;
         };
         /**
+         * TrajectoryTieIn
+         * @description Derived, DISPLAY-ONLY segment from the wellhead (MD 0, TVD 0, local origin) to the first
+         *     surveyed station when that station is below the wellhead. Real stations/depths are untouched;
+         *     no calculation consumes it. ``points`` run from MD 0 to the first station MD (inclusive, same
+         *     offsets/TVD as the first station) and ``md_m`` along them is curve length, so a component with
+         *     MD below the first station is placed by linear interpolation of md_m -> (east, north, tvd).
+         */
+        TrajectoryTieIn: {
+            /**
+             * Derived
+             * @default true
+             * @constant
+             */
+            derived: true;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "vertical" | "arc";
+            /**
+             * Label
+             * @default tie_in
+             * @constant
+             */
+            label: "tie_in";
+            /**
+             * Max Dls Deg Per 30M
+             * @description Largest dogleg severity of the derived segment, deg per 30 m.
+             */
+            max_dls_deg_per_30m: number;
+            /** Points */
+            points: components["schemas"]["TrajectoryPoint"][];
+            /**
+             * Reason Code
+             * @default TIE_IN_DERIVED
+             * @constant
+             */
+            reason_code: "TIE_IN_DERIVED";
+        };
+        /**
          * UnitStatus
          * @enum {string}
          */
@@ -6750,6 +6790,11 @@ export interface components {
              * @enum {string}
              */
             survey_status: "planned" | "as_built" | "unstated" | "conflicting" | "not_applicable";
+            /**
+             * @description Derived display-only wellhead tie-in; null when the first station is at MD 0 or no plausible tie-in could be derived (see warnings).
+             * @default null
+             */
+            tie_in: components["schemas"]["TrajectoryTieIn"] | null;
             /** Tvd Reference */
             tvd_reference: string | null;
             /** Warnings */

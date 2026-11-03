@@ -31,6 +31,7 @@ from fieldlens.contracts.trajectory import (
     TrajectoryReason,
     TrajectorySetRef,
     TrajectorySurfaceLocation,
+    TrajectoryTieIn,
     WellboreTrajectory,
 )
 from fieldlens.engineering.trajectory import (
@@ -44,6 +45,7 @@ from fieldlens.engineering.trajectory import (
 )
 from fieldlens.exposure import rules
 from fieldlens.identity import service as identity_service
+from fieldlens.wellpath.tie_in import TieIn, TieInRejected, derive_tie_in
 
 MAX_DISPLAY_POINTS = 400
 NO_TRAJECTORY = "no_trajectory"
@@ -215,6 +217,7 @@ class _Computed:
     md_unit: str | None
     tvd_diff_m: float | None
     rows: list[_Row]
+    first_tvd_m: float | None = None  # stated first-station TVD (tie-in input only)
 
 
 def _first_ref(rows: list[_Row], key: str) -> str | None:
@@ -299,6 +302,7 @@ def compute_set(s: _Set) -> _Computed | list[TrajectoryReason]:
         md_unit=md_unit,
         tvd_diff_m=max(diffs) if diffs else None,
         rows=rows,
+        first_tvd_m=tvds[0],
     )
 
 
@@ -536,6 +540,25 @@ def wellbore_trajectory(
                 f"Offsets are relative to {c.north} north; no grid conversion is applied.",
             )
         )
+    tie_in: TrajectoryTieIn | None = None
+    first = traj.survey.stations[0]
+    if c.first_tvd_m is not None:
+        tie = derive_tie_in(first.md, c.first_tvd_m, first.inclination_deg, first.azimuth_deg)
+        if isinstance(tie, TieIn):
+            tie_in = TrajectoryTieIn(
+                kind="vertical" if tie.kind == "vertical" else "arc",
+                max_dls_deg_per_30m=tie.max_dls_deg_per_30m,
+                points=tie.points,
+            )
+            warnings.append(
+                _reason(
+                    "TIE_IN_DERIVED",
+                    "The survey starts below the wellhead; a derived display-only tie-in joins "
+                    "the wellhead to the first station. Depth records are unchanged.",
+                )
+            )
+        elif isinstance(tie, TieInRejected):
+            warnings.append(_reason(tie.code, tie.message))
     evidence: list[TrajectoryEvidence] = []
     ordered = c.rows
     if s.header is not None:
@@ -557,6 +580,7 @@ def wellbore_trajectory(
         geodetic_datum=surface.geodetic_datum if surface else None,
         surface_location=surface,
         points=points,
+        tie_in=tie_in,
         displayed_count=len(points),
         source_count=len(s.stations),
         md_min_m=float(traj.md_m[0]),

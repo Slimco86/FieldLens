@@ -9,7 +9,7 @@ from uuid import uuid4
 from fieldlens.wellpath.service import _Computed, _Row, _Set, compute_set, display_points
 
 
-def _row(i: int, md: float, incl: float, azi: float) -> _Row:
+def _row(i: int, md: float, incl: float, azi: float, tvd: float | None = None) -> _Row:
     def a(key: str, v: float, unit: str, ref: str | None = None) -> dict[str, object]:
         return {
             "key": f"trajectory_station.{key}",
@@ -29,7 +29,12 @@ def _row(i: int, md: float, incl: float, azi: float) -> _Row:
         kind="trajectory_station",
         state="unreviewed",
         locator={},
-        attrs=[a("md", md, "m"), a("incl", incl, "deg"), a("azi", azi, "deg", "true north")],  # type: ignore[list-item]
+        attrs=[
+            a("md", md, "m"),
+            a("incl", incl, "deg"),
+            a("azi", azi, "deg", "true north"),
+            *([a("tvd", tvd, "m")] if tvd is not None else []),
+        ],  # type: ignore[list-item]
         filename="x",
         when=None,
     )

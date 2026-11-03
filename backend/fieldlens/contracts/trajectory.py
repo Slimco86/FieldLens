@@ -78,6 +78,23 @@ class TrajectorySurfaceLocation(ContractModel):
     evidence: TrajectoryEvidence
 
 
+class TrajectoryTieIn(ContractModel):
+    """Derived, DISPLAY-ONLY segment from the wellhead (MD 0, TVD 0, local origin) to the first
+    surveyed station when that station is below the wellhead. Real stations/depths are untouched;
+    no calculation consumes it. ``points`` run from MD 0 to the first station MD (inclusive, same
+    offsets/TVD as the first station) and ``md_m`` along them is curve length, so a component with
+    MD below the first station is placed by linear interpolation of md_m -> (east, north, tvd)."""
+
+    derived: Literal[True] = True
+    kind: Literal["vertical", "arc"]
+    label: Literal["tie_in"] = "tie_in"
+    reason_code: Literal["TIE_IN_DERIVED"] = "TIE_IN_DERIVED"
+    max_dls_deg_per_30m: float = Field(
+        ge=0, description="Largest dogleg severity of the derived segment, deg per 30 m."
+    )
+    points: list[TrajectoryPoint] = Field(min_length=2)
+
+
 class WellboreTrajectory(ContractModel):
     project_id: UUID
     wellbore_id: UUID
@@ -96,6 +113,11 @@ class WellboreTrajectory(ContractModel):
     geodetic_datum: str | None
     surface_location: TrajectorySurfaceLocation | None
     points: list[TrajectoryPoint]
+    tie_in: TrajectoryTieIn | None = Field(
+        default=None,
+        description="Derived display-only wellhead tie-in; null when the first station is at "
+        "MD 0 or no plausible tie-in could be derived (see warnings).",
+    )
     displayed_count: int = Field(ge=0)
     source_count: int = Field(ge=0)
     md_min_m: float
