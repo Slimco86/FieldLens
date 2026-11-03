@@ -24,13 +24,16 @@
 .item {
   border-radius: var(--fl-radius-md);
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--fl-space-xs);
 }
-.item > :first-child {
-  flex: 1 1 auto;
-  min-width: 0;
+.item > * {
+  flex: none;
+}
+.deleteButton {
+  flex: none;
+  margin-inline-end: var(--fl-space-xs);
 }
 .item[data-active="true"] {
   background: var(--fl-color-brand-soft);
@@ -57,4 +60,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.item .navRoot {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
 }
