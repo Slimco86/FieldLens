@@ -139,6 +139,28 @@ conservative AABB pruning, reported `error_bound_m` = sum of per-path sagitta bo
 (<= 0.02 m); budget/deadline exhaustion returns `UNRESOLVED`. A distance is not proof of
 connectivity or safe clearance.
 
+### Wellhead tie-in (TASK-091, EXPLORE_POLISH F)
+
+When the first validated station has MD > 0 (stated TVD, inclination and azimuth), the response adds
+`tie_in` (`TrajectoryTieIn`): `derived: true`, `label: "tie_in"`, `reason_code: "TIE_IN_DERIVED"`,
+`kind: "vertical" | "arc"`, `max_dls_deg_per_30m` and `points` (`TrajectoryPoint`, MD 0 to first-station
+MD inclusive; offsets/TVD of the last point equal the first station's). A `TIE_IN_DERIVED` warning is
+added. It is display only: real stations, `points`, MD/TVD records, formation overlays, closest
+approach and perforated length never see it; the trace is not translated. Components with MD below
+the first station are placed by linear interpolation of `md_m` over `tie_in.points`.
+
+- `vertical`: |MD - TVD| <= 0.05 m and inclination <= 0.1 deg.
+- `arc`: cubic Hermite, vertical tangent at the wellhead, first-station tangent at the end; the
+  tangent magnitude is solved so the curve length equals the first-station MD (MD along the tie-in is
+  curve length). Emitted only when max dogleg severity <= 10 deg/30 m (ordinary build/turn rates are
+  1-5 deg/30 m; a larger implied curvature means the first station is not a plausible continuation of
+  a vertical hole). The first station sits at the same horizontal location as the wellhead, so an
+  inclined first station yields a gentle S-shaped curve and only a narrow MD/TVD window is feasible.
+- Otherwise (`MD < TVD`, no matching smooth curve, dogleg too high): `tie_in` is null and the warning
+  `TIE_IN_NOT_DERIVED` is returned; nothing is invented or zero-filled. First station at MD 0: no
+  tie-in and no warning. Missing first-station TVD at MD > 0 keeps the existing
+  `WELLHEAD_START_UNKNOWN` block.
+
 ## Open Tensions
 
 No certified clearance or connectivity follows from a valid distance measurement.

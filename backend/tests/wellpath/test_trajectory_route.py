@@ -206,3 +206,45 @@ def test_project_isolation_and_unknown_ids(world: World) -> None:
     assert not leak.json()["error"].get("details")
     assert _get(world, str(uuid4()), wb).status_code == 404
     assert _get(world, a, str(uuid4())).status_code == 404
+
+
+def test_tie_in_vertical_f5_like_keeps_stations_and_marks_derived(world: World) -> None:
+    pid = world.project()
+    rows = [_st(F5, 145.9, 0.0, 0.0, tvd=145.9), _st(F5, 245.9, 0.0, 0.0, tvd=245.9)]
+    world.add_doc(pid, "f5.pdf", [_hdr(F5, "as_built"), *rows])
+    t = _get(world, pid, _bore(world, pid, "15/9-F-5")).json()
+    assert t["source_count"] == 2 and t["displayed_count"] == 2
+    assert t["points"][0] == {"md_m": 145.9, "tvd_m": 145.9, "east_m": 0.0, "north_m": 0.0}
+    ti = t["tie_in"]
+    assert ti["derived"] is True and ti["kind"] == "vertical" and ti["label"] == "tie_in"
+    assert [(p["md_m"], p["tvd_m"], p["east_m"], p["north_m"]) for p in ti["points"]] == [
+        (0.0, 0.0, 0.0, 0.0),
+        (145.9, 145.9, 0.0, 0.0),
+    ]
+    assert any(w["code"] == "TIE_IN_DERIVED" for w in t["warnings"])
+    assert t["md_min_m"] == 145.9 and abs(t["source_tvd_max_abs_diff_m"]) < 1e-6
+
+
+def test_tie_in_arc_for_inclined_first_station_and_depths_untouched(world: World) -> None:
+    pid = world.project()
+    rows = [_st(F5, 502.0, 12.0, 70.0, tvd=500.0), _st(F5, 602.0, 14.0, 70.0, tvd=597.0)]
+    world.add_doc(pid, "f5.pdf", [_hdr(F5, "as_built"), *rows])
+    t = _get(world, pid, _bore(world, pid, "15/9-F-5")).json()
+    ti = t["tie_in"]
+    assert ti["kind"] == "arc" and ti["max_dls_deg_per_30m"] <= 10.0
+    last = ti["points"][-1]
+    assert (last["md_m"], last["tvd_m"], last["east_m"], last["north_m"]) == (502.0, 500.0, 0, 0)
+    assert t["points"][0]["tvd_m"] == 500.0 and t["points"][0]["md_m"] == 502.0
+
+
+def test_no_tie_in_at_md_zero_and_none_when_implausible(world: World) -> None:
+    pid = world.project()
+    world.add_doc(pid, "a.txt", [_hdr(F5, "as_built"), *_build(F5)])
+    t = _get(world, pid, _bore(world, pid, "15/9-F-5")).json()
+    assert t["tie_in"] is None and not any(w["code"].startswith("TIE_IN") for w in t["warnings"])
+    rows = [_st(F6, 100.0, 60.0, 0.0, tvd=99.0), _st(F6, 200.0, 60.0, 0.0, tvd=150.0)]
+    world.add_doc(pid, "b.txt", [_hdr(F6, "as_built"), *rows])
+    t6 = _get(world, pid, _bore(world, pid, "15/9-F-6")).json()
+    assert t6["tie_in"] is None
+    assert any(w["code"] == "TIE_IN_NOT_DERIVED" for w in t6["warnings"])
+    assert t6["points"][0]["tvd_m"] == 99.0
