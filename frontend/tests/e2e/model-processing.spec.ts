@@ -79,7 +79,7 @@ test("TASK-055: unsupported PDF -> Process -> estimate -> confirm -> model-read 
   await expect(dialog).toBeHidden();
   const status = section.getByRole("status").filter({ hasText: /finished|queued|running/i });
   await expect(status).toBeVisible({ timeout: 60_000 });
-  await expect(section.getByText("Processed", { exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(section.getByText("Stub run", { exact: true }).first()).toBeVisible({ timeout: 60_000 });
   // the stub step reads pages and stores no result: stated, not presented as a classification
   await expect(section.getByText(/This run stored no model-read result/)).toBeVisible();
 
@@ -135,4 +135,50 @@ test("TASK-055: unsupported PDF -> Process -> estimate -> confirm -> model-read 
   await expect(result.getByText(/Unresolved/)).toBeVisible();
   const a11y = (await new AxeBuilder({ page }).include('[aria-label="Model-read result"]').analyze()).violations;
   expect(a11y).toEqual([]);
+});
+
+// TASK-072 (implementer evidence): against the real API on the stub provider (no Meta call), a processed
+// document shows a neutral "Stub run" with its history, and Re-process stays available through the
+// estimate dialog with the explicit reuse opt-in.
+test("TASK-072: Process -> confirm -> Stub run in history -> Re-process offers the reuse opt-in; axe and keyboard", async ({ page }) => {
+  await openWithPdf(page, unique("StubHistory"));
+  const inspect = page.getByRole("button", { name: /Inspect extraction for completion\.pdf/ });
+  await expect(inspect).toBeVisible({ timeout: 30_000 });
+  await inspect.click();
+  const section = page.getByRole("region", { name: /Model processing for completion\.pdf/ });
+  const process = section.getByRole("button", { name: "Process with model: completion.pdf" });
+  await expect(process).toBeVisible({ timeout: 60_000 });
+  await expect(section.getByText(/Provider:/)).toContainText("stub");
+  await process.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: /Model processing estimate for completion\.pdf/ });
+  await expect(dialog.getByLabel("Provider")).toContainText("No: this run spends nothing");
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  await page.getByRole("button", { name: /Confirm and start \(USD/ }).click();
+  await expect(dialog).toBeHidden();
+
+  // neutral Stub run (not "Processed"), with the history entry and the honest text
+  const history = section.getByRole("region", { name: "Model processing history" });
+  await expect(history.getByRole("list", { name: "Model runs, newest first" })).toBeVisible({ timeout: 60_000 });
+  await expect(history.getByText("Stub run", { exact: true })).toBeVisible();
+  await expect(history).toContainText("stub / stub");
+  await expect(section.getByText("Processed", { exact: true })).toHaveCount(0);
+  await expect(section.getByText(/Set FIELDLENS_PROCESSING_PROVIDER=meta to use the live model\./).first()).toBeVisible();
+
+  // Re-process is always available; its dialog carries the reuse opt-in, unchecked
+  const again = section.getByRole("button", { name: "Re-process with model: completion.pdf" });
+  await again.focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeVisible();
+  const reuse = dialog.getByRole("checkbox", { name: "Reuse the stored result if the document is unchanged (no model call)" });
+  await expect(reuse).not.toBeChecked();
+  await reuse.focus();
+  await page.keyboard.press("Space");
+  await expect(reuse).toBeChecked();
+  await expect(dialog.getByLabel("Provider")).toContainText("Reuses the stored result");
+  expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(again).toBeFocused();
+  expect((await new AxeBuilder({ page }).include('[aria-label^="Model processing for"]').analyze()).violations).toEqual([]);
 });

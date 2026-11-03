@@ -105,6 +105,13 @@ class ProcessingEstimateRequest(ContractModel):
         pattern=r"^[A-Za-z0-9._:-]+$",
         description="Replays return the same run; a different selection under it is a conflict.",
     )
+    force: bool = Field(
+        default=False,
+        description="True bypasses the stored-result cache: the provider is called again and a "
+        "NEW result is stored (earlier results stay as history). The estimate is the full price "
+        "either way and never assumes a cache hit; it is part of the confirmed run. False reuses "
+        "the stored result of an unchanged document with zero provider calls.",
+    )
 
 
 class ProcessingConfirmRequest(ContractModel):
@@ -122,6 +129,17 @@ class ProcessingEstimate(ContractModel):
     pages: int = Field(ge=0)
     route: ProcessingRoute
     provider: ProcessingProvider
+    model: str | None = Field(
+        default=None,
+        description="Model that will run ('stub' for the stub provider); null on runs created "
+        "before the model was recorded.",
+    )
+    spends_money: bool = Field(
+        default=False, description="True when confirming this run can spend provider budget."
+    )
+    force: bool = Field(
+        default=False, description="The run bypasses the cache (a deliberate fresh read)."
+    )
     estimated_input_tokens: int = Field(ge=0)
     estimated_output_tokens: int = Field(ge=0)
     estimated_usd: Decimal = Field(ge=0)
@@ -312,7 +330,83 @@ class DocumentProcessingState(ContractModel):
     )
 
 
+class ProviderStatus(StrEnum):
+    STUB = "stub"
+    """The stub is active (the default): no model is called, nothing is extracted, nothing spent."""
+    LIVE = "live"
+    """The live provider is active and fully configured."""
+    PROVIDER_MISCONFIGURED = "provider_misconfigured"
+    """The live provider was requested but items are missing; the app runs on the stub and
+    estimate/confirm/retry requests are refused with a 409 ``provider_misconfigured``."""
+
+
+class ProcessingProviderInfo(ContractModel):
+    """Which provider processing uses and why. Item names only: never a secret or any value."""
+
+    requested: ProcessingProvider = Field(description="The processing provider as requested.")
+    active: ProcessingProvider = Field(description="Provider that would run now.")
+    model: str = Field(description="Model name that would run; 'stub' for the stub provider.")
+    status: ProviderStatus
+    missing: list[str] = Field(
+        default_factory=list,
+        description="Names of the missing settings when status is provider_misconfigured.",
+    )
+    spends_money: bool
+    message: str
+
+
 class DocumentProcessingStateList(ContractModel):
     project_id: UUID
     source_revision_id: UUID | None = None
     items: list[DocumentProcessingState]
+    provider_info: ProcessingProviderInfo
+
+
+MODEL_REPLY_MAX_BYTES = 8192
+
+
+class ModelReplyRaw(ContractModel):
+    """The provider's text as stored: untrusted data, plain text only, never HTML."""
+
+    text: str
+    truncated: bool = Field(description="True when the stored text is cut at max_bytes.")
+    max_bytes: int = MODEL_REPLY_MAX_BYTES
+
+
+class ModelRunEntry(ContractModel):
+    """One processing run of one document, for the outcome history (newest first)."""
+
+    run_id: UUID
+    state: ProcessingDocumentState
+    provider: ProcessingProvider
+    model: str | None = None
+    forced: bool = Field(description="The run bypassed the cache (a deliberate fresh read).")
+    created_at: UtcDatetime
+    started_at: UtcDatetime | None = None
+    finished_at: UtcDatetime | None = None
+    pages: ProcessingPageRange
+    pages_read: int = Field(ge=0)
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    usd_actual: Decimal = Field(ge=0)
+    cache_hit: bool
+    failure_code: ProcessingFailureCode | None = None
+    failure_message: str | None = None
+    warnings: list[ModelReadWarning] = Field(default_factory=list)
+    message: str | None = Field(
+        default=None,
+        description="Set for a stub run: that no model was called and nothing was extracted.",
+    )
+
+
+class DocumentModelOutcome(ContractModel):
+    """Run history plus the current stored model read of one document."""
+
+    document_id: UUID
+    runs: list[ModelRunEntry] = Field(description="Newest first; at most 50.")
+    current: DocumentModelRead | None = Field(
+        default=None, description="The latest stored result by time (null until one exists)."
+    )
+    raw_reply: ModelReplyRaw | None = Field(
+        default=None, description="Bounded raw reply of the current result, when recorded."
+    )

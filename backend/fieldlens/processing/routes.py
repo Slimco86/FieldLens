@@ -11,11 +11,13 @@ from sqlalchemy.exc import OperationalError
 from fieldlens import security
 from fieldlens.contracts.errors import ContractError, ErrorCode, ErrorEnvelope
 from fieldlens.contracts.processing import (
+    DocumentModelOutcome,
     DocumentProcessingStateList,
     ProcessingConfirmRequest,
     ProcessingEstimateRequest,
     ProcessingRun,
     ProcessingRunPage,
+    ProviderStatus,
 )
 from fieldlens.persistence.session import session_scope
 from fieldlens.processing import service
@@ -35,6 +37,17 @@ def _runtime(request: Request) -> ProcessingRuntime:
     if runtime is None:
         raise ContractError(ErrorCode.SERVICE_UNAVAILABLE, "storage is unavailable; try again", 503)
     return runtime
+
+
+def _require_provider(rt: ProcessingRuntime) -> None:
+    """A requested-but-incomplete live provider is refused, never silently run on the stub."""
+    if rt.info.status is ProviderStatus.PROVIDER_MISCONFIGURED:
+        raise ContractError(
+            ErrorCode.CONFLICT,
+            "the live provider is requested but not fully configured; nothing was processed",
+            409,
+            {"reason": "provider_misconfigured", "missing": list(rt.info.missing)},
+        )
 
 
 def _db(request: Request, fn: Any) -> Any:
@@ -68,7 +81,17 @@ def build_processing_router() -> APIRouter:
     def document_states(project_id: UUID, request: Request) -> DocumentProcessingStateList:
         rt, settings = _runtime(request), request.app.state.settings
         out: DocumentProcessingStateList = _db(
-            request, lambda s: service.document_states(s, settings, rt.counter, project_id)
+            request,
+            lambda s: service.document_states(s, settings, rt.counter, project_id, rt.info),
+        )
+        return out
+
+    @router.get("/documents/{document_id}/outcome", response_model=DocumentModelOutcome)
+    def document_outcome(
+        project_id: UUID, document_id: UUID, request: Request
+    ) -> DocumentModelOutcome:
+        out: DocumentModelOutcome = _db(
+            request, lambda s: service.document_outcome(s, project_id, document_id)
         )
         return out
 
@@ -82,6 +105,7 @@ def build_processing_router() -> APIRouter:
         project_id: UUID, body: ProcessingEstimateRequest, request: Request
     ) -> ProcessingRun:
         rt, settings = _runtime(request), request.app.state.settings
+        _require_provider(rt)
         out: ProcessingRun = _db(
             request,
             lambda s: service.create_estimate(
@@ -95,6 +119,8 @@ def build_processing_router() -> APIRouter:
                 body.documents,
                 body.idempotency_key,
                 page_bound=rt.step.max_pages_per_document,
+                force=body.force,
+                model=rt.model,
             ),
         )
         return out
@@ -124,6 +150,7 @@ def build_processing_router() -> APIRouter:
         project_id: UUID, run_id: UUID, body: ProcessingConfirmRequest, request: Request
     ) -> ProcessingRun:
         settings = request.app.state.settings
+        _require_provider(_runtime(request))
         out: ProcessingRun = _db(
             request,
             lambda s: service.confirm_run(s, settings, project_id, run_id, body.estimated_usd),
@@ -150,6 +177,7 @@ def build_processing_router() -> APIRouter:
     )
     def retry(project_id: UUID, run_id: UUID, request: Request) -> ProcessingRun:
         rt, settings = _runtime(request), request.app.state.settings
+        _require_provider(rt)
         out: ProcessingRun = _db(
             request,
             lambda s: service.retry_run(
@@ -162,6 +190,7 @@ def build_processing_router() -> APIRouter:
                 project_id,
                 run_id,
                 rt.step.max_pages_per_document,
+                model=rt.model,
             ),
         )
         return out

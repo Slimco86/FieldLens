@@ -6,7 +6,9 @@ Idempotent: a missing ``.env`` is created with mode 0600 from ``.env.example``; 
 only receives the keys it lacks, appended after its unchanged bytes. The database password is
 generated (URL-safe) only when ``POSTGRES_PASSWORD`` is absent and is never overwritten.
 Output names added keys only. Values (including any existing ``MODEL_API_KEY``) are never
-printed, logged, parsed for output or transmitted.
+printed, logged, parsed for output or transmitted. The prefixed ``FIELDLENS_PROCESSING_*`` keys
+are appended empty when absent (blank = not set); an unprefixed ``PROCESSING_*`` line already in
+``.env`` is left as it is (the application ignores it and warns at startup).
 """
 
 from __future__ import annotations

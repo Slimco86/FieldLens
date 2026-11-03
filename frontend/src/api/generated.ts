@@ -506,6 +506,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/processing/documents/{document_id}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Document Outcome */
+        get: operations["document_outcome_api_v1_projects__project_id__processing_documents__document_id__outcome_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/processing/runs": {
         parameters: {
             query?: never;
@@ -1514,6 +1531,32 @@ export interface components {
             source_revision_id: string | null;
         };
         /**
+         * DocumentModelOutcome
+         * @description Run history plus the current stored model read of one document.
+         */
+        DocumentModelOutcome: {
+            /**
+             * @description The latest stored result by time (null until one exists).
+             * @default null
+             */
+            current: components["schemas"]["DocumentModelRead"] | null;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * @description Bounded raw reply of the current result, when recorded.
+             * @default null
+             */
+            raw_reply: components["schemas"]["ModelReplyRaw"] | null;
+            /**
+             * Runs
+             * @description Newest first; at most 50.
+             */
+            runs: components["schemas"]["ModelRunEntry"][];
+        };
+        /**
          * DocumentModelRead
          * @description What the model step recorded for one document (suggestion, never the user's label).
          */
@@ -1646,6 +1689,7 @@ export interface components {
              * Format: uuid
              */
             project_id: string;
+            provider_info: components["schemas"]["ProcessingProviderInfo"];
             /**
              * Source Revision Id
              * @default null
@@ -3452,6 +3496,24 @@ export interface components {
          * @enum {string}
          */
         ModelReadWarningCode: "no_wellbore_identity" | "identity_quote_not_found" | "identity_invalid" | "no_text_layer";
+        /**
+         * ModelReplyRaw
+         * @description The provider's text as stored: untrusted data, plain text only, never HTML.
+         */
+        ModelReplyRaw: {
+            /**
+             * Max Bytes
+             * @default 8192
+             */
+            max_bytes: number;
+            /** Text */
+            text: string;
+            /**
+             * Truncated
+             * @description True when the stored text is cut at max_bytes.
+             */
+            truncated: boolean;
+        };
         /** ModelRevision */
         ModelRevision: {
             /**
@@ -3488,6 +3550,76 @@ export interface components {
          * @enum {string}
          */
         ModelRevisionStatus: "draft" | "validated" | "published" | "rejected";
+        /**
+         * ModelRunEntry
+         * @description One processing run of one document, for the outcome history (newest first).
+         */
+        ModelRunEntry: {
+            /** Cache Hit */
+            cache_hit: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** @default null */
+            failure_code: components["schemas"]["ProcessingFailureCode"] | null;
+            /**
+             * Failure Message
+             * @default null
+             */
+            failure_message: string | null;
+            /**
+             * Finished At
+             * @default null
+             */
+            finished_at: string | null;
+            /**
+             * Forced
+             * @description The run bypassed the cache (a deliberate fresh read).
+             */
+            forced: boolean;
+            /**
+             * Input Tokens
+             * @default null
+             */
+            input_tokens: number | null;
+            /**
+             * Message
+             * @description Set for a stub run: that no model was called and nothing was extracted.
+             * @default null
+             */
+            message: string | null;
+            /**
+             * Model
+             * @default null
+             */
+            model: string | null;
+            /**
+             * Output Tokens
+             * @default null
+             */
+            output_tokens: number | null;
+            pages: components["schemas"]["ProcessingPageRange"];
+            /** Pages Read */
+            pages_read: number;
+            provider: components["schemas"]["ProcessingProvider"];
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Started At
+             * @default null
+             */
+            started_at: string | null;
+            state: components["schemas"]["ProcessingDocumentState"];
+            /** Usd Actual */
+            usd_actual: string;
+            /** Warnings */
+            warnings?: components["schemas"]["ModelReadWarning"][];
+        };
         /**
          * NumericWindowParams
          * @description Display window. Invalid bounds fail rather than silently widening.
@@ -3641,6 +3773,18 @@ export interface components {
             estimated_usd: string;
             /** Fits Budget */
             fits_budget: boolean;
+            /**
+             * Force
+             * @description The run bypasses the cache (a deliberate fresh read).
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Model
+             * @description Model that will run ('stub' for the stub provider); null on runs created before the model was recorded.
+             * @default null
+             */
+            model: string | null;
             /** Pages */
             pages: number;
             /**
@@ -3656,6 +3800,12 @@ export interface components {
             remaining_budget_usd: string;
             route: components["schemas"]["ProcessingRoute"];
             /**
+             * Spends Money
+             * @description True when confirming this run can spend provider budget.
+             * @default false
+             */
+            spends_money: boolean;
+            /**
              * Total Cap Usd
              * @description Aggregate live-spend cap (PROCESSING_FLOW D7).
              */
@@ -3665,6 +3815,12 @@ export interface components {
         ProcessingEstimateRequest: {
             /** Documents */
             documents: components["schemas"]["ProcessingDocumentSelection"][];
+            /**
+             * Force
+             * @description True bypasses the stored-result cache: the provider is called again and a NEW result is stored (earlier results stay as history). The estimate is the full price either way and never assumes a cache hit; it is part of the confirmed run. False reuses the stored result of an unchanged document with zero provider calls.
+             * @default false
+             */
+            force: boolean;
             /**
              * Idempotency Key
              * @description Replays return the same run; a different selection under it is a conflict.
@@ -3692,6 +3848,31 @@ export interface components {
          * @enum {string}
          */
         ProcessingProvider: "stub" | "meta";
+        /**
+         * ProcessingProviderInfo
+         * @description Which provider processing uses and why. Item names only: never a secret or any value.
+         */
+        ProcessingProviderInfo: {
+            /** @description Provider that would run now. */
+            active: components["schemas"]["ProcessingProvider"];
+            /** Message */
+            message: string;
+            /**
+             * Missing
+             * @description Names of the missing settings when status is provider_misconfigured.
+             */
+            missing?: string[];
+            /**
+             * Model
+             * @description Model name that would run; 'stub' for the stub provider.
+             */
+            model: string;
+            /** @description The processing provider as requested. */
+            requested: components["schemas"]["ProcessingProvider"];
+            /** Spends Money */
+            spends_money: boolean;
+            status: components["schemas"]["ProviderStatus"];
+        };
         /**
          * ProcessingRoute
          * @description OCR is deferred (PROCESSING_FLOW D8); every run uses the model route.
@@ -4043,6 +4224,11 @@ export interface components {
              */
             name: string | null;
         };
+        /**
+         * ProviderStatus
+         * @enum {string}
+         */
+        ProviderStatus: "stub" | "live" | "provider_misconfigured";
         /**
          * QualityIssue
          * @description Severity is independent of validation state, evidence class and blocking.
@@ -7850,6 +8036,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentProcessingStateList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    document_outcome_api_v1_projects__project_id__processing_documents__document_id__outcome_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentModelOutcome"];
                 };
             };
             /** @description Not Found */

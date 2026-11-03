@@ -21,6 +21,10 @@ from fieldlens.contracts.processing import ProcessingFailureCode
 QUANT = Decimal("0.000001")
 STUB_PRICING_SOURCE = "stub_illustrative"
 STUB_STEP = "stub"
+STUB_NOTICE = (
+    "Stub provider: no model was called and no data is extracted. "
+    "Set FIELDLENS_PROCESSING_PROVIDER=meta to use the live model."
+)
 
 
 def quantize(value: Decimal) -> Decimal:
@@ -167,6 +171,7 @@ class StubStep:
     candidates, no label. It proves the run/step seam and the state machine, not extraction."""
 
     name: str = STUB_STEP
+    model_name: str = "stub"
     max_pages_per_document: int | None = None
     seen: list[UUID] = field(default_factory=list)
 

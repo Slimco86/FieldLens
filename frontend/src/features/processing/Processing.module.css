@@ -79,3 +79,41 @@
 .status {
   margin: 0;
 }
+.history {
+  display: grid;
+  gap: var(--fl-space-sm);
+  min-width: 0;
+}
+.history h6 {
+  margin: 0;
+}
+.run {
+  display: grid;
+  gap: var(--fl-space-xs);
+  padding: var(--fl-space-sm);
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-sm);
+}
+.marker {
+  padding: 0 var(--fl-space-xs);
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-sm);
+}
+.raw {
+  display: grid;
+  gap: var(--fl-space-xs);
+  justify-items: start;
+  min-width: 0;
+}
+.pre {
+  margin: 0;
+  max-width: 100%;
+  max-height: 20rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: var(--fl-space-sm);
+  border: var(--fl-border-width) solid var(--fl-color-border);
+  border-radius: var(--fl-radius-sm);
+  background: var(--fl-color-surface);
+}

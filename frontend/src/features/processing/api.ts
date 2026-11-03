@@ -1,4 +1,4 @@
-import { getJson, sendJson } from "../../api/client";
+import { ApiError, getJson, sendJson } from "../../api/client";
 import type { components } from "../../api/generated";
 
 type S = components["schemas"];
@@ -11,11 +11,18 @@ export type ModelReadWarning = S["ModelReadWarning"];
 export type ProcessingRun = S["ProcessingRun"];
 export type ProcessingRunDocument = S["ProcessingRunDocument"];
 export type ProcessingFailureCode = S["ProcessingFailureCode"];
+export type ProcessingProviderInfo = S["ProcessingProviderInfo"];
+export type DocumentModelOutcome = S["DocumentModelOutcome"];
+export type ModelRunEntry = S["ModelRunEntry"];
+export type ModelReplyRaw = S["ModelReplyRaw"];
 
 const base = (projectId: string) => `/api/v1/projects/${projectId}/processing`;
 
 export const listProcessingDocuments = (projectId: string, signal: AbortSignal) =>
   getJson<DocumentProcessingStateList>(`${base(projectId)}/documents`, signal);
+
+export const getModelOutcome = (projectId: string, documentId: string, signal: AbortSignal) =>
+  getJson<DocumentModelOutcome>(`${base(projectId)}/documents/${documentId}/outcome`, signal);
 
 export const getProcessingRun = (projectId: string, runId: string, signal: AbortSignal) =>
   getJson<ProcessingRun>(`${base(projectId)}/runs/${runId}`, signal);
@@ -25,12 +32,13 @@ export const requestProcessingEstimate = (
   projectId: string,
   documentId: string,
   pages: { page_start: number; page_end: number } | null,
+  force: boolean,
   signal?: AbortSignal,
 ) =>
   sendJson<ProcessingRun>(
     `${base(projectId)}/runs/estimates`,
     "POST",
-    { documents: [pages === null ? { document_id: documentId } : { document_id: documentId, pages }] },
+    { documents: [pages === null ? { document_id: documentId } : { document_id: documentId, pages }], force },
     signal,
   );
 
@@ -69,3 +77,17 @@ export const FAILURE_LABEL: Record<ProcessingFailureCode, string> = {
   interrupted: "Interrupted",
   cancelled: "Cancelled",
 };
+
+export const STUB_TEXT =
+  "Stub provider: no model was called and no data is extracted. Set FIELDLENS_PROCESSING_PROVIDER=meta to use the live model.";
+
+/** The typed 409 for a requested-but-incomplete live provider: the missing setting NAMES, never values. */
+export function misconfiguredMissing(err: unknown): string[] | null {
+  if (!(err instanceof ApiError) || err.status !== 409 || err.details === null || err.details["reason"] !== "provider_misconfigured") return null;
+  const m = err.details["missing"];
+  return Array.isArray(m) ? m.filter((x): x is string => typeof x === "string") : [];
+}
+
+export function misconfiguredText(missing: string[]): string {
+  return `The live model provider is requested but not fully configured${missing.length > 0 ? `: missing ${missing.join(", ")}` : ""}. Nothing was started and nothing was spent.`;
+}

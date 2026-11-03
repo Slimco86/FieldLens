@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, TextInput, Title } from "@mantine/core";
-import { Ban, CircleCheck, CircleX, Clock, LoaderCircle, TriangleAlert } from "lucide-react";
+import { Ban, CircleCheck, CircleX, Clock, Info, LoaderCircle, TriangleAlert } from "lucide-react";
 import { Callout, Chip, ErrorState, LoadingState } from "../../design";
 import { toFailure, type Failure } from "../projects/scope";
 import { usePolled } from "../uploads/usePolled";
@@ -10,13 +10,17 @@ import {
   FAILURE_TEXT,
   NO_NATIVE_PARSER_TEXT,
   confirmProcessingRun,
+  getModelOutcome,
   getProcessingRun,
   listProcessingDocuments,
+  misconfiguredMissing,
+  misconfiguredText,
   requestProcessingEstimate,
   retryProcessingRun,
   type DocumentProcessingState,
   type ProcessingRun,
 } from "./api";
+import { ModelHistory, RawReply, isStubRun, stubText, type OutcomeView } from "./ModelHistory";
 import { ModelRead } from "./ModelRead";
 import { ProcessEstimateDialog } from "./ProcessEstimateDialog";
 import styles from "./Processing.module.css";
@@ -70,17 +74,31 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
     item?.processing_status ?? "",
   );
 
+  const outcome = usePolled(
+    item === undefined || (item.last_run_id === null && (item.model_read ?? null) === null) ? null : `outcome/${projectId}/${doc.document_id}`,
+    (signal) => getModelOutcome(projectId, doc.document_id, signal),
+    (o) => o.runs.some((r) => r.state === "pending" || r.state === "running"),
+    // a run that finished (status or last run changed) refreshes the history
+    `${item?.processing_status ?? ""}/${item?.last_run_id ?? ""}`,
+  );
+
   const [estimate, setEstimate] = useState<ProcessingRun | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [actionFailure, setActionFailure] = useState<Failure | null>(null);
   const [dialogFailure, setDialogFailure] = useState<Failure | null>(null);
+  const [actionMissing, setActionMissing] = useState<string[] | null>(null);
+  const [dialogMissing, setDialogMissing] = useState<string[] | null>(null);
+  const [reuse, setReuse] = useState(false);
+  const [reestimating, setReestimating] = useState(false);
+  const [offerReuse, setOfferReuse] = useState(false);
+  const lastPages = useRef<{ page_start: number; page_end: number } | null>(null);
   const [first, setFirst] = useState("1");
   const [last, setLast] = useState("5");
   const [rangeError, setRangeError] = useState<string | null>(null);
   const ctl = useRef<AbortController | null>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [focusStatus, setFocusStatus] = useState(false);
 
   useEffect(() => () => ctl.current?.abort(), []);
@@ -104,12 +122,25 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
   }
   if (item === undefined) return null;
   const read = item.model_read ?? null;
-  if (!item.no_native_parser && item.processing_status === "not_started" && read === null) return null;
+  // a native parse that has not settled yet: nothing to offer until we know whether the model is needed
+  if (item.native_state === "pending_extraction" && item.processing_status === "not_started" && read === null) return null;
+  const providerInfo = docs.state.data.provider_info ?? null;
+  const misconfigured = providerInfo !== null && providerInfo.status === "provider_misconfigured";
+  const outcomeRuns = outcome.state.kind === "ready" ? outcome.state.data.runs : null;
+  const outcomeView: OutcomeView =
+    outcome.state.kind === "ready"
+      ? { kind: "ready", runs: outcome.state.data.runs, refreshError: outcome.state.refreshError }
+      : outcome.state;
+  const latest = outcomeRuns?.[0] ?? null;
+  const hasHistory = read !== null || item.last_run_id !== null;
 
   const runData = run.state.kind === "ready" ? run.state.data : null;
   const runDoc = runData?.documents.find((d) => d.document_id === doc.document_id);
   const failureCode = runDoc?.failure_code ?? runData?.error_code ?? null;
-  const chip = STATUS_CHIP[item.processing_status];
+  const stubbed =
+    item.processing_status === "processed" &&
+    ((latest !== null && isStubRun(latest) && latest.run_id === item.last_run_id) || (latest === null && runData?.estimate.provider === "stub"));
+  const chip = stubbed ? { spec: { tone: "neutral", icon: Info } as const, label: "Stub run" } : STATUS_CHIP[item.processing_status];
   const failedLike = ["failed", "cancelled", "interrupted"].includes(item.processing_status);
   const reason = item.not_processable_reason === null ? null : (NOT_PROCESSABLE[item.not_processable_reason] ?? item.not_processable_reason);
 
@@ -119,10 +150,11 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
       ? NO_NATIVE_PARSER_TEXT
       : item.state_text.charAt(0).toUpperCase() + item.state_text.slice(1);
 
-  async function request(retry: boolean) {
-    if (requesting || item === undefined) return;
+  async function request(retry: boolean, reuseStored = false, rerun = false) {
+    if (requesting || reestimating || item === undefined) return;
     let pages = null;
-    if (item.over_page_cap && !retry) {
+    if (rerun) pages = lastPages.current;
+    else if (item.over_page_cap && !retry) {
       const p = parsePages(first, last, item.page_count);
       if (!p.ok) {
         setRangeError(p.message);
@@ -132,18 +164,43 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
     }
     setRangeError(null);
     setActionFailure(null);
+    setActionMissing(null);
     setDialogFailure(null);
+    setDialogMissing(null);
     ctl.current?.abort();
     const c = new AbortController();
     ctl.current = c;
-    setRequesting(true);
+    if (rerun) setReestimating(true);
+    else setRequesting(true);
+    lastPages.current = pages;
     try {
-      const res = retry && item.last_run_id !== null ? await retryProcessingRun(projectId, item.last_run_id, c.signal) : await requestProcessingEstimate(projectId, doc.document_id, pages, c.signal);
-      if (!c.signal.aborted) setEstimate(res);
+      // a deliberate fresh read by default once any run exists for the document; reuse is the explicit opt-in
+      const res =
+        retry && item.last_run_id !== null
+          ? await retryProcessingRun(projectId, item.last_run_id, c.signal)
+          : await requestProcessingEstimate(projectId, doc.document_id, pages, hasHistory && !reuseStored, c.signal);
+      if (c.signal.aborted) return;
+      if (!rerun) {
+        setReuse(false);
+        setOfferReuse(hasHistory && !retry);
+      }
+      setEstimate(res);
     } catch (err) {
-      if (!c.signal.aborted) setActionFailure(toFailure(err));
+      if (c.signal.aborted) return;
+      const missing = misconfiguredMissing(err);
+      if (rerun) {
+        setDialogFailure(toFailure(err));
+        setDialogMissing(missing);
+        setReuse(!reuseStored);
+      } else {
+        setActionFailure(toFailure(err));
+        setActionMissing(missing);
+      }
     } finally {
-      if (!c.signal.aborted) setRequesting(false);
+      if (!c.signal.aborted) {
+        setRequesting(false);
+        setReestimating(false);
+      }
     }
   }
 
@@ -160,18 +217,39 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
       setFocusStatus(true);
       docs.reload();
     } catch (err) {
-      if (!c.signal.aborted) setDialogFailure(toFailure(err));
+      if (!c.signal.aborted) {
+        setDialogFailure(toFailure(err));
+        setDialogMissing(misconfiguredMissing(err));
+      }
     } finally {
       if (!c.signal.aborted) setConfirming(false);
     }
   }
 
-  const canProcess = item.processable && item.processing_status === "not_started";
+  const idle = !ACTIVE.has(item.processing_status);
+  // a process action exists for every processable document in every settled state
+  const canProcessAny = item.processable && idle;
+  const processLabel = hasHistory ? "Re-process with model" : "Process with model";
   const canRetry = item.processable && failedLike && item.retryable && item.last_run_id !== null;
 
   return (
     <section className={styles.section} aria-label={`Model processing for ${doc.original_filename}`}>
       <Title order={6}>Model processing</Title>
+      {providerInfo !== null && !misconfigured && (
+        <p className={styles.muted}>
+          Provider: <strong>{providerInfo.active}</strong> / {providerInfo.model}
+          {providerInfo.status === "live" ? " (live, spends money)" : " (stub, no model call)"}
+        </p>
+      )}
+      {misconfigured && (
+        <Callout tone="warning" role="alert">
+          <p>
+            <strong>Live model provider is not configured.</strong> {providerInfo.requested} was requested but these settings are missing:{" "}
+            {providerInfo.missing !== undefined && providerInfo.missing.length > 0 ? providerInfo.missing.map((m) => <code key={m}>{m} </code>) : "not named"}
+            . Model processing is paused and nothing runs on the stub in its place; the rest of the app keeps working.
+          </p>
+        </Callout>
+      )}
       <div className={styles.row}>
         <Chip spec={chip.spec} label={chip.label} />
         <p role="status" tabIndex={-1} ref={statusRef} className={styles.status}>
@@ -185,6 +263,13 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
       )}
       {item.processing_status === "processed" && read === null && (
         <p className={styles.muted}>This run stored no model-read result for this document.</p>
+      )}
+      {stubbed && (
+        <Callout tone="info" role="status">
+          <p>
+            <strong>Stub run.</strong> {stubText(latest?.message)}
+          </p>
+        </Callout>
       )}
       {runDoc?.cache_hit === true && read === null && <p>Reused stored result, no model call.</p>}
       {failedLike && (runId === null || run.state.kind !== "loading") && (
@@ -204,7 +289,9 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
         </Callout>
       )}
       {read !== null && <ModelRead read={read} userLabels={item.user_labels ?? []} cacheHit={runDoc?.cache_hit === true} />}
-      {item.over_page_cap && canProcess && (
+      {read !== null && outcome.state.kind === "ready" && outcome.state.data.raw_reply != null && <RawReply reply={outcome.state.data.raw_reply} />}
+
+      {item.over_page_cap && canProcessAny && (
         <div className={styles.pages}>
           <TextInput label="First page" value={first} onChange={(e) => setFirst(e.currentTarget.value)} inputMode="numeric" w={110} />
           <TextInput label="Last page" value={last} onChange={(e) => setLast(e.currentTarget.value)} inputMode="numeric" w={110} />
@@ -225,30 +312,69 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
           {actionFailure.requestId !== null && <p>Request ID: {actionFailure.requestId}</p>}
         </Callout>
       )}
-      {(canProcess || canRetry) && (
-        <div>
+      {actionMissing !== null && (
+        <Callout tone="warning" role="alert">
+          <p>{misconfiguredText(actionMissing)}</p>
+        </Callout>
+      )}
+      {canProcessAny && (
+        <div className={styles.row}>
+          {canRetry && (
+            <Button
+              variant="default"
+              size="xs"
+              aria-label={`Retry model processing: ${doc.original_filename}`}
+              aria-busy={requesting}
+              disabled={misconfigured}
+              onClick={(e) => {
+                triggerRef.current = e.currentTarget;
+                void request(true);
+              }}
+            >
+              {requesting ? "Requesting estimate…" : "Retry with a new estimate"}
+            </Button>
+          )}
           <Button
             variant="default"
             size="xs"
-            aria-label={`${canRetry ? "Retry model processing" : "Process with model"}: ${doc.original_filename}`}
-            ref={triggerRef}
+            aria-label={`${processLabel}: ${doc.original_filename}`}
+            aria-describedby={misconfigured ? `proc-off-${doc.document_id}` : undefined}
             aria-busy={requesting}
-            onClick={() => void request(canRetry)}
+            disabled={misconfigured}
+            onClick={(e) => {
+              triggerRef.current = e.currentTarget;
+              void request(false);
+            }}
           >
-            {requesting ? "Requesting estimate…" : canRetry ? "Retry with a new estimate" : "Process with model…"}
+            {requesting && !canRetry ? "Requesting estimate…" : `${processLabel}…`}
           </Button>
+          {misconfigured && (
+            <span id={`proc-off-${doc.document_id}`} className={styles.muted}>
+              Disabled: the live model provider is not configured (see the alert above).
+            </span>
+          )}
         </div>
       )}
+      {hasHistory && <ModelHistory view={outcomeView} onRetry={outcome.reload} />}
       {estimate !== null && (
         <ProcessEstimateDialog
           run={estimate}
           filename={doc.original_filename}
           confirming={confirming}
           failure={dialogFailure}
+          missing={dialogMissing}
+          offerReuse={offerReuse}
+          reuse={reuse}
+          reestimating={reestimating}
+          onReuseChange={(v) => {
+            setReuse(v);
+            void request(false, v, true);
+          }}
           onConfirm={() => void confirm()}
           onClose={() => {
             setEstimate(null);
             setDialogFailure(null);
+            setDialogMissing(null);
             const el = triggerRef.current;
             if (el !== null) window.setTimeout(() => el.isConnected && el.focus(), 0);
           }}

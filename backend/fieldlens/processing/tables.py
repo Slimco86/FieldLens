@@ -79,6 +79,8 @@ processing_run = Table(
     Column("confirmed_usd", USD, nullable=True),
     Column("actual_usd", USD, nullable=False, server_default=text("0")),
     Column("cancel_requested", Boolean, nullable=False, server_default=text("false")),
+    Column("force_refresh", Boolean, nullable=False, server_default=text("false")),
+    Column("model", String(64), nullable=True),
     Column("attempt_no", Integer, nullable=False, server_default=text("0")),
     Column("lease_owner", String(128), nullable=True),
     Column("lease_expires_at", DateTime(timezone=True), nullable=True),
@@ -226,6 +228,8 @@ document_model_result = Table(
     Column("input_tokens", BigInteger, nullable=True),
     Column("output_tokens", BigInteger, nullable=True),
     Column("cost_usd", USD, nullable=False, server_default=text("0")),
+    Column("raw_reply", Text, nullable=True),
+    Column("raw_reply_truncated", Boolean, nullable=False, server_default=text("false")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     ForeignKeyConstraint(
         ["project_id", "document_id"],
@@ -243,17 +247,11 @@ document_model_result = Table(
         name="fk_document_model_result_run_scope",
     ),
     UniqueConstraint("project_id", "result_id", name="uq_document_model_result_project_scope"),
-    UniqueConstraint(
-        "project_id",
-        "document_id",
-        "page_start",
-        "page_end",
-        "prompt_version",
-        "schema_version",
-        name="uq_document_model_result_cache_key",
-    ),
     CheckConstraint(f"category IN ({_CATEGORY_SQL})", name="category_known"),
     CheckConstraint("extraction_method = 'model_classification'", name="method_known"),
+    CheckConstraint(
+        "raw_reply IS NULL OR octet_length(raw_reply) <= 8192", name="raw_reply_bounded"
+    ),
     CheckConstraint(
         "page_start >= 1 AND page_end >= page_start AND pages_read >= 0 "
         "AND pages_read <= page_end - page_start + 1 AND cardinality(tags) <= 5",

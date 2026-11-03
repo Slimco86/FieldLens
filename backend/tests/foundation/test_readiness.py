@@ -86,3 +86,18 @@ def test_ready_detects_missing_pgvector(migrated_url: URL) -> None:
     assert r.status_code == 503
     checks = {x["name"]: x["ok"] for x in r.json()["error"]["details"]["checks"]}
     assert checks == {"database": True, "migrations": True, "pgvector": False}
+
+
+def test_migration_scripts_import_without_an_alembic_operations_proxy() -> None:
+    """Readiness loads every revision module outside a migration run (no `op` proxy). A module
+    level `op.f(...)`/`op.*` call raises NameError only in a fresh interpreter, because an earlier
+    in-process migration leaves the proxy established, so this runs in a subprocess."""
+    import subprocess
+    import sys
+
+    code = "from fieldlens.persistence.readiness import expected_head; print(expected_head())"
+    done = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=120, check=False
+    )
+    assert done.returncode == 0, done.stderr[-800:]
+    assert done.stdout.strip() == "0017_model_reply"
