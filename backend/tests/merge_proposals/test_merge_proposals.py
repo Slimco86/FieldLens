@@ -391,10 +391,28 @@ def test_wellbore_kind_revert_restores_row_ids(world: World) -> None:
         )
 
     before = rows()
+    from fieldlens.assetspec import service as spec_service
+    from fieldlens.contracts.asset_spec import AssetSpecGenerateRequest
+
+    def spec_states() -> list[str]:
+        return [
+            r[0] for r in world.sql("SELECT state FROM wellbore_asset_spec ORDER BY created_at")
+        ]
+
+    with session_scope(world.factory) as s:
+        for w in (r[3] for r in before):
+            spec_service.generate_stub(s, UUID(pid), w, AssetSpecGenerateRequest())
+    assert spec_states() == ["current", "current"]
     run = _run(world, pid)
     assert run["proposals_created"] == 1, run
     pr = world.api.client.get(_url(pid)).json()["items"][0]["proposal_id"]
     assert _decide(world, pid, pr, "accept").status_code == 200
     assert len(rows()) == 1
+    # AG-3: accepting invalidated the specs of every affected wellbore (history kept)
+    assert "current" not in spec_states() and len(spec_states()) == 2
+    with session_scope(world.factory) as s:
+        spec_service.generate_stub(s, UUID(pid), rows()[0][3], AssetSpecGenerateRequest())
+    assert spec_states().count("current") == 1
     assert _decide(world, pid, pr, "revert").status_code == 200
     assert rows() == before
+    assert "current" not in spec_states()  # revert invalidates again
