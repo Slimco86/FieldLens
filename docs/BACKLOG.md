@@ -2908,7 +2908,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, 3d |
 | Depends on | TASK-078 |
@@ -2916,13 +2916,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.42.0 |
 | Parent | FL-023 |
 | Slice | FL-023-E |
 
 **Outcome.** All project wellbores in one scene, shared materials/instancing, fly-to and linked selection; measured frame time.
-**Next action.** Blocked on TASK-078; first item to cut if time is short (lane F, 0.43.0).
-**Evidence.** none yet; planning only (2026-11-02).
+**Next action.** Positions are a labelled schematic grid (no validated coordinate API yet); each wellbore spec is fetched separately (fine for about 12 wells); browser Back does not return to the field view (in-app button does); unlocated components are not drawn in the field view; software-GL frame times only, no hardware GPU numbers.
+**Evidence.** Independent QA (two passes): lint/typecheck/vitest 329/check:contracts/build PASS; no WebGL in main chunk, FieldViewer3D lazy (18 kB); AG-8 on software GL: 3 and 12 wellbores -> 7-8 draw calls, p95 0.3 ms, geometries/textures back to baseline after tab switch, no live WebGL contexts (probe canvases released); single field-view e2e PASS; QA defects M1 overview framing, M2 focused view, L1 empty-state wording, L2 probe release fixed and re-verified. Fixtures only.
 
 ### TASK-081 · Independent QA and bounded live acceptance of FL-023
 

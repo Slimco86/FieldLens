@@ -8,6 +8,16 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.42.0 - 2026-11-03
+
+- **TASK-080 field view: all wellbores of a project in one 3D scene.** Explore opens in the field view when a project has
+  two or more wellbores. Each wellbore is a labelled pad with a wellhead glyph and a trajectory tube; wellbores without a
+  visual asset spec show as placeholders and a failed load shows "Asset specs failed to load" with Retry. Select from the
+  list or the scene to fly to a wellbore, open it in the single-wellbore view, and return with "Field view".
+- Positions are a labelled schematic grid ("Schematic layout, not map positions"); the permanent "Illustrative visual -
+  not an engineering model" badge stays. Shared instanced geometry keeps draw calls flat (7-8 for 3 and 12 wellbores on
+  software rendering). Resources are released on tab switch and the WebGL2 probe no longer leaks a context. Lazy chunk.
+
 ## 0.41.0 - 2026-11-03
 
 - **TASK-078 the first 3D view: a labelled equipment viewer in Explore.** It renders a wellbore's visual asset spec with
