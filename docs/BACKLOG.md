@@ -2763,7 +2763,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, frontend |
 | Depends on | TASK-072 |
@@ -2771,10 +2771,10 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/MODEL_PROCESSING_OUTCOME.md |
-| Version | none |
+| Version | 0.37.1 |
 | Parent | FL-022 |
 | Slice | FL-022-H |
 
-**Outcome.** Owner live test of 0.37.0 (2026-11-02): every Process with model run failed `provider_error: provider_unavailable` with no usable cause. Root cause: the `processing-live` budget period has `starting_balance_usd` NULL (balance confirmation is an owner ledger action that nothing offered), so `BudgetLedger.reserve` raises `ProviderUnavailable("starting balance is not confirmed")` before any call; `map_failure` then drops the reason. Fix: (1) surface the reason (safe text, no secrets) in run failure message/outcome and server log; (2) provider_info reports `balance_unconfirmed` (or similar) before an estimate/confirm and blocks with a clear 409 naming the owner action; (3) an explicit owner command to confirm the processing balance for the live period; (4) docs. Ledger is never auto-confirmed.
-**Next action.** Lane `task-074-ledger-balance`; independent QA; patch release 0.37.1.
-**Evidence.** none yet
+**Outcome.** Owner live test of 0.37.0 (2026-11-02): every Process with model run failed `provider_error: provider_unavailable` with no usable cause. Root cause: the `processing-live` budget period has `starting_balance_usd` NULL (balance confirmation is an owner ledger action that nothing offered), so `BudgetLedger.reserve` raises `ProviderUnavailable("starting balance is not confirmed")` before any call; `map_failure` then drops the reason. Owner decision: no owner step; the user's manual confirm in the UI is the spend authorization. Fix: (1) the `processing-live` period balance is auto-confirmed (= ledger cap) when the live runtime is built, also repairing a NULL-balance period; other periods untouched; (2) failure message/outcome and one server log line carry the safe ledger reason; (3) `FIELDLENS_PROCESSING_RUN_CAP_USD` is optional; total cap (5 USD), per-call reservation and page limits remain.
+**Next action.** Low-severity gap: an unrecorded pricing revision surfaces as an IntegrityError step error rather than the stated reason (only reachable by manual row deletion). Owner restart required.
+**Evidence.** Independent QA PASS on `bb0a4f8`: backend 1458 passed, ruff/mypy/contracts clean, npm gates clean, vitest 269 (one unrelated flaky `sources-slim` test seen once); concurrency and idempotency checked. Fake-provider only; no live Meta call, no e2e or browser run.

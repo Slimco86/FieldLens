@@ -8,6 +8,19 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.37.1 - 2026-11-02
+
+- **TASK-074 live model processing no longer fails on an unconfirmed budget balance:** every live run of 0.37.0 failed
+  with `provider_error: provider_unavailable` because the `processing-live` budget period never had a confirmed starting
+  balance and nothing offered a way to set it. The period is now set up automatically (balance = ledger cap) when the
+  live runtime starts, including an existing period with no balance; other periods are untouched. The user's manual
+  confirm of an estimate in the UI remains the spend authorization.
+- A failed document now states the safe reason (unconfirmed balance, paused period) in its failure message and writes one
+  structured log line (run id, document id, code, reason; no key or document text).
+- `FIELDLENS_PROCESSING_RUN_CAP_USD` is optional (blank means no per-run cap). Remaining limits: total processing cap
+  (`FIELDLENS_PROCESSING_TOTAL_CAP_USD`, 5), per-call reservation 0.50, model pages (5).
+- Known gap: an unrecorded pricing revision (only by manual row deletion) shows a step error, not the stated reason.
+
 ## 0.37.0 - 2026-11-02
 
 - **TASK-072 re-processable, observable model processing:** "Process with model..." is available in every state and is
