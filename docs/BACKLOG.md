@@ -492,7 +492,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | specifying |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | rag, backend, frontend, 3d |
 | Depends on | FL-022 |
@@ -503,7 +503,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Version | none |
 
 **Outcome.** The reconstruction agent merges differently named sources of one wellbore into one file group, then designs a declarative, validated visual asset (trajectory plus plausible assembly, labelled illustrative) rendered in single-wellbore and multi-wellbore (field) 3D views. Plots, history, formations and reservoir are a later feature.
-**Next action.** Draft plan awaiting owner review (owner questions Q1-Q5 in the spec); no implementation or delegation before approval.
+**Next action.** Approved 2026-11-02; lanes TASK-075/076/077 start in parallel worktrees.
 **Evidence.** none yet; planning only (2026-11-02).
 
 ## Tasks
@@ -2803,7 +2803,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | ready |
 | Priority | P0 |
 | Tags | backend, frontend |
 | Depends on | TASK-074 |
@@ -2824,7 +2824,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | ready |
 | Priority | P0 |
 | Tags | rag, backend, frontend |
 | Depends on | TASK-055, TASK-057 |
@@ -2845,7 +2845,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | ready |
 | Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-041 |

@@ -2,8 +2,7 @@
 
 > **Spec type:** Product/feature (agent stages + contract + 3D viewer). **Date:** 2026-11-02.
 > **Author:** orchestrator. **Decision owner:** owner.
-> **Status:** Draft plan from the owner's 2026-11-02 23:17 feedback. **Not approved: no implementation starts before
-> owner review.** `[Proposed]` marks my decisions awaiting confirmation; `[Open]` marks questions.
+> **Status:** Approved for implementation by the owner on 2026-11-02 (answers in section 14); Q1/Q3 proceed on the stated defaults because the owner was unavailable. `[Proposed]` marks my decisions awaiting confirmation; `[Open]` marks questions.
 > **Backlog:** FL-023 (TASK-076..TASK-081). Related TASK-075 lives in [MODEL_PROCESSING_OUTCOME](MODEL_PROCESSING_OUTCOME.md) §8.
 > **Extends:** [RECONSTRUCTION_RUN](RECONSTRUCTION_RUN.md) (stage list), [MERGE_PROPOSALS](MERGE_PROPOSALS.md),
 > [EQUIPMENT_RECONSTRUCTION](EQUIPMENT_RECONSTRUCTION.md), [TRAJECTORY_VIEWER](TRAJECTORY_VIEWER.md),
@@ -168,3 +167,16 @@ re-groups files and invalidates the dependent draft spec.
   (default), and USD allowance for the live acceptance run (needs a number).
 - **Q5 Scope of the first demo wellbore:** F-12 (generic placeholders where dimensions are missing) first, or F-14/F-5
   (source-dimensioned)? Default: F-14 or F-5 for the dimensioned showpiece, F-12 for the generic/unlocated case.
+
+## 14. Owner decisions (2026-11-02 23:40)
+
+- **Q2 Rendering:** declarative spec rendered by Three.js (or comparable); it must look visually appealing. Blender MCP not used at run time.
+- **Q4 Web visual references:** images may be stored (as a bounded, size-limited, content-type-checked file) or kept as a URL. No USD limit on the
+  search; instead guard against loops: bounded number of queries/pages, stop on repeated queries/URLs, a wall-clock limit, and a clear
+  "found / not found" outcome. This supersedes the "3 queries / 5 pages" and "no image download" figures in section 6 for this feature only:
+  the limits become configurable step limits (defaults 6 queries, 10 pages, 120 s per component).
+- **Q5 Test wellbore:** the most complete wellbore of the project; the rest are processed by the owner afterwards.
+- **Q6 Pages:** `1..N` is sufficient.
+- **Estimate:** computed from the real document text (token count of the actual selected pages), as in MODEL_PROCESSING_OUTCOME section 8.
+- **Q1 (default, owner unavailable):** auto-apply guard-passing, quote-verified merges as revertible records; others stay proposals.
+- **Q3 (default, owner unavailable):** generated asset shows as Draft with one-click Accept.

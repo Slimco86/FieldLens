@@ -116,7 +116,7 @@ reason was dropped from the failure text and never logged.
 
 ## 8. Amendment (TASK-075, proposed): user-chosen pages, honest estimate, no spend limits on a confirmed run
 
-> **Status:** Draft from the owner's 2026-11-02 23:17 feedback; awaiting owner review before any implementation.
+> **Status:** Approved 2026-11-02 (owner: pages 1..N; estimate from the real document text).
 
 **Owner decision.** A confirmed manual run is the authorization. The user is only *informed* of the estimated cost; the
 app imposes no total cap, run cap, per-call reservation ceiling or remaining-budget gate on it, and shows no remaining
