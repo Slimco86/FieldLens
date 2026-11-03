@@ -22,11 +22,17 @@ from sqlalchemy.orm import Session
 
 from fieldlens.contracts.imports import DocumentCategory
 from fieldlens.contracts.processing import (
+    MODEL_REPLY_MAX_BYTES,
     DocumentIdentityProposal,
+    DocumentModelOutcome,
     DocumentModelRead,
     IdentityResolution,
     IdentitySubjectKind,
     ModelReadWarning,
+    ModelReplyRaw,
+    ModelRunEntry,
+    ProcessingDocumentState,
+    ProcessingFailureCode,
     ProcessingPageRange,
     ProcessingProvider,
 )
@@ -39,6 +45,7 @@ from fieldlens.processing.identity_read import (
     UNCLASSIFIED_TAG,
     ModelOutcome,
 )
+from fieldlens.processing.steps import STUB_NOTICE
 
 dmr, dip = t.document_model_result, t.document_identity_proposal
 CLASSIFICATION_METHOD = "model_classification"
@@ -55,7 +62,8 @@ def find_cached(
     session: Session, project_id: UUID, document_id: UUID, page_start: int, page_end: int
 ) -> CachedResult | None:
     row = session.execute(
-        select(dmr.c.result_id, dmr.c.pages_read).where(
+        select(dmr.c.result_id, dmr.c.pages_read)
+        .where(
             dmr.c.project_id == project_id,
             dmr.c.document_id == document_id,
             dmr.c.page_start == page_start,
@@ -63,8 +71,22 @@ def find_cached(
             dmr.c.prompt_version == PROMPT_VERSION,
             dmr.c.schema_version == SCHEMA_VERSION,
         )
+        .order_by(dmr.c.created_at.desc(), dmr.c.result_id.desc())
+        .limit(1)
     ).first()
     return CachedResult(row.result_id, row.pages_read) if row else None
+
+
+def bound_reply(text: str | None) -> tuple[str | None, bool]:
+    """Raw reply as stored: NULs removed (PostgreSQL text cannot hold them), at most
+    ``MODEL_REPLY_MAX_BYTES`` of UTF-8 cut on a character boundary. -> (text, truncated)."""
+    if text is None:
+        return None, False
+    clean = text.replace("\x00", "")
+    data = clean.encode("utf-8")
+    if len(data) <= MODEL_REPLY_MAX_BYTES:
+        return clean, False
+    return data[:MODEL_REPLY_MAX_BYTES].decode("utf-8", errors="ignore"), True
 
 
 def store_result(
@@ -82,11 +104,14 @@ def store_result(
     input_tokens: int | None,
     output_tokens: int | None,
     cost_usd: Decimal,
-) -> bool:
-    """Insert result + proposals and update the suggested classification. False = lost a race
-    to an identical concurrent result (nothing written)."""
+    raw_reply: str | None = None,
+) -> None:
+    """Insert a NEW result + proposals and update the suggested classification. Earlier results of
+    the document stay as history; the latest by time is the current read. (A document sits in at
+    most one active run, so two writers of the same key cannot race.)"""
     window = page_end - page_start + 1
-    result_id: UUID | None = session.execute(
+    reply, truncated = bound_reply(raw_reply)
+    result_id: UUID = session.execute(
         pg_insert(dmr)
         .values(
             project_id=project_id,
@@ -108,12 +133,11 @@ def store_result(
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             cost_usd=cost_usd,
+            raw_reply=reply,
+            raw_reply_truncated=truncated,
         )
-        .on_conflict_do_nothing(constraint="uq_document_model_result_cache_key")
         .returning(dmr.c.result_id)
-    ).scalar_one_or_none()
-    if result_id is None:
-        return False
+    ).scalar_one()
     for ordinal, ident in enumerate(outcome.identities):
         session.execute(
             pg_insert(dip).values(
@@ -135,7 +159,6 @@ def store_result(
             )
         )
     _suggest_classification(session, project_id, document_id, outcome, result_id)
-    return True
 
 
 def _suggest_classification(
@@ -261,3 +284,78 @@ def load_model_reads(
         )
         for doc_id, r in latest.items()
     }
+
+
+OUTCOME_RUN_LIMIT = 50
+
+
+def load_outcome(session: Session, project_id: UUID, document_id: UUID) -> DocumentModelOutcome:
+    """Run history (newest first) and the current stored read of one document, project-scoped.
+    Failure messages and the raw reply are stored data; nothing here interprets them."""
+    pr, prd = t.processing_run, t.processing_run_document
+    rows = session.execute(
+        select(
+            prd,
+            pr.c.provider,
+            pr.c.model,
+            pr.c.force_refresh,
+            pr.c.created_at,
+            pr.c.started_at,
+            dmr.c.input_tokens,
+            dmr.c.output_tokens,
+            dmr.c.warnings.label("result_warnings"),
+        )
+        .select_from(
+            prd.join(
+                pr, (pr.c.project_id == prd.c.project_id) & (pr.c.run_id == prd.c.run_id)
+            ).outerjoin(
+                dmr,
+                (dmr.c.project_id == prd.c.project_id)
+                & (dmr.c.run_id == prd.c.run_id)
+                & (dmr.c.document_id == prd.c.document_id),
+            )
+        )
+        .where(
+            prd.c.project_id == project_id,
+            prd.c.document_id == document_id,
+            prd.c.state != "estimated",  # an estimate nobody confirmed is not a run
+            ~((prd.c.state == "cancelled") & pr.c.started_at.is_(None)),  # never started
+        )
+        .order_by(pr.c.created_at.desc(), pr.c.run_id.desc())
+        .limit(OUTCOME_RUN_LIMIT)
+    ).all()
+    runs = [
+        ModelRunEntry(
+            run_id=r.run_id,
+            state=ProcessingDocumentState(r.state),
+            provider=ProcessingProvider(r.provider),
+            model=r.model,
+            forced=r.force_refresh,
+            created_at=r.created_at,
+            started_at=r.started_at,
+            finished_at=r.finished_at,
+            pages=ProcessingPageRange(page_start=r.page_start, page_end=r.page_end),
+            pages_read=r.pages_done,
+            input_tokens=r.input_tokens,
+            output_tokens=r.output_tokens,
+            usd_actual=r.actual_usd,
+            cache_hit=r.cache_hit,
+            failure_code=ProcessingFailureCode(r.failure_code) if r.failure_code else None,
+            failure_message=r.failure_message,
+            warnings=[ModelReadWarning(**w) for w in (r.result_warnings or [])],
+            message=STUB_NOTICE if r.provider == ProcessingProvider.STUB.value else None,
+        )
+        for r in rows
+    ]
+    current = load_model_reads(session, project_id, [document_id]).get(document_id)
+    raw: ModelReplyRaw | None = None
+    if current is not None:
+        latest = session.execute(
+            select(dmr.c.raw_reply, dmr.c.raw_reply_truncated)
+            .where(dmr.c.project_id == project_id, dmr.c.document_id == document_id)
+            .order_by(dmr.c.created_at.desc(), dmr.c.result_id.desc())
+            .limit(1)
+        ).one()
+        if latest.raw_reply is not None:
+            raw = ModelReplyRaw(text=latest.raw_reply, truncated=latest.raw_reply_truncated)
+    return DocumentModelOutcome(document_id=document_id, runs=runs, current=current, raw_reply=raw)

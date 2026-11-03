@@ -129,6 +129,10 @@ class ModelClassificationStep:
     def max_pages_per_document(self) -> int:
         return self._config.max_pages
 
+    @property
+    def model_name(self) -> str:
+        return self._config.model
+
     # -- one document -----------------------------------------------------------------------
     def run_document(
         self, task: DocumentTask, provider: PageProvider, checkpoint: Checkpoint
@@ -141,8 +145,19 @@ class ModelClassificationStep:
                 retryable=False,
             )
         with session_scope(self._factory) as s:
-            cached = store.find_cached(
-                s, task.project_id, task.document_id, task.page_start, task.page_end
+            forced = bool(
+                s.execute(
+                    select(pr.c.force_refresh).where(
+                        pr.c.project_id == task.project_id, pr.c.run_id == task.run_id
+                    )
+                ).scalar_one()
+            )
+            cached = (
+                None
+                if forced  # a confirmed forced run always reads again; the estimate is full price
+                else store.find_cached(
+                    s, task.project_id, task.document_id, task.page_start, task.page_end
+                )
             )
             if cached is not None:
                 s.execute(
@@ -191,9 +206,11 @@ class ModelClassificationStep:
         cost = quantize(Decimal(cost))
 
         outcome: ir.ModelOutcome | None = None
+        reply_text: str | None = None
         if failure is None and response is not None:
             try:
-                outcome = ir.validate(ir.parse_output(response.text()), usable)
+                reply_text = response.text()
+                outcome = ir.validate(ir.parse_output(reply_text), usable)
             except ir.OutputError as exc:
                 failure = exc
         if failure is not None or outcome is None or response is None:
@@ -212,6 +229,7 @@ class ModelClassificationStep:
             usage.input_tokens if usage else None,
             usage.output_tokens if usage else None,
             cost,
+            reply_text,
         )
         self._charge(pages, cost, checkpoint)
 
@@ -268,6 +286,7 @@ class ModelClassificationStep:
         input_tokens: int | None,
         output_tokens: int | None,
         cost: Decimal,
+        reply_text: str | None = None,
     ) -> None:
         with session_scope(self._factory) as s:
             store.store_result(
@@ -284,6 +303,7 @@ class ModelClassificationStep:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 cost_usd=cost,
+                raw_reply=reply_text,
             )
 
     @staticmethod
