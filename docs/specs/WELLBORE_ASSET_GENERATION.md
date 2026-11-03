@@ -229,6 +229,22 @@ Owner ran a reconstruction on F-5 and F-12 against real Meta. Findings and appro
   says how many components came from structured records and how many from the model). The model, when present, only labels or
   classifies items it is given; it never adds dimensions. "No equipment data" is shown only when both sources are empty.
   A re-run with unchanged inputs keeps the same-run-key behaviour of §15.
+- **F2b All sources, with re-extraction when needed (owner, 2026-11-03).** Once the wellbore's files are aggregated and merged,
+  the S5 agent must use EVERY source linked to that wellbore, not only the native parsers: structured records, existing
+  model-read candidates, and the documents themselves (completion reports/logs, schematics, survey-report PDFs, scans).
+  Where a linked document has not been read for equipment at the current source revision and equipment-prompt version, S5
+  first runs a bounded **equipment sweep**: the existing candidates harness (`candidates/harness.py`, unit kind `equipment`,
+  `equipment_prompt`, validators and text-match evidence) over that document's pages, storing normal `extraction_candidate`
+  rows (so results are reviewable, cached and reusable). Documents that structured records already cover completely may be
+  skipped, but a PDF is never skipped merely because a parser exists for another file. Sweep order: documents classified as
+  completion/equipment/schematic first, then the rest of the wellbore's PDFs/images, bounded by pages per document, documents
+  per wellbore, calls and wall time (no USD limit; the user-confirmed run is the authorization; the S5 estimate in the run
+  dialog includes the sweep and stays information only). Cached results are reused (no repeat paid call for an unchanged
+  document/revision/prompt); a failed or truncated document is reported per document and does not block designing from the
+  rest. The design then merges all three inputs (structured, swept/model-read, visual references) by the §15 rules; when
+  sources disagree on a dimension it is reported as a conflict, never silently chosen. If the model is not configured, the
+  sweep is "Not available: no model configured" and the spec is built from structured records only. The stage message
+  states counts per source (structured / read from N documents / reused / failed).
 - **F3 Real survey in the 3D views (TASK-083, F2's companion).** The viewers must draw the wellbore's validated survey instead of
   the vertical placeholder. Read-only route
   `GET /api/v1/projects/{project_id}/wellbores/{wellbore_id}/trajectory` returns: stations downsampled for display only
