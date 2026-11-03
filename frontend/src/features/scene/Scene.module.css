@@ -120,7 +120,7 @@
   padding: var(--fl-space-xs) var(--fl-space-sm);
   border: var(--fl-border-width) solid var(--fl-color-attention);
   border-radius: var(--fl-radius-sm);
-  color: var(--fl-color-attention);
+  color: var(--fl-color-attention-text);
   font-size: var(--fl-font-size-xs);
   font-weight: 600;
 }

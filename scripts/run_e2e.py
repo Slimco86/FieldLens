@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import shutil
 import socket
@@ -10,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
@@ -66,6 +68,26 @@ def _browser_env(local: dict[str, str]) -> dict[str, str]:
         if value:
             result[target] = value
     return result
+
+
+@contextlib.contextmanager
+def e2e_storage_root(explicit: str | None) -> Iterator[Path]:
+    """Storage root for one e2e run.
+
+    Without an explicit FIELDLENS_STORAGE_ROOT this is a fresh temporary directory removed afterwards:
+    a reused directory holds files from earlier runs and the API fails closed (``storage_root_mismatch``)
+    against the fresh per-run database. An explicit root is honoured as ``<root>/e2e`` and left in place.
+    """
+    if not explicit:
+        with tempfile.TemporaryDirectory(prefix="fieldlens-e2e-storage-") as fresh:
+            yield Path(fresh)
+        return
+    storage = Path(explicit)
+    if not storage.is_absolute():
+        storage = ROOT / storage
+    storage = storage / "e2e"
+    storage.mkdir(parents=True, exist_ok=True)
+    yield storage
 
 
 def _start_api(env: dict[str, str]) -> subprocess.Popen[bytes]:
@@ -164,12 +186,8 @@ def main() -> int:
         )  # like uvicorn: ignore TIME_WAIT
         probe.bind(("127.0.0.1", API_PORT))
     storage_base = os.environ.get("FIELDLENS_STORAGE_ROOT") or local.get("FIELDLENS_STORAGE_ROOT")
-    storage = Path(storage_base) if storage_base else ROOT / ".local/fieldlens/storage"
-    if not storage.is_absolute():
-        storage = ROOT / storage
-    storage = storage / "e2e"
-    storage.mkdir(parents=True, exist_ok=True)
     with (
+        e2e_storage_root(storage_base) as storage,
         support.temporary_database(base) as url,
         tempfile.TemporaryDirectory(prefix="control-", dir=storage) as control,
     ):

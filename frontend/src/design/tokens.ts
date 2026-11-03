@@ -50,6 +50,8 @@ export const color = {
   focusRing: brand[6],
   // Selection / attention accent reserved for the 3D scene and charts.
   attention: "#b87000",
+  // Attention-coloured text on light surfaces (same value as the warning tone text; AA 4.5:1+).
+  attentionText: "#7a4a00",
 } as const;
 
 export type Tone = "neutral" | "info" | "success" | "warning" | "danger" | "unknown";

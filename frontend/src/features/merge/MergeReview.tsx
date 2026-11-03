@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Title } from "@mantine/core";
 import { CircleCheck, CircleX } from "lucide-react";
 import { Callout, Chip, EmptyState, ErrorState, LoadingState } from "../../design";
@@ -30,7 +30,7 @@ function ProposalCard({ p, busy, onAct }: { p: MergeProposal; busy: boolean; onA
     </Button>
   );
   return (
-    <li>
+    <li data-proposal-id={p.proposal_id} tabIndex={-1}>
       <strong>{title}</strong>
       <p className={styles.note}>
         Names <q>{aliases.join(", ")}</q> would join the wellbore <q>{p.target.name}</q> and all their files would be listed under it.
@@ -77,8 +77,11 @@ export function MergeReview({ projectId, onChanged }: { projectId: string; onCha
   const list = useScopedResource(keyString(["merge", projectId]), (signal) => listMergeProposals(projectId, signal));
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
+  // The acted-on button unmounts or is disabled; focus is moved deliberately once the list has settled.
+  const pendingFocus = useRef<{ id: string; staleData: unknown } | null>(null);
 
   async function act(p: MergeProposal, action: MergeAction) {
+    pendingFocus.current = { id: p.proposal_id, staleData: list.state.kind === "ready" ? list.state.data : null };
     setBusy(p.proposal_id);
     setFailure(null);
     try {
@@ -94,6 +97,17 @@ export function MergeReview({ projectId, onChanged }: { projectId: string; onCha
   }
 
   const data = list.state.kind === "ready" ? list.state.data : null;
+  useEffect(() => {
+    const pending = pendingFocus.current;
+    // Wait for the reloaded list: the pre-action rows are still shown until it settles.
+    if (pending === null || busy !== null || data === null || data === pending.staleData) return;
+    const id = pending.id;
+    const row = document.querySelector<HTMLElement>(`[data-proposal-id="${id}"]`);
+    if (row === null) return;
+    pendingFocus.current = null;
+    // The new Revert button after Accept; otherwise the proposal row itself (now in its new section).
+    (row.querySelector<HTMLElement>("button:not(:disabled)") ?? row).focus();
+  }, [data, busy]);
   return (
     <section aria-labelledby="merge-title" className={styles.panel}>
       <Title order={5} id="merge-title">

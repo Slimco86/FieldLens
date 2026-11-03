@@ -73,6 +73,19 @@ describe("Wellbore name matches (merge review)", () => {
     expect(changed).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps keyboard focus after Accept (Revert button), Reject and Revert (the proposal row)", async () => {
+    install([proposal("p1", "pending"), proposal("p2", "pending", { target: member("15/9-F-13", "target"), members: [member("F-13", "member")] })]);
+    render(<MergeReview projectId={P} onChanged={() => undefined} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Accept F-12 → 15/9-F-12" }));
+    const revert = await screen.findByRole("button", { name: "Revert F-12 → 15/9-F-12" });
+    await waitFor(() => expect(document.activeElement).toBe(revert));
+    await userEvent.click(screen.getByRole("button", { name: "Reject F-13 → 15/9-F-13" }));
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-proposal-id", "p2"));
+    await userEvent.click(screen.getByRole("button", { name: "Revert F-12 → 15/9-F-12" }));
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-proposal-id", "p1"));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it("reverts an applied merge", async () => {
     const st = install([proposal("p1", "accepted")]);
     render(<MergeReview projectId={P} onChanged={() => undefined} />);

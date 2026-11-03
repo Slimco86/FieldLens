@@ -38,3 +38,15 @@ def test_port_override_applies(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_invalid_port_is_refused(monkeypatch: pytest.MonkeyPatch, bad: str) -> None:
     with pytest.raises(RuntimeError, match="FIELDLENS_E2E_API_PORT"):
         _load(monkeypatch, bad)
+
+
+def test_storage_root_is_fresh_per_run_unless_explicit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    module = _load(monkeypatch, None)
+    with module.e2e_storage_root(None) as first:
+        (first / "leftover.bin").write_bytes(b"x")
+    assert not first.exists()
+    with module.e2e_storage_root(None) as second:
+        assert list(second.iterdir()) == [] and second != first
+    with module.e2e_storage_root(str(tmp_path / "explicit")) as chosen:
+        assert chosen == tmp_path / "explicit" / "e2e"
+    assert chosen.is_dir()

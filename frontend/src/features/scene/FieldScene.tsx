@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExploreWorkspace } from "../../app/shell/ExploreWorkspace";
 import { EmptyState, KeyValue, KeyValueList, LoadingState } from "../../design";
 import { useFieldSpecs, type WellboreRef } from "./fieldData";
@@ -24,10 +24,12 @@ interface Props {
   onSelect: (id: string | null) => void;
   /** Open the single-wellbore view (back-navigation returns here with the selection kept). */
   onOpen: (id: string) => void;
+  /** Returning from the wellbore view: move focus to the selected list item (or the first). */
+  restoreFocus?: boolean | undefined;
 }
 
 
-export function FieldScene({ projectId, wellbores: listed, selectedId, onSelect, onOpen }: Props) {
+export function FieldScene({ projectId, wellbores: listed, selectedId, onSelect, onOpen, restoreFocus }: Props) {
   // The listing is rebuilt on every parent render; keep a stable identity while ids and names are unchanged.
   const listKey = listed.map((w) => `${w.id}\u0000${w.name}`).join("\u0001");
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,7 +124,7 @@ export function FieldScene({ projectId, wellbores: listed, selectedId, onSelect,
 
   return (
     <ExploreWorkspace
-      tree={<WellboreList plan={plan} selectedId={selectedId} onActivate={activateWell} />}
+      tree={<WellboreList plan={plan} selectedId={selectedId} onActivate={activateWell} restoreFocus={restoreFocus} />}
       stage={
         <div className={styles.view}>
           {toolbar}
@@ -169,8 +171,15 @@ function FieldFallback({ plan }: { plan: FieldPlan }) {
 }
 
 /** Keyboard-navigable wellbore list: arrows move focus, Enter/Space selects and flies; again opens the wellbore view. */
-function WellboreList({ plan, selectedId, onActivate }: { plan: FieldPlan; selectedId: string | null; onActivate: (id: string) => void }) {
+function WellboreList({ plan, selectedId, onActivate, restoreFocus }: { plan: FieldPlan; selectedId: string | null; onActivate: (id: string) => void; restoreFocus?: boolean | undefined }) {
   const root = useRef<HTMLDivElement>(null);
+  const first = useRef(restoreFocus === true);
+  useEffect(() => {
+    if (!first.current || root.current === null) return;
+    first.current = false;
+    const items = Array.from(root.current.querySelectorAll<HTMLButtonElement>("button[data-wellbore-id]"));
+    (items.find((b) => b.dataset.wellboreId === selectedId) ?? items[0])?.focus();
+  }, [selectedId]);
   const move = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key) || root.current === null) return;
     const items = Array.from(root.current.querySelectorAll<HTMLButtonElement>("button[data-wellbore-id]"));
