@@ -2,7 +2,7 @@
 
 > **Spec type:** Product/feature (agent stages + contract + 3D viewer). **Date:** 2026-11-02.
 > **Author:** orchestrator. **Decision owner:** owner.
-> **Status:** Approved for implementation by the owner on 2026-11-02 (answers in section 14); Q1/Q3 proceed on the stated defaults because the owner was unavailable. `[Proposed]` marks my decisions awaiting confirmation; `[Open]` marks questions.
+> **Status:** Approved for implementation by the owner on 2026-11-02 (answers in section 14); Q1 and Q3 were answered at 23:46 (below); they supersede the earlier defaults. `[Proposed]` marks my decisions awaiting confirmation; `[Open]` marks questions.
 > **Backlog:** FL-023 (TASK-076..TASK-081). Related TASK-075 lives in [MODEL_PROCESSING_OUTCOME](MODEL_PROCESSING_OUTCOME.md) §8.
 > **Extends:** [RECONSTRUCTION_RUN](RECONSTRUCTION_RUN.md) (stage list), [MERGE_PROPOSALS](MERGE_PROPOSALS.md),
 > [EQUIPMENT_RECONSTRUCTION](EQUIPMENT_RECONSTRUCTION.md), [TRAJECTORY_VIEWER](TRAJECTORY_VIEWER.md),
@@ -178,5 +178,6 @@ re-groups files and invalidates the dependent draft spec.
 - **Q5 Test wellbore:** the most complete wellbore of the project; the rest are processed by the owner afterwards.
 - **Q6 Pages:** `1..N` is sufficient.
 - **Estimate:** computed from the real document text (token count of the actual selected pages), as in MODEL_PROCESSING_OUTCOME section 8.
-- **Q1 (default, owner unavailable):** auto-apply guard-passing, quote-verified merges as revertible records; others stay proposals.
-- **Q3 (default, owner unavailable):** generated asset shows as Draft with one-click Accept.
+- **Q1 (owner, 23:46): ALWAYS ASK.** Nothing merges automatically. S3 only creates merge proposals (alias quotes, guard results); a merge is applied only when the user clicks Accept on that proposal; applied merges stay revertible. This supersedes the auto-apply wording in sections 3 and AG-1.
+- **Q3 (owner, 23:46): SHOW DIRECTLY.** A generated asset appears in the viewer immediately; there is no Draft/Accept gate. The latest valid generated spec per wellbore is the current one; earlier ones are kept as history; a failed generation leaves the current one untouched. The 'Draft' badge/Accept action in sections 5 and 7 is removed; the 'illustrative / visual only' label stays.
+- **Component scope (owner, 23:46):** everything that contributes to visual presence belongs in the composite model: casing, liner, tubing, packers, pumps, valves, wellhead, christmas tree and also surface facilities such as separators, chokes, manifolds, tanks and flowlines. The closed kind enum is extended accordingly (e.g. `separator`, `choke`, `manifold`, `tank`, `flowline`, `pump_surface`). **Every element carries a visible label** (non-empty, validated; shown in the 3D view and the list).
