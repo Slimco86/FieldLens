@@ -10,7 +10,9 @@ import { buildSceneModel, defaultExaggeration, locatedMdMax, KIND_LABEL, placeme
 import { inputOf, loadTrajectory, placeholderReason } from "./trajectorySource";
 import { WellPath } from "./trajectory";
 import type { TrajectoryState } from "./trajectorySource";
-import { FieldScene } from "./FieldScene";
+import { FieldSceneView } from "./FieldScene";
+import { useFieldSpecs } from "./fieldData";
+import type { FieldSpecState } from "./fieldModel";
 import { webgl2Available } from "./webgl";
 import type { LabelMode, ViewerCommands, ViewerOptions } from "./Viewer3D";
 import styles from "./Scene.module.css";
@@ -33,6 +35,13 @@ export function ExploreScene({ projectId }: { projectId: string }) {
   const [fieldSelected, setFieldSelected] = useState<string | null>(null);
   // True after "← Field view": the field view then takes focus to its selected list item.
   const [returning, setReturning] = useState(false);
+  const exposed = exposure.state.kind === "ready" ? exposure.state.data : null;
+  const wellbores: WellboreRef[] = useMemo(
+    () => (exposed === null ? [] : exposed.wells.flatMap((w) => w.wellbores.map((b) => ({ id: b.wellbore_id, name: `${w.name} / ${b.wellbore_name}` })))),
+    [exposed],
+  );
+  // One spec read per wellbore, shared by the field view and the wellbore dropdown (see `reconstructed`).
+  const { specs, retry: retrySpecs } = useFieldSpecs(projectId, wellbores);
 
   if (exposure.state.kind === "loading") return <LoadingState label="Loading wellbores" />;
   if (exposure.state.kind === "error") {
@@ -44,9 +53,6 @@ export function ExploreScene({ projectId }: { projectId: string }) {
       />
     );
   }
-  const wellbores: WellboreRef[] = exposure.state.data.wells.flatMap((w) =>
-    w.wellbores.map((b) => ({ id: b.wellbore_id, name: `${w.name} / ${b.wellbore_name}` })),
-  );
   const current = wellbores.find((w) => w.id === picked) ?? wellbores[0];
   if (current === undefined) {
     return (
@@ -57,9 +63,11 @@ export function ExploreScene({ projectId }: { projectId: string }) {
   }
   if ((mode ?? (wellbores.length >= 2 ? "field" : "wellbore")) === "field") {
     return (
-      <FieldScene
+      <FieldSceneView
         projectId={projectId}
         wellbores={wellbores}
+        specs={specs}
+        retrySpecs={retrySpecs}
         selectedId={fieldSelected}
         onSelect={setFieldSelected}
         restoreFocus={returning}
@@ -77,8 +85,9 @@ export function ExploreScene({ projectId }: { projectId: string }) {
       key={current.id}
       projectId={projectId}
       wellbore={current}
-      wellbores={wellbores}
+      wellbores={dropdownWellbores(wellbores, specs, current.id)}
       onPick={setPicked}
+      onSpecChanged={() => retrySpecs([current.id])}
       onField={
         wellbores.length >= 2
           ? () => {
@@ -91,16 +100,23 @@ export function ExploreScene({ projectId }: { projectId: string }) {
   );
 }
 
+/** Single-view dropdown: reconstructed wellbores only (plus the one shown, so it never vanishes, e.g. before its stub spec is generated). */
+export function dropdownWellbores(all: readonly WellboreRef[], specs: ReadonlyMap<string, FieldSpecState>, currentId: string): WellboreRef[] {
+  return all.filter((w) => w.id === currentId || specs.get(w.id)?.kind === "ready");
+}
+
 interface WellboreSceneProps {
   projectId: string;
   wellbore: WellboreRef;
   wellbores: WellboreRef[];
   onPick: (id: string) => void;
+  /** The current wellbore's spec was (re)generated: refresh the shared "has a spec" signal. */
+  onSpecChanged?: (() => void) | undefined;
   /** Back to the field view (only offered when the project has two or more wellbores). */
   onField?: (() => void) | undefined;
 }
 
-function WellboreScene({ projectId, wellbore, wellbores, onPick, onField }: WellboreSceneProps) {
+function WellboreScene({ projectId, wellbore, wellbores, onPick, onField, onSpecChanged }: WellboreSceneProps) {
   const spec = useScopedResource(`asset-spec/${projectId}/${wellbore.id}`, (signal) =>
     getAssetSpec(projectId, wellbore.id, signal),
   );
@@ -113,12 +129,13 @@ function WellboreScene({ projectId, wellbore, wellbores, onPick, onField }: Well
     setGenError(null);
     try {
       replace(await generateAssetSpec(projectId, wellbore.id, {}));
+      onSpecChanged?.();
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");
     } finally {
       setGenerating(false);
     }
-  }, [projectId, wellbore.id, replace]);
+  }, [projectId, wellbore.id, replace, onSpecChanged]);
 
   const picker = (
     <>

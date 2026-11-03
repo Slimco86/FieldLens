@@ -161,6 +161,38 @@ the first station are placed by linear interpolation of `md_m` over `tie_in.poin
   tie-in and no warning. Missing first-station TVD at MD > 0 keeps the existing
   `WELLHEAD_START_UNKNOWN` block.
 
+### Field view: reconstructed-only set, layout and thickness (TASK-089, EXPLORE_POLISH D)
+
+- **Which wellbores.** Only wellbores with a current asset spec are listed in the field-view tree,
+  drawn in the field scene and offered in the single-view dropdown (the one currently shown is always
+  kept). No list endpoint or exposure field carries this, so the signal is the per-wellbore
+  `GET .../asset-spec` (200 reconstructed, 404 not yet), read once per wellbore (concurrency 4) by
+  `ExploreScene` and shared by the field view and dropdown; generating a stub refreshes that wellbore.
+  Failed reads stay listed with Retry. Surveys (`/trajectory`) are requested only for reconstructed
+  wellbores, incrementally as specs resolve. The summary keeps total / reconstructed / not
+  reconstructed / failed / loading counts.
+- **Layout.** The survey route's `surface_location` (easting/northing; lat/lon-only counts as not
+  located) is the only coordinate source. When every drawn wellbore has one, with a stated CRS, a metre
+  unit (`m`/`metre(s)`/`meter(s)`) and identical CRS and datum (case/whitespace-insensitive; an unstated
+  datum only matches another unstated one), wellheads sit at E/N offsets (x = east, z = -north) from the
+  centroid of the placed set, computed in double precision and subtracted before float32. The label is
+  "Surface-location layout (E/N offsets from the field centroid, <CRS>)". Otherwise (mixed/unstated
+  CRS, datum or unit, feet, no locations) the schematic grid is used with the label "Schematic layout,
+  not map positions" and the reason in its tooltip. No reprojection, unit conversion or CRS guess. In a
+  located set, wellbores without a location (and failed loads) are *not* guessed: they wait in a labelled
+  "unlocated" row south of the field, spaced by `max(10 % of spread, 60 m)` at `max(25 % of spread, 100 m)`
+  from it, tagged "unlocated" in the label/inspector. Their locations are excluded from the centroid. CRS,
+  datum and unit per well stay in the inspector ("Location").
+- **Platform scale.** Pad half-width = min(global cap, 0.4 x nearest-neighbour distance) (floor 0.5 m for
+  coincident heads); glyph/marker sizes scale with it, so same-platform wells a few metres apart do not
+  overlap. Camera framing uses a sphere around the wellhead spread, the horizontal reach of the traces
+  and the deepest trace. Layout waits until all reconstructed surveys settled (no re-layout flicker).
+- **Thickness.** The default tube radius of every field trace equals the selected-state rule
+  `max(0.05, defaultExaggeration(depth) * 0.035)` m (0.175 m at >= 2500 m, 0.35 m, 0.7 m for shallower
+  holes) instead of an extent-derived width. Selection stays distinct: the selected well gets a bright
+  emissive trace, a halo and its full primitives. Tube widths remain exaggerated display values; at a
+  whole-field zoom of several km the traces can be sub-pixel.
+
 ## Open Tensions
 
 No certified clearance or connectivity follows from a valid distance measurement.

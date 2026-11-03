@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../src/api/client";
@@ -9,10 +11,9 @@ import { WellPath } from "../src/features/scene/trajectory";
 import { render } from "./render";
 
 const mockGet = vi.fn();
+let specImpl: (id: string) => Promise<unknown> = () => Promise.reject(new ApiError(404, "NOT_FOUND", "none", null));
 vi.mock("../src/features/scene/api", () => ({
-  getAssetSpec: () => {
-    throw new ApiError(404, "NOT_FOUND", "none", null);
-  },
+  getAssetSpec: (_p: string, id: string) => specImpl(id),
   generateAssetSpec: vi.fn(),
   getTrajectory: (...a: unknown[]) => mockGet(...a),
 }));
@@ -94,7 +95,13 @@ describe("trajectory source", () => {
 });
 
 describe("field view survey fetch", () => {
-  it("fetches per wellbore with bounded concurrency; a wellbore without a survey keeps the placeholder with the reason", async () => {
+  it("fetches surveys only for reconstructed wellbores, with bounded concurrency; a wellbore without a survey keeps the placeholder with the reason", async () => {
+    const f14 = JSON.parse(readFileSync(join(import.meta.dirname, "fixtures", "asset-specs", "f14-dimensioned.json"), "utf8")) as unknown;
+    // w8, w9 have no spec (404): no survey request may be made for them.
+    specImpl = async (id: string) => {
+      if (id === "w8" || id === "w9") throw new ApiError(404, "NOT_FOUND", "none", null);
+      return { spec: f14, revision: 1, state: "current" };
+    };
     let inflight = 0;
     let peak = 0;
     mockGet.mockImplementation(async (_p: string, id: string) => {
@@ -105,10 +112,13 @@ describe("field view survey fetch", () => {
       if (id === "w6") throw new ApiError(404, "NOT_FOUND", "x", null, { code: "no_trajectory", sets: [] });
       return dto();
     });
-    const wells = Array.from({ length: 8 }, (_, i) => ({ id: `w${i}`, name: `F / W-${i}` }));
+    const wells = Array.from({ length: 10 }, (_, i) => ({ id: `w${i}`, name: `F / W-${i}` }));
     render(<FieldScene projectId="p" wellbores={wells} selectedId={null} onSelect={vi.fn()} onOpen={vi.fn()} />);
     await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(8));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockGet).toHaveBeenCalledTimes(8);
     expect(peak).toBeLessThanOrEqual(4);
+    expect(mockGet.mock.calls.map((c) => c[1]).sort()).toEqual(["w0", "w1", "w2", "w3", "w4", "w5", "w6", "w7"]);
     expect(new Set(mockGet.mock.calls.map((c) => c[0]))).toEqual(new Set(["p"]));
   });
 });

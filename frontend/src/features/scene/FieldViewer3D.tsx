@@ -52,8 +52,8 @@ interface Props {
 
 const DEFAULT_DIR = new THREE.Vector3(1, 0.62, 1).normalize();
 /** Close-up framing of one wellbore scales with the pad so the camera never ends up inside it. */
-const focusRadius = (plan: FieldPlan): number => Math.max(40, plan.display.glyphHeightM * 2.5);
-const focusDrop = (plan: FieldPlan): number => focusRadius(plan) * 0.15;
+const focusRadius = (plan: FieldPlan, w: FieldWell): number => Math.max(Math.min(40, Math.max(12, plan.nearestM ?? 40)), w.glyphHeightM * 2.5);
+const focusDrop = (plan: FieldPlan, w: FieldWell): number => focusRadius(plan, w) * 0.15;
 const reducedMotion = (): boolean => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Owner of the instanced far set's GPU resources (one geometry per shape, one material per kind of mesh). */
@@ -116,7 +116,6 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
   const kit = new Kit();
   const group = new THREE.Group();
   group.name = "field-far";
-  const d = plan.display;
   const tmp = new THREE.Object3D();
   const spec = plan.wells.filter((w) => w.status === "spec");
   // The focused well's own glyph stays when it has no surface components of its own to show.
@@ -135,7 +134,7 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
   pads.userData["role"] = "pad";
   plan.wells.forEach((w, i) => {
     tmp.position.set(w.position[0], padH / 2, w.position[2]);
-    tmp.scale.set(d.padHalfM * 2, padH, d.padHalfM * 2);
+    tmp.scale.set(w.padHalfM * 2, padH, w.padHalfM * 2);
     tmp.updateMatrix();
     pads.setMatrixAt(i, tmp.matrix);
     pads.setColorAt(i, colorOf(padColor(w)));
@@ -145,7 +144,7 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
   // The focused pad keeps its fill and gets an outline, so the wellhead and components stay visible.
   const fw = focusedId === null ? undefined : plan.byId.get(focusedId);
   if (fw !== undefined) {
-    const h = d.padHalfM * 1.25;
+    const h = fw.padHalfM * 1.25;
     const halo = new THREE.Mesh(
       kit.own(new THREE.PlaneGeometry(h * 2, h * 2)),
       kit.own(new THREE.MeshBasicMaterial({ color: colorOf(scenePalette.highlight), transparent: true, opacity: 0.3, depthWrite: false })),
@@ -168,7 +167,7 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
     glyphs.userData["role"] = "glyph";
     glyphWells.forEach((w, i) => {
       tmp.position.set(w.position[0], padH, w.position[2]);
-      tmp.scale.set(d.glyphRadiusM, d.glyphHeightM, d.glyphRadiusM);
+      tmp.scale.set(w.glyphRadiusM, w.glyphHeightM, w.glyphRadiusM);
       tmp.updateMatrix();
       glyphs!.setMatrixAt(i, tmp.matrix);
     });
@@ -189,7 +188,7 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
     holders.forEach((w, i) => {
       tmp.position.set(w.position[0], padH + 0.3, w.position[2]);
       tmp.rotation.set(-Math.PI / 2, 0, 0);
-      tmp.scale.setScalar(d.padHalfM * 0.55);
+      tmp.scale.setScalar(w.padHalfM * 0.55);
       tmp.updateMatrix();
       placeholders!.setMatrixAt(i, tmp.matrix);
       placeholders!.setColorAt(i, colorOf(w.status === "error" ? scenePalette.paintRed : w.status === "missing" ? scenePalette.trajectoryPlaceholder : scenePalette.depthMark));
@@ -208,7 +207,9 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
     let tri = 0;
     for (const w of far) {
       const verts = w.model!.path.vertices();
-      const g = buildTubeGeometry(verts, { outerRadius: d.tubeRadiusM, innerRadius: null, cutaway: false, radialSegments: 6 });
+      // Default radius = the selected-state radius (per-well rule), so traces are visible unselected;
+      // selection stays distinct through the bright emissive trace, the halo and the full primitives.
+      const g = buildTubeGeometry(verts, { outerRadius: w.tubeRadiusM, innerRadius: null, cutaway: false, radialSegments: 6 });
       g.translate(w.position[0], 0, w.position[2]);
       const count = g.getAttribute("position").count;
       const c = colorOf(w.trajectoryAvailable ? scenePalette.trajectory : scenePalette.trajectoryPlaceholder);
@@ -275,7 +276,7 @@ function buildFocused(well: FieldWell): { group: THREE.Group; lib: SceneResource
   group.position.set(well.position[0], 0, well.position[2]);
   const verts = model.path.vertices();
   const traj = new THREE.Mesh(
-    lib.track(buildTubeGeometry(verts, { outerRadius: Math.max(0.05, exaggeration * 0.035), innerRadius: null, cutaway: false, radialSegments: 10 })),
+    lib.track(buildTubeGeometry(verts, { outerRadius: well.tubeRadiusM, innerRadius: null, cutaway: false, radialSegments: 10 })),
     lib.own(
       new THREE.MeshStandardMaterial({
         color: colorOf(model.path.available ? scenePalette.trajectory : scenePalette.trajectoryPlaceholder),
@@ -392,11 +393,9 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
   );
 
   const fieldSphere = useMemo(() => {
-    const depth = -plan.center[1] * 2;
-    const gx = (plan.cols - 1) * plan.spacingM + plan.display.padHalfM * 2;
-    const gz = (plan.rows - 1) * plan.spacingM + plan.display.padHalfM * 2;
-    const radius = Math.max(Math.hypot(gx, gz) / 2 + depth * 0.06, 150);
-    return { center: new THREE.Vector3(0, -depth * 0.03, 0), radius };
+    // Frames the wellhead spread, the horizontal reach of the traces and the deepest trace.
+    const f = plan.framing;
+    return { center: new THREE.Vector3(f.center[0], f.center[1], f.center[2]), radius: f.radiusM };
   }, [plan]);
 
   useEffect(() => {
@@ -404,7 +403,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
       flyTo: (id) => {
         const w = plan.byId.get(id);
         if (w === undefined) return;
-        frame.go(new THREE.Vector3(w.position[0], -focusDrop(plan), w.position[2]), focusRadius(plan), false);
+        frame.go(new THREE.Vector3(w.position[0], -focusDrop(plan, w), w.position[2]), focusRadius(plan, w), false);
       },
       fitAll: () => frame.go(fieldSphere.center, fieldSphere.radius, false),
       zoom: (factor) => {
@@ -433,7 +432,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
     if (ctl === null || userMoved.current) return;
     const id = initial.current;
     const w = id === null ? undefined : plan.byId.get(id);
-    if (w !== undefined) frame.go(new THREE.Vector3(w.position[0], -focusDrop(plan), w.position[2]), focusRadius(plan), true);
+    if (w !== undefined) frame.go(new THREE.Vector3(w.position[0], -focusDrop(plan, w), w.position[2]), focusRadius(plan, w), true);
     else frame.go(fieldSphere.center, fieldSphere.radius, true);
   }, [ctl, plan, frame, fieldSphere]);
   useEffect(() => {
@@ -466,7 +465,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
     window.__fieldlensFieldScreen = (wid) => {
       const w = plan.byId.get(wid);
       if (w === undefined) return null;
-      const v = new THREE.Vector3(w.position[0], plan.display.glyphHeightM * 0.4, w.position[2]).project(cam);
+      const v = new THREE.Vector3(w.position[0], w.glyphHeightM * 0.4, w.position[2]).project(cam);
       if (v.z > 1 || v.z < -1) return null;
       return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
     };
@@ -520,7 +519,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
         for (const w of inRange) {
           for (const m of w.markers) {
             dummy.position.set(w.position[0] + m.position[0], m.position[1], w.position[2] + m.position[2]);
-            dummy.scale.setScalar(plan.display.markerRadiusM * (m.kind === "perforation_interval" ? 1.25 : 1));
+            dummy.scale.setScalar(w.markerRadiusM * (m.kind === "perforation_interval" ? 1.25 : 1));
             dummy.updateMatrix();
             f.markers.setMatrixAt(i, dummy.matrix);
             f.markers.setColorAt(i, colorOf(m.kind === "perforation_interval" ? scenePalette.perforation : m.illustrative ? scenePalette.fieldMarkerIllustrative : scenePalette.fieldMarkerDocumented));
@@ -541,7 +540,6 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
     const layer = layerRef.current;
     if (layer === null) return;
     const inputs: LabelInput[] = [];
-    const lift = plan.display.glyphHeightM * 1.25;
     for (const w of plan.wells) {
       const el = labelEls.current.get(w.id);
       if (el === undefined) continue;
@@ -551,7 +549,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
         sz = { w: r.width, h: r.height };
         labelSizes.current.set(w.id, sz);
       }
-      tmp.set(w.position[0], lift, w.position[2]).project(cam);
+      tmp.set(w.position[0], w.glyphHeightM * 1.25, w.position[2]).project(cam);
       inputs.push({
         id: w.id,
         x: ((tmp.x + 1) / 2) * size.width,
@@ -643,7 +641,7 @@ export default function FieldViewer3D(props: Props) {
         gl={{ antialias: true, powerPreference: "high-performance", alpha: true }}
         tabIndex={0}
         role="group"
-        aria-label="3D field view of all wellbores on a schematic grid. Use the wellbore list to select by keyboard."
+        aria-label={`3D field view of the reconstructed wellbores (${plan.layoutKind === "surface" ? "surface-location layout" : "schematic grid, not map positions"}). Use the wellbore list to select by keyboard.`}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.05;
@@ -679,6 +677,7 @@ export default function FieldViewer3D(props: Props) {
           >
             {w.name}
             {w.status !== "spec" && <span className={styles.labelTag}> · {w.status === "missing" ? "no asset spec" : w.status === "error" ? "load failed" : "loading"}</span>}
+            {w.placement === "unlocated" && <span className={styles.labelTag}> · unlocated</span>}
           </button>
         ))}
       </div>
