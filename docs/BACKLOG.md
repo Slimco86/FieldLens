@@ -3160,7 +3160,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, 3d |
 | Depends on | TASK-085 |
@@ -3168,10 +3168,10 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_POLISH.md |
-| Version | |
+| Version | 0.49.0 |
 | Parent | FL-023 |
 | Slice | FL-023-Q |
 
 **Outcome.** Varied roughness/metalness and colour roles, blended selection highlight and a multi-colour procedural wellhead.
-**Next action.** Wave 2 lane G.
-**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+**Next action.** Browser-verify the look (contrast, matte vs metallic, highlight, wellhead) in the integrated pass; wire `setDimmed`/cement roles only if wanted.
+**Evidence.** Merged 0.49.0 (1d2cb3a). Independent QA: lint/typecheck/vitest 351+/build green, cost reproduced independently (f14 scene -2 % triangles, +2 % draw calls), cache/dispose reviewed; QA follow-ups fixed (perforation selection contrast, steelDark contrast >= 3:1). Visual acceptance BLOCKED for QA (no browser) and still pending; no render has been seen.

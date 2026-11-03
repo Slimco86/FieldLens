@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.49.0 - 2026-11-03
+
+- **TASK-092 3D material fidelity, blended selection highlight, detailed wellhead.** Element roles now have distinct finishes and clearer colour separation (matte cement/open-hole/rubber roles, brushed casing steel, lighter tubing, satin paints) instead of uniform gloss; the selection highlight tints the object's own colour (35 % toward amber, a cool tint for warm-hued roles such as perforations, own-hue emissive at 0.28) instead of overlaying it; the procedural wellhead has a blue-grey spool, dark flanges with instanced studs and a brass ring, red/blue gate valves with contrasting handwheels and a gauge. Default f14 scene cost: -2 % triangles, +2 % draw calls. Visual look not yet browser-verified; `cement`/`openHole` roles and the `setDimmed` helper exist but no viewer consumes them yet.
+
 ## 0.48.0 - 2026-11-03
 
 - **TASK-086 S3 matches short wellbore names (F-5, F-12, F-14) to their block-qualified bores.** The earlier "no new matches; earlier results were reused" was a cached empty answer: the model needed a quote naming both spellings in one document, which the data never contains. S3 now gives the model a deterministic candidate table (name similarity, same slot, source families, survey fingerprint comparison, surface-location comparison) and the model still decides; a pair may be proposed on a quote or on server-verified survey content (`evidence_kind: survey_match`, shown as "Matching survey"). Proposals stay pending for Accept/Reject. New guard G8 blocks contradictory surface locations (accept re-checks it). An empty result is re-planned when evidence, guards or the prompt change, and the stage message says whether the model found none or results were reused. S3 uses medium reasoning effort with a larger output bound (8192 + 1024 per block, retry at minimal with double), reserved USD 0.60 per call (worst case 1.80 per run); the internal provider request cap rose to 32768. No migration. Not yet verified with live Meta.
