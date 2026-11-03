@@ -150,7 +150,7 @@ anywhere from 0 to 20,000 characters (`MAX_TEXT_CHARS`). 8,000 tokens/page is a 
   `provider_max_reserved_usd` as a reservation ceiling, `remaining_budget` in the UI. The WorkUnit reservation is the
   confirmed per-call bound times `max_attempts` (2: retry headroom, so a transient failure that billed nothing does not
   block the retry); the confirmed estimate stays the sum of single-call bounds, i.e. an upper bound for one attempt
-  per call, and a retry can add at most one more bound per call. A connection error (no connection, nothing processed)
+  per call, and a retry can add at most one more bound per call, which is still within what the user confirmed: the run stops with `confirmed_estimate_exceeded` (naming the chunk) only when actual spend exceeds the reservation total (estimate × `max_attempts`), never for a recovered retry. A connection error (no connection, nothing processed)
   is retryable and booked as zero; timeouts and 5xx stay conservatively chargeable. Estimate details (calls, pages
   without text, rates) are recomputed locally from the stored run when the in-memory cache is empty (no migration). Still enforced (not spend limits): provider configuration/paused ledger, one active run
   per document, idempotency, cancel. The ledger keeps recording every reservation and commit (accounting, run history,

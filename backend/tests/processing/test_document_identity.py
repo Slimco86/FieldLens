@@ -955,3 +955,44 @@ def test_d2_estimate_details_survive_an_empty_cache(migrated_url: URL, tmp_path:
     after = m.world.get(run["run_id"])["estimate"]
     for key in ("calls", "pages_without_text", "input_usd_per_mtok", "output_usd_per_mtok"):
         assert after[key] == before[key] and after[key] is not None
+
+
+def test_n1_a_charged_5xx_then_success_succeeds_even_though_actual_exceeds_the_estimate(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [errors.ProviderServerError("5xx"), answer(identities=[])],
+        files={"dense.pdf": dense_pdf(3)},
+    )
+    run = m.world.estimate("dense.pdf", pages={"dense.pdf": (1, 3)}).json()
+    est = Decimal(run["estimate"]["estimated_usd"])
+    assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
+    done = m.world.get(run["run_id"])
+    assert done["status"] == "succeeded" and len(m.provider.calls) == 2
+    actual = Decimal(done["actual_usd"])
+    assert est < actual <= est * 2  # the recovered retry is within what the user confirmed
+
+
+def test_n1_spend_beyond_the_reservation_fails_naming_the_chunk(
+    migrated_url: URL, tmp_path: Path
+) -> None:
+    huge = text_response(
+        json.dumps({"category": None, "tags": [], "identities": []}),
+        Usage(input_tokens=50_000_000, output_tokens=1_000_000),
+    )
+    m = build_model(
+        migrated_url,
+        tmp_path,
+        [huge],
+        files={"big.pdf": pages_of("big", 25)},
+    )
+    run = m.world.estimate("big.pdf", pages={"big.pdf": (1, 25)}).json()
+    assert m.world.confirm(run).status_code == 202 and m.world.drain() == 1
+    done = m.world.get(run["run_id"])
+    assert done["status"] != "succeeded"
+    assert done["error_code"] == "confirmed_estimate_exceeded"
+    assert "chunk 1 of 3" in (
+        done["documents"][0]["failure_message"] or done["error_message"] or ""
+    )

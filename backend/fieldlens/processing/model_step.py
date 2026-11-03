@@ -279,7 +279,7 @@ class ModelClassificationStep:
             if failure is not None or outcome is None or response is None:
                 assert failure is not None
                 mapped = map_failure(failure)
-                self._charge(chunk_pages, cost, checkpoint)  # a billed failure is real spend
+                self._charge(chunk_pages, cost, checkpoint, label)  # a billed failure is real spend
                 if isinstance(mapped, RunStop):
                     raise mapped
                 raise PageFailure(mapped.code, label + mapped.message, retryable=True)
@@ -292,7 +292,7 @@ class ModelClassificationStep:
             in_tok += (usage.input_tokens if usage else None) or 0
             out_tok += (usage.output_tokens if usage else None) or 0
             total_cost += cost
-            self._charge(chunk_pages, cost, checkpoint)
+            self._charge(chunk_pages, cost, checkpoint, label)
 
         merged = ir.with_partial_no_text_warning(
             ir.merge_outcomes(outcomes),
@@ -320,6 +320,11 @@ class ModelClassificationStep:
                     ProcessingFailureCode.DOCUMENT_UNAVAILABLE, "the stored PDF could not be read"
                 ) from exc
         return out
+
+    @property
+    def spend_multiplier(self) -> int:
+        """Confirmed estimate = one attempt per call; the reservation allows ``max_attempts``."""
+        return max(1, self._config.limits.max_attempts)
 
     def _limits(self, reserved: Decimal) -> RequestLimits:
         """Reservation of one call == its pre-flight bound x ``max_attempts`` (retry headroom).
@@ -377,12 +382,18 @@ class ModelClassificationStep:
             )
 
     @staticmethod
-    def _charge(pages: list[int], cost: Decimal, checkpoint: Checkpoint) -> None:
-        """Report every page of the window; the spend is split across them and sums to ``cost``."""
+    def _charge(pages: list[int], cost: Decimal, checkpoint: Checkpoint, label: str = "") -> None:
+        """Report every page of the window; the spend is split across them and sums to ``cost``.
+        A stop raised while charging names the chunk."""
         n = len(pages)
         share = quantize(cost / n) if n else ZERO
         spent = ZERO
         for index, page in enumerate(pages):
             part = cost - spent if index == n - 1 else share
             spent += part
-            checkpoint(page, PageUsage(0, 0, quantize(part)))
+            try:
+                checkpoint(page, PageUsage(0, 0, quantize(part)))
+            except RunStop as halt:
+                if label and halt.code is ProcessingFailureCode.CONFIRMED_ESTIMATE_EXCEEDED:
+                    raise RunStop(halt.code, label + halt.message) from halt
+                raise
