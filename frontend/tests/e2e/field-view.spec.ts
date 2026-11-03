@@ -90,6 +90,15 @@ test.beforeEach(async ({ page }) => {
     };
     w["__glContexts"] = counters;
     const all: WebGL2RenderingContext[] = [];
+    // "probe" = created on a canvas that was never attached to the document (capability probes);
+    // "renderer" = a canvas in the document (R3F viewers).
+    const tags: ("probe" | "renderer")[] = [];
+    Object.defineProperty(counters, "probeLive", {
+      get: () => all.filter((c, i) => tags[i] === "probe" && !c.isContextLost()).length,
+      enumerable: true,
+    });
+    Object.defineProperty(counters, "probes", { get: () => tags.filter((t) => t === "probe").length, enumerable: true });
+    Object.defineProperty(counters, "renderers", { get: () => tags.filter((t) => t === "renderer").length, enumerable: true });
     Object.defineProperty(counters, "lost", {
       get: () => all.filter((c) => c.isContextLost()).length,
       enumerable: true,
@@ -121,6 +130,7 @@ test.beforeEach(async ({ page }) => {
         (this as unknown as Record<string, unknown>)["__counted"] = true;
         counters.created += 1;
         all.push(ctx as WebGL2RenderingContext);
+        tags.push(this.isConnected ? "renderer" : "probe");
       }
       return ctx;
     } as typeof orig;
@@ -376,10 +386,11 @@ test(`field view: ${SPEC_WELLS} wellbores in one scene, selection, back-navigati
     return {
       created: c.created,
       lost: c.lost,
-      live: (c as unknown as { live: number }).live,
+      ...(c as unknown as { live: number; probeLive: number; probes: number; renderers: number }),
     };
   });
   expect(ctx.live).toBe(0);
+  expect(ctx.probeLive).toBe(0);
   await nav.getByRole("button", { name: "Explore" }).click();
   await expect(page.getByTestId("scene-canvas")).toBeVisible({
     timeout: 30_000,

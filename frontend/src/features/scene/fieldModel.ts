@@ -170,7 +170,7 @@ export function buildFieldPlan(inputs: readonly FieldWellInput[], trajectoryOf: 
       glyphHeightM: extentM * 0.028,
       glyphRadiusM: extentM * 0.007,
       markerRadiusM: extentM * 0.0045,
-      padHalfM: spacingM * 0.36,
+      padHalfM: Math.max(extentM * 0.028 * 1.6, spacingM * 0.16),
     },
     layoutLabel: FIELD_LAYOUT_LABEL,
   };

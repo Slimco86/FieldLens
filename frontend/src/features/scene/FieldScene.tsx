@@ -93,7 +93,13 @@ export function FieldScene({ projectId, wellbores: listed, selectedId, onSelect,
   );
 
   let stage;
-  if (summary.empty) {
+  if (summary.empty && summary.failed > 0 && summary.failed === summary.total) {
+    stage = (
+      <EmptyState title="Asset specs failed to load">
+        The visual asset specs of all {summary.total} wellbores failed to load, so nothing can be drawn in the field view. Use Retry failed to try again.
+      </EmptyState>
+    );
+  } else if (summary.empty) {
     stage = (
       <EmptyState title="No visual asset specs yet">
         None of the {summary.total} wellbores of this project has a visual asset spec, so there is nothing to draw in the field view. Select a wellbore in the

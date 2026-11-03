@@ -50,10 +50,10 @@ interface Props {
   onContextLost: () => void;
 }
 
-const DEFAULT_DIR = new THREE.Vector3(1, 0.5, 1).normalize();
+const DEFAULT_DIR = new THREE.Vector3(1, 0.62, 1).normalize();
 /** Close-up framing of one wellbore scales with the pad so the camera never ends up inside it. */
-const focusRadius = (plan: FieldPlan): number => Math.max(60, plan.display.padHalfM * 1.8);
-const focusDrop = (plan: FieldPlan): number => focusRadius(plan) * 0.3;
+const focusRadius = (plan: FieldPlan): number => Math.max(40, plan.display.glyphHeightM * 2.5);
+const focusDrop = (plan: FieldPlan): number => focusRadius(plan) * 0.15;
 const reducedMotion = (): boolean => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Owner of the instanced far set's GPU resources (one geometry per shape, one material per kind of mesh). */
@@ -119,7 +119,11 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
   const d = plan.display;
   const tmp = new THREE.Object3D();
   const spec = plan.wells.filter((w) => w.status === "spec");
+  // The focused well's own glyph stays when it has no surface components of its own to show.
+  const focusedWell = focusedId === null ? undefined : plan.byId.get(focusedId);
+  const keepGlyph = focusedWell !== undefined && (focusedWell.counts.surface === 0);
   const far = spec.filter((w) => w.id !== focusedId);
+  const glyphWells = spec.filter((w) => w.id !== focusedId || keepGlyph);
   const holders = plan.wells.filter((w) => w.status !== "spec");
 
   // Pads: one flat box per wellbore (also the main click target), tinted by spec state.
@@ -134,22 +138,35 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
     tmp.scale.set(d.padHalfM * 2, padH, d.padHalfM * 2);
     tmp.updateMatrix();
     pads.setMatrixAt(i, tmp.matrix);
-    pads.setColorAt(i, colorOf(w.id === focusedId ? scenePalette.highlight : padColor(w)));
+    pads.setColorAt(i, colorOf(padColor(w)));
   });
   pads.computeBoundingSphere();
   group.add(pads);
+  // The focused pad keeps its fill and gets an outline, so the wellhead and components stay visible.
+  const fw = focusedId === null ? undefined : plan.byId.get(focusedId);
+  if (fw !== undefined) {
+    const h = d.padHalfM * 1.25;
+    const halo = new THREE.Mesh(
+      kit.own(new THREE.PlaneGeometry(h * 2, h * 2)),
+      kit.own(new THREE.MeshBasicMaterial({ color: colorOf(scenePalette.highlight), transparent: true, opacity: 0.3, depthWrite: false })),
+    );
+    halo.rotation.x = -Math.PI / 2;
+    halo.position.set(fw.position[0], padH * 0.5, fw.position[2]);
+    halo.frustumCulled = false;
+    group.add(halo);
+  }
 
   // Wellhead glyphs (spec wells that are not the focused one).
   let glyphs: THREE.InstancedMesh | null = null;
-  if (far.length > 0) {
+  if (glyphWells.length > 0) {
     glyphs = new THREE.InstancedMesh(
       kit.own(glyphGeometry()),
       kit.own(new THREE.MeshStandardMaterial({ color: scenePalette.steelBright, metalness: 0.6, roughness: 0.35 })),
-      far.length,
+      glyphWells.length,
     );
     glyphs.frustumCulled = false;
     glyphs.userData["role"] = "glyph";
-    far.forEach((w, i) => {
+    glyphWells.forEach((w, i) => {
       tmp.position.set(w.position[0], padH, w.position[2]);
       tmp.scale.set(d.glyphRadiusM, d.glyphHeightM, d.glyphRadiusM);
       tmp.updateMatrix();
@@ -234,7 +251,7 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
     pads,
     padIds: plan.wells.map((w) => w.id),
     glyphs,
-    glyphIds: far.map((w) => w.id),
+    glyphIds: glyphWells.map((w) => w.id),
     placeholders,
     placeholderIds: holders.map((w) => w.id),
     tube,
@@ -375,8 +392,11 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
   );
 
   const fieldSphere = useMemo(() => {
-    const e = plan.extentM;
-    return { center: new THREE.Vector3(0, -Math.min(e * 0.38, 500), 0), radius: Math.max(e * 0.85, 150) };
+    const depth = -plan.center[1] * 2;
+    const gx = (plan.cols - 1) * plan.spacingM + plan.display.padHalfM * 2;
+    const gz = (plan.rows - 1) * plan.spacingM + plan.display.padHalfM * 2;
+    const radius = Math.max(Math.hypot(gx, gz) / 2 + depth * 0.06, 150);
+    return { center: new THREE.Vector3(0, -depth * 0.03, 0), radius };
   }, [plan]);
 
   useEffect(() => {
