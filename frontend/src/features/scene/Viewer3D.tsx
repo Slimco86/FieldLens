@@ -285,7 +285,12 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
   labelModeRef: MutableRefObject<LabelMode>;
   selectedRef: MutableRefObject<string | null>;
 }) {
-  const built = useMemo(() => buildAssets(model, options), [model, options.exaggeration, options.surfaceScale, options.cutaway, options.depthMarks]);
+  const { exaggeration, surfaceScale, cutaway, depthMarks } = options;
+  const built = useMemo(
+    () => buildAssets(model, { ...options, exaggeration, surfaceScale, cutaway, depthMarks }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only geometry-affecting options rebuild
+    [model, exaggeration, surfaceScale, cutaway, depthMarks],
+  );
   const { camera, gl, scene, controls, size } = useThree();
   const anim = useRef<{ t: number; dur: number; fromPos: THREE.Vector3; toPos: THREE.Vector3; fromTarget: THREE.Vector3; toTarget: THREE.Vector3 } | null>(null);
   const first = useRef(true);
