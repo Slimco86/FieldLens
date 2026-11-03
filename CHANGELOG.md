@@ -8,6 +8,19 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.38.0 - 2026-11-03
+
+- **TASK-077 visual asset spec (`VisualAssetSpec`):** a typed, declarative description of a wellbore's visual 3D asset:
+  downhole kinds (casing, liner, tubing, packer, ESP pump, valves, perforation interval, wellhead, tree and others) and
+  surface facilities (separator, choke, manifold, tank, flowline, surface pump). Placement is located (MD interval),
+  unlocated or surface; every component needs a visible label; generic components carry no numbers and source-dimensioned
+  ones need evidence. A server validator drops invalid components with findings (invisible labels, control characters,
+  deep nesting, bad URLs/images) instead of guessing.
+- Stored per wellbore with revision history (migration 0019): the latest valid spec is current, earlier ones superseded,
+  a failed generation leaves the current one untouched; there is no accept step. A deterministic stub designer builds a
+  spec from equipment candidates. Routes: get current, history, generate. Purged with the project.
+- Visual only: nothing here enters engineering calculations or published claims. Fixture specs for the 3D viewer included.
+
 ## 0.37.1 - 2026-11-02
 
 - **TASK-074 live model processing no longer fails on an unconfirmed budget balance:** every live run of 0.37.0 failed

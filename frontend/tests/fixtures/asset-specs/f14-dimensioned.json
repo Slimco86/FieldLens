@@ -1,0 +1,114 @@
+{
+  "project_id": "00000000-0000-4000-8000-0000000007a1",
+  "wellbore_id": "00000000-0000-4000-8000-0000000f0014",
+  "source_revision": "srcrev-f14",
+  "identity_revision": "idrev-3",
+  "spec_version": "1",
+  "generator": {"provider": "stub", "model": "stub-designer-1", "run_id": "fixture-f14"},
+  "generated_at": "2026-11-02T20:00:00Z",
+  "status": "current",
+  "visual_only": true,
+  "components": [
+    {
+      "id": "wellhead", "kind": "wellhead", "label": "Wellhead",
+      "placement": {"state": "located", "md_top": 0, "md_bottom": 6, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 1.1, "unit": "m"}, "length": {"value": 2.2, "unit": "m"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 2, "quote": "Wellhead 13-5/8 in 5k"}]
+    },
+    {
+      "id": "tree", "kind": "christmas_tree", "label": "Christmas tree",
+      "placement": {"state": "located", "md_top": 0, "md_bottom": 6, "unit": "m", "depth_reference": "MD"},
+      "representation": "catalog_reference",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 2, "quote": "Xmas tree"}],
+      "visual_reference": {
+        "url": "https://example.org/catalog/xmas-tree",
+        "title": "Vertical tree, public datasheet",
+        "retrieved_at": "2026-11-02T19:30:00Z",
+        "note": "External visual reference, not evidence of installation."
+      },
+      "confidence_note": "Shape follows a documented type; sizes are not from the source."
+    },
+    {
+      "id": "csg-30", "kind": "casing", "label": "30 in conductor",
+      "placement": {"state": "located", "md_top": 0, "md_bottom": 150, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 30, "unit": "in"}, "id": {"value": 28, "unit": "in"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 3, "quote": "30 in conductor to 150 m"}]
+    },
+    {
+      "id": "csg-13", "kind": "casing", "label": "13-3/8 in casing",
+      "placement": {"state": "located", "md_top": 0, "md_bottom": 1100, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 13.375, "unit": "in"}, "id": {"value": 12.347, "unit": "in"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 3, "quote": "13 3/8 in casing shoe 1100 m"}]
+    },
+    {
+      "id": "csg-9", "kind": "casing", "label": "9-5/8 in casing",
+      "placement": {"state": "located", "md_top": 0, "md_bottom": 2800, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 9.625, "unit": "in"}, "id": {"value": 8.681, "unit": "in"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 3, "quote": "9 5/8 in casing shoe 2800 m"}]
+    },
+    {
+      "id": "liner-7", "kind": "liner", "label": "7 in liner",
+      "placement": {"state": "located", "md_top": 2700, "md_bottom": 3350, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 7, "unit": "in"}, "id": {"value": 6.184, "unit": "in"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 3, "quote": "7 in liner 2700-3350 m"}]
+    },
+    {
+      "id": "tbg", "kind": "tubing", "label": "4-1/2 in tubing",
+      "placement": {"state": "located", "md_top": 0, "md_bottom": 2560, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 4.5, "unit": "in"}, "id": {"value": 3.958, "unit": "in"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 4, "quote": "4 1/2 in tubing to 2560 m"}]
+    },
+    {
+      "id": "esp", "kind": "pump_esp", "label": "ESP pump",
+      "placement": {"state": "located", "md_top": 2480, "md_bottom": 2540, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 5.62, "unit": "in"}, "length": {"value": 60, "unit": "m"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d002", "page": 1, "quote": "ESP set at 2480-2540 m"}]
+    },
+    {
+      "id": "pkr", "kind": "packer", "label": "Production packer",
+      "placement": {"state": "located", "md_top": 2565, "md_bottom": 2572, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 8.5, "unit": "in"}, "id": {"value": 3.9, "unit": "in"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 4, "quote": "Packer at 2565 m"}]
+    },
+    {
+      "id": "nip", "kind": "nipple", "label": "Landing nipple",
+      "placement": {"state": "located", "md_top": 2552, "md_bottom": 2554, "unit": "m", "depth_reference": "MD"},
+      "representation": "catalog_reference",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 4, "quote": "X nipple 2552 m"}]
+    },
+    {
+      "id": "perf", "kind": "perforation_interval", "label": "Perforations",
+      "placement": {"state": "located", "md_top": 3100, "md_bottom": 3180, "unit": "m", "depth_reference": "MD"},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d002", "page": 5, "quote": "Perforated 3100-3180 m MD"}]
+    },
+    {
+      "id": "sep-1", "kind": "separator", "label": "Test separator",
+      "placement": {"state": "surface", "offset_east_m": 25, "offset_north_m": -10},
+      "params": {"od": {"value": 1.8, "unit": "m"}, "length": {"value": 6, "unit": "m"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d002", "page": 7, "quote": "Test separator 1.8 m x 6 m"}]
+    },
+    {
+      "id": "choke-1", "kind": "choke", "label": "Production choke",
+      "placement": {"state": "surface", "offset_east_m": 8, "offset_north_m": 0},
+      "representation": "catalog_reference",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d002", "page": 7, "quote": "Choke valve on wing"}],
+      "confidence_note": "Type documented; size not given."
+    },
+    {
+      "id": "manifold-1", "kind": "manifold", "label": "Production manifold",
+      "placement": {"state": "surface"},
+      "representation": "generic_illustrative",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d002", "page": 7, "quote": "Manifold"}]
+    }
+  ]
+}

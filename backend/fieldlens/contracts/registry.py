@@ -20,6 +20,7 @@ from pydantic.json_schema import models_json_schema
 
 from . import (
     activity,
+    asset_spec,
     candidates,
     context,
     errors,
@@ -61,6 +62,7 @@ _MODULES = (
     exposure,
     merge_proposals,
     reconstruction,
+    asset_spec,
 )
 
 
