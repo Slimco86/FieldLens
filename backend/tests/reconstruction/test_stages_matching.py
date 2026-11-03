@@ -317,3 +317,57 @@ def test_stage_failure_never_reads_as_success_in_a_run(world: World) -> None:
     assert detail["status"] == "partial" and detail["error_code"] == "read_provider_unavailable"
     assert states["extract"] == "failed" and states["assemble"] == "succeeded"
     assert detail["summary"] is not None
+
+
+# -- D1: no respend ----------------------------------------------------------------------------
+@pytest.mark.parametrize("answer", ["proposal", "no_match"])
+def test_repeated_s3_runs_make_no_new_provider_calls(world: World, answer: str) -> None:
+    pid, _, proposer, provider = _proposer(
+        world,
+        lambda d: (
+            [_good(d) if answer == "proposal" else text_response('{"groups":[]}')]
+            + [text_response('{"groups":[]}')] * 2
+        ),
+    )
+    with session_scope(world.factory) as s:
+        before = MatchWellboresExecutor(proposer).plan(s, UUID(pid))
+    assert before.availability == "will_run" and before.new_work > 0 and before.usd > 0
+    first = MatchWellboresExecutor(proposer).run(_ctx(world, pid))
+    assert first.state == "succeeded"
+    made = len(provider.calls)
+    assert made >= 1
+    for _ in range(3):  # re-runs, as one reconstruction run per wellbore would do
+        with session_scope(world.factory) as s:
+            plan = MatchWellboresExecutor(proposer).plan(s, UUID(pid))
+        assert plan.new_work == 0 and plan.usd == 0  # the estimate matches what will run
+        again = MatchWellboresExecutor(proposer).run(_ctx(world, pid))
+        assert again.state == "succeeded" and again.usd == 0
+        assert len(provider.calls) == made  # zero new calls on an unchanged project
+
+
+def test_bulk_estimate_equals_actual_calls_and_pairs_are_filtered_before_the_call(
+    world: World,
+) -> None:
+    pid, docs, proposer, provider = _proposer(
+        world, lambda d: [_good(d)] + [text_response('{"groups":[]}')] * 2
+    )
+    per_call = proposer.estimate(UUID(pid)).max_reserved_usd_per_call
+    est = proposer.estimate(UUID(pid))
+    assert est.calls >= 1 and est.upper_bound_usd == per_call * est.calls
+    # two wellbore runs of one bulk estimate, executed back to back: the model is called once
+    executor = MatchWellboresExecutor(proposer)
+    results = [executor.run(_ctx(world, pid)) for _ in range(2)]
+    assert len(provider.calls) == est.calls
+    assert results[1].usd == 0 and results[0].state == results[1].state == "succeeded"
+    # a user rejection removes the pair; still no call (filtered before, not after)
+    proposal = world.api.client.get(_url(pid)).json()["items"][0]["proposal_id"]
+    assert _decide(world, pid, proposal, "reject").status_code == 200
+    executor.run(_ctx(world, pid))
+    assert len(provider.calls) == est.calls
+
+
+def test_s3_cancel_is_honoured_before_the_call(world: World) -> None:
+    pid, _, proposer, provider = _proposer(world, lambda d: [_good(d)])
+    with pytest.raises(StageStop):
+        MatchWellboresExecutor(proposer).run(_ctx(world, pid, stop=True))
+    assert provider.calls == []

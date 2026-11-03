@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.assistant.budget import BudgetLedger
@@ -32,9 +33,10 @@ from fieldlens.assistant.runner import RequestLimits, WorkUnit
 from fieldlens.contracts.merge_proposals import MergeProposalEstimate, MergeProposalRun
 
 from . import service
-from .blocking import Block, build_dataset
+from .blocking import Block, Dataset, MemberCandidate, build_dataset
 from .evidence import SourceText
 from .prompt import PROMPT_VERSION, OutputError, block_labels, build_messages, parse_output
+from .tables import merge_proposal_run as run_table
 from .validation import Dropped, ValidProposal, validate_group
 
 log = logging.getLogger(__name__)
@@ -104,15 +106,50 @@ class MergeProposer:
         n = self._config.max_blocks_per_call
         return [blocks[i : i + n] for i in range(0, len(blocks), n)]
 
+    def _todo(
+        self, session: Session, project_id: UUID, ds: Dataset
+    ) -> tuple[list[Block], set[tuple[str, str, str]]]:
+        """Blocks that still need a model call, decided BEFORE any call (D1).
+
+        A pair that already has a pending/blocked/accepted proposal is not sent again, a block
+        with no remaining candidate is dropped, and an unchanged dataset that a previous run of
+        this model and prompt evaluated completely (nothing deferred) needs no call at all."""
+        taken = service.taken_pairs(session, project_id)
+        done = session.execute(
+            select(run_table.c.run_id)
+            .where(
+                run_table.c.project_id == project_id,
+                run_table.c.state == "succeeded",
+                run_table.c.dataset_fingerprint == ds.fingerprint,
+                run_table.c.model_id == self._config.model,
+                run_table.c.prompt_version == PROMPT_VERSION,
+                run_table.c.deferred_blocks == 0,
+            )
+            .limit(1)
+        ).first()
+        if done is not None and ds.deferred_blocks == 0:
+            return [], taken
+        todo: list[Block] = []
+        for b in ds.blocks:
+            members: list[MemberCandidate] = [
+                c for c in b.members if (b.target.key, c.party.kind, c.party.key) not in taken
+            ]
+            if members:
+                todo.append(
+                    Block(b.target, b.target_documents, members, b.allow_short_target, b.family)
+                )
+        return todo, taken
+
     def estimate(self, project_id: UUID) -> MergeProposalEstimate:
         with self._factory() as s:
             ds = build_dataset(s, project_id)
-        chunks = self._chunks(ds.blocks)[: self._config.max_calls]
+            todo, _ = self._todo(s, project_id, ds)
+        chunks = self._chunks(todo)[: self._config.max_calls]
         sent = sum(len(c) for c in chunks)
         per = self._config.limits.max_reserved_usd
         return MergeProposalEstimate(
             blocks=sent,
-            deferred_blocks=ds.deferred_blocks + len(ds.blocks) - sent,
+            deferred_blocks=ds.deferred_blocks + len(todo) - sent,
             calls=len(chunks),
             max_reserved_usd_per_call=per,
             upper_bound_usd=per * len(chunks),
@@ -127,8 +164,8 @@ class MergeProposer:
         with self._factory() as s:
             service.require_project(s, project_id)
             ds = build_dataset(s, project_id)
-            taken = service.taken_pairs(s, project_id)
-        chunks = self._chunks(ds.blocks)
+            todo, taken = self._todo(s, project_id, ds)
+        chunks = self._chunks(todo)
         deferred = ds.deferred_blocks + sum(len(c) for c in chunks[self._config.max_calls :])
         chunks = chunks[: self._config.max_calls]
         resolved_keys = set(ds.resolved)

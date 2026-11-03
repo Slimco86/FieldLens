@@ -48,6 +48,7 @@ from fieldlens.processing.runtime import build_runtime
 from fieldlens.projects import build_projects_router
 from fieldlens.projects import guard as deletion_guard
 from fieldlens.projects.purge import ProjectPurger
+from fieldlens.reconstruction.live import build_live_agents
 from fieldlens.reconstruction.routes import build_reconstruction_router
 from fieldlens.reconstruction.runtime import build_runtime as build_reconstruction_runtime
 from fieldlens.retrieval.embedder import EmbedderProvider
@@ -278,7 +279,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine) if engine is not None else None
     app.state.session_token = session_token or security.new_session_token()
-    app.state.merge_proposer = None  # no live provider wiring until D7 authorizes one
+    app.state.merge_proposer = None  # set below when the model-processing runtime is live
     app.state.blob_store = BlobStore(settings.storage_root)
     app.state.root_guard = (
         StorageRootGuard(app.state.session_factory, app.state.blob_store, lane=settings.lane)
@@ -313,8 +314,19 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         else None
     )
     install_asset_spec_merge_hook()
+    live_reader, live_proposer = (
+        build_live_agents(
+            app.state.processing, app.state.session_factory, app.state.blob_store, settings
+        )
+        if app.state.session_factory is not None
+        else (None, None)
+    )
+    if live_proposer is not None:
+        app.state.merge_proposer = live_proposer
     app.state.reconstruction = (
-        build_reconstruction_runtime(app.state.session_factory, settings)
+        build_reconstruction_runtime(
+            app.state.session_factory, settings, reader=live_reader, proposer=live_proposer
+        )
         if app.state.session_factory is not None
         else None
     )

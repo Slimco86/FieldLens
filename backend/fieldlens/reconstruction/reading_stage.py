@@ -69,7 +69,7 @@ class ReadDocumentsExecutor:
                 new_work=0 if not scope.to_read else len(scope.to_read),
                 reused=scope.reused,
                 unit="documents",
-                note="Stub provider: no model is called, so nothing is read."
+                note="Not available: no model configured, so nothing is read."
                 if scope.to_read
                 else "No documents need reading.",
             )
@@ -99,7 +99,7 @@ class ReadDocumentsExecutor:
             return StageResult(
                 "stubbed",
                 STUB_REASON,
-                f"Stub run: no model was called; {len(scope.to_read)} document(s) were not read.",
+                f"Not available: no model configured. Stub run: {len(scope.to_read)} document(s) were not read.",
                 counts=counts,
             )
         batch = scope.to_read[:MAX_DOCUMENTS_PER_RUN]

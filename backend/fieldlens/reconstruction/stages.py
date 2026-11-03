@@ -194,7 +194,7 @@ def design_executor() -> NotAvailableExecutor:
     return NotAvailableExecutor(
         ReconstructionStageName.DESIGN,
         ReconstructionStageKind.AGENT,
-        "Available after the 3D asset feature: no 3D design is produced in this version.",
+        "The 3D model step is not available yet: no 3D design is produced in this version.",
         reason_code=DESIGN_NOT_WIRED,
         title="Design 3D asset",
         description="Builds a visual 3D representation of the wellbore from the assembled data.",

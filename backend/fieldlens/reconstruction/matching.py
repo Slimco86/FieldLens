@@ -9,17 +9,19 @@ provider (no proposer) the stage reports ``stubbed`` and proposes nothing.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from fieldlens.assistant.provider import CancelToken
 from fieldlens.contracts.reconstruction import ReconstructionStageKind, ReconstructionStageName
 from fieldlens.merge_proposals import tables as mp
 from fieldlens.merge_proposals.blocking import build_dataset
 from fieldlens.merge_proposals.proposer import MergeProposer
-from fieldlens.reconstruction.stages import StageContext, StagePlan, StageResult
+from fieldlens.reconstruction.stages import StageContext, StagePlan, StageResult, StageStop
 
 STUB_REASON = "stub_provider"
 ZERO = Decimal("0")
@@ -34,6 +36,26 @@ def _count(session: Session, project_id: UUID, statuses: tuple[str, ...]) -> int
             .where(p.c.project_id == project_id, p.c.status.in_(statuses))
         ).scalar_one()
     )
+
+
+class _StageCancel(CancelToken):
+    """A cancel token that also follows the run's cancel flag, so a cancel is honoured between
+    and inside the proposer's model calls (the run checkpoint raises :class:`StageStop`)."""
+
+    def __init__(self, checkpoint: Callable[[], None]) -> None:
+        super().__init__()
+        self._checkpoint = checkpoint
+
+    @property
+    def cancelled(self) -> bool:
+        if super().cancelled:
+            return True
+        try:
+            self._checkpoint()
+        except StageStop:
+            self.cancel()
+            return True
+        return False
 
 
 class MatchWellboresExecutor:
@@ -69,7 +91,7 @@ class MatchWellboresExecutor:
                 new_work=blocks,
                 reused=decided,
                 unit="name groups",
-                note="Stub provider: no model is called, so no matches are proposed."
+                note="Not available: no model configured, so no matches are proposed."
                 if blocks
                 else "No wellbore names need matching.",
             )
@@ -90,11 +112,41 @@ class MatchWellboresExecutor:
             return StageResult(
                 "stubbed",
                 STUB_REASON,
-                "Stub run: no model was called; no wellbore matches were proposed.",
+                "Not available: no model configured. Stub run: no wellbore matches were proposed.",
                 counts={"name_groups": blocks},
             )
         ctx.checkpoint()
-        run = self._proposer.run(ctx.project_id)
+        # One S3 per project at a time (a bulk estimate queues one run per wellbore): later runs
+        # wait here, then find nothing new to send, so the model is called once per project state.
+        with ctx.factory() as lock_session:
+            lock_session.execute(
+                text("SELECT pg_advisory_lock(hashtextextended(:k, 0))"),
+                {"k": f"reconstruction-s3:{ctx.project_id}"},
+            )
+            try:
+                if self._proposer.estimate(ctx.project_id).calls == 0:
+                    with ctx.factory() as session:
+                        pending = _count(session, ctx.project_id, ("pending",))
+                        blocked = _count(session, ctx.project_id, ("blocked",))
+                    return StageResult(
+                        "succeeded",
+                        message="no new matches to propose; earlier results were reused",
+                        counts={
+                            "name_groups": 0,
+                            "deferred": 0,
+                            "proposed": 0,
+                            "dropped": 0,
+                            "awaiting_review": pending,
+                            "blocked": blocked,
+                        },
+                    )
+                run = self._proposer.run(ctx.project_id, _StageCancel(ctx.checkpoint))
+            finally:
+                lock_session.execute(
+                    text("SELECT pg_advisory_unlock(hashtextextended(:k, 0))"),
+                    {"k": f"reconstruction-s3:{ctx.project_id}"},
+                )
+        ctx.checkpoint()
         with ctx.factory() as session:
             pending = _count(session, ctx.project_id, ("pending",))
             blocked = _count(session, ctx.project_id, ("blocked",))
