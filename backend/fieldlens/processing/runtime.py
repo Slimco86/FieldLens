@@ -42,6 +42,20 @@ from fieldlens.processing.steps import (
 
 
 @dataclass
+class MetaContext:
+    """What the live Meta step was built from, so other agent steps (reconstruction S2/S3) use the
+    same provider, ledger period and owner-supplied rates instead of constructing their own."""
+
+    ledger: BudgetLedger
+    period_id: UUID
+    pricing_id: UUID
+    pricing: ModelPricing
+    provider: MetaProvider
+    renderer: PageRenderer
+    rates: Pricing
+
+
+@dataclass
 class ProcessingRuntime:
     counter: PageCounter
     provider: PageProvider
@@ -49,6 +63,7 @@ class ProcessingRuntime:
     runner: ProcessingRunner
     info: ProcessingProviderInfo
     model: str
+    meta: MetaContext | None = None
 
 
 def is_dead_owner(owner: str, own: str) -> bool:
@@ -139,7 +154,7 @@ def _ensure_usable_balance(ledger: BudgetLedger, period: UUID, settings: Setting
 
 def _build_meta(
     factory: sessionmaker[Session], store: BlobStore, settings: Settings
-) -> tuple[PageProvider, ProcessingStep]:
+) -> tuple[PageProvider, ProcessingStep, MetaContext]:
     """Live Meta step; the caller has checked :func:`missing_meta_items`.
     The period's balance is made usable here (see :func:`_ensure_usable_balance`)."""
     in_rate = settings.processing_meta_input_usd_per_mtok
@@ -161,10 +176,11 @@ def _build_meta(
     _ensure_usable_balance(ledger, period, settings)
     pricing_id = ledger.register_pricing(model_pricing, "owner-supplied processing rates")
     renderer = PageRenderer(store, concurrency=2)
+    meta_provider = MetaProvider(settings)
     step = ModelClassificationStep(
         factory,
         ledger,
-        MetaProvider(settings),
+        meta_provider,
         ModelStepConfig(
             period_id=period,
             pricing_id=pricing_id,
@@ -181,7 +197,9 @@ def _build_meta(
         ),
         renderer.page_text,
     )
-    return PricingOnlyProvider("meta", Pricing("owner_meta_rates", in_rate, out_rate)), step
+    rates = Pricing("owner_meta_rates", in_rate, out_rate)
+    context = MetaContext(ledger, period, pricing_id, model_pricing, meta_provider, renderer, rates)
+    return PricingOnlyProvider("meta", rates), step, context
 
 
 def build_runtime(
@@ -198,10 +216,11 @@ def build_runtime(
     estimate/confirm/retry. An injected provider/step (tests) always wins."""
     counter = PageCounter(store)
     missing: list[str] = []
+    meta: MetaContext | None = None
     if provider is None and step is None and settings.processing_provider == "meta":
         missing = missing_meta_items(settings)
         if not missing:
-            chosen_provider, chosen_step = _build_meta(factory, store, settings)
+            chosen_provider, chosen_step, meta = _build_meta(factory, store, settings)
         else:
             chosen_provider, chosen_step = StubProvider(settings), StubStep()
     else:
@@ -220,4 +239,4 @@ def build_runtime(
         lambda other: is_dead_owner(other, owner),
         StorageRootGuard(factory, store, lane=settings.lane),
     )
-    return ProcessingRuntime(counter, chosen_provider, chosen_step, runner, info, model)
+    return ProcessingRuntime(counter, chosen_provider, chosen_step, runner, info, model, meta)

@@ -15,6 +15,7 @@ export const getExposure = (projectId: string, signal: AbortSignal) =>
   getJson<ProjectExposure>(`${base(projectId)}/identity/exposure`, signal);
 
 export type ReconstructionEstimate = S["ReconstructionEstimate"];
+export type ReconstructionStageEstimate = S["ReconstructionStageEstimate"];
 export type ReconstructionEstimateItem = S["ReconstructionEstimateItem"];
 export type ReconstructionRun = S["ReconstructionRun"];
 export type ReconstructionRunPage = S["ReconstructionRunPage"];

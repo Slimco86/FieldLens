@@ -34,7 +34,7 @@ from fieldlens.identity.service import require_project
 from fieldlens.identity.tables import identity_merge
 from fieldlens.persistence import models as m
 
-from . import guards
+from . import guards, hooks
 from .blocking import _inputs, current_fingerprint
 from .guards import G7, GuardCheck, Party
 from .tables import merge_proposal, merge_proposal_member, merge_proposal_run
@@ -414,6 +414,17 @@ def accept(
         raise _conflict("merge_conflict", "a source is already merged by another proposal") from exc
     resolve_project(session, project_id)
     _decide(session, proposal_id, "accepted", decided_by, note)
+    hooks.fire(
+        session,
+        hooks.MergeChange(
+            project_id,
+            proposal_id,
+            "merge_applied",
+            row.target_key,
+            tuple(p.key for p in members),
+            automatic=decided_by.startswith("auto:"),
+        ),
+    )
     return get_proposal(session, project_id, proposal_id)
 
 
@@ -425,6 +436,15 @@ def revert(
         raise _conflict("invalid_transition", f"a {row.status} proposal cannot be reverted")
     bore_hints: dict[str, UUID] = {}
     well_hints: dict[str, UUID] = {}
+    reverted_keys = tuple(
+        k
+        for (k,) in session.execute(
+            select(identity_merge.c.source_key).where(
+                identity_merge.c.proposal_id == proposal_id,
+                identity_merge.c.reverted_at.is_(None),
+            )
+        )
+    )
     for r in session.execute(
         select(identity_merge).where(
             identity_merge.c.proposal_id == proposal_id,
@@ -444,6 +464,10 @@ def revert(
     )
     resolve_project(session, project_id, bore_id_hints=bore_hints, well_id_hints=well_hints)
     _decide(session, proposal_id, "reverted", decided_by, note)
+    hooks.fire(
+        session,
+        hooks.MergeChange(project_id, proposal_id, "merge_reverted", row.target_key, reverted_keys),
+    )
     return get_proposal(session, project_id, proposal_id)
 
 

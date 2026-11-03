@@ -1,5 +1,6 @@
 """TASK-068 RR-1..RR-5 against PostgreSQL: the per-wellbore reconstruction run API.
-Records are synthetic (invented values); S2/S3 are not_available, so runs end ``partial``."""
+Records are synthetic (invented values). Default S2/S3 are stubbed and S5 is not wired, so runs
+end ``partial`` (never success)."""
 
 from __future__ import annotations
 
@@ -21,6 +22,7 @@ from fieldlens.reconstruction.stages import (
     StageExecutor,
     StageResult,
     StageStop,
+    design_executor,
 )
 from tests.identity.test_wellbore_exposure import (
     _bore_id,
@@ -127,7 +129,7 @@ def _executors(agent: StageExecutor | None = None) -> list[StageExecutor]:
         ReconstructionStageName.EXTRACT, ReconstructionStageKind.AGENT, "m", page_cap=500
     )
     s3 = NotAvailableExecutor(ReconstructionStageName.IDENTIFY, ReconstructionStageKind.AGENT, "m")
-    return [GatherExecutor(), s2, s3, AssembleExecutor()]
+    return [GatherExecutor(), s2, s3, AssembleExecutor(), design_executor()]
 
 
 # -- RR-1: start gate -----------------------------------------------------------------------
@@ -163,12 +165,19 @@ def test_estimate_then_separate_confirm_runs_partial(world: World) -> None:
     est = _estimate(world, pid, wellbore_ids=[bore])
     assert est["live_calls"] is False and est["pricing_label"]
     item = est["items"][0]
-    assert [s["stage"] for s in item["stages"]] == ["gather", "extract", "identify", "assemble"]
-    s2 = item["stages"][1]
-    assert (
-        s2["availability"] == "not_available" and s2["reason_code"] == "agent_step_not_implemented"
-    )
-    assert s2["page_cap"] == 500
+    assert [x["stage"] for x in item["stages"]] == [
+        "gather",
+        "extract",
+        "identify",
+        "assemble",
+        "design",
+    ]
+    by_stage = {x["stage"]: x for x in item["stages"]}
+    assert by_stage["extract"]["availability"] == "stub" and by_stage["extract"]["page_cap"] == 5
+    assert by_stage["design"]["availability"] == "not_available"
+    assert by_stage["design"]["reason_code"] == "asset_design_not_wired"
+    assert est["stub"] is True and "remaining_budget_usd" not in est
+    assert all(x["title"] and x["description"] for x in item["stages"])
     # estimating alone starts nothing
     run_id = item["run_id"]
     assert _detail(world, pid, run_id)["status"] == "estimated"
@@ -180,19 +189,16 @@ def test_estimate_then_separate_confirm_runs_partial(world: World) -> None:
     assert _confirm(world, pid, est).status_code == 202
     _drain(world)
     run = _detail(world, pid, run_id)
-    assert run["status"] == "partial" and run["error_code"] == "stages_not_available"
-    states = {s["stage"]: s["state"] for s in run["stages"]}
+    assert run["status"] == "partial" and run["stub_run"] is True
+    assert run["error_code"] == "stub_run"
+    states = {x["stage"]: x["state"] for x in run["stages"]}
     assert states == {
         "gather": "succeeded",
-        "extract": "not_available",
-        "identify": "not_available",
+        "extract": "succeeded",  # nothing needs reading in this project: no model needed
+        "identify": "stubbed",  # name groups exist, but no model was called
         "assemble": "succeeded",
+        "design": "not_available",
     }
-    assert all(
-        s["reason_code"] == "agent_step_not_implemented"
-        for s in run["stages"]
-        if s["state"] == "not_available"
-    )
     assert run["retryable"] is False
     assert float(run["actual_usd"]) == 0.0
 
@@ -222,8 +228,8 @@ def test_s4_summary_is_sourced_and_unpublished(world: World) -> None:
     _drain(world)
     summary = _detail(world, pid, run["run_id"])["summary"]
     assert summary["draft"] is True and summary["published"] is False
-    assert summary["stages_not_available"] == ["extract", "identify"]
-    assert summary["stages_succeeded"] == ["gather", "assemble"]
+    assert summary["stages_stubbed"] == ["identify"]  # S5 has not run when S4 assembles
+    assert summary["stages_succeeded"][0] == "gather" and "assemble" in summary["stages_succeeded"]
     present = [c for c in summary["coverage"] if c["present"]]
     assert present
     for c in present:
@@ -266,7 +272,7 @@ def test_cancel_queued_run_then_restart(world: World) -> None:
     _drain(world)
     detail = _detail(world, pid, run["run_id"])
     assert detail["status"] == "cancelled" and detail["retryable"] is True
-    assert all(s["state"] in ("cancelled", "not_available") for s in detail["stages"])
+    assert all(x["state"] in ("cancelled", "not_available") for x in detail["stages"])
     # cancel is idempotent; retry is a new estimate confirmed separately
     assert _post(world, f"{_base(pid)}/{run['run_id']}/cancel").status_code == 200
     rt = _post(world, f"{_base(pid)}/{run['run_id']}/retry")
@@ -325,18 +331,27 @@ def test_all_stages_available_is_the_only_way_to_succeed(world: World) -> None:
     detail = _detail(world, pid, run["run_id"])
     assert detail["status"] == "succeeded"
     assert float(detail["actual_usd"]) == 0.2
+    # the real default list ends partial: S5 is not wired
+    _install(
+        world,
+        _executors(
+            FakeAgent(),
+        ),
+    )
+    again = _start(world, pid, bore)
+    _drain(world)
+    assert _detail(world, pid, again["run_id"])["status"] == "partial"
 
 
-def test_overspend_beyond_confirmed_estimate_fails(world: World) -> None:
+def test_actual_spend_above_the_estimate_is_reported_not_failed(world: World) -> None:
+    """The estimate is informational (TASK-076): no cap turns a run into a failure."""
     pid, bore = _ready_project(world)
     _install(world, _executors(FakeAgent(behaviour="overspend")))
     run = _start(world, pid, bore)
     _drain(world)
     detail = _detail(world, pid, run["run_id"])
-    assert detail["status"] == "failed"
-    assert next(s for s in detail["stages"] if s["stage"] == "extract")["error_code"] == (
-        "confirmed_estimate_exceeded"
-    )
+    assert detail["status"] == "partial"
+    assert float(detail["actual_usd"]) == 99.0
 
 
 # -- RR-4: recovery -------------------------------------------------------------------------
@@ -363,15 +378,14 @@ def test_interrupted_run_recovery(world: World) -> None:
 
 
 # -- RR-5: budget, no live call -------------------------------------------------------------
-def test_cap_is_enforced_at_confirm_and_shared_with_the_ledger(world: World) -> None:
+def test_estimate_has_no_budget_or_cap_and_confirm_is_never_blocked(world: World) -> None:
     pid, bore = _ready_project(world)
     _install(world, _executors(FakeAgent(estimated_usd=Decimal("6.00"))))
     est = _estimate(world, pid, wellbore_ids=[bore])
     assert Decimal(est["total_estimated_usd"]) == Decimal("6.00")
-    assert Decimal(est["total_cap_usd"]) == Decimal("5.00")
-    r = _confirm(world, pid, est)
-    assert r.status_code == 409 and r.json()["error"]["details"]["reason"] == "budget_exceeded"
-    assert world.sql("SELECT count(*) FROM reconstruction_run WHERE status='queued'")[0][0] == 0
+    for gone in ("total_cap_usd", "remaining_budget_usd", "fits_budget"):
+        assert gone not in est
+    assert _confirm(world, pid, est).status_code == 202
 
 
 def test_no_live_call_flag_and_default_executors(world: World) -> None:
@@ -379,7 +393,7 @@ def test_no_live_call_flag_and_default_executors(world: World) -> None:
     est = _estimate(world, pid, wellbore_ids=[bore])
     assert est["live_calls"] is False and est["provider"] == "stub"
     rt = world.api.client.app.state.reconstruction
-    assert [e.available for e in rt.executors] == [True, False, False, True]
+    assert [e.available for e in rt.executors] == [True, True, True, True, False]
     run = _start(world, pid, bore)
     assert run["provider"] == "stub"
 

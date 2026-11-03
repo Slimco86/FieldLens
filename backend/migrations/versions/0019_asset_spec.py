@@ -1,7 +1,7 @@
 """Visual asset spec table (TASK-077): one row per generated revision, one ``current`` per wellbore.
 
 Revision ID: 0019_asset_spec
-Revises: 0017_model_reply
+Revises: 0018_reconstruction_stages
 
 NOTE FOR THE ORCHESTRATOR: ``down_revision`` is 0017 because this lane branched before TASK-076's
 0018. When merging after 0018, change ``down_revision`` to the 0018 revision id (nothing else here
@@ -18,7 +18,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0019_asset_spec"
-down_revision: str | None = "0017_model_reply"
+down_revision: str | None = "0018_reconstruction_stages"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

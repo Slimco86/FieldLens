@@ -1,10 +1,11 @@
-"""Reconstruction stages S1..S4: the executor interface and the deterministic S1/S4 (TASK-068).
+"""Reconstruction stages S1..S5: the executor interface and the deterministic S1/S4 (TASK-068, 076).
 
-``StageExecutor`` is the seam later tasks fill: TASK-055 provides S2 (label-driven extraction on the
-TASK-036 harness, pages capped at 500) and a later task provides S3 (identity proposals). Until then
-both are wired as :class:`NotAvailableExecutor` with a stable reason code, so a run is ``partial``
-and never reads as success. S1 and S4 are pure functions of stored exposure/gate data: nothing here
-calls a model, and no summary entry carries a value without a source reference.
+``StageExecutor`` is the seam: S2 *Read documents* (TASK-055 model read, ``reading.py``) and S3
+*Match wellbores* (TASK-057 proposals, ``matching.py``) are agent steps; S5 *Design 3D asset* is a
+:class:`NotAvailableExecutor` until TASK-079. A stage on the stub provider is ``stubbed`` and a
+stage without an implementation is ``not_available``: either makes the run ``partial`` and never
+success. S1 and S4 are pure functions of stored exposure/gate data: nothing here calls a model,
+and no summary entry carries a value without a source reference.
 """
 
 from __future__ import annotations
@@ -38,13 +39,15 @@ from fieldlens.contracts.reconstruction import (
 from fieldlens.exposure import service as exposure_service
 from fieldlens.identity import service as identity_service
 from fieldlens.merge_proposals import tables as mp
+from fieldlens.merge_proposals.proposer import MergeProposer
+from fieldlens.reconstruction.reading import DocumentReader, ReadScope, read_scope
 
 NOT_AVAILABLE_REASON = "agent_step_not_implemented"
 MAX_EVIDENCE_PER_CATEGORY = 5
 MAX_UNRESOLVED = 200
 ZERO = Decimal("0")
 
-StageStateName = Literal["succeeded", "not_available", "failed"]
+StageStateName = Literal["succeeded", "not_available", "stubbed", "failed"]
 SURFACE_WARNING_CODES = ("SURFACE_LOCATION_MISSING", "SURFACE_LOCATION_INCOMPLETE")
 
 
@@ -94,6 +97,21 @@ class StageResult:
     usd: Decimal = ZERO
     error_code: str | None = None
     summary: ReconstructionSummary | None = None
+    fatal: bool = True
+    """False for a failed stage whose failure does not stop the run (provider failure in an agent
+    stage): earlier results stay, later stages still run and the run ends ``partial``."""
+
+
+@dataclass(frozen=True)
+class StagePlan:
+    """What a stage would do for a project right now; informational, spends nothing."""
+
+    availability: Literal["will_run", "stub", "not_available"] = "will_run"
+    new_work: int = 0
+    reused: int = 0
+    unit: str = "item"
+    note: str | None = None
+    usd: Decimal = ZERO
 
 
 @dataclass(frozen=True)
@@ -114,6 +132,14 @@ class StageContext:
 class StageExecutor(Protocol):
     @property
     def stage(self) -> ReconstructionStageName: ...
+
+    @property
+    def title(self) -> str: ...
+
+    @property
+    def description(self) -> str: ...
+
+    def plan(self, session: Session, project_id: UUID) -> StagePlan: ...
 
     @property
     def kind(self) -> ReconstructionStageKind: ...
@@ -151,28 +177,45 @@ class NotAvailableExecutor:
     page_cap: int | None = None
     available: bool = False
     estimated_usd: Decimal = ZERO
+    title: str = ""
+    description: str = ""
+
+    def plan(self, session: Session, project_id: UUID) -> StagePlan:
+        return StagePlan("not_available", note=self.message)
 
     def run(self, ctx: StageContext) -> StageResult:
         return StageResult("not_available", self.reason_code, self.message)
 
 
-def default_executors(settings: Settings) -> list[StageExecutor]:
+DESIGN_NOT_WIRED = "asset_design_not_wired"
+
+
+def design_executor() -> NotAvailableExecutor:
+    return NotAvailableExecutor(
+        ReconstructionStageName.DESIGN,
+        ReconstructionStageKind.AGENT,
+        "The 3D model step is not available yet: no 3D design is produced in this version.",
+        reason_code=DESIGN_NOT_WIRED,
+        title="Design 3D asset",
+        description="Builds a visual 3D representation of the wellbore from the assembled data.",
+    )
+
+
+def default_executors(
+    settings: Settings,
+    reader: DocumentReader | None = None,
+    proposer: MergeProposer | None = None,
+    reader_scope: Callable[[Session, UUID], ReadScope] = read_scope,
+) -> list[StageExecutor]:
+    from fieldlens.reconstruction.matching import MatchWellboresExecutor
+    from fieldlens.reconstruction.reading_stage import ReadDocumentsExecutor
+
     return [
         GatherExecutor(),
-        NotAvailableExecutor(
-            ReconstructionStageName.EXTRACT,
-            ReconstructionStageKind.AGENT,
-            "Label-driven document extraction is not implemented yet (TASK-055); nothing was "
-            "extracted from documents without a native parse.",
-            page_cap=settings.processing_max_pages,
-        ),
-        NotAvailableExecutor(
-            ReconstructionStageName.IDENTIFY,
-            ReconstructionStageKind.AGENT,
-            "Identity proposals for a wellbore run are not implemented yet; existing merge "
-            "proposals are listed as unresolved, never accepted.",
-        ),
+        ReadDocumentsExecutor(reader, settings.processing_model_pages, reader_scope),
+        MatchWellboresExecutor(proposer),
         AssembleExecutor(),
+        design_executor(),
     ]
 
 
@@ -196,12 +239,20 @@ class GatherExecutor:
     """S1: revalidate the start gate and the source revision; count what exists. Deterministic."""
 
     stage = ReconstructionStageName.GATHER
+    title = "Collect sources"
+    description = (
+        "Checks the wellbore is still ready and counts the files, records and open questions "
+        "stored for it. Uses stored data only; no model, no cost."
+    )
     kind = ReconstructionStageKind.DETERMINISTIC
     available = True
     reason_code: str | None = None
     message: str | None = None
     estimated_usd = ZERO
     page_cap: int | None = None
+
+    def plan(self, session: Session, project_id: UUID) -> StagePlan:
+        return StagePlan(note="Uses stored data only.")
 
     def run(self, ctx: StageContext) -> StageResult:
         with ctx.factory() as session:
@@ -352,8 +403,14 @@ def build_summary(
     succeeded.append(ReconstructionStageName.ASSEMBLE)
     unavailable = [s for s in ReconstructionStageName if states.get(s) == "not_available"]
     failed = [s for s in ReconstructionStageName if states.get(s) == "failed"]
+    stubbed = [s for s in ReconstructionStageName if states.get(s) == "stubbed"]
     note = (
         "Draft from stored, source-referenced records only. "
+        + (
+            "Stub run: " + ", ".join(s.value for s in stubbed) + " ran without a model. "
+            if stubbed
+            else ""
+        )
         + (
             "Stages not available: "
             + ", ".join(s.value for s in unavailable)
@@ -369,6 +426,7 @@ def build_summary(
         stages_succeeded=succeeded,
         stages_not_available=unavailable,
         stages_failed=failed,
+        stages_stubbed=stubbed,
         coverage=coverage,
         unresolved=unresolved[:MAX_UNRESOLVED],
         conflicts=conflicts,
@@ -381,12 +439,20 @@ class AssembleExecutor:
     """S4: the draft summary from stored data: coverage, unresolved items and conflicts."""
 
     stage = ReconstructionStageName.ASSEMBLE
+    title = "Assemble data"
+    description = (
+        "Builds the draft summary from validated records: what is covered, what is missing and "
+        "what conflicts, each with its source. No model, no cost."
+    )
     kind = ReconstructionStageKind.DETERMINISTIC
     available = True
     reason_code: str | None = None
     message: str | None = None
     estimated_usd = ZERO
     page_cap: int | None = None
+
+    def plan(self, session: Session, project_id: UUID) -> StagePlan:
+        return StagePlan(note="Uses stored data only.")
 
     def run(self, ctx: StageContext) -> StageResult:
         with ctx.factory() as session:

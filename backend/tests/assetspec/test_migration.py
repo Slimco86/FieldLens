@@ -9,7 +9,7 @@ from sqlalchemy.engine import URL
 from fieldlens.persistence.readiness import alembic_config
 from tests.conftest import migrate
 
-PREVIOUS = "0017_model_reply"
+PREVIOUS = "0018_reconstruction_stages"
 
 
 def _alembic(engine: Engine, fn: str, rev: str) -> None:

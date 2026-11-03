@@ -16,7 +16,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from .base import ContractModel, FiniteJsonValue
+from .base import ContractModel, FiniteJsonValue, UtcDatetime
 
 ExposureCategoryName = Literal[
     "trajectory",
@@ -190,6 +190,17 @@ class StartGate(ContractModel):
     wellbores: list[WellboreGate]
 
 
+class MergedAlias(ContractModel):
+    """A name merged into this wellbore by an applied, revertible merge record (TASK-076)."""
+
+    proposal_id: UUID
+    name: str = Field(description="The merged name as stored (a label or a wellbore key).")
+    kind: Literal["label", "wellbore"]
+    decided_by: str = Field(description="'auto:reconstruction' for an automatic merge.")
+    automatic: bool
+    merged_at: UtcDatetime
+
+
 class WellboreExposure(ContractModel):
     project_id: UUID
     well_id: UUID
@@ -197,6 +208,10 @@ class WellboreExposure(ContractModel):
     wellbore_name: str
     categories: list[CategoryExposure] = Field(description="Always all categories, fixed order.")
     gate: WellboreGate
+    merged_from: list[MergedAlias] = Field(
+        default_factory=list,
+        description="Names merged into this wellbore; each is revertible in the merge review.",
+    )
 
 
 class WellExposure(ContractModel):
