@@ -7,8 +7,9 @@ import { generateAssetSpec, getAssetSpec, type VisualAssetSpecRecord } from "./a
 import { ComponentList } from "./ComponentList";
 import { Inspector } from "./Inspector";
 import { buildSceneModel, defaultExaggeration, locatedMdMax, KIND_LABEL, placementText, type SceneModel } from "./sceneModel";
-import { trajectoryFor } from "./trajectorySource";
+import { inputOf, loadTrajectory, placeholderReason } from "./trajectorySource";
 import { WellPath } from "./trajectory";
+import type { TrajectoryState } from "./trajectorySource";
 import { FieldScene } from "./FieldScene";
 import { webgl2Available } from "./webgl";
 import type { LabelMode, ViewerCommands, ViewerOptions } from "./Viewer3D";
@@ -148,6 +149,7 @@ function WellboreScene({ projectId, wellbore, wellbores, onPick, onField }: Well
     return (
       <SceneBody
         record={spec.state.data}
+        projectId={projectId}
         wellbore={wellbore}
         picker={picker}
         generateButton={generateButton}
@@ -191,13 +193,14 @@ function WellboreScene({ projectId, wellbore, wellbores, onPick, onField }: Well
 
 interface SceneBodyProps {
   record: VisualAssetSpecRecord;
+  projectId: string;
   wellbore: WellboreRef;
   picker: ReactNode;
   generateButton: ReactNode;
   genError: string | null;
 }
 
-function SceneBody({ record, wellbore, picker, generateButton, genError }: SceneBodyProps) {
+function SceneBody({ record, projectId, wellbore, picker, generateButton, genError }: SceneBodyProps) {
   const [exaggeration, setExaggeration] = useState<number>(() => defaultExaggeration(locatedMdMax(record.spec)));
   const [view, setView] = useState<"wellhead" | "whole" | "unlocated" | "selection">("wellhead");
   const [surfaceScale, setSurfaceScale] = useState<number>(1);
@@ -210,15 +213,20 @@ function SceneBody({ record, wellbore, picker, generateButton, genError }: Scene
   const [gl] = useState(() => webgl2Available());
 
   const spec = record.spec;
-  const trajectory = trajectoryFor(wellbore.id);
+  const survey = useScopedResource(`trajectory/${projectId}/${wellbore.id}`, (signal) => loadTrajectory(projectId, wellbore.id, signal));
+  // Keyed on the loaded data (stable), not on the resource wrapper (new object every render).
+  const loaded = survey.state.kind === "ready" ? survey.state.data : null;
+  const surveyKind = survey.state.kind;
+  const surveyState: TrajectoryState = useMemo(
+    () => loaded ?? (surveyKind === "error" ? { kind: "error", reason: "the survey could not be loaded" } : { kind: "loading" }),
+    [loaded, surveyKind],
+  );
   const model: SceneModel = useMemo(() => {
     const mdMax = Math.max(locatedMdMax(spec), 100);
-    const path =
-      trajectory !== null
-        ? WellPath.fromTrajectory(trajectory, mdMax)
-        : WellPath.unavailable(mdMax, "no survey is wired to this view");
+    const input = inputOf(surveyState);
+    const path = input !== null ? WellPath.fromTrajectory(input, mdMax) : WellPath.unavailable(mdMax, placeholderReason(surveyState));
     return buildSceneModel(spec, path, { surfaceScale });
-  }, [spec, trajectory, surfaceScale]);
+  }, [spec, surveyState, surfaceScale]);
 
   const options: ViewerOptions = { exaggeration, surfaceScale, cutaway, labels, depthMarks };
   const select = useCallback((id: string | null) => {
@@ -304,8 +312,8 @@ function SceneBody({ record, wellbore, picker, generateButton, genError }: Scene
       <summary>Scale and trajectory notes</summary>
       Downhole radii exaggerated {exaggeration}× (lengths and depths true scale); surface equipment at {surfaceScale}×.{" "}
       {model.path.available
-        ? "Trajectory from survey stations."
-        : "Trajectory unavailable: vertical placeholder, depths shown as measured depth."}
+        ? `Trajectory: ${model.path.sourceLabel}.`
+        : `Trajectory unavailable (${placeholderReason(surveyState)}): vertical placeholder, depths shown as measured depth.`}
       {model.notes.length > 0 ? ` ${model.notes.join(" ")}` : ""}
       {genError !== null ? ` ${genError}` : ""}
     </details>
@@ -360,7 +368,7 @@ function SceneBody({ record, wellbore, picker, generateButton, genError }: Scene
     <ExploreWorkspace
       tree={<ComponentList model={model} selectedId={selectedId} onSelect={select} />}
       stage={stage}
-      inspector={<Inspector element={selected} />}
+      inspector={<Inspector element={selected} survey={surveyState} />}
     />
   );
 }

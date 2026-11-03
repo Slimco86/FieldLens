@@ -16,7 +16,13 @@ let specImpl: (id: string) => Promise<unknown> = async () => {
 vi.mock("../src/features/scene/api", () => ({
   getAssetSpec: (_p: string, id: string) => specImpl(id),
   generateAssetSpec: vi.fn(),
+  getTrajectory: (_p: string, id: string) => trajImpl(id),
 }));
+
+// Survey API double: a 404 `no_trajectory` unless a test supplies one.
+let trajImpl: (id: string) => Promise<unknown> = async () => {
+  throw new ApiError(404, "NOT_FOUND", "none", null, { code: "no_trajectory", sets: [] });
+};
 
 const WELLS = [
   { id: "a", name: "Field A / A-1" },
@@ -50,6 +56,39 @@ describe("field scene (no WebGL in jsdom: list and inspector paths)", () => {
     const items = screen.getAllByRole("button").filter((b) => b.hasAttribute("data-wellbore-id"));
     expect(items.map((b) => b.getAttribute("data-status"))).toEqual(["spec", "missing", "error"]);
     expect(items[1]).toHaveTextContent("No asset spec yet");
+  });
+
+  it("the inspector shows the survey label and location, or the placeholder reason for a wellbore without a valid survey", async () => {
+    mockSpecs({ a: "f14-dimensioned.json", b: "f5-generic.json", c: null });
+    trajImpl = async (id: string) => {
+      if (id === "b") throw new ApiError(404, "NOT_FOUND", "none", null, { code: "no_trajectory", sets: [{ reasons: ["TRAJECTORY_PLANNED_ONLY"] }] });
+      return {
+        survey_set: { filename: "SSR.pdf" },
+        survey_status: "as_built",
+        md_min_m: 0,
+        md_max_m: 1000,
+        points: [
+          { md_m: 0, tvd_m: 0, east_m: 0, north_m: 0 },
+          { md_m: 1000, tvd_m: 900, east_m: 200, north_m: 40 },
+        ],
+        surface_location: { easting: 1, northing: 2, unit: "m", latitude: null, longitude: null, crs: null, geodetic_datum: null },
+        md_reference: null,
+        tvd_reference: null,
+        azimuth_reference: "grid north",
+        north_reference: "grid",
+        displayed_count: 2,
+        source_count: 2,
+        other_sets: [],
+        warnings: [],
+      };
+    };
+    const { unmount } = render(<FieldScene projectId="p" wellbores={WELLS} selectedId="a" onSelect={vi.fn()} onOpen={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId("field-inspector-trajectory")).toHaveTextContent("Survey: SSR.pdf, as-built, MD 0-1000 m"));
+    expect(screen.getByTestId("field-inspector-surface")).toHaveTextContent("Surface location: E 1 m, N 2 m (CRS not stated)");
+    unmount();
+    render(<FieldScene projectId="p" wellbores={WELLS} selectedId="b" onSelect={vi.fn()} onOpen={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId("field-inspector-trajectory")).toHaveTextContent("only a planned survey exists"));
+    expect(screen.getByTestId("field-inspector-trajectory")).toHaveTextContent("vertical placeholder");
   });
 
   it("shows a clear empty state when no wellbore has a spec and keeps the list", async () => {
