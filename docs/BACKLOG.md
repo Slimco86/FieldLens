@@ -2887,7 +2887,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-076, TASK-077 |
@@ -2895,13 +2895,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.43.0 |
 | Parent | FL-023 |
 | Slice | FL-023-D |
 
 **Outcome.** Agent stage that fills the spec from candidates and records; optional allowlisted web visual-reference tool; estimate and run history; fake provider by default.
-**Next action.** Blocked on TASK-076/077; lane E (0.42.0). Needs owner answer to Q4.
-**Evidence.** none yet; planning only (2026-11-02).
+**Next action.** S5 has never run against real Meta (needs the owner's authorization for one bounded live run); no real web-search backend is shipped (the research tool is OFF by default, pluggable, fakes only); the 20 s fetch budget is not configurable; a model-chosen kind can change a part's placement class (no numbers); a new run key repeats a paid call by design (confirmed run is the authorization).
+**Evidence.** Independent QA (two passes): SSRF probe battery (about 55 URLs: private/loopback/metadata, IPv4-mapped, NAT64/6to4/Teredo/IPv4-compatible, numeric forms, redirects, rebinding, oversize, content type) all rejected after the D1 fix; slow-drip total time budget and in-flight cancel enforced (D2); prompt-injection and model-output abuse PASS (invented/duplicate refs, unknown kinds, evidence rules, no located part without a printed MD interval); refusal/truncation/malformed/provider failure leave the current spec untouched; supersede history and merge-hook invalidation PASS; MD-range check PASS; D3-D6 fixed. 440 backend tests (assetspec, reconstruction, merge_proposals, processing, contracts, foundation), ruff, mypy strict, frontend 304 vitest/lint/typecheck/contracts/build PASS. Fake providers only; no live Meta or web.
 
 ### TASK-080 · Field (multi-wellbore) 3D view with LOD and instancing
 

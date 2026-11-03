@@ -8,6 +8,22 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.43.0 - 2026-11-03
+
+- **TASK-079 the agent now designs the 3D asset (stage S5).** For each wellbore of a reconstruction run, S5 asks the
+  configured model to label and classify the wellbore's equipment (downhole and surface: casing, tubing, packer, pump,
+  wellhead, tree, choke, manifold, separator, tank, flowline and more) and builds a visual-only asset spec. The server,
+  not the model, sets dimensions (only printed numbers), placement (a located part needs a complete printed MD
+  interval, otherwise it goes to the unlocated tray, and never beyond the known well depth) and evidence. The latest
+  valid spec is shown directly; earlier ones stay as history. A refusal, truncation, malformed answer or provider
+  failure leaves the current 3D model unchanged and the run partial. Without a model, S5 reads "Not available: no model
+  configured". No spend limit applies to a confirmed run; the estimate is information only.
+- **Bounded public visual references.** An allowlisted research tool can look up public pictures for named equipment
+  (6 queries, 10 pages, 120 s per component, 8 components per wellbore, stored as URL, retrieval date and an optional
+  verified image). It is off by default with no search backend shipped (`FIELDLENS_VISUAL_RESEARCH_BACKEND`, only `off`).
+  SSRF-safe: public http/https addresses on ports 80/443 only, IPv6 transition ranges rejected, pinned connection,
+  re-validated redirects, size and total-time budgets, cancel honoured, page text never reaches the model.
+
 ## 0.42.0 - 2026-11-03
 
 - **TASK-080 field view: all wellbores of a project in one 3D scene.** Explore opens in the field view when a project has
