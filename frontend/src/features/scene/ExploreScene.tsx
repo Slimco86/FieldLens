@@ -9,6 +9,7 @@ import { Inspector } from "./Inspector";
 import { buildSceneModel, defaultExaggeration, locatedMdMax, KIND_LABEL, placementText, type SceneModel } from "./sceneModel";
 import { trajectoryFor } from "./trajectorySource";
 import { WellPath } from "./trajectory";
+import { FieldScene } from "./FieldScene";
 import { webgl2Available } from "./webgl";
 import type { LabelMode, ViewerCommands, ViewerOptions } from "./Viewer3D";
 import styles from "./Scene.module.css";
@@ -26,6 +27,9 @@ interface WellboreRef {
 export function ExploreScene({ projectId }: { projectId: string }) {
   const exposure = useScopedResource(`exposure/${projectId}`, (signal) => getExposure(projectId, signal));
   const [picked, setPicked] = useState<string | null>(null);
+  // `null` = automatic: the field view for two or more wellbores, the wellbore view for one.
+  const [mode, setMode] = useState<"field" | "wellbore" | null>(null);
+  const [fieldSelected, setFieldSelected] = useState<string | null>(null);
 
   if (exposure.state.kind === "loading") return <LoadingState label="Loading wellbores" />;
   if (exposure.state.kind === "error") {
@@ -48,7 +52,31 @@ export function ExploreScene({ projectId }: { projectId: string }) {
       />
     );
   }
-  return <WellboreScene key={current.id} projectId={projectId} wellbore={current} wellbores={wellbores} onPick={setPicked} />;
+  if ((mode ?? (wellbores.length >= 2 ? "field" : "wellbore")) === "field") {
+    return (
+      <FieldScene
+        projectId={projectId}
+        wellbores={wellbores}
+        selectedId={fieldSelected}
+        onSelect={setFieldSelected}
+        onOpen={(id) => {
+          setPicked(id);
+          setFieldSelected(id);
+          setMode("wellbore");
+        }}
+      />
+    );
+  }
+  return (
+    <WellboreScene
+      key={current.id}
+      projectId={projectId}
+      wellbore={current}
+      wellbores={wellbores}
+      onPick={setPicked}
+      onField={wellbores.length >= 2 ? () => setMode("field") : undefined}
+    />
+  );
 }
 
 interface WellboreSceneProps {
@@ -56,9 +84,11 @@ interface WellboreSceneProps {
   wellbore: WellboreRef;
   wellbores: WellboreRef[];
   onPick: (id: string) => void;
+  /** Back to the field view (only offered when the project has two or more wellbores). */
+  onField?: (() => void) | undefined;
 }
 
-function WellboreScene({ projectId, wellbore, wellbores, onPick }: WellboreSceneProps) {
+function WellboreScene({ projectId, wellbore, wellbores, onPick, onField }: WellboreSceneProps) {
   const spec = useScopedResource(`asset-spec/${projectId}/${wellbore.id}`, (signal) =>
     getAssetSpec(projectId, wellbore.id, signal),
   );
@@ -79,16 +109,23 @@ function WellboreScene({ projectId, wellbore, wellbores, onPick }: WellboreScene
   }, [projectId, wellbore.id, replace]);
 
   const picker = (
-    <label>
-      Wellbore{" "}
-      <select value={wellbore.id} onChange={(e) => onPick(e.target.value)} aria-label="Wellbore">
-        {wellbores.map((w) => (
-          <option key={w.id} value={w.id}>
-            {w.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <>
+      {onField !== undefined && (
+        <button type="button" onClick={onField} data-testid="back-to-field">
+          ← Field view
+        </button>
+      )}
+      <label>
+        Wellbore{" "}
+        <select value={wellbore.id} onChange={(e) => onPick(e.target.value)} aria-label="Wellbore">
+          {wellbores.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
   );
   const generateButton = (
     <button type="button" onClick={() => void generate()} disabled={generating} data-testid="generate-stub">

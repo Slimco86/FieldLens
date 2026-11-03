@@ -199,3 +199,17 @@
   padding: var(--fl-space-xs) var(--fl-space-sm);
   border-bottom: var(--fl-border-width) solid var(--fl-color-border);
 }
+
+.fieldChip {
+  position: absolute;
+  left: var(--fl-space-sm);
+  bottom: var(--fl-space-sm);
+  margin: 0;
+  padding: var(--fl-space-xs) var(--fl-space-sm);
+  border: var(--fl-border-width) solid var(--fl-scene-tray-edge);
+  border-radius: var(--fl-radius-sm);
+  background: var(--fl-scene-label-bg);
+  color: var(--fl-scene-tray-edge);
+  font-size: var(--fl-font-size-xs);
+  pointer-events: none;
+}

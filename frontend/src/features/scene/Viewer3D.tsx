@@ -90,7 +90,7 @@ function niceStep(span: number, target = 6): number {
 
 // ------------------------------------------------------------------ contents inside the Canvas
 
-function Environment(): null {
+export function Environment(): null {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   useEffect(() => {

@@ -20,6 +20,13 @@ export const scenePalette = {
   labelMuted: "#b8c7dc",
   // Selection / attention accent (matches the design attention colour family).
   highlight: "#ffb347",
+  // Field view (TASK-080): pads under each wellbore and the colour of markers; never engineering state.
+  fieldPad: "#3a5379",
+  fieldPadMissing: "#4d4838",
+  fieldPadError: "#5e3a3a",
+  fieldPadLoading: "#34455f",
+  fieldMarkerDocumented: "#6fe0c0",
+  fieldMarkerIllustrative: "#9aa6b4",
   // Materials.
   steel: "#a9b3bd",
   steelDark: "#5c6670",
