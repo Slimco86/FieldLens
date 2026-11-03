@@ -167,11 +167,13 @@ class Settings(BaseSettings):
     processing_stub_output_usd_per_mtok: Decimal = Field(Decimal("2.50"), gt=0)
     """Illustrative stub rates, labelled as such in every estimate; never an owner rate card."""
     processing_model_pages: int = Field(5, ge=1, le=20)
-    """Model step (TASK-055): first pages of each document sent to the model; the estimate and
-    the step never read more, whatever range was selected (cost bound, DOCUMENT_IDENTIFICATION)."""
+    """Default page count (first pages) of a model estimate that names no page range (TASK-075:
+    no longer a bound; the user chooses 1..total)."""
+    processing_pages_per_call: int = Field(10, ge=1, le=20)
+    """TASK-075: a model selection is sent in sequential calls of at most this many pages."""
     processing_run_cap_usd: Decimal | None = Field(None, gt=0, le=Decimal("5"))
-    """Optional per-run spend cap (orchestrator-set for live checks): an estimate above it is not
-    confirmable. Required for the ``meta`` provider."""
+    """DEPRECATED (TASK-075): no longer applies to the model route (a confirmed run is the
+    authorization); still gates the stub route."""
     processing_meta_input_usd_per_mtok: Decimal | None = Field(None, gt=0)
     processing_meta_output_usd_per_mtok: Decimal | None = Field(None, gt=0)
     """Owner-supplied Meta rates for the ``meta`` provider; the code assumes none."""
@@ -195,6 +197,7 @@ class Settings(BaseSettings):
         "processing_meta_input_usd_per_mtok",
         "processing_meta_output_usd_per_mtok",
         "processing_model_pages",
+        "processing_pages_per_call",
         mode="before",
     )
     @classmethod
@@ -204,6 +207,7 @@ class Settings(BaseSettings):
             defaults: dict[str, object] = {
                 "processing_provider": "stub",
                 "processing_model_pages": 5,
+                "processing_pages_per_call": 10,
             }
             return defaults.get(str(info.field_name))  # the optional fields default to None
         return value

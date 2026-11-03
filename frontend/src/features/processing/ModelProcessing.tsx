@@ -43,6 +43,8 @@ const NOT_PROCESSABLE: Record<string, string> = {
 };
 
 const MAX_RANGE = 500;
+/** Default number of pages (1..N) a live model estimate reads; the user chooses 1..total in the dialog. */
+const DEFAULT_PAGES = 5;
 
 function parsePages(first: string, last: string, pageCount: number | null): { ok: true; value: { page_start: number; page_end: number } } | { ok: false; message: string } {
   const a = Number(first);
@@ -150,10 +152,13 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
       ? NO_NATIVE_PARSER_TEXT
       : item.state_text.charAt(0).toUpperCase() + item.state_text.slice(1);
 
+  const live = providerInfo !== null && providerInfo.active !== "stub";
+
   async function request(retry: boolean, reuseStored = false, rerun = false) {
     if (requesting || reestimating || item === undefined) return;
     let pages = null;
     if (rerun) pages = lastPages.current;
+    else if (live && !retry) pages = { page_start: 1, page_end: Math.min(DEFAULT_PAGES, item.page_count ?? DEFAULT_PAGES) };
     else if (item.over_page_cap && !retry) {
       const p = parsePages(first, last, item.page_count);
       if (!p.ok) {
@@ -291,7 +296,7 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
       {read !== null && <ModelRead read={read} userLabels={item.user_labels ?? []} cacheHit={runDoc?.cache_hit === true} />}
       {read !== null && outcome.state.kind === "ready" && outcome.state.data.raw_reply != null && <RawReply reply={outcome.state.data.raw_reply} />}
 
-      {item.over_page_cap && canProcessAny && (
+      {item.over_page_cap && !live && canProcessAny && (
         <div className={styles.pages}>
           <TextInput label="First page" value={first} onChange={(e) => setFirst(e.currentTarget.value)} inputMode="numeric" w={110} />
           <TextInput label="Last page" value={last} onChange={(e) => setLast(e.currentTarget.value)} inputMode="numeric" w={110} />
@@ -366,6 +371,11 @@ export function ModelProcessing({ projectId, doc }: { projectId: string; doc: So
           offerReuse={offerReuse}
           reuse={reuse}
           reestimating={reestimating}
+          pageTotal={live ? (item.page_count ?? null) : null}
+          onPagesChange={(n) => {
+            lastPages.current = { page_start: 1, page_end: n };
+            void request(false, reuse, true);
+          }}
           onReuseChange={(v) => {
             setReuse(v);
             void request(false, v, true);
