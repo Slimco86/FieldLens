@@ -28,7 +28,7 @@ def _downgrade(url: URL, revision: str) -> None:
 
 
 def test_single_head_is_0009_on_top_of_0008() -> None:
-    assert expected_head() == "0017_model_reply"
+    assert expected_head() == "0018_reconstruction_stages"
 
 
 def test_upgrade_from_0008_with_data_round_trips_and_enforces_scope(empty_database: URL) -> None:

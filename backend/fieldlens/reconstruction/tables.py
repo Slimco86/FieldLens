@@ -4,7 +4,7 @@
 ``reconstruction_run`` is per wellbore. ``wellbore_id`` is deliberately not a foreign key: the
 deterministic identity resolver may delete and recreate wellbores, and a run must keep its
 (snapshotted) identity as history. A partial unique index lets a wellbore + source revision have at
-most one queued/running run. ``reconstruction_run_stage`` holds S1..S4 with honest per-stage state.
+most one queued/running run. ``reconstruction_run_stage`` holds S1..S5 with honest per-stage state.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ RUN_STATUSES = (
     "cancelled",
     "interrupted",
 )
-STAGES = ("gather", "extract", "identify", "assemble")
+STAGES = ("gather", "extract", "identify", "assemble", "design")
 STAGE_STATES = (
     "pending",
     "running",
@@ -50,6 +50,7 @@ STAGE_STATES = (
     "cancelled",
     "interrupted",
     "skipped",
+    "stubbed",
 )
 
 
@@ -108,6 +109,8 @@ reconstruction_run = Table(
     Column("error_code", String(48), nullable=True),
     Column("error_message", String(400), nullable=True),
     Column("summary", JSONB, nullable=True),
+    Column("invalidated_at", DateTime(timezone=True), nullable=True),
+    Column("invalidated_reason", String(48), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     Column("confirmed_at", DateTime(timezone=True), nullable=True),
     Column("started_at", DateTime(timezone=True), nullable=True),
@@ -191,7 +194,7 @@ reconstruction_run_stage = Table(
     CheckConstraint(_in("stage", STAGES), name="stage_known"),
     CheckConstraint(_in("state", STAGE_STATES), name="state_known"),
     CheckConstraint("kind IN ('deterministic', 'agent')", name="kind_known"),
-    CheckConstraint("ordinal BETWEEN 1 AND 4", name="ordinal_bounded"),
+    CheckConstraint("ordinal BETWEEN 1 AND 5", name="ordinal_bounded"),
     CheckConstraint(
         "input_tokens >= 0 AND output_tokens >= 0 AND estimated_usd >= 0 AND actual_usd >= 0",
         name="amounts_nonnegative",

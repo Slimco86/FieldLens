@@ -100,4 +100,4 @@ def test_migration_scripts_import_without_an_alembic_operations_proxy() -> None:
         [sys.executable, "-c", code], capture_output=True, text=True, timeout=120, check=False
     )
     assert done.returncode == 0, done.stderr[-800:]
-    assert done.stdout.strip() == "0017_model_reply"
+    assert done.stdout.strip() == "0018_reconstruction_stages"

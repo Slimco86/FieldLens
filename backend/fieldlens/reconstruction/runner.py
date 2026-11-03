@@ -8,6 +8,8 @@ Same patterns as the TASK-054 processing runner:
   claimed one after another in confirm order, never all at once;
 * a run whose worker died or whose lease lapsed becomes ``interrupted`` (never succeeded), with its
   unfinished stages ``interrupted``; retry is a new estimate and confirm;
+* a stage that ran without a model is ``stubbed`` and a failed non-fatal agent stage keeps earlier
+  results; both make the run ``partial``
 * a stage that cannot run is ``not_available`` and makes the run ``partial``; a failed stage fails
   the run and skips the rest; a cancel stops between stages or at a checkpoint.
 """
@@ -255,7 +257,6 @@ class ReconstructionRunner:
     def _run_stages(self, claim: Claim, lost: threading.Event) -> None:
         results: dict[ReconstructionStageName, StageResult] = {}
         halt: str | None = None  # "cancelled" | "failed"
-        spent = Decimal(0)
 
         def checkpoint() -> None:
             if lost.is_set():
@@ -329,18 +330,8 @@ class ReconstructionRunner:
                     error_code="stage_error",
                 )
             results[name] = result
-            spent += result.usd
-            if spent > claim.confirmed_usd:
-                results[name] = StageResult(
-                    "failed",
-                    message="actual usage exceeded the confirmed estimate",
-                    error_code="confirmed_estimate_exceeded",
-                    usd=result.usd,
-                    input_tokens=result.input_tokens,
-                    output_tokens=result.output_tokens,
-                )
             self._persist_stage(claim, name, results[name])
-            if results[name].state == "failed":
+            if results[name].state == "failed" and results[name].fatal:
                 halt = "failed"
         if lost.is_set():
             raise FenceLost(str(claim.run_id))
@@ -395,7 +386,9 @@ class ReconstructionRunner:
     def _finalize(
         self, claim: Claim, results: dict[ReconstructionStageName, StageResult], halt: str | None
     ) -> None:
-        failed = [r for r in results.values() if r.state == "failed"]
+        failed = [r for r in results.values() if r.state == "failed" and r.fatal]
+        soft = [r for r in results.values() if r.state == "failed" and not r.fatal]
+        stubbed = [n for n, r in results.items() if r.state == "stubbed"]
         unavailable = [n for n, r in results.items() if r.state == "not_available"]
         error_code: str | None = None
         error_message: str | None = None
@@ -404,6 +397,15 @@ class ReconstructionRunner:
         elif failed:
             status = "failed"
             error_code, error_message = failed[0].error_code, failed[0].message
+        elif soft:
+            status = "partial"
+            error_code, error_message = soft[0].error_code, soft[0].message
+        elif stubbed:
+            status = "partial"
+            error_code = "stub_run"
+            error_message = "Stub run: no model was called in " + ", ".join(
+                n.value for n in stubbed
+            )
         elif unavailable:
             status = "partial"
             error_code = "stages_not_available"
