@@ -5,10 +5,12 @@ from __future__ import annotations
 import os
 import socket
 from dataclasses import dataclass
+from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from fieldlens.assistant.budget import BudgetLedger
+from fieldlens.assistant.errors import ReservationStateError
 from fieldlens.assistant.meta import MetaProvider
 from fieldlens.assistant.provider import Pricing as ModelPricing
 from fieldlens.assistant.runner import RequestLimits
@@ -89,8 +91,6 @@ def missing_meta_items(settings: Settings) -> list[str]:
         missing.append("FIELDLENS_PROCESSING_META_INPUT_USD_PER_MTOK")
     if settings.processing_meta_output_usd_per_mtok is None:
         missing.append("FIELDLENS_PROCESSING_META_OUTPUT_USD_PER_MTOK")
-    if settings.processing_run_cap_usd is None:
-        missing.append("FIELDLENS_PROCESSING_RUN_CAP_USD")
     return missing
 
 
@@ -123,11 +123,25 @@ def _info(
     )
 
 
+AUTO_BALANCE_SOURCE = "auto: processing-live, per-run user confirmation"
+
+
+def _ensure_usable_balance(ledger: BudgetLedger, period: UUID, settings: Settings) -> None:
+    """The live processing period needs no owner step: every run is authorised by the user's
+    confirmation of its estimate, so the starting balance is the ledger cap (accounting only; the
+    spend ceilings stay). Done once, also for an existing period whose balance is still unset.
+    A balance that is already confirmed (by anyone) is never changed. Only this period."""
+    try:
+        ledger.confirm_balance(period, settings.budget_ledger_cap_usd, AUTO_BALANCE_SOURCE)
+    except ReservationStateError:
+        pass  # already confirmed
+
+
 def _build_meta(
     factory: sessionmaker[Session], store: BlobStore, settings: Settings
 ) -> tuple[PageProvider, ProcessingStep]:
     """Live Meta step; the caller has checked :func:`missing_meta_items`.
-    The budget balance is NOT confirmed here: that is an owner action on the ledger."""
+    The period's balance is made usable here (see :func:`_ensure_usable_balance`)."""
     in_rate = settings.processing_meta_input_usd_per_mtok
     out_rate = settings.processing_meta_output_usd_per_mtok
     assert in_rate is not None and out_rate is not None
@@ -144,6 +158,7 @@ def _build_meta(
         warn_usd=settings.budget_warn_usd,
         unattended_block_usd=settings.budget_unattended_block_usd,
     )
+    _ensure_usable_balance(ledger, period, settings)
     pricing_id = ledger.register_pricing(model_pricing, "owner-supplied processing rates")
     renderer = PageRenderer(store, concurrency=2)
     step = ModelClassificationStep(

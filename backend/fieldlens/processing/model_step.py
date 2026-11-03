@@ -40,6 +40,7 @@ from fieldlens.persistence.session import session_scope
 from fieldlens.processing import identity_read as ir
 from fieldlens.processing import identity_store as store
 from fieldlens.processing import tables as t
+from fieldlens.processing.live_budget import failure_text
 from fieldlens.processing.steps import (
     Checkpoint,
     DocumentTask,
@@ -102,7 +103,11 @@ def map_failure(exc: BaseException) -> FailureMapping | RunStop:
     ):
         return RunStop(ProcessingFailureCode.BUDGET_STOP, "the budget does not cover this call")
     if isinstance(exc, AssistantError):
-        return FailureMapping(ProcessingFailureCode.PROVIDER_ERROR, f"provider error: {exc.code}")
+        reason = getattr(exc, "reason", None)  # ProviderUnavailable: a short, secret-free reason
+        return FailureMapping(
+            ProcessingFailureCode.PROVIDER_ERROR,
+            failure_text(exc.code, reason if isinstance(reason, str) else None),
+        )
     return FailureMapping(ProcessingFailureCode.PROVIDER_ERROR, "provider error")
 
 

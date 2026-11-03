@@ -92,3 +92,24 @@ estimate; the raw reply rendered as HTML; history lost on re-process.
 
 Meta token rates are owner-supplied (not in the repo); the live provider cannot be used until they are set.
 Not a blocker for this slice (stub-verified); recorded in the handoff.
+
+## 7. Amendment (TASK-074): live processing needs no owner step
+
+Cause of a live run failing as `provider_error: provider_unavailable`: the `processing-live` ledger
+period had no confirmed starting balance, so `BudgetLedger.reserve` refused before any call, and the
+reason was dropped from the failure text and never logged.
+
+- At startup with a complete `meta` configuration the runtime makes that one period usable: after
+  `ensure_period` it confirms the starting balance equal to the ledger cap
+  (`FIELDLENS_BUDGET_LEDGER_CAP_USD`, default 150) with source "auto: processing-live, per-run user
+  confirmation", also repairing an existing period whose balance is unset. An already confirmed
+  balance is never changed; other periods (equipment/assistant) keep their explicit confirmation.
+  The ledger still records every reservation and commit; the user's confirmation of the estimate is
+  the spend authorisation. A paused period still blocks.
+- `FIELDLENS_PROCESSING_RUN_CAP_USD` is optional (blank = no per-run cap); it is no longer required for
+  `meta`. Remaining ceilings: `FIELDLENS_PROCESSING_TOTAL_CAP_USD` (default 5, <= 5, shared),
+  `FIELDLENS_PROVIDER_MAX_RESERVED_USD` (per call, <= 0.50), the ledger cap, and the confirmed estimate.
+- A failed document shows the safe ledger reason in `failure_message` (e.g. "provider error:
+  provider_unavailable: the live processing budget period is paused ...") and the runner logs one
+  warning per failed document: `run_id`, `document_id`, code and reason; never document text or a key.
+
