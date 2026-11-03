@@ -62,6 +62,25 @@ reference carries `document_id` and `page`.
 | B-4 | Contracts registered and `check:contracts` clean after regenerating; OpenAPI diff documented. |
 Owner: fieldlens-backend. Paths: `backend/fieldlens/ingestion/routes.py` (+ new module), `assetspec/structured.py`/evidence read path, `contracts/asset_spec.py`, trajectory source ref, generated client.
 
+**B as implemented (TASK-087).**
+- Route `GET /api/v1/projects/{p}/documents/{d}/content` (`ingestion/content.py`): lookup by project and document id only (the storage
+  key comes from the row, never the client); `format_family != pdf` -> 415 `UNSUPPORTED_MEDIA_TYPE`; stored size and SHA-256 are verified by
+  streaming (result remembered per file identity: path, inode, size, mtime, so a viewer's range requests do not re-hash); missing or
+  damaged blob -> 409 `CONFLICT` with `details.reason` in `missing|size_mismatch|hash_mismatch` (nothing is written by a GET). Body is
+  streamed from disk; one `Range` (206/416; multi-range refused), `ETag` = quoted sha256 with `If-None-Match` -> 304.
+- Headers: `Content-Type: application/pdf`, `Content-Disposition: inline; filename="<ascii-safe>"; filename*=UTF-8''<pct>`,
+  `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'`, `Cache-Control: private, max-age=300`. `sandbox` is
+  deliberately not in the CSP and no `frame-ancestors`/`X-Frame-Options` is sent: Chromium's built-in PDF viewer does not render a
+  response under CSP `sandbox` (known limitation), and the viewer frame is same-origin (Vite proxies `/api`). Not browser-verified in this
+  lane (no browser allowed); lane C must confirm the iframe renders and must not add an iframe `sandbox` attribute that blocks the viewer.
+- Evidence: `EvidenceRef` gains optional `filename`, `locator` (e.g. `page 3, table 2, row 5`) and `statement` (e.g.
+  `Casing 9 5/8" at 2,431 m MD`). They are composed at read time (`assetspec/readable.py`) from the document row and the
+  `extracted_record` named by the stored quote (`extracted_record <uuid> ...`); two batched queries per read (history included), no file
+  I/O, never stored (`service._stored` strips them, and the unchanged-spec comparison ignores them, so old specs cause no new revision).
+  A record that no longer exists degrades to filename + `page N`. Non-structured (model) evidence gets filename and page locator only.
+- Survey: `TrajectorySetRef` (already `document_id`, `filename`) gains `page` (first station's page when the locator has one, else null).
+- OpenAPI diff: one new path, `EvidenceRef` +3 nullable fields, `TrajectorySetRef` +`page`; nothing removed or renamed.
+
 ### C (TASK-088) Source links and embedded PDF viewer (frontend), items 2, 6, 8
 Shared `SourceLink` + `DocumentViewer` (right drawer, sandboxed `<iframe>` of the content route, `#page=N`, Escape closes, focus returns).
 Used in the Reconstruction list, upload list, Inspector evidence and Survey info. Non-PDF -> existing jump to the Sources row. No PDF.js.
