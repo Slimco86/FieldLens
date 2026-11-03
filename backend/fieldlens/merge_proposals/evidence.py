@@ -79,6 +79,21 @@ class ReaderSourceText:
                 )
                 .limit(1)
             ).scalar()
+            if revision is None:  # a PDF read only by the model has no extraction run (TASK-076)
+                revision = s.execute(
+                    select(m.source_revision_document.c.source_revision_id)
+                    .join(
+                        m.source_revision,
+                        m.source_revision.c.source_revision_id
+                        == m.source_revision_document.c.source_revision_id,
+                    )
+                    .where(
+                        m.source_revision_document.c.project_id == project_id,
+                        m.source_revision_document.c.document_id == document_id,
+                    )
+                    .order_by(m.source_revision.c.created_at.desc())
+                    .limit(1)
+                ).scalar()
             doc = (
                 self._reader.document_in(s, project_id, revision, document_id)
                 if revision is not None

@@ -1,9 +1,11 @@
-"""Per-wellbore reconstruction run DTOs (TASK-068, RECONSTRUCTION_RUN.md RR-1..RR-5).
+"""Per-wellbore reconstruction run DTOs (TASK-068, RECONSTRUCTION_RUN.md RR-1..RR-5; TASK-076).
 
-A reconstruction run belongs to one ready wellbore and has four stage rows: S1 gather and S4 assemble
-are deterministic over stored exposure and gate data; S2 extract and S3 identify are agent stages
-that report ``not_available`` (with a stable reason code) until their agent step exists. A run with
-any unavailable stage is ``partial``, never ``succeeded``. An *estimate* spends nothing and queues
+A reconstruction run belongs to one ready wellbore and has five stage rows: S1 *Collect sources*
+and S4 *Assemble data* are deterministic over stored exposure and gate data; S2 *Read documents*
+and S3 *Match wellbores* are agent stages (TASK-055 model read, TASK-057 merge proposals); S5
+*Design 3D asset* is a clearly labelled not-yet-wired seam (TASK-079). A stage that ran on the stub
+provider is ``stubbed`` and a stage without an implementation is ``not_available``; a run with
+either is ``partial``, never ``succeeded``. An *estimate* spends nothing and queues
 nothing; only a separate confirm queues the runs. The draft summary lists coverage, unresolved items
 and conflicts with source references only: it carries no engineering value without a source, no
 publication and no 3D claim. Costs are labelled stub planning rates; no live model call exists.
@@ -25,13 +27,16 @@ MAX_RECONSTRUCTION_WELLBORES = 200
 
 class ReconstructionStageName(StrEnum):
     GATHER = "gather"
-    """S1: deterministic; revalidates the start gate for the wellbore."""
+    """S1 Collect sources: deterministic; revalidates the start gate for the wellbore."""
     EXTRACT = "extract"
-    """S2: agent, label-driven document extraction (TASK-055); pages capped at 500."""
+    """S2 Read documents: agent; the TASK-055 model read of PDFs without a native profile."""
     IDENTIFY = "identify"
-    """S3: agent plus deterministic identity merge proposals; proposed only, never accepted."""
+    """S3 Match wellbores: agent plus deterministic guards; guard-passing, quote-verified merges
+    are applied as revertible records, everything else stays a reviewable proposal."""
     ASSEMBLE = "assemble"
-    """S4: deterministic draft summary; no publication."""
+    """S4 Assemble data: deterministic draft summary; no publication."""
+    DESIGN = "design"
+    """S5 Design 3D asset: not wired until TASK-079; reports that honestly."""
 
 
 class ReconstructionStageKind(StrEnum):
@@ -45,6 +50,8 @@ class ReconstructionStageState(StrEnum):
     SUCCEEDED = "succeeded"
     NOT_AVAILABLE = "not_available"
     """No implementation exists for this stage yet; nothing ran and nothing was produced."""
+    STUBBED = "stubbed"
+    """The agent step ran on the stub provider: no model was called, nothing was read or matched."""
     FAILED = "failed"
     CANCELLED = "cancelled"
     INTERRUPTED = "interrupted"
@@ -69,7 +76,7 @@ class ReconstructionRunStatus(StrEnum):
 
 class ReconstructionStage(ContractModel):
     stage: ReconstructionStageName
-    ordinal: int = Field(ge=1, le=4, description="S1..S4.")
+    ordinal: int = Field(ge=1, le=5, description="S1..S5.")
     kind: ReconstructionStageKind
     state: ReconstructionStageState
     reason_code: str | None = Field(
@@ -146,6 +153,7 @@ class ReconstructionSummary(ContractModel):
     stages_succeeded: list[ReconstructionStageName]
     stages_not_available: list[ReconstructionStageName]
     stages_failed: list[ReconstructionStageName]
+    stages_stubbed: list[ReconstructionStageName] = Field(default_factory=list)
     coverage: list[ReconstructionCoverage]
     unresolved: list[ReconstructionUnresolved]
     conflicts: list[ReconstructionConflict]
@@ -165,13 +173,20 @@ class ReconstructionRun(ContractModel):
         description="Digest of the wellbore's record groups; a changed source is a new revision."
     )
     retry_of_run_id: UUID | None = None
-    stages: list[ReconstructionStage] = Field(description="Always S1..S4, in order.")
-    provider: Literal["stub"] = "stub"
+    stages: list[ReconstructionStage] = Field(description="S1..S5, in order.")
+    provider: str = "stub"
     pricing_source: str
     estimated_usd: Decimal = Field(ge=0)
     confirmed_usd: Decimal | None = None
     actual_usd: Decimal = Field(ge=0)
     cancel_requested: bool = False
+    stub_run: bool = Field(
+        default=False, description="True when an agent stage ran on the stub provider (no model)."
+    )
+    invalidated_at: UtcDatetime | None = Field(
+        default=None, description="Set when a merge applied or reverted after this draft was built."
+    )
+    invalidated_reason: str | None = None
     retryable: bool = Field(
         description="True for failed, cancelled and interrupted runs; a retry is a new estimate."
     )
@@ -216,14 +231,23 @@ class ReconstructionConfirmRequest(ContractModel):
 class ReconstructionStageEstimate(ContractModel):
     stage: ReconstructionStageName
     kind: ReconstructionStageKind
-    availability: Literal["will_run", "not_available"]
+    title: str = Field(description="Plain-language name, e.g. 'Read documents'.")
+    description: str = Field(description="What the stage does, in plain words.")
+    availability: Literal["will_run", "stub", "not_available"] = Field(
+        description="will_run: a real step; stub: runs without a model; not_available: not wired."
+    )
     reason_code: str | None = None
+    note: str | None = Field(
+        default=None, description="Why there is nothing to do, or what is reused."
+    )
+    new_work: int = Field(default=0, ge=0, description="Units of new work (documents, proposals).")
+    reused: int = Field(default=0, ge=0, description="Units whose stored result is reused.")
+    unit: str = Field(default="item", description="What new_work/reused count.")
     estimated_usd: Decimal = Field(
-        ge=0,
-        description="Stub planning rate reserved against the cap; spent only if the stage runs.",
+        ge=0, description="Informational only; the model step bounds its own spend."
     )
     page_cap: int | None = Field(
-        default=None, description="S2 only: the page cap that will bound its scope (500)."
+        default=None, description="S2 only: the page cap that will bound its scope."
     )
 
 
@@ -251,9 +275,11 @@ class ReconstructionEstimate(ContractModel):
     provider: Literal["stub"] = "stub"
     pricing_source: str
     pricing_label: str
-    live_calls: Literal[False] = False
-    total_cap_usd: Decimal
-    remaining_budget_usd: Decimal
-    fits_budget: bool
+    live_calls: bool = False
+    stub: bool = Field(default=True, description="True when no agent step calls a model.")
+    stage_totals: list[ReconstructionStageEstimate] = Field(
+        default_factory=list,
+        description="Per stage, summed over the wellbores that would start (informational).",
+    )
     confirmable: bool
     confirmed: bool = False

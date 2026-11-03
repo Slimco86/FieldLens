@@ -281,3 +281,75 @@ def no_text_outcome() -> ModelOutcome:
             no_identity_warning(),
         ],
     )
+
+
+def merge_outcomes(outcomes: list[ModelOutcome]) -> ModelOutcome:
+    """Deterministic merge of per-chunk outcomes (TASK-075), in chunk order.
+
+    Category: the most frequent real category (earliest chunk wins a tie); none -> fallback.
+    Tags: ordered union. Identities: ordered union deduplicated on (kind, name, page), capped.
+    Warnings: summed by code; "no identity" is recomputed for the whole selection."""
+    if len(outcomes) == 1:
+        return outcomes[0]
+    real = [o.category for o in outcomes if not o.unclassified]
+    fallback = not real
+    category = (
+        FALLBACK_CATEGORY
+        if fallback
+        else max(dict.fromkeys(real), key=lambda c: (real.count(c), -real.index(c)))
+    )
+    tags: list[str] = []
+    for outcome in outcomes:
+        for tag in outcome.tags:
+            if tag != UNCLASSIFIED_TAG and tag not in tags:
+                tags.append(tag)
+    tags = tags[: MAX_TAGS - (1 if fallback else 0)]
+    if fallback:
+        tags.append(UNCLASSIFIED_TAG)
+    identities: list[ValidIdentity] = []
+    seen: set[tuple[str, str, int]] = set()
+    for outcome in outcomes:
+        for ident in outcome.identities:
+            key = (ident.subject_kind, _squash(ident.name_as_written), ident.page)
+            if key not in seen and len(identities) < MAX_IDENTITIES:
+                seen.add(key)
+                identities.append(ident)
+    warnings: list[dict[str, Any]] = []
+    by_code: dict[str, dict[str, Any]] = {}
+    skip = ModelReadWarningCode.NO_WELLBORE_IDENTITY.value
+    for outcome in outcomes:
+        for warning in outcome.warnings:
+            if warning["code"] == skip:
+                continue
+            known = by_code.get(warning["code"])
+            if known is None:
+                known = by_code[warning["code"]] = {**warning, "count": 0}
+                warnings.append(known)
+            known["count"] += int(warning.get("count", 1))
+    if not identities:
+        warnings.append(no_identity_warning())
+    return ModelOutcome(
+        category=category,
+        unclassified=fallback,
+        tags=tags,
+        identities=identities,
+        warnings=warnings,
+    )
+
+
+def with_partial_no_text_warning(outcome: ModelOutcome, missing: int, total: int) -> ModelOutcome:
+    """Some (not all) selected pages have no text layer: say how many (they sent nothing)."""
+    if not 0 < missing < total:
+        return outcome
+    note = {
+        "code": ModelReadWarningCode.NO_TEXT_LAYER.value,
+        "message": f"{missing} of {total} selected pages have no text layer; OCR is not available",
+        "count": missing,
+    }
+    return ModelOutcome(
+        outcome.category,
+        outcome.unclassified,
+        outcome.tags,
+        outcome.identities,
+        [*outcome.warnings, note],
+    )

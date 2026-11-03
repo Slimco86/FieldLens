@@ -391,10 +391,37 @@ def test_wellbore_kind_revert_restores_row_ids(world: World) -> None:
         )
 
     before = rows()
+    from sqlalchemy import text
+
+    def spec_states() -> list[str]:
+        return [
+            r[0] for r in world.sql("SELECT state FROM wellbore_asset_spec ORDER BY created_at")
+        ]
+
+    def add_spec(wellbore_id: Any, revision: int) -> None:
+        # the hook only reads/writes ``state``; a minimal visual-only row is enough here
+        with session_scope(world.factory) as s:
+            s.execute(
+                text(
+                    "INSERT INTO wellbore_asset_spec (project_id, wellbore_id, revision, state, "
+                    "source_revision, generator_provider, generator_model, spec) VALUES "
+                    "(:p, :w, :r, 'current', 'x', 'stub', 'stub', '{\"visual_only\": true}')"
+                ),
+                {"p": pid, "w": wellbore_id, "r": revision},
+            )
+
+    for w in (r[3] for r in before):
+        add_spec(w, 1)
+    assert spec_states() == ["current", "current"]
     run = _run(world, pid)
     assert run["proposals_created"] == 1, run
     pr = world.api.client.get(_url(pid)).json()["items"][0]["proposal_id"]
     assert _decide(world, pid, pr, "accept").status_code == 200
     assert len(rows()) == 1
+    # AG-3: accepting invalidated the specs of every affected wellbore (history kept)
+    assert "current" not in spec_states() and len(spec_states()) == 2
+    add_spec(rows()[0][3], 2)
+    assert spec_states().count("current") == 1
     assert _decide(world, pid, pr, "revert").status_code == 200
     assert rows() == before
+    assert "current" not in spec_states()  # revert invalidates again

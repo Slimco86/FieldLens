@@ -2803,7 +2803,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, frontend |
 | Depends on | TASK-074 |
@@ -2811,20 +2811,20 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/MODEL_PROCESSING_OUTCOME.md |
-| Version | none |
+| Version | 0.39.0 |
 | Parent | FL-022 |
 | Slice | FL-022-I |
 
-**Outcome.** The estimate is computed from the selected pages' real text with the runner's bound, the user picks the page count (default min(5,total)), large selections run in chunks, and no total/run cap or remaining budget applies to a confirmed manual run (spec section 8).
-**Next action.** Draft awaiting owner review; lane A (0.38.0).
-**Evidence.** none yet; planning only (2026-11-02).
+**Outcome.** The estimate is computed from the selected pages' real text with the runner's bound, the user picks the page count (default min(5,total)), large selections run in chunks, and no total/run cap or remaining budget applies to a confirmed manual run (spec section 8). A retry gets reservation headroom (bound x attempts) and a recovered retry never fails the run on cost.
+**Next action.** Known gaps: `pages_done` counts a failed chunk (cosmetic); the reconstruction dialog's remaining-budget row is removed by TASK-076; the 10 pages/call value needs a bounded live check.
+**Evidence.** Independent QA (two passes) PE-1..PE-7 PASS; D1-D3 and N1 fixed and covered by tests (processing/assistant/contracts 313 passed after the last fix; earlier full suite 1515 passed with one stale-venv version test); ruff, mypy strict, frontend lint/typecheck/vitest/contracts/build clean. No e2e run for the document dialog beyond the earlier model-processing spec (2/2). Fake provider only; no live Meta.
 
 ### TASK-076 · Reconstruction stages S2 read / S3 match wellbores, merge UI and plain-language modal
 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | rag, backend, frontend |
 | Depends on | TASK-055, TASK-057 |
@@ -2832,13 +2832,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.40.0 |
 | Parent | FL-023 |
 | Slice | FL-023-A |
 
 **Outcome.** Wires the document read and the TASK-057 merge guards into reconstruction so aliases of one wellbore become one file group (revertible), adds the merge review UI (absorbs TASK-065) and rewrites the stage modal.
-**Next action.** Awaiting owner answer to Q1; lane B (0.39.0).
-**Evidence.** none yet; planning only (2026-11-02).
+**Next action.** Live S2/S3 need one bounded authorized live run (never run against real Meta yet); S5 stays "not available yet" until TASK-079. Known: dialog chip still says "Stub: no model is called" (wording differs from run label); a cancelled S3 does not store the first paid call's proposals.
+**Evidence.** Independent QA: AG-1 (backend), AG-2, AG-3 hook rollback, concurrency/scope PASS; D1 (S3 re-spend), D2 (S2/S3 never live), D3 (e2e wait) fixed and re-verified (S3 0 new calls on unchanged reruns, 4 concurrent runs 1 call, cancel honoured). Implementer full backend suite 1534 passed, ruff, mypy strict, frontend 278 vitest, lint/typecheck/contracts/build, single e2e reconstruction-merge PASS. Fake providers only; no live Meta.
 
 ### TASK-077 · VisualAssetSpec contract, validator, persistence and stub designer
 

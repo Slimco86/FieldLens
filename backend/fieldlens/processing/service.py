@@ -49,7 +49,7 @@ from fieldlens.evidence.storage import BlobStore
 from fieldlens.persistence import models as m
 from fieldlens.processing import tables as t
 from fieldlens.processing.identity_store import load_model_reads, load_outcome
-from fieldlens.processing.steps import Pricing, quantize
+from fieldlens.processing.steps import STUB_STEP, DocumentPlan, DocumentPlanner, Pricing, quantize
 from fieldlens.reconstruction import tables as reconstruction_tables
 
 pr, prd = t.processing_run, t.processing_run_document
@@ -58,6 +58,23 @@ ACTIVE_RUN = ("queued", "running")
 RETRYABLE_DOCUMENT_STATES = ("failed", "cancelled", "interrupted")
 RETRYABLE_RUN_STATUSES = ("failed", "partial", "cancelled", "interrupted")
 _BUDGET_LOCK_KEY = "fieldlens.processing.budget"
+_NOTES: OrderedDict[UUID, tuple[int, list[int], Decimal, Decimal]] = OrderedDict()
+_NOTES_LOCK = threading.Lock()  # per-run estimate notes (calls, pages without text, rates)
+
+
+def _remember(
+    run_id: UUID, calls: int, no_text: list[int], rate_in: Decimal, rate_out: Decimal
+) -> None:
+    with _NOTES_LOCK:
+        _NOTES[run_id] = (calls, no_text, rate_in, rate_out)
+        while len(_NOTES) > 256:
+            _NOTES.popitem(last=False)
+
+
+def _is_model_route(step: str) -> bool:
+    """TASK-075: only the stub route keeps the (free) budget gates; a confirmed model run is the
+    authorization."""
+    return step != STUB_STEP
 
 
 def _not_found(what: str) -> ContractError:
@@ -231,6 +248,7 @@ def create_estimate(
     *,
     force: bool = False,
     model: str | None = None,
+    planner: DocumentPlanner | None = None,
 ) -> ProcessingRun:
     if (
         session.execute(
@@ -246,6 +264,7 @@ def create_estimate(
     docs = load_documents(session, project_id, ids)
     cap = settings.processing_max_pages
     planned: list[tuple[DocInfo, int, int, int]] = []
+    plans: dict[UUID, DocumentPlan] = {}
     for sel in selections:
         doc = docs.get(sel.document_id)
         base = {"document_id": str(sel.document_id)}
@@ -263,7 +282,15 @@ def create_estimate(
         except PageError as exc:
             refusals.append({**base, "reason": "unreadable_pdf", "code": exc.code})
             continue
-        if sel.pages is None:
+        if planner is not None:  # model route: the user chooses 1..total pages (TASK-075)
+            if sel.pages is None:
+                start, end = 1, min(settings.processing_model_pages, pages)
+            else:
+                start, end = sel.pages.page_start, sel.pages.page_end
+                if end > pages:
+                    refusals.append({**base, "reason": "invalid_page_range", "page_count": pages})
+                    continue
+        elif sel.pages is None:
             if pages > cap and page_bound is None:
                 refusals.append(
                     {
@@ -293,6 +320,12 @@ def create_estimate(
             continue
         if page_bound is not None:
             end = min(end, start + page_bound - 1)  # the step reads no more: neither does the bill
+        if planner is not None:
+            try:
+                plans[doc.document_id] = planner(doc.storage_key, start, end)
+            except Exception:  # unreadable stored PDF text: typed refusal, nothing estimated
+                refusals.append({**base, "reason": "unreadable_pdf", "code": "page_text_failed"})
+                continue
         planned.append((doc, pages, start, end))
     if refusals:
         raise _refused(
@@ -312,7 +345,7 @@ def create_estimate(
                 raise _conflict(
                     "idempotency key was used for a different selection", "idempotency_conflict"
                 )
-            return get_run(session, settings, project_id, prior.run_id)
+            return get_run(session, settings, project_id, prior.run_id, planner)
     busy = _active_documents(session, project_id, ids)
     if busy:
         raise _conflict(
@@ -321,11 +354,20 @@ def create_estimate(
             document_ids=sorted(str(d) for d in busy),
         )
 
-    in_tok = settings.processing_input_tokens_per_page
-    out_tok = settings.processing_output_tokens_per_page
-    per_page = pricing.cost(in_tok, out_tok)
+    if plans:  # real text, runner-identical bounds: estimate >= sum of the call bounds
+        in_tok_total = sum(p.input_tokens for p in plans.values())
+        out_tok_total = sum(p.output_tokens for p in plans.values())
+        estimated = quantize(sum((p.bound_usd for p in plans.values()), ZERO))
+        doc_usd = {d: p.bound_usd for d, p in plans.items()}
+    else:
+        in_tok = settings.processing_input_tokens_per_page
+        out_tok = settings.processing_output_tokens_per_page
+        per_page = pricing.cost(in_tok, out_tok)
+        total_pages = sum(e - s + 1 for _, _, s, e in planned)
+        estimated = quantize(per_page * total_pages)
+        in_tok_total, out_tok_total = in_tok * total_pages, out_tok * total_pages
+        doc_usd = {d.document_id: quantize(per_page * (e - s + 1)) for d, _, s, e in planned}
     total_pages = sum(e - s + 1 for _, _, s, e in planned)
-    estimated = quantize(per_page * total_pages)
     remaining = remaining_budget(session, settings)
     run_id: UUID = session.execute(
         insert(pr)
@@ -341,8 +383,8 @@ def create_estimate(
             request_fingerprint=fingerprint,
             retry_of_run_id=retry_of,
             estimated_pages=total_pages,
-            estimated_input_tokens=in_tok * total_pages,
-            estimated_output_tokens=out_tok * total_pages,
+            estimated_input_tokens=in_tok_total,
+            estimated_output_tokens=out_tok_total,
             estimated_usd=estimated,
             pricing_source=pricing.source,
             total_cap_usd=settings.processing_total_cap_usd,
@@ -366,8 +408,17 @@ def create_estimate(
                 page_start=start,
                 page_end=end,
                 label_hints=list(doc.user_labels),
-                estimated_usd=quantize(per_page * (end - start + 1)),
+                estimated_usd=doc_usd[doc.document_id],
             )
+        )
+    if plans:
+        some = next(iter(plans.values()))
+        _remember(
+            run_id,
+            sum(p.calls for p in plans.values()),
+            sorted(n for p in plans.values() for n in p.no_text_pages),
+            some.input_usd_per_mtok,
+            some.output_usd_per_mtok,
         )
     return get_run(session, settings, project_id, run_id)
 
@@ -411,22 +462,23 @@ def confirm_run(
             "estimate_mismatch",
             estimated_usd=str(run.estimated_usd),
         )
-    remaining = remaining_budget(session, settings)
-    run_cap = settings.processing_run_cap_usd
-    if run_cap is not None and run.estimated_usd > run_cap:
-        raise _conflict(
-            "the estimate exceeds the per-run spend cap",
-            "run_cap_exceeded",
-            estimated_usd=str(run.estimated_usd),
-            run_cap_usd=str(run_cap),
-        )
-    if run.estimated_usd > remaining:
-        raise _conflict(
-            "the estimate exceeds the remaining budget",
-            "budget_exceeded",
-            estimated_usd=str(run.estimated_usd),
-            remaining_budget_usd=str(remaining),
-        )
+    if not _is_model_route(run.step):  # the free stub keeps its illustrative gates
+        remaining = remaining_budget(session, settings)
+        run_cap = settings.processing_run_cap_usd
+        if run_cap is not None and run.estimated_usd > run_cap:
+            raise _conflict(
+                "the estimate exceeds the per-run spend cap",
+                "run_cap_exceeded",
+                estimated_usd=str(run.estimated_usd),
+                run_cap_usd=str(run_cap),
+            )
+        if run.estimated_usd > remaining:
+            raise _conflict(
+                "the estimate exceeds the remaining budget",
+                "budget_exceeded",
+                estimated_usd=str(run.estimated_usd),
+                remaining_budget_usd=str(remaining),
+            )
     ids = [
         r.document_id
         for r in session.execute(
@@ -509,6 +561,7 @@ def retry_run(
     page_bound: int | None = None,
     *,
     model: str | None = None,
+    planner: DocumentPlanner | None = None,
 ) -> ProcessingRun:
     """A retry is a *new estimate* for the retryable documents; it spends only after confirm."""
     run = _lock_run(session, project_id, run_id)
@@ -547,15 +600,58 @@ def retry_run(
         page_bound,
         force=bool(run.force_refresh),  # a retry of a forced run is forced again
         model=model,
+        planner=planner,
     )
 
 
 # -- read models ------------------------------------------------------------------------------
-def _estimate_dto(session: Session, settings: Settings, run: Any) -> ProcessingEstimate:
+def _recompute_note(
+    session: Session, run: Any, planner: DocumentPlanner | None
+) -> tuple[int, list[int], Decimal, Decimal] | None:
+    """Estimation is local and cheap: rebuild the per-run details from the stored run + documents
+    when the in-memory cache is empty (e.g. after an API restart). No migration is needed."""
+    if planner is None:
+        return None
+    rows = session.execute(
+        select(prd.c.page_start, prd.c.page_end, m.source_document.c.storage_key)
+        .join(
+            m.source_document,
+            (m.source_document.c.project_id == prd.c.project_id)
+            & (m.source_document.c.document_id == prd.c.document_id),
+        )
+        .where(prd.c.project_id == run.project_id, prd.c.run_id == run.run_id)
+    ).all()
+    try:
+        plans = [planner(r.storage_key, r.page_start, r.page_end) for r in rows]
+    except Exception:  # unreadable now: details stay absent rather than wrong
+        return None
+    if not plans:
+        return None
+    return (
+        sum(p.calls for p in plans),
+        sorted(n for p in plans for n in p.no_text_pages),
+        plans[0].input_usd_per_mtok,
+        plans[0].output_usd_per_mtok,
+    )
+
+
+def _estimate_dto(
+    session: Session, settings: Settings, run: Any, planner: DocumentPlanner | None = None
+) -> ProcessingEstimate:
     live = run.status == "estimated"
-    remaining = remaining_budget(session, settings) if live else run.remaining_budget_usd
-    run_cap = settings.processing_run_cap_usd
-    fits = run.estimated_usd <= remaining and (run_cap is None or run.estimated_usd <= run_cap)
+    model_route = _is_model_route(run.step)
+    if model_route:  # no spend gate and no live budget lookup on the model route (TASK-075)
+        remaining, fits = run.remaining_budget_usd, True
+    else:
+        remaining = remaining_budget(session, settings) if live else run.remaining_budget_usd
+        run_cap = settings.processing_run_cap_usd
+        fits = run.estimated_usd <= remaining and (run_cap is None or run.estimated_usd <= run_cap)
+    with _NOTES_LOCK:
+        note = _NOTES.get(run.run_id) if model_route else None
+    if model_route and note is None:
+        note = _recompute_note(session, run, planner)
+        if note is not None:
+            _remember(run.run_id, *note)
     return ProcessingEstimate(
         pages=run.estimated_pages,
         route=ProcessingRoute(run.route),
@@ -571,10 +667,21 @@ def _estimate_dto(session: Session, settings: Settings, run: Any) -> ProcessingE
         remaining_budget_usd=remaining,
         fits_budget=fits,
         confirmable=live and fits,
+        upper_bound=model_route,
+        calls=note[0] if note else None,
+        pages_without_text=note[1] if note else [],
+        input_usd_per_mtok=note[2] if note else None,
+        output_usd_per_mtok=note[3] if note else None,
     )
 
 
-def get_run(session: Session, settings: Settings, project_id: UUID, run_id: UUID) -> ProcessingRun:
+def get_run(
+    session: Session,
+    settings: Settings,
+    project_id: UUID,
+    run_id: UUID,
+    planner: DocumentPlanner | None = None,
+) -> ProcessingRun:
     run = session.execute(
         select(pr).where(pr.c.project_id == project_id, pr.c.run_id == run_id)
     ).first()
@@ -597,7 +704,7 @@ def get_run(session: Session, settings: Settings, project_id: UUID, run_id: UUID
         step=run.step,
         cancel_requested=run.cancel_requested,
         retry_of_run_id=run.retry_of_run_id,
-        estimate=_estimate_dto(session, settings, run),
+        estimate=_estimate_dto(session, settings, run, planner),
         confirmed_usd=run.confirmed_usd,
         actual_usd=run.actual_usd,
         attempt_no=run.attempt_no,

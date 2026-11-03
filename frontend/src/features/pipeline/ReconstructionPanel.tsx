@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, Title } from "@mantine/core";
 import { RefreshCw } from "lucide-react";
 import { Callout, EmptyState } from "../../design";
+import { MergeReview } from "../merge/MergeReview";
 import { ReconstructionList } from "./ReconstructionList";
 import styles from "./Pipeline.module.css";
 
@@ -45,12 +46,12 @@ export function ReconstructionPanel({
       </div>
       <Callout tone="info">
         <p>
-          Parsing and indexing of supported files run automatically after upload. Reconstruct requests an estimate first
-          and starts only after you confirm it. Today a run gathers and assembles a <strong>draft</strong> summary and ends
-          partial: agent extraction and merge identification are not available yet, there is no OCR, and the published 3D
-          model and charts are a later feature.
+          Parsing and indexing of supported files run automatically after upload. Reconstruct shows what each step would
+          do and starts only after you confirm it. A run collects sources, reads documents, proposes wellbore matches for
+          you to review, and assembles a <strong>draft</strong> summary. The 3D asset step is not part of this version yet.
         </p>
       </Callout>
+      <MergeReview projectId={projectId} onChanged={() => setDataKey((n) => n + 1)} />
       <ReconstructionList
         projectId={projectId}
         refreshKey={dataKey}

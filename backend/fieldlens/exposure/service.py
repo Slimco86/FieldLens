@@ -10,7 +10,7 @@ from collections import defaultdict
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import ARRAY, bindparam, text
+from sqlalchemy import ARRAY, bindparam, select, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,7 @@ from fieldlens.contracts.exposure import (
     ExposureRecord,
     GateCondition,
     GateReason,
+    MergedAlias,
     ProjectExposure,
     StartGate,
     SurveyStatus,
@@ -35,6 +36,8 @@ from fieldlens.contracts.exposure import (
 from fieldlens.identity import service as identity_service
 from fieldlens.identity.labels import parse_bore_label
 from fieldlens.identity.resolver import RESOLVER_VERSION
+from fieldlens.identity.tables import identity_merge
+from fieldlens.persistence import models as m
 
 from . import rules
 
@@ -462,7 +465,43 @@ def wellbore_exposure(
         wellbore_name=name,
         categories=categories,
         gate=gate,
+        merged_from=_merged_from(session, project_id, wellbore_id),
     )
+
+
+AUTO_DECIDER = "auto:reconstruction"
+
+
+def _merged_from(session: Session, project_id: UUID, wellbore_id: UUID) -> list[MergedAlias]:
+    """Active merge records whose target is this wellbore (read only)."""
+    bore = m.wellbore
+    key = session.execute(
+        select(bore.c.wellbore_key).where(
+            bore.c.project_id == project_id, bore.c.wellbore_id == wellbore_id
+        )
+    ).scalar()
+    if key is None:
+        return []
+    rows = session.execute(
+        select(identity_merge)
+        .where(
+            identity_merge.c.project_id == project_id,
+            identity_merge.c.target_key == key,
+            identity_merge.c.reverted_at.is_(None),
+        )
+        .order_by(identity_merge.c.created_at, identity_merge.c.source_key)
+    ).all()
+    return [
+        MergedAlias(
+            proposal_id=r.proposal_id,
+            name=r.source_key,
+            kind=r.source_kind,
+            decided_by=r.decided_by,
+            automatic=r.decided_by == AUTO_DECIDER,
+            merged_at=r.created_at,
+        )
+        for r in rows
+    ]
 
 
 def build_gate(

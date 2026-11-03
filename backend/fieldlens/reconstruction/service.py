@@ -4,8 +4,8 @@ An estimate only reads stored exposure and the ledger: it queues and spends noth
 covers the whole (bulk) estimate and queues one run per wellbore. The start gate is revalidated per
 wellbore at estimate and again at confirm; a wellbore that is not ready, or whose records changed,
 is rejected with the server's reason. A wellbore + source revision with a queued or running run
-returns that run instead of starting a second one (idempotent start). Budget code is shared with
-the TASK-054 processing runs: one lock, one ledger, one USD 5 cap. Every statement is project
+returns that run instead of starting a second one (idempotent start). The estimate is informational
+(TASK-076): it shows new work versus reused results per stage and gates nothing. Every statement is project
 qualified.
 """
 
@@ -42,15 +42,20 @@ from fieldlens.persistence import models as m
 from fieldlens.processing.service import lock_budget, remaining_budget
 from fieldlens.processing.steps import STUB_PRICING_SOURCE, quantize
 from fieldlens.reconstruction import tables as t
-from fieldlens.reconstruction.stages import StageExecutor, WellboreSnapshot, snapshot_of
+from fieldlens.reconstruction.stages import (
+    StageExecutor,
+    StagePlan,
+    WellboreSnapshot,
+    snapshot_of,
+)
 
 re_, rr, rs = t.reconstruction_estimate, t.reconstruction_run, t.reconstruction_run_stage
 ZERO = Decimal("0")
 ACTIVE = ("queued", "running")
 RETRYABLE = ("failed", "cancelled", "interrupted")
 PRICING_LABEL = (
-    "Stub planning rates (illustrative, not a provider price). No live model call is made; the "
-    "agent stages are not available yet and spend nothing."
+    "Informational estimate only; it is not a limit. Steps on the stub provider call no model "
+    "and cost nothing."
 )
 
 
@@ -135,18 +140,38 @@ def _active_run(session: Session, project_id: UUID, wellbore_id: UUID, revision:
     ).first()
 
 
-def _stage_estimates(executors: Sequence[StageExecutor]) -> list[ReconstructionStageEstimate]:
-    return [
-        ReconstructionStageEstimate(
-            stage=e.stage,
-            kind=e.kind,
-            availability="will_run" if e.available else "not_available",
-            reason_code=None if e.available else e.reason_code,
-            estimated_usd=quantize(e.estimated_usd) if e.available else ZERO,
-            page_cap=e.page_cap,
+def _stage_estimates(
+    session: Session, project_id: UUID, executors: Sequence[StageExecutor]
+) -> list[ReconstructionStageEstimate]:
+    """Informational per-stage plan: what is new, what is reused, what it would cost."""
+    out: list[ReconstructionStageEstimate] = []
+    for e in executors:
+        plan_fn = getattr(e, "plan", None)
+        plan = plan_fn(session, project_id) if plan_fn else None
+        if plan is None:
+            plan = StagePlan("will_run" if e.available else "not_available", note=e.message)
+            plan = StagePlan(
+                plan.availability, usd=e.estimated_usd if e.available else ZERO, note=plan.note
+            )
+        if not e.available:
+            plan = StagePlan("not_available", note=e.message)
+        out.append(
+            ReconstructionStageEstimate(
+                stage=e.stage,
+                kind=e.kind,
+                title=getattr(e, "title", "") or e.stage.value,
+                description=getattr(e, "description", ""),
+                availability=plan.availability,
+                reason_code=(e.reason_code if plan.availability != "will_run" else None),
+                note=plan.note,
+                new_work=plan.new_work,
+                reused=plan.reused,
+                unit=plan.unit,
+                estimated_usd=quantize(plan.usd),
+                page_cap=e.page_cap,
+            )
         )
-        for e in executors
-    ]
+    return out
 
 
 # -- estimate ----------------------------------------------------------------------------------
@@ -160,8 +185,10 @@ def create_estimate(
 ) -> ReconstructionEstimate:
     snaps = _snapshots(session, project_id, request)
     lock_budget(session)
-    stages = _stage_estimates(executors)
-    per_wellbore = quantize(sum((s.estimated_usd for s in stages), ZERO))
+    stages = _stage_estimates(session, project_id, executors)
+    # S2/S3 work on the whole project and are reused by later runs: the cost is carried once.
+    per_project = quantize(sum((s.estimated_usd for s in stages), ZERO))
+    stub = any(s.availability == "stub" for s in stages)
     items: list[ReconstructionEstimateItem] = []
     new: list[WellboreSnapshot] = []
     for snap in snaps:
@@ -170,9 +197,8 @@ def create_estimate(
             items.append(_item(snap, active.run_id, active.status, stages, ZERO, True))
         else:
             new.append(snap)
-    remaining = remaining_budget(session, settings)
-    total = quantize(per_wellbore * len(new))
-    fits = total <= remaining
+    remaining = remaining_budget(session, settings)  # legacy columns only; never gates a run
+    total = per_project if new else ZERO
     estimate_id: UUID | None = None
     if new:
         estimate_id = session.execute(
@@ -186,7 +212,8 @@ def create_estimate(
             )
             .returning(re_.c.estimate_id)
         ).scalar_one()
-        for snap in new:
+        for index, snap in enumerate(new):
+            per_wellbore = per_project if index == 0 else ZERO
             exp = snap.exposure
             run_id: UUID = session.execute(
                 insert(rr)
@@ -215,7 +242,9 @@ def create_estimate(
                         state="pending" if e.available else "not_available",
                         reason_code=None if e.available else e.reason_code,
                         message=None if e.available else e.message,
-                        estimated_usd=quantize(e.estimated_usd) if e.available else ZERO,
+                        estimated_usd=next(x.estimated_usd for x in stages if x.stage == e.stage)
+                        if index == 0
+                        else ZERO,
                     )
                 )
             items.append(_item(snap, run_id, "estimated", stages, per_wellbore, False))
@@ -227,10 +256,10 @@ def create_estimate(
         total_estimated_usd=total,
         pricing_source=STUB_PRICING_SOURCE,
         pricing_label=PRICING_LABEL,
-        total_cap_usd=settings.processing_total_cap_usd,
-        remaining_budget_usd=remaining,
-        fits_budget=fits,
-        confirmable=bool(new) and fits,
+        live_calls=not stub and any(s.estimated_usd > 0 for s in stages),
+        stub=stub,
+        stage_totals=stages,
+        confirmable=bool(new),
     )
 
 
@@ -309,14 +338,6 @@ def confirm_estimate(
     ).all()
     if not runs:
         raise _conflict("nothing in this estimate can be started", "nothing_to_confirm")
-    remaining = remaining_budget(session, settings)
-    if est.total_estimated_usd > remaining:
-        raise _conflict(
-            "the estimate exceeds the remaining budget",
-            "budget_exceeded",
-            estimated_usd=str(est.total_estimated_usd),
-            remaining_budget_usd=str(remaining),
-        )
     stale: list[dict[str, Any]] = []
     for run in runs:  # the gate and the records are revalidated: the estimate may be old
         try:
@@ -500,6 +521,11 @@ def _dtos(session: Session, project_id: UUID, rows: Sequence[Any]) -> list[Recon
             actual_usd=r.actual_usd,
             cancel_requested=r.cancel_requested,
             retryable=r.status in RETRYABLE,
+            stub_run=any(
+                x.state == ReconstructionStageState.STUBBED for x in by_run.get(r.run_id, [])
+            ),
+            invalidated_at=r.invalidated_at,
+            invalidated_reason=r.invalidated_reason,
             error_code=r.error_code,
             error_message=r.error_message,
             summary=ReconstructionSummary.model_validate(r.summary) if r.summary else None,
