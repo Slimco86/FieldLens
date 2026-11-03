@@ -1,7 +1,7 @@
-import { Button, Modal } from "@mantine/core";
+import { Button, Checkbox, Modal } from "@mantine/core";
 import { Callout } from "../../design";
 import type { Failure } from "../projects/scope";
-import type { ProcessingRun } from "./api";
+import { STUB_TEXT, misconfiguredText, type ProcessingRun } from "./api";
 import styles from "./Processing.module.css";
 
 interface Props {
@@ -9,14 +9,34 @@ interface Props {
   filename: string;
   confirming: boolean;
   failure: Failure | null;
+  /** Names of missing provider settings when the server refused with provider_misconfigured. */
+  missing?: string[] | null;
+  /** Offer the explicit "reuse the stored result" opt-in (documents that already have a result). */
+  offerReuse?: boolean;
+  reuse?: boolean;
+  reestimating?: boolean;
+  onReuseChange?: (reuse: boolean) => void;
   onConfirm: () => void;
   onClose: () => void;
 }
 
 /** The estimate and its separate explicit Confirm. Opening it spends nothing; only Confirm queues the run. */
-export function ProcessEstimateDialog({ run, filename, confirming, failure, onConfirm, onClose }: Props) {
+export function ProcessEstimateDialog({
+  run,
+  filename,
+  confirming,
+  failure,
+  missing = null,
+  offerReuse = false,
+  reuse = false,
+  reestimating = false,
+  onReuseChange,
+  onConfirm,
+  onClose,
+}: Props) {
   const e = run.estimate;
   const live = e.provider !== "stub";
+  const spends = e.spends_money;
   const blocked = !e.confirmable || !e.fits_budget;
   const doc = run.documents[0];
   return (
@@ -29,7 +49,7 @@ export function ProcessEstimateDialog({ run, filename, confirming, failure, onCo
         </div>
         <Modal.Body>
           <div className={styles.dialogBody}>
-            <Callout tone={live ? "warning" : "info"}>
+            <Callout tone={spends ? "warning" : "info"}>
               <p>
                 This is an estimate only: nothing has started and nothing is spent until you press Confirm.{" "}
                 {live ? (
@@ -43,7 +63,31 @@ export function ProcessEstimateDialog({ run, filename, confirming, failure, onCo
                 )}{" "}
                 The model's answer is a proposal, shown as &quot;Model-read, unverified&quot;.
               </p>
+              {!live && <p>{STUB_TEXT}</p>}
             </Callout>
+            <dl className={styles.facts} aria-label="Provider">
+              <dt>Provider</dt>
+              <dd>{e.provider}</dd>
+              <dt>Model</dt>
+              <dd>{e.model ?? "not recorded"}</dd>
+              <dt>Spends money</dt>
+              <dd>{spends ? "Yes: confirming spends provider budget up to the estimate" : "No: this run spends nothing"}</dd>
+              <dt>Cache</dt>
+              <dd>{e.force ? "Fresh read: the stored result is bypassed and a new result is stored" : "Reuses the stored result when the document is unchanged (no model call)"}</dd>
+            </dl>
+            {offerReuse && (
+              <Checkbox
+                label="Reuse the stored result if the document is unchanged (no model call)"
+                checked={reuse}
+                disabled={reestimating || confirming}
+                onChange={(ev) => onReuseChange?.(ev.currentTarget.checked)}
+              />
+            )}
+            {reestimating && (
+              <p role="status" className={styles.muted}>
+                Updating the estimate…
+              </p>
+            )}
             <dl className={styles.facts} aria-label="Estimate totals">
               <dt>Pages to read</dt>
               <dd>
@@ -68,7 +112,12 @@ export function ProcessEstimateDialog({ run, filename, confirming, failure, onCo
                 <p>This estimate does not fit the remaining budget. It cannot be confirmed.</p>
               </Callout>
             )}
-            {failure !== null && (
+            {failure !== null && missing !== null && (
+              <Callout tone="danger" role="alert">
+                <p>{misconfiguredText(missing)}</p>
+              </Callout>
+            )}
+            {failure !== null && missing === null && (
               <Callout tone="danger" role="alert">
                 <p>
                   The run was not started: {failure.message}
@@ -84,7 +133,7 @@ export function ProcessEstimateDialog({ run, filename, confirming, failure, onCo
               </Callout>
             )}
             <div className={styles.row}>
-              <Button onClick={onConfirm} disabled={blocked || confirming} loading={confirming}>
+              <Button onClick={onConfirm} disabled={blocked || confirming || reestimating} loading={confirming}>
                 Confirm and start (USD {e.estimated_usd})
               </Button>
               <Button variant="default" onClick={onClose} data-autofocus>
