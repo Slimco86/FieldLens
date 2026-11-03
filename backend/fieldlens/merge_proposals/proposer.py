@@ -5,6 +5,7 @@ never changes identity; it only stores ``pending``/``blocked`` proposals for rev
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from collections import Counter
 from dataclasses import dataclass, field
@@ -32,7 +33,7 @@ from fieldlens.assistant.provider import CancelToken, Pricing, Provider
 from fieldlens.assistant.runner import RequestLimits, WorkUnit
 from fieldlens.contracts.merge_proposals import MergeProposalEstimate, MergeProposalRun
 
-from . import service
+from . import guards, service
 from .blocking import Block, Dataset, MemberCandidate, build_dataset
 from .evidence import SourceText
 from .prompt import PROMPT_VERSION, OutputError, block_labels, build_messages, parse_output
@@ -43,6 +44,25 @@ log = logging.getLogger(__name__)
 
 MAX_BLOCKS_PER_CALL = 4
 MAX_CALLS = 3
+OUTPUT_BASE_TOKENS = 4096
+OUTPUT_TOKENS_PER_BLOCK = 1024
+OUTPUT_FREE_BLOCKS = 2
+CONTEXT_WELLBORES = 40
+
+
+def output_bound(configured: int, blocks: int) -> int:
+    """Output tokens for a call of ``blocks`` blocks: reasoning plus a JSON group per ambiguous
+    pair must fit. Never below the configured bound; the truncation retry doubles it (capped)."""
+    extra = max(blocks - OUTPUT_FREE_BLOCKS, 0) * OUTPUT_TOKENS_PER_BLOCK
+    return configured + extra
+
+
+@dataclass(frozen=True)
+class PlanExplanation:
+    """Why the S3 stage will or will not call the model (shown in the stage message)."""
+
+    kind: str  # will_run | recheck | none_found | reused | no_candidates
+    text: str
 
 
 @dataclass(frozen=True)
@@ -55,12 +75,14 @@ class ProposerConfig:
         default_factory=lambda: RequestLimits(
             max_attempts=2,
             max_tool_calls=0,
-            deadline_s=60.0,
-            max_output_tokens=2048,
-            max_reserved_usd=Decimal("0.10"),
+            deadline_s=90.0,
+            max_output_tokens=OUTPUT_BASE_TOKENS,
+            max_reserved_usd=Decimal("0.30"),
         )
     )
     effort: Any = "low"
+    """TASK-084: ``low`` (not the provider default ``high``) so reasoning cannot eat the output
+    bound; the bound itself grows with the number of blocks in a call (``output_bound``)."""
     max_blocks_per_call: int = MAX_BLOCKS_PER_CALL
     max_calls: int = MAX_CALLS
 
@@ -123,19 +145,7 @@ class MergeProposer:
         with no remaining candidate is dropped, and an unchanged dataset that a previous run of
         this model and prompt evaluated completely (nothing deferred) needs no call at all."""
         taken = service.taken_pairs(session, project_id)
-        done = session.execute(
-            select(run_table.c.run_id)
-            .where(
-                run_table.c.project_id == project_id,
-                run_table.c.state == "succeeded",
-                run_table.c.dataset_fingerprint == ds.fingerprint,
-                run_table.c.model_id == self._config.model,
-                run_table.c.prompt_version == PROMPT_VERSION,
-                run_table.c.deferred_blocks == 0,
-            )
-            .limit(1)
-        ).first()
-        if done is not None and ds.deferred_blocks == 0:
+        if self._evaluated(session, project_id, ds) is not None and ds.deferred_blocks == 0:
             return [], taken
         todo: list[Block] = []
         for b in ds.blocks:
@@ -147,6 +157,96 @@ class MergeProposer:
                     Block(b.target, b.target_documents, members, b.allow_short_target, b.family)
                 )
         return todo, taken
+
+    def _run_row(self, session: Session, project_id: UUID, *, empty_only: bool = False) -> Any:
+        q = select(
+            run_table.c.run_id,
+            run_table.c.created_at,
+            run_table.c.blocks,
+            run_table.c.proposals_created,
+            run_table.c.dataset_fingerprint,
+            run_table.c.prompt_version,
+            run_table.c.guard_version,
+            run_table.c.model_id,
+            run_table.c.deferred_blocks,
+        ).where(
+            run_table.c.project_id == project_id,
+            run_table.c.state == "succeeded",
+            run_table.c.deferred_blocks == 0,
+        )
+        if empty_only:
+            q = q.where(run_table.c.proposals_created == 0)
+        return session.execute(q.order_by(run_table.c.created_at.desc()).limit(1)).first()
+
+    def _evaluated(self, session: Session, project_id: UUID, ds: Dataset) -> Any:
+        """A succeeded, fully evaluated run of exactly this state: same identity inputs, candidate
+        evidence (plan fingerprint), guard version, model and prompt version (A-3)."""
+        return session.execute(
+            select(run_table.c.run_id, run_table.c.created_at, run_table.c.blocks)
+            .where(
+                run_table.c.project_id == project_id,
+                run_table.c.state == "succeeded",
+                run_table.c.dataset_fingerprint == ds.plan_fingerprint,
+                run_table.c.model_id == self._config.model,
+                run_table.c.prompt_version == PROMPT_VERSION,
+                run_table.c.guard_version == guards.GUARD_VERSION,
+                run_table.c.deferred_blocks == 0,
+            )
+            .order_by(run_table.c.created_at.desc())
+            .limit(1)
+        ).first()
+
+    def explain(self, project_id: UUID) -> PlanExplanation:
+        """Plain reason for the plan: distinguishes "the model found none" from "reused" (A-3)."""
+        with self._factory() as s:
+            ds = build_dataset(s, project_id)
+            todo, taken = self._todo(s, project_id, ds)
+            done = self._evaluated(s, project_id, ds)
+            empty = self._run_row(s, project_id, empty_only=True)
+            n_pairs = sum(len(b.members) for b in ds.blocks)
+        if not ds.blocks:
+            return PlanExplanation("no_candidates", "no wellbore names need matching")
+        if todo:
+            if empty is not None and done is None:
+                changed = [
+                    label
+                    for label, differs in (
+                        (
+                            "candidate evidence or wellbore names",
+                            empty.dataset_fingerprint != ds.plan_fingerprint,
+                        ),
+                        ("guard rules", empty.guard_version != guards.GUARD_VERSION),
+                        ("model prompt", empty.prompt_version != PROMPT_VERSION),
+                        ("model", empty.model_id != self._config.model),
+                    )
+                    if differs
+                ]
+                return PlanExplanation(
+                    "recheck",
+                    "asking the model again: the last run found no matches, but "
+                    + (", ".join(changed) or "the inputs")
+                    + " changed since",
+                )
+            return PlanExplanation("will_run", "new wellbore names or evidence to review")
+        if done is not None and done.blocks and not taken:
+            return PlanExplanation(
+                "none_found",
+                f"the model reviewed {done.blocks} name group(s) on {done.created_at:%Y-%m-%d} "
+                "and found no matches; names, survey evidence, guard rules and prompt are "
+                "unchanged, so it was not asked again",
+            )
+        if done is not None:
+            return PlanExplanation(
+                "reused",
+                f"earlier results were reused: the model already reviewed these "
+                f"{done.blocks} name group(s) on {done.created_at:%Y-%m-%d} and its proposals "
+                "are stored; names, survey evidence, guard rules and prompt are unchanged",
+            )
+        return PlanExplanation(
+            "reused",
+            f"earlier results were reused: all {n_pairs} candidate pair(s) already have a "
+            "proposal or a decision",
+        )
 
     def estimate(self, project_id: UUID) -> MergeProposalEstimate:
         with self._factory() as s:
@@ -186,7 +286,7 @@ class MergeProposer:
                 continue
             self._call(
                 project_id, run_id, index, chunk, ds.merges, resolved_keys, taken, cancel,
-                proposals, drops, calls,
+                proposals, drops, calls, sorted(ds.resolved),
             )  # fmt: skip
         ok = sum(1 for c in calls if c["outcome"] == "ok")
         if not chunks:
@@ -206,6 +306,7 @@ class MergeProposer:
                 model_id=self._config.model,
                 prompt_version=PROMPT_VERSION,
                 fingerprint=ds.fingerprint,
+                run_fingerprint=ds.plan_fingerprint,
                 blocks=sum(len(c) for c in chunks),
                 deferred=deferred,
                 proposals=proposals,
@@ -249,10 +350,16 @@ class MergeProposer:
         proposals: list[ValidProposal],
         drops: Counter[str],
         calls: list[dict[str, Any]],
+        wellbores: list[str],
     ) -> None:
         cfg = self._config
         labelled = block_labels(chunk)
-        messages, included = build_messages(labelled, self._source, project_id)
+        context = {"wellbores": wellbores[:CONTEXT_WELLBORES], "wellbore_count": len(wellbores)}
+        messages, included = build_messages(labelled, self._source, project_id, context)
+        limits = dataclasses.replace(
+            cfg.limits,
+            max_output_tokens=output_bound(cfg.limits.max_output_tokens, len(included)),
+        )
         unit = WorkUnit(
             provider=self._provider,
             ledger=self._ledger,
@@ -262,7 +369,7 @@ class MergeProposer:
             model=cfg.model,
             request_key=f"merge-proposals:{run_id}:{index}",
             work_unit=f"merge-proposals:{index}"[:120],
-            limits=cfg.limits,
+            limits=limits,
             cancel=cancel,
             effort=cfg.effort,
         )

@@ -1,4 +1,4 @@
-"""Deterministic merge guards G1..G6 (the evidence guard G7 lives with quote validation).
+"""Deterministic merge guards G1..G6 and G8 (the evidence guard G7 lives with quote validation).
 
 Pure functions over small party records: no I/O, no model. Every check always reports a code,
 pass/fail and a short non-sensitive detail, so a blocked proposal shows exactly which rule held.
@@ -8,15 +8,19 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fieldlens.identity.merges import ActiveMerge
 
 from .designator import Designator, designator_of, status_marker
 
-GUARD_VERSION = "merge-guards-1"
+if TYPE_CHECKING:
+    from .content import PairEvidence
 
-G1, G2, G3, G4, G5, G6, G7 = (
+GUARD_VERSION = "merge-guards-2"
+
+G1, G2, G3, G4, G5, G6, G7, G8 = (
     "g1_scope",
     "g2_level",
     "g3_designator",
@@ -24,8 +28,9 @@ G1, G2, G3, G4, G5, G6, G7 = (
     "g5_planned_as_built",
     "g6_no_chains",
     "g7_evidence",
+    "g8_surface_location",
 )
-GUARD_CODES = (G1, G2, G3, G4, G5, G6, G7)
+GUARD_CODES = (G1, G2, G3, G4, G5, G6, G7, G8)
 
 
 @dataclass(frozen=True)
@@ -149,6 +154,19 @@ def evaluate(
             g6.append(f"{member.name} is the target of an active merge")
     out.append(GuardCheck(G6, not g6, "; ".join(g6) or "no merge chain"))
     return out
+
+
+def surface_check(evidence: Sequence[PairEvidence | None]) -> GuardCheck:
+    """G8 (TASK-086): two names whose recorded surface locations are far apart are different
+    wellbores. Unknown or one-sided locations never fail the guard."""
+    bad = [e.surface_detail for e in evidence if e is not None and e.surface_contradictory]
+    return GuardCheck(
+        G8,
+        not bad,
+        ("surface locations contradict: " + _fmt(bad))
+        if bad
+        else "no contradictory surface location",
+    )
 
 
 def failed(checks: Sequence[GuardCheck]) -> list[GuardCheck]:
