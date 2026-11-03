@@ -3055,7 +3055,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend |
 | Depends on | TASK-085 |
@@ -3063,13 +3063,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_POLISH.md |
-| Version | |
+| Version | 0.46.0 |
 | Parent | FL-023 |
 | Slice | FL-023-L |
 
 **Outcome.** PDF content route plus filename/locator/statement on evidence and document/page on the survey reference, with no extra document I/O.
-**Next action.** Wave 1 lane B; see specs/EXPLORE_POLISH.md section B.
-**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+**Next action.** Lane C (TASK-088) consumes the contract; browser-verify the built-in PDF viewer under the CSP (`default-src 'none'`; fallback `object-src 'self'; style-src 'unsafe-inline'`).
+**Evidence.** Merged 0.46.0 (4b0da9f). Independent QA PASS on B-1..B-4: 153 targeted tests, ruff/mypy/check:contracts clean; implementer's full backend suite 1638 passed. Synthetic data, no live Meta. Not verified: live curl on a lane API (storage-root guard), browser PDF rendering under the CSP. Residual: cached hash verification keyed on mtime, plain-text Range 400s.
 
 ### TASK-088 · Source links and embedded PDF viewer (polish items 2, 6, 8 frontend)
 

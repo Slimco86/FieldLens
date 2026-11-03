@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.46.0 - 2026-11-03
+
+- **TASK-087 document content route and readable evidence.** New `GET /api/v1/projects/{project_id}/documents/{document_id}/content` streams the original PDF (project-scoped, PDF only, stored size and sha256 verified, single Range, `nosniff`, CSP). Asset-spec evidence now carries `filename`, `locator` and a readable `statement` composed at read time from the stored record (two batched queries, no file I/O, nothing persisted, so existing specs improve without re-running S5). The survey set reference carries the PDF `page`. Additive contract change. The built-in PDF viewer under the CSP is not yet browser-verified; the source-links lane checks it.
+
 ## 0.45.0 - 2026-11-03
 
 - **TASK-085 S5 "Design 3D asset" uses all sources.** F-5 no longer reports "no equipment data". S5 builds components deterministically from the native parser records (casing points, tubular assemblies/components, wellbore geometry sections, BHA runs, perforation intervals) with printed dimensions and record evidence, plus model-read candidates, plus a bounded, cached equipment sweep of the wellbore's documents (PDF pages read with the existing candidate harness; survey/trajectory/production/log PDFs are skipped; no USD gate of its own; per-document failures isolated; transient failures re-read next time). A casing shoe at the end of its string is folded into one labelled component with both records as evidence; intervention tools (BHA run, running tool, spear) are not drawn and are named in the stage message; conflicting source dimensions are shown generic with a note. Without a model the spec is built from structured records only; the model only labels. Missing or conflicting dimensions stay generic and never enter engineering calculations.
