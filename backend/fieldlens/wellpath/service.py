@@ -126,6 +126,15 @@ class _Set:
     header: _Row | None = None
     blocked_by_issue: bool = False
 
+    @property
+    def page(self) -> int | None:
+        """Page of the first station when the source is paged (reference only)."""
+        for row in self.stations[:1]:
+            page = (row.locator or {}).get("page")
+            if isinstance(page, int) and not isinstance(page, bool) and page >= 1:
+                return page
+        return None
+
 
 def _number(a: dict[str, Any] | None) -> float | None:
     if a is None:
@@ -405,6 +414,7 @@ def _set_ref(
         document_id=s.document_id,
         run_id=s.run_id,
         filename=s.filename,
+        page=s.page,
         survey_status=s.status,
         station_count=len(s.stations),
         validated=validated,
