@@ -2866,7 +2866,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, 3d |
 | Depends on | TASK-077 |
@@ -2874,13 +2874,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.41.0 |
 | Parent | FL-023 |
 | Slice | FL-023-C |
 
 **Outcome.** First 3D in the app: trajectory tube, parametric primitives from a spec, picking with evidence inspector, draft preview, keyboard list, disposal discipline.
-**Next action.** Blocked on TASK-077; lane D (0.41.0).
-**Evidence.** none yet; planning only (2026-11-02).
+**Next action.** Real survey trajectory is not wired (vertical placeholder labelled "trajectory unavailable"); field view (3+ wellbores, AG-8 measurement) is TASK-080; only SwiftShader frame stats measured, no hardware GPU, heap or tab-switch leak measurement yet.
+**Evidence.** Independent QA (two passes, Node 24): lint/typecheck/vitest 304/build/check:contracts PASS; no WebGLRenderer in main chunk (lazy 968 kB Viewer3D); single scene-render e2e 3/3 (rich 2.1 ms mean, 139 draws, 67k tris on SwiftShader); AG-6, AG-7 PASS; default view opens on the wellhead with surface equipment, 5x exaggeration for deep wells, 'Fit whole well' toggle (QA defect D1 fixed and re-verified); keyboard roving focus/Enter select verified. Fixtures only; no live provider.
 
 ### TASK-079 · S5 live asset designer with bounded visual-reference research
 
