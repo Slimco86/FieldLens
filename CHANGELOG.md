@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.47.0 - 2026-11-03
+
+- **TASK-091 wellhead tie-in segment in the trajectory response.** When a survey starts below the wellhead (F-5: first station MD 145.9, TVD 145.9, inclination 0), `GET .../trajectory` adds a derived, display-only `tie_in` (vertical, or a smooth bend that ends tangent to the first station when physically plausible, max 10 deg/30 m) from MD 0 to the first station, with `TIE_IN_DERIVED` / `TIE_IN_NOT_DERIVED` warnings. Surveyed stations, MD/TVD values and every calculation are unchanged; the trace is not translated. Limit: an inclined first station that is not a plausible continuation of a vertical hole gets no tie-in (the gap and a warning remain).
+
 ## 0.46.0 - 2026-11-03
 
 - **TASK-087 document content route and readable evidence.** New `GET /api/v1/projects/{project_id}/documents/{document_id}/content` streams the original PDF (project-scoped, PDF only, stored size and sha256 verified, single Range, `nosniff`, CSP). Asset-spec evidence now carries `filename`, `locator` and a readable `statement` composed at read time from the stored record (two batched queries, no file I/O, nothing persisted, so existing specs improve without re-running S5). The survey set reference carries the PDF `page`. Additive contract change. The built-in PDF viewer under the CSP is not yet browser-verified; the source-links lane checks it.

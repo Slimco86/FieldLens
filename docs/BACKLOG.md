@@ -3139,7 +3139,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, geospatial |
 | Depends on | TASK-085 |
@@ -3147,13 +3147,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_POLISH.md |
-| Version | |
+| Version | 0.47.0 |
 | Parent | FL-023 |
 | Slice | FL-023-P |
 
 **Outcome.** Derived display-only tie-in (vertical or smooth bend) from MD 0 to the first station; depth records unchanged.
-**Next action.** Wave 2 lane F.
-**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+**Next action.** Lane E (TASK-090) consumes `tie_in`.
+**Evidence.** Merged 0.47.0 (72f764d). Independent QA conditional PASS F-1..F-4: wellpath 22 tests, ruff/mypy/check:contracts clean; real F-5 data: 6 survey sets start at MD 145.9 (TVD 145.9, incl 0) and get a vertical tie-in, 3 WITSML sets start at MD 0 and get none. Synthetic route tests; full backend suite and route-level analytics identity not run (grep-verified that no calculation reads tie_in). Known limit: inclined first stations rarely get a tie-in (pinned at the wellhead E/N), gap plus warning remain.
 
 ### TASK-092 · 3D material fidelity, blended highlight, detailed wellhead (polish items 9, 10, 11 wellhead)
 
