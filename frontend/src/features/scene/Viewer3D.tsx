@@ -632,6 +632,7 @@ export default function Viewer3D(props: Props) {
         camera={{ fov: 38, near: 0.1, far: 30000, position: [200, 100, 200] }}
         gl={{ antialias: true, powerPreference: "high-performance", alpha: true }}
         tabIndex={0}
+        role="group"
         aria-label="3D view of the wellbore equipment. Use the component list to select items by keyboard."
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;

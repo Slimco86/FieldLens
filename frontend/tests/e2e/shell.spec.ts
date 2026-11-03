@@ -321,10 +321,10 @@ for (const size of [
     await shot("sources-inspection");
 
     await page.getByRole("button", { name: "Reconstruction" }).click();
-    await expect(page.getByText(/Reconstruction is not available in this build/)).toBeVisible();
+    await expect(page.getByRole("region", { name: "Identified wellbores table" })).toBeVisible();
     await shot("reconstruction");
     await page.getByRole("button", { name: "Explore" }).click();
-    await expect(page.getByText(/requires a published model revision/i)).toBeVisible();
+    await expect(page.getByText("No visual asset yet")).toBeVisible();
     await shot("explore");
 
     await page.route(`**/api/v1/projects/${id}`, (route) => route.abort());

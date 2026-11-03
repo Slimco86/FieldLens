@@ -30,6 +30,8 @@ export function ExploreScene({ projectId }: { projectId: string }) {
   // `null` = automatic: the field view for two or more wellbores, the wellbore view for one.
   const [mode, setMode] = useState<"field" | "wellbore" | null>(null);
   const [fieldSelected, setFieldSelected] = useState<string | null>(null);
+  // True after "← Field view": the field view then takes focus to its selected list item.
+  const [returning, setReturning] = useState(false);
 
   if (exposure.state.kind === "loading") return <LoadingState label="Loading wellbores" />;
   if (exposure.state.kind === "error") {
@@ -59,7 +61,9 @@ export function ExploreScene({ projectId }: { projectId: string }) {
         wellbores={wellbores}
         selectedId={fieldSelected}
         onSelect={setFieldSelected}
+        restoreFocus={returning}
         onOpen={(id) => {
+          setReturning(false);
           setPicked(id);
           setFieldSelected(id);
           setMode("wellbore");
@@ -74,7 +78,14 @@ export function ExploreScene({ projectId }: { projectId: string }) {
       wellbore={current}
       wellbores={wellbores}
       onPick={setPicked}
-      onField={wellbores.length >= 2 ? () => setMode("field") : undefined}
+      onField={
+        wellbores.length >= 2
+          ? () => {
+              setReturning(true);
+              setMode("field");
+            }
+          : undefined
+      }
     />
   );
 }

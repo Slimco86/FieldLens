@@ -91,6 +91,19 @@ describe("field scene (no WebGL in jsdom: list and inspector paths)", () => {
     expect(document.activeElement).toBe(items[2]);
   });
 
+  it("returning from the wellbore view focuses the selected list item", async () => {
+    mockSpecs({ a: "f14-dimensioned.json", b: "f5-generic.json", c: "f12-unlocated.json" });
+    render(<FieldScene projectId="p" wellbores={WELLS} selectedId="b" onSelect={vi.fn()} onOpen={vi.fn()} restoreFocus />);
+    await waitFor(() => expect(document.activeElement).toBe(document.querySelector('button[data-wellbore-id="b"]')));
+  });
+
+  it("does not steal focus on a first visit", async () => {
+    mockSpecs({ a: "f14-dimensioned.json", b: "f5-generic.json", c: "f12-unlocated.json" });
+    mount("b");
+    await waitFor(() => expect(screen.getByTestId("field-summary")).toHaveTextContent("3 with asset spec"));
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it("a missing-spec wellbore explains the placeholder in the inspector", async () => {
     mockSpecs({ a: "f14-dimensioned.json", b: null, c: null });
     mount("b");

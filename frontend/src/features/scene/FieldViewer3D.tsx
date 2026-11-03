@@ -642,6 +642,7 @@ export default function FieldViewer3D(props: Props) {
         camera={{ fov: 38, near: 1, far: 60000, position: [1500, 900, 1500] }}
         gl={{ antialias: true, powerPreference: "high-performance", alpha: true }}
         tabIndex={0}
+        role="group"
         aria-label="3D field view of all wellbores on a schematic grid. Use the wellbore list to select by keyboard."
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;

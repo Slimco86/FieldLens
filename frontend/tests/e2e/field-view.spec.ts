@@ -4,6 +4,7 @@
 // fly-to, back-navigation from the wellbore view, and that GPU resources return to baseline after a
 // rebuild and a tab switch. FIELDLENS_FIELD_WELLS (default 3) sets the number of wellbores with a
 // spec; one more without a spec is always listed. FIELDLENS_SCENE_SHOTS=<dir> saves screenshots.
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -215,6 +216,18 @@ async function openField(page: Page) {
   return { specIds, missingId };
 }
 
+// Serious/critical axe violations (contrast of the illustrative badge, canvas wrapper role) must not regress.
+async function expectNoSeriousAxe(page: Page, label: string) {
+  const result = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+  expect(
+    bad.map((v) => `${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | ")}`),
+    `axe serious/critical on ${label}`,
+  ).toEqual([]);
+}
+
 const probe = (page: Page) =>
   page.evaluate(() =>
     (
@@ -286,6 +299,7 @@ test(`field view: ${SPEC_WELLS} wellbores in one scene, selection, back-navigati
   });
   expect(far.farDrawCalls).toBeLessThanOrEqual(5);
   await shot(page, `field-${SPEC_WELLS}-overview`);
+  await expectNoSeriousAxe(page, "explore field view");
 
   const baseline = await probe(page);
   console.log(
@@ -360,8 +374,11 @@ test(`field view: ${SPEC_WELLS} wellbores in one scene, selection, back-navigati
   await expect(
     page.getByRole("toolbar", { name: "Scene controls" }),
   ).toBeVisible();
+  await expectNoSeriousAxe(page, "explore wellbore viewer");
   await page.getByTestId("back-to-field").click();
   await expect(page.getByTestId("field-summary")).toBeVisible();
+  // Focus returns to the selected list item rather than falling to the page body.
+  await expect(list.locator(`button[data-wellbore-id="${specIds[1]}"]`)).toBeFocused();
   await expect(
     list.locator(`button[data-wellbore-id="${specIds[1]}"]`),
   ).toHaveAttribute("aria-pressed", "true");
