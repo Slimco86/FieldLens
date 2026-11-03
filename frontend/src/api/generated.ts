@@ -2806,7 +2806,7 @@ export interface components {
          * FindingCode
          * @enum {string}
          */
-        FindingCode: "spec_too_large" | "header_invalid" | "too_many_components" | "unknown_kind" | "schema_invalid" | "duplicate_id" | "param_not_allowed" | "param_out_of_bounds" | "out_of_md_range" | "missing_evidence" | "generic_dimensioned" | "placement_not_allowed" | "label_empty";
+        FindingCode: "spec_too_large" | "header_invalid" | "too_many_components" | "unknown_kind" | "schema_invalid" | "duplicate_id" | "param_not_allowed" | "param_out_of_bounds" | "out_of_md_range" | "missing_evidence" | "generic_dimensioned" | "placement_not_allowed" | "label_empty" | "control_character";
         /** GateCondition */
         GateCondition: {
             /** Code */

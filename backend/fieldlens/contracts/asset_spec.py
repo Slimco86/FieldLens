@@ -9,6 +9,7 @@ file *reference* (content type and size limited), not bytes.
 
 from __future__ import annotations
 
+import unicodedata
 from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
@@ -22,6 +23,7 @@ MAX_EVIDENCE = 8
 MAX_FINDINGS = 200
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 IMAGE_CONTENT_TYPES = ("image/png", "image/jpeg", "image/webp")
+_INVISIBLE = frozenset({"Cf", "Cc", "Zs", "Zl", "Zp"})
 COMPONENT_ID_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 
 
@@ -123,6 +125,7 @@ class FindingCode(StrEnum):
     GENERIC_DIMENSIONED = "generic_dimensioned"
     PLACEMENT_NOT_ALLOWED = "placement_not_allowed"
     LABEL_EMPTY = "label_empty"
+    CONTROL_CHARACTER = "control_character"
 
 
 class SizeQuantity(ContractModel):
@@ -226,7 +229,7 @@ class AssetComponent(ContractModel):
 
     @model_validator(mode="after")
     def _honest(self) -> AssetComponent:
-        if not self.label.strip():
+        if not any(unicodedata.category(ch) not in _INVISIBLE for ch in self.label):
             raise ValueError("label is blank")
         if self.kind in SURFACE_KINDS and isinstance(self.placement, Located):
             raise ValueError("placement not allowed: surface facilities have no MD")

@@ -171,3 +171,39 @@ def test_database_refuses_non_visual_or_second_current(world: World) -> None:
         with pytest.raises(IntegrityError):
             with session_scope(world.factory) as s:
                 s.execute(text(base), {"p": pid, "w": wb, "r": rev, "spec": json.dumps(spec)})
+
+
+def test_control_character_in_a_source_label_is_dropped_with_a_finding(world: World) -> None:
+    pid, wb = _seed(world)
+    api = world.api
+    from sqlalchemy import text
+
+    with session_scope(world.factory) as s:
+        s.execute(
+            text(
+                "update extraction_candidate set attributes = jsonb_set(attributes, "
+                "'{label_text}', to_jsonb(cast(:v as text))) where attributes->>'label_text' = 'Test separator'"
+            ),
+            {"v": "Bad\u0007label"},
+        )
+    r = api.client.post(_url(pid, wb, "/generate"), json={}, headers=api.headers)
+    assert r.status_code == 201, r.text
+    spec = r.json()["spec"]
+    assert [f["code"] for f in spec["findings"]] == ["control_character"]
+    assert all("\u0007" not in c["label"] for c in spec["components"])
+
+
+def test_nul_never_reaches_the_database_http_422(world: World) -> None:
+    pid, wb = _seed(world)
+    api = world.api
+    good = api.client.post(_url(pid, wb, "/generate"), json={}, headers=api.headers).json()
+    only_bad = {
+        **good["spec"],
+        "components": [{**good["spec"]["components"][0], "label": "x\u0000y"}],
+    }
+    with pytest.raises(ContractError) as err:
+        with session_scope(world.factory) as s:
+            service.store_validated(s, UUID(pid), UUID(wb), only_bad, md_range_m=None)
+    assert err.value.status_code == 422
+    assert err.value.details["findings"][0]["code"] == "control_character"
+    assert api.client.get(_url(pid, wb)).json()["spec_id"] == good["spec_id"]
