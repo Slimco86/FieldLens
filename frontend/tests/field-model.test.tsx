@@ -136,7 +136,8 @@ describe("instancing", () => {
     const a = instanceCounts(small, null, all(3));
     const b = instanceCounts(big, null, all(12));
     expect(a.drawCalls).toBe(b.drawCalls);
-    expect(b.drawCalls).toBeLessThanOrEqual(5);
+    expect(b.drawCalls).toBeLessThanOrEqual(6);
+    expect(b.tubeLines).toBe(1);
     expect(b.tubeMeshes).toBe(1);
     expect(b.glyphs).toBe(12);
     expect(b.pads).toBe(12);

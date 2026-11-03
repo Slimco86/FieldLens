@@ -216,7 +216,14 @@ the first station are placed by linear interpolation of `md_m` over `tie_in.poin
   `max(0.05, defaultExaggeration(depth) * 0.035)` m (0.175 m at >= 2500 m, 0.35 m, 0.7 m for shallower
   holes) instead of an extent-derived width. Selection stays distinct: the selected well gets a bright
   emissive trace, a halo and its full primitives. Tube widths remain exaggerated display values; at a
-  whole-field zoom of several km the traces can be sub-pixel.
+  whole-field zoom of several km the world-space tubes can be sub-pixel.
+- **Screen-space minimum width (TASK-093).** To keep traces legible at overview zoom, every far trace
+  also gets a companion line of `FIELD_TRAJECTORY_MIN_PX` = 3 CSS px (`LineSegments2`, `worldUnits=false`,
+  one merged object for all wells, `scene/tubeLine.ts`). It uses the same reconstructed vertices and
+  colours, is display only (no MD/TVD, proximity or length input), is also a pick target for its well, and
+  is owned/disposed with the far set. Its resolution is set on canvas resize/rebuild, never per frame or
+  via React state. Thick world-space tubes still cover it when zoomed in; the selected well is drawn by
+  the focused primitives as before. Cost: +1 draw call for the whole field.
 
 ## Open Tensions
 

@@ -116,6 +116,7 @@ Owner: fieldlens-frontend. Paths: `frontend/src/features/documents/*` (new), `pi
 | D-2 | When all placed wells share one CRS, datum and unit, positions are planar E/N offsets from the placed set's centroid; otherwise the labelled schematic grid. No reprojection, no guessed CRS. |
 | D-3 | Wells a few metres apart (same platform) do not overlap: glyph/pad size derives from the nearest-neighbour distance; camera frames the spread and the deepest trace. |
 | D-4 | Default trajectory tube radius equals the selected-state radius (`max(0.05, exaggeration*0.035)` rule) so traces are visible without clicking; selection still distinct. |
+| D-4a (TASK-093) | Screen-space minimum width: every field trace also has a 3 CSS px companion line (one merged `LineSegments2`, pixel units, resolution updated on resize only), so traces stay a continuous visible line at any zoom; world-space tubes win when zoomed in. Picking, highlight and calculations unchanged; the companion is display only; +1 draw call total. |
 | D-5 | Layout label states "surface-location layout" vs "schematic layout"; unit/CRS/datum per well kept in the inspector. |
 Owner: fieldlens-3d-motion. Paths: `scene/FieldScene.tsx`, `fieldModel.ts`, `fieldData.ts`, `trajectoryData.ts`, `FieldViewer3D.tsx`, `ExploreScene.tsx` (dropdown filter only).
 

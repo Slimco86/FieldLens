@@ -10,6 +10,8 @@ import { buildElement } from "./primitives";
 import { createViewerProbe } from "./probe";
 import { SceneResources } from "./resources";
 import { buildTubeGeometry } from "./tube";
+import { buildTubeCompanion, createCompanionMaterial, createCompanionMesh, wellOfSegment, type CompanionWell } from "./tubeLine";
+import type { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { defaultExaggeration } from "./sceneModel";
 import { instanceCounts, lodFor, type FieldPlan, type FieldWell, type Lod } from "./fieldModel";
 import styles from "./Scene.module.css";
@@ -101,6 +103,11 @@ interface FarSet {
   /** Triangle start of every tube section (ascending) and the well it belongs to. */
   tubeStarts: number[];
   tubeIds: string[];
+  /** Screen-space minimum-width companion of the tube (one draw call for every well) and its picking map. */
+  tubeLine: THREE.Object3D | null;
+  tubeLineMaterial: LineMaterial | null;
+  lineStarts: number[];
+  lineIds: string[];
   markers: THREE.InstancedMesh | null;
   /** Owner of each marker instance currently shown. */
   markerOwners: string[];
@@ -202,6 +209,10 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
   let tube: THREE.Mesh | null = null;
   const tubeStarts: number[] = [];
   const tubeIds: string[] = [];
+  let tubeLine: THREE.Object3D | null = null;
+  let tubeLineMaterial: LineMaterial | null = null;
+  let lineStarts: number[] = [];
+  let lineIds: string[] = [];
   if (far.length > 0) {
     const geos: THREE.BufferGeometry[] = [];
     let tri = 0;
@@ -220,6 +231,21 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
       tubeIds.push(w.id);
       tri += (g.index?.count ?? 0) / 3;
       geos.push(g);
+    }
+    const companionWells: CompanionWell[] = far.map((w) => ({
+      id: w.id,
+      position: w.position,
+      vertices: w.model!.path.vertices(),
+      color: colorOf(w.trajectoryAvailable ? scenePalette.trajectory : scenePalette.trajectoryPlaceholder),
+    }));
+    const companion = buildTubeCompanion(companionWells);
+    if (companion !== null) {
+      tubeLineMaterial = kit.own(createCompanionMaterial());
+      tubeLine = createCompanionMesh(companion, tubeLineMaterial);
+      kit.own(companion.geometry);
+      lineStarts = companion.segmentStarts;
+      lineIds = companion.wellIds;
+      group.add(tubeLine);
     }
     const merged = mergeGeometries(geos, false);
     for (const g of geos) g.dispose();
@@ -258,6 +284,10 @@ function buildFar(plan: FieldPlan, focusedId: string | null): FarSet {
     tube,
     tubeStarts,
     tubeIds,
+    tubeLine,
+    tubeLineMaterial,
+    lineStarts,
+    lineIds,
     markers,
     markerOwners: [],
     markerWells: far,
@@ -307,6 +337,7 @@ function wellOf(e: ThreeEvent<MouseEvent | PointerEvent>, far: FarSet): string |
   if (role === "glyph" && inst !== undefined) return far.glyphIds[inst] ?? null;
   if (role === "placeholder" && inst !== undefined) return far.placeholderIds[inst] ?? null;
   if (role === "marker" && inst !== undefined) return far.markerOwners[inst] ?? null;
+  if (role === "tubeLine" && e.faceIndex !== undefined && e.faceIndex !== null) return wellOfSegment(far.lineStarts, far.lineIds, e.faceIndex);
   if (role === "tube" && e.faceIndex !== undefined && e.faceIndex !== null) {
     let lo = 0;
     let hi = far.tubeStarts.length - 1;
@@ -476,6 +507,12 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
       delete window.__fieldlensFieldRebuild;
     };
   }, [gl, scene, camera, ctl, plan, selectedId, size]);
+
+  // Pixel-unit line width needs the canvas size: updated on resize / rebuild only (no per-frame work).
+  useEffect(() => {
+    far.tubeLineMaterial?.resolution.set(size.width, size.height);
+    invalidate();
+  }, [far, size.width, size.height]);
 
   useFrame((_, delta) => {
     const cam = camera as THREE.PerspectiveCamera;

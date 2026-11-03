@@ -407,6 +407,8 @@ export interface InstanceCounts {
   pads: number;
   /** Merged trajectory tube meshes: always 0 or 1, however many wellbores. */
   tubeMeshes: number;
+  /** Screen-space minimum-width companion line of the tubes: one merged draw call, 0 or 1. */
+  tubeLines: number;
   /** Draw calls for everything except the focused wellbore's full primitives and the backdrop. */
   drawCalls: number;
 }
@@ -427,8 +429,9 @@ export function instanceCounts(plan: FieldPlan, focusedId: string | null, lods: 
   }
   const tubeMeshes = glyphs > 0 ? 1 : 0;
   const pads = plan.wells.length;
-  const drawCalls = tubeMeshes + (glyphs > 0 ? 1 : 0) + (placeholders > 0 ? 1 : 0) + (markers > 0 ? 1 : 0) + (pads > 0 ? 1 : 0);
-  return { glyphs, placeholders, markers, pads, tubeMeshes, drawCalls };
+  const tubeLines = tubeMeshes;
+  const drawCalls = tubeMeshes + tubeLines + (glyphs > 0 ? 1 : 0) + (placeholders > 0 ? 1 : 0) + (markers > 0 ? 1 : 0) + (pads > 0 ? 1 : 0);
+  return { glyphs, placeholders, markers, pads, tubeMeshes, tubeLines, drawCalls };
 }
 
 export interface Activation {
