@@ -2971,7 +2971,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P1 |
 | Tags | backend, geospatial, frontend |
 | Depends on | TASK-078, TASK-080 |
@@ -2984,5 +2984,47 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Slice | FL-023-H |
 
 **Outcome.** The wellbore and field views draw the wellbore's real validated survey (deterministic min-curvature local offsets with CRS/datum and depth reference preserved) instead of the labelled vertical placeholder, through a read-only project-scoped route.
-**Next action.** Needs a feature spec (route contract, CRS and datum handling, planned vs as-built, units, local render origin, field-view positions from validated coordinates) and owner approval; the engineering/trajectory module already exists.
+**Next action.** Spec: WELLBORE_ASSET_GENERATION.md §16 F3 (approved by the owner's 2026-11-03 request). Worker in a worktree (`feature/task-083-trajectory`).
 **Evidence.** Found by integrated QA (D6): `trajectoryFor()` reads only a test hook, so every wellbore shows the labelled vertical placeholder even when trajectory stations exist.
+
+### TASK-084 · S3/S5 run at default reasoning effort and truncate (live-run finding F1)
+
+| Field | Value |
+|---|---|
+| Type | bug |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend, rag |
+| Depends on | TASK-076 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-I |
+
+**Outcome.** S3 (and S5) no longer fail `output_truncated` on real Meta: low reasoning effort, a retry with a larger bound, real tokens recorded on failure and a readable failure message.
+**Next action.** Worker in a worktree (`feature/task-084-s3-truncation`).
+**Evidence.** Owner live run on F-5/F-12 (2026-11-03): S3 failed `output_truncated` after USD 0.010 with 0 tokens recorded; S3/S5 configs used `effort=None` (provider default high).
+
+### TASK-085 · S5 designs from structured equipment records (live-run finding F2)
+
+| Field | Value |
+|---|---|
+| Type | bug |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend |
+| Depends on | TASK-079 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-J |
+
+**Outcome.** S5 builds components from natively parsed equipment records (casing, tubulars, wellbore geometry sections, BHA, perforations) plus model-read candidates; "no equipment data" only when both are empty.
+**Next action.** Worker in a worktree (`feature/task-085-structured-equipment`).
+**Evidence.** Owner live run: F-5 has 14 equipment records (casing_point, tubular_assembly/component, wb_geometry_section, bha_run) but S5 reported "no equipment data" because it reads only `extraction_candidate` rows.
