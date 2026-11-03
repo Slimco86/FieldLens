@@ -417,6 +417,8 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
         const base = cam.position.clone();
         const tgt = ctl?.target.clone() ?? new THREE.Vector3();
         gl.info.reset();
+        const autoReset = gl.info.autoReset;
+        gl.info.autoReset = false;
         for (let i = 0; i < frames; i += 1) {
           const a = (i / frames) * Math.PI * 2;
           const off = base.clone().sub(tgt);
@@ -429,6 +431,7 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
           gl2.finish();
           times.push(performance.now() - t0);
         }
+        gl.info.autoReset = autoReset;
         cam.position.copy(base);
         cam.lookAt(tgt);
         const sorted = [...times].sort((x, y) => x - y);

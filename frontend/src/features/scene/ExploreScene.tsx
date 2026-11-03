@@ -15,7 +15,7 @@ import styles from "./Scene.module.css";
 
 const Viewer3D = lazy(() => import("./Viewer3D"));
 
-const EXAGGERATIONS = [1, 5, 10, 20, 50] as const;
+const EXAGGERATIONS = [1, 5, 10, 20, 50, 100, 200, 500] as const;
 const SURFACE_SCALES = [1, 2, 4] as const;
 
 interface WellboreRef {
@@ -247,14 +247,15 @@ function SceneBody({ record, wellbore, picker, generateButton, genError }: Scene
   );
 
   const notes = (
-    <p className={styles.note} data-testid="scene-notes">
+    <details className={styles.note} data-testid="scene-notes">
+      <summary>Scale and trajectory notes</summary>
       Downhole radii exaggerated {exaggeration}× (lengths and depths true scale); surface equipment at {surfaceScale}×.{" "}
       {model.path.available
         ? "Trajectory from survey stations."
         : "Trajectory unavailable: vertical placeholder, depths shown as measured depth."}
       {model.notes.length > 0 ? ` ${model.notes.join(" ")}` : ""}
       {genError !== null ? ` ${genError}` : ""}
-    </p>
+    </details>
   );
 
   const fallback = (

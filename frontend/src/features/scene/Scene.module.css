@@ -1,7 +1,7 @@
 .canvasWrap {
   position: relative;
   flex: 1 1 auto;
-  min-height: var(--fl-layout-stage-min);
+  min-height: max(var(--fl-layout-stage-min), 72vh);
   align-self: stretch;
   width: 100%;
   overflow: hidden;
@@ -37,7 +37,8 @@
   position: absolute;
   left: 0;
   top: 0;
-  display: none;
+  display: block;
+  visibility: hidden;
   pointer-events: auto;
   cursor: pointer;
   padding: 0 var(--fl-space-sm);

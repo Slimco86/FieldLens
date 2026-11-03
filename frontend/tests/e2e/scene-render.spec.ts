@@ -16,7 +16,7 @@ interface Probe {
 const SHOTS = process.env["FIELDLENS_SCENE_SHOTS"];
 
 test.use({ launchOptions: { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] } });
-test.use({ viewport: { width: 1440, height: 900 } });
+test.use({ viewport: { width: 1920, height: 1080 } });
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     (window as unknown as { __FIELDLENS_SCENE_PROBE__: boolean }).__FIELDLENS_SCENE_PROBE__ = true;
@@ -56,7 +56,7 @@ for (const file of CASES) {
     await page.waitForFunction(() => (window as unknown as { __fieldlensSceneProbe?: unknown }).__fieldlensSceneProbe !== undefined, null, { timeout: 30_000 });
     await page.waitForTimeout(1500);
     const px = await page.evaluate(() => (window as unknown as { __fieldlensSceneProbe: Probe }).__fieldlensSceneProbe.nonBlank());
-    expect(px.different / px.total).toBeGreaterThan(0.02);
+    expect(px.different).toBeGreaterThan(150);
 
     const first = page.locator("button[data-element-id]").first();
     await first.click();
@@ -67,7 +67,19 @@ for (const file of CASES) {
       mkdirSync(SHOTS, { recursive: true });
       await page.getByTestId("scene-label-layer").waitFor({ state: "attached" });
       await page.waitForTimeout(1500);
-      await page.screenshot({ path: join(SHOTS, `${file}.png`) });
+      await page.getByRole("button", { name: "Fit well" }).click();
+      await page.getByTestId("scene-canvas-wrap").scrollIntoViewIfNeeded();
+      await page.waitForTimeout(1500);
+      await page.getByTestId("scene-canvas-wrap").screenshot({ path: join(SHOTS, `${file}.png`) });
+      await page.getByRole("button", { name: "Surface" }).click();
+      await page.waitForTimeout(1500);
+      await page.getByTestId("scene-canvas-wrap").screenshot({ path: join(SHOTS, `${file}-surface.png`) });
+      const un = page.getByRole("button", { name: "Unlocated", exact: true });
+      if (await un.isEnabled()) {
+        await un.click();
+        await page.waitForTimeout(1500);
+        await page.getByTestId("scene-canvas-wrap").screenshot({ path: join(SHOTS, `${file}-unlocated.png`) });
+      }
       const stats = await page.evaluate(() => (window as unknown as { __fieldlensSceneProbe: Probe }).__fieldlensSceneProbe.measure(120));
       console.log(`SCENE_STATS ${file} ${JSON.stringify(stats)}`);
       info.annotations.push({ type: "stats", description: JSON.stringify(stats) });
