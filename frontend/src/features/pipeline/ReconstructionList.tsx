@@ -2,7 +2,6 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Table, Title } from "@mantine/core";
 import { ChevronDown, ChevronUp, CircleCheck, CircleHelp, CircleX, Info, RefreshCw } from "lucide-react";
 import { Callout, Chip, EmptyState, ErrorState, LoadingState } from "../../design";
-import { routeHash } from "../../app/shell/route";
 import { ApiError } from "../../api/client";
 import type { components } from "../../api/generated";
 import { keyString } from "../projects/keys";
@@ -19,6 +18,7 @@ import {
   type ReconstructionEstimate,
 } from "./api";
 import { EstimateDialog } from "./EstimateDialog";
+import { SourceLink } from "../documents/SourceLink";
 import { locatorText } from "./locator";
 import { RunCell, RunDetail } from "./RunViews";
 import { isActive, latestByWellbore } from "./runs";
@@ -194,6 +194,11 @@ export function filesOf(c: Category): { document_id: string; filename: string; r
   return [...out.values()];
 }
 
+const pageOf = (loc: Record<string, unknown> | undefined): number | null => {
+  const p = loc?.["page"];
+  return typeof p === "number" ? p : null;
+};
+
 function SourcesCell({ row, projectId, onOpenSource }: { row: WellboreRow; projectId: string; onOpenSource: (documentId: string) => void }) {
   const cats = row.categories.filter((c) => c.groups.length > 0 || c.record_count > 0);
   const merged =
@@ -220,16 +225,14 @@ function SourcesCell({ row, projectId, onOpenSource }: { row: WellboreRow; proje
           <ul className={styles.list} aria-label={`${CATEGORY_LABEL[c.category]} files of ${row.wellboreName}`}>
             {filesOf(c).map((f) => (
               <li key={f.document_id}>
-                <a
-                  href={routeHash({ kind: "project", projectId, section: "sources" })}
-                  aria-label={`Open ${f.filename} in Sources`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onOpenSource(f.document_id);
-                  }}
-                >
-                  {f.filename}
-                </a>{" "}
+                <SourceLink
+                  projectId={projectId}
+                  documentId={f.document_id}
+                  filename={f.filename}
+                  page={pageOf(f.first)}
+                  linkOnly
+                  onOpenSource={onOpenSource}
+                />{" "}
                 <span className={styles.note}>
                   ({f.records.toLocaleString("en-US")} {f.records === 1 ? "record" : "records"}
                   {f.first !== undefined && <>; first at {locatorText(f.first)}</>})
@@ -616,7 +619,7 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
                       {expanded && (
                         <Table.Tr id={detailId}>
                           <Table.Td colSpan={4}>
-                            {run !== undefined && <RunDetail run={run} onOpenSource={onOpenSource} />}
+                            {run !== undefined && <RunDetail run={run} projectId={projectId} onOpenSource={onOpenSource} />}
                             <Reasons label={`Warnings of ${r.wellboreName}`} items={r.gate.warnings} kind="Warning" />
                             <ul className={styles.list} aria-label={`Gaps, conflicts and findings of ${r.wellboreName}`}>
                               {r.categories.map((c) => (

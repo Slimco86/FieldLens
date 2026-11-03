@@ -91,6 +91,22 @@ Never shows a bare UUID as link text. Depends on B contract.
 | C-2 | Evidence rows show filename, locator and statement; missing statement falls back to filename + locator, never a bare UUID. |
 | C-3 | Keyboard/ARIA: dialog role, focus trap/return, Escape; viewer error state when content route fails. |
 | C-4 | No new bundle dependency; viewer code lazy-loaded; frontend lint/typecheck/test/build green. |
+**C as implemented (TASK-088).**
+- `features/documents/SourceLink.tsx`: `<SourceLink projectId documentId filename? page? locator? statement? format? onOpenSource?>`.
+  PDF (`format === "pdf"`, or without a format a `.pdf` file name) -> a button (`aria-haspopup="dialog"`, name "Open X in viewer at
+  page N") that lazy-loads `DocumentViewer`; anything else -> the existing link "Open X in Sources" (`onOpenSource` jump, else the
+  Sources tab). Text: file name, `(locator)`, statement as `<q>`; no file name -> "Document (filename unavailable)"; no bare UUID anywhere.
+- `DocumentViewer` (own 6 kB chunk, no dependency): Mantine right drawer, `role="dialog"` labelled by file and page, focus trap, Escape
+  closes, focus returns to the trigger (done by `SourceLink`, since the viewer unmounts). On open it makes one `Range: bytes=0-0`
+  request to the content route so 409 (with `details.reason` text), 415, 404, 503 and network errors appear as an alert; otherwise a
+  same-origin `<iframe src=".../content#page=N">` (no `sandbox`) plus an "Open in new tab" link (`target=_blank rel=noopener`).
+  No per-row requests; nothing is fetched until a link is opened.
+- Used by: Reconstruction Sources column and run draft evidence (page = first `locator.page`), upload list ("Open PDF" for stored
+  PDFs), Inspector evidence (`filename`, `locator`, `statement`, falling back to `page N` and the raw quote) and Survey info (file
+  name links at `survey_set.page`; `SurveyInfo.source` added). The Inspector reads the project id from the route when no prop is given.
+- Browser check (Chromium 156 in the test browser container, same-origin iframe, `#page=2`, 3-page PDF): the built-in viewer renders
+  page 2 with no CSP and with `Content-Security-Policy: default-src 'none'`; the response headers of the route need no change.
+  Not checked: Firefox/Safari viewers; the full app flow against the real API (covered by vitest with a mocked `fetch`).
 Owner: fieldlens-frontend. Paths: `frontend/src/features/documents/*` (new), `pipeline/ReconstructionList.tsx`, `uploads/DocumentList.tsx`, `scene/Inspector.tsx`, `scene/trajectorySource.ts` (SurveyInfo only).
 
 ### D (TASK-089) Reconstructed-only field view, true placement, default thickness, items 3, 4, 5, 7

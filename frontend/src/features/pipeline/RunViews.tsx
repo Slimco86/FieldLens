@@ -3,6 +3,7 @@ import { Ban, CircleAlert, CircleCheck, CircleHelp, CircleX, Clock, LoaderCircle
 import { Callout, Chip } from "../../design";
 import type { ChipSpec } from "../../design/StatusChip";
 import type { ReconstructionEvidenceRef, ReconstructionRun } from "./api";
+import { SourceLink } from "../documents/SourceLink";
 import { locatorText } from "./locator";
 import { STATUS_LABEL, STATUS_NOTE, isActive, reasonText, stageLabel, stageStateLabel, usd, type RunStatus } from "./runs";
 import styles from "./Pipeline.module.css";
@@ -88,38 +89,47 @@ export function RunCell({
 
 const MAX_EVIDENCE = 5;
 
+type EvidenceFile = { document_id: string; filename: string | null; locators: string[]; page: number | null };
+
 /** One entry per file: the server may return several references to the same file; their locators are combined. */
-export function groupEvidence(refs: ReconstructionEvidenceRef[]): { document_id: string; filename: string | null; locators: string[] }[] {
-  const out = new Map<string, { document_id: string; filename: string | null; locators: string[] }>();
+export function groupEvidence(refs: ReconstructionEvidenceRef[]): EvidenceFile[] {
+  const out = new Map<string, EvidenceFile>();
   for (const e of refs) {
-    const cur = out.get(e.document_id) ?? { document_id: e.document_id, filename: e.filename, locators: [] };
+    const cur = out.get(e.document_id) ?? { document_id: e.document_id, filename: e.filename, locators: [], page: null };
     const loc = locatorText(e.locator);
     if (loc !== "no locator" && !cur.locators.includes(loc)) cur.locators.push(loc);
+    const pg = (e.locator as Record<string, unknown> | undefined)?.["page"];
+    if (cur.page === null && typeof pg === "number" && Number.isInteger(pg) && pg > 0) cur.page = pg;
     out.set(e.document_id, cur);
   }
   return [...out.values()];
 }
 
-function Evidence({ refs, truncated, onOpenSource }: { refs: ReconstructionEvidenceRef[]; truncated?: boolean; onOpenSource: (id: string) => void }) {
+function Evidence({
+  projectId,
+  refs,
+  truncated,
+  onOpenSource,
+}: {
+  projectId: string;
+  refs: ReconstructionEvidenceRef[];
+  truncated?: boolean;
+  onOpenSource: (id: string) => void;
+}) {
   if (refs.length === 0) return null;
   const files = groupEvidence(refs);
   return (
     <ul className={styles.list} aria-label="Evidence references">
       {files.slice(0, MAX_EVIDENCE).map((e) => (
         <li key={e.document_id}>
-          <a
-            href="#sources"
-            aria-label={`Open ${e.filename ?? "file"} in Sources`}
-            onClick={(ev) => {
-              ev.preventDefault();
-              onOpenSource(e.document_id);
-            }}
-          >
-            {e.filename ?? "Source file"}
-          </a>{" "}
-          <span className={styles.note}>
-            (document {e.document_id.slice(0, 8)}; {e.locators.length === 0 ? "no locator recorded" : e.locators.slice(0, 5).join("; ")})
-          </span>
+          <SourceLink
+            projectId={projectId}
+            documentId={e.document_id}
+            filename={e.filename}
+            page={e.page}
+            locator={e.locators.length === 0 ? "no locator recorded" : e.locators.slice(0, 5).join("; ")}
+            onOpenSource={onOpenSource}
+          />
         </li>
       ))}
       {(files.length > MAX_EVIDENCE || truncated === true) && (
@@ -133,7 +143,7 @@ function Evidence({ refs, truncated, onOpenSource }: { refs: ReconstructionEvide
 }
 
 /** Stage list and the draft summary of one run. A draft: not published, no 3D scene, no charts. */
-export function RunDetail({ run, onOpenSource }: { run: ReconstructionRun; onOpenSource: (id: string) => void }) {
+export function RunDetail({ run, projectId, onOpenSource }: { run: ReconstructionRun; projectId: string; onOpenSource: (id: string) => void }) {
   const name = run.wellbore_name;
   const sum = run.summary;
   return (
@@ -189,7 +199,7 @@ export function RunDetail({ run, onOpenSource }: { run: ReconstructionRun; onOpe
                   ? `${c.record_count} record(s); accepted candidates ${c.accepted_candidate_count}, open ${c.open_candidate_count}, conflicting records ${c.conflicting_record_count}`
                   : "no data"}
                 {c.gap_reasons.length > 0 && <> (gaps: {c.gap_reasons.join(", ")})</>}
-                <Evidence refs={c.evidence} truncated={c.evidence_truncated} onOpenSource={onOpenSource} />
+                <Evidence projectId={projectId} refs={c.evidence} truncated={c.evidence_truncated} onOpenSource={onOpenSource} />
               </li>
             ))}
           </ul>
@@ -202,7 +212,7 @@ export function RunDetail({ run, onOpenSource }: { run: ReconstructionRun; onOpe
                 <li key={`${u.code}-${i}`}>
                   <code>{u.code}</code> {u.message}
                   {u.count !== null && <> ({u.count})</>}
-                  <Evidence refs={u.evidence ?? []} onOpenSource={onOpenSource} />
+                  <Evidence projectId={projectId} refs={u.evidence ?? []} onOpenSource={onOpenSource} />
                 </li>
               ))}
             </ul>
@@ -215,7 +225,7 @@ export function RunDetail({ run, onOpenSource }: { run: ReconstructionRun; onOpe
               {sum.conflicts.map((c, i) => (
                 <li key={`${c.code}-${i}`}>
                   <code>{c.code}</code> {c.message} <span className={styles.note}>({c.category}; {c.severity})</span>
-                  <Evidence refs={c.evidence} onOpenSource={onOpenSource} />
+                  <Evidence projectId={projectId} refs={c.evidence} onOpenSource={onOpenSource} />
                 </li>
               ))}
             </ul>

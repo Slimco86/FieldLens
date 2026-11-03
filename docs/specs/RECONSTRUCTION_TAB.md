@@ -68,6 +68,14 @@ contract unless a real gap is found (report it, do not invent).
   (0.29.0), pipeline components in `frontend/src/features/pipeline/` and overview in `frontend/src/features/overview/`.
 - Delegation: frontend agent, own worktree and branch. Independent QA with a real browser pass.
 
+### Source links open the PDF (TASK-088, items 2 and 8)
+
+Source links in the Sources column and in the run draft's evidence use the shared `SourceLink`
+(`frontend/src/features/documents/`). For a PDF (file name ends `.pdf`; the exposure/evidence refs carry no format family)
+the link is a button that opens a right-hand dialog with the browser's PDF viewer at the first stated page; other files keep
+the jump to the file's row in Sources. Link text is the file name, never a bare id ("Document (filename unavailable)" when the
+name is missing). Nothing is requested until a link is opened. Details: EXPLORE_POLISH.md section C.
+
 ## 5. Failure behaviour and open decisions
 
 - `[Assumed]` what "Process" does today (above). Confirm at the browser checkpoint; reconstruction proper follows

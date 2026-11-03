@@ -16,6 +16,7 @@ import {
   type SourceDocumentItem,
 } from "./api";
 import { categoryLabel, formatBytes } from "./format";
+import { SourceLink } from "../documents/SourceLink";
 import { EvidenceToggle, Inspection } from "./EvidencePanel";
 import styles from "./shared.module.css";
 import { usePolled } from "./usePolled";
@@ -284,6 +285,11 @@ function DocumentRow({
           <strong>
             <TruncatedText value={doc.original_filename} label="file name" maxCh={28} />
           </strong>
+          {doc.format_family === "pdf" && doc.storage_state === "stored" && (
+            <div className={styles.small}>
+              <SourceLink projectId={projectId} documentId={doc.document_id} filename={doc.original_filename} format="pdf" text="Open PDF" linkOnly />
+            </div>
+          )}
           {doc.replaces_document_id !== null && doc.replaces_document_id !== undefined && (
             <div className={`${styles.small} ${styles.muted}`}>
               This file explicitly replaces document <code>{doc.replaces_document_id}</code>.

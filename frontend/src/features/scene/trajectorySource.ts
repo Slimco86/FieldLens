@@ -13,6 +13,8 @@ declare global {
 export interface SurveyInfo {
   /** "Survey: <document>, as-built, MD x-y m". */
   label: string;
+  /** The survey file, for a link that opens it (at `page` when it is a PDF); null when unknown. */
+  source: { documentId: string; filename: string; page: number | null; format: string | null } | null;
   /** "Surface location: E … m, N … m (CRS: …)" or null when no validated location exists. */
   surfaceText: string | null;
   references: string;
@@ -48,6 +50,9 @@ const REASON_TEXT: Record<string, string> = {
 
 const num = (v: number) => (Math.round(v * 10) / 10).toString();
 
+/** The survey set carries no format family: only a `.pdf` file name is treated as a PDF (the viewer offers nothing otherwise). */
+const pdfFormat = (filename: string): string | null => (/\.pdf$/i.test(filename) ? "pdf" : "other");
+
 export function surfaceText(t: WellboreTrajectory): string | null {
   const s = t.surface_location;
   if (s === null) return null;
@@ -79,6 +84,7 @@ export function toTrajectoryState(t: WellboreTrajectory): TrajectoryState {
     },
     info: {
       label,
+      source: { documentId: set.document_id, filename: set.filename, page: set.page, format: pdfFormat(set.filename) },
       surfaceText: surfaceText(t),
       references: refs.join("; "),
       counts: `${t.displayed_count} of ${t.source_count} stations displayed (display downsample only; calculations use all stations)`,
@@ -101,7 +107,7 @@ function noSurveyReason(e: ApiError): string {
 export async function loadTrajectory(projectId: string, wellboreId: string, signal: AbortSignal): Promise<TrajectoryState> {
   const injected = typeof window === "undefined" ? undefined : window.__FIELDLENS_TEST_TRAJECTORY__?.[wellboreId];
   if (injected !== undefined) {
-    return { kind: "ready", input: injected, info: { label: injected.source, surfaceText: null, references: "test fixture", counts: "", others: [], warnings: [] } };
+    return { kind: "ready", input: injected, info: { label: injected.source, source: null, surfaceText: null, references: "test fixture", counts: "", others: [], warnings: [] } };
   }
   try {
     return toTrajectoryState(await getTrajectory(projectId, wellboreId, signal));

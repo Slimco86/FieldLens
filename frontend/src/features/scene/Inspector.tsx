@@ -2,6 +2,8 @@ import type { SceneElement } from "./sceneModel";
 import { KIND_LABEL, REPRESENTATION_LABEL, placementText } from "./sceneModel";
 import { KeyValue, KeyValueList } from "../../design";
 import type { TrajectoryState } from "./trajectorySource";
+import { useRoute } from "../../app/shell/route";
+import { SourceLink } from "../documents/SourceLink";
 import styles from "./Scene.module.css";
 
 const DIM_TEXT = { spec: "from spec", default: "default (illustrative)", interval: "from interval", derived: "derived" } as const;
@@ -9,12 +11,14 @@ const has = <T,>(v: T | null | undefined): v is T => v !== null && v !== undefin
 const fmt = (m: number) => `${Math.round(m * 1000) / 1000} m`;
 
 /** Details of the selected element, including every evidence reference and the visual reference. */
-export function Inspector({ element, survey }: { element: SceneElement | null; survey?: TrajectoryState | undefined }) {
+export function Inspector({ element, survey, projectId: projectIdProp }: { element: SceneElement | null; survey?: TrajectoryState | undefined; projectId?: string | undefined }) {
+  const route = useRoute();
+  const projectId = projectIdProp ?? (route.kind === "project" ? route.projectId : null);
   if (element === null) {
     return (
       <div className={styles.inspector} data-testid="inspector">
         <p className={styles.note}>Select a component in the list or the scene to see its details.</p>
-        <SurveyPanel survey={survey} />
+        <SurveyPanel survey={survey} projectId={projectId} />
       </div>
     );
   }
@@ -45,11 +49,23 @@ export function Inspector({ element, survey }: { element: SceneElement | null; s
       ) : (
         <ul className={styles.evidence} data-testid="inspector-evidence">
           {(s.evidence ?? []).map((e, i) => (
-            <li key={i}>
-              {has(e.document_id) ? `Document ${e.document_id}` : "Candidate"}
-              {has(e.page) ? `, page ${e.page}` : ""}
-              {has(e.candidate_id) ? ` (candidate ${e.candidate_id})` : ""}
-              {has(e.quote) ? `: “${e.quote}”` : ""}
+            <li key={i} data-testid="inspector-evidence-item">
+              {has(e.document_id) && projectId !== null ? (
+                <SourceLink
+                  projectId={projectId}
+                  documentId={e.document_id}
+                  filename={e.filename}
+                  page={e.page}
+                  locator={e.locator ?? (has(e.page) ? `page ${e.page}` : null)}
+                  statement={e.statement ?? e.quote}
+                />
+              ) : (
+                <>
+                  {has(e.document_id) ? "Document (filename unavailable)" : "Candidate"}
+                  {has(e.page) ? `, page ${e.page}` : ""}
+                  {has(e.quote) ? `: “${e.quote}”` : ""}
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -67,13 +83,13 @@ export function Inspector({ element, survey }: { element: SceneElement | null; s
           {has(ref.note) ? ` — ${ref.note}` : ""}
         </p>
       )}
-      <SurveyPanel survey={survey} />
+      <SurveyPanel survey={survey} projectId={projectId} />
     </div>
   );
 }
 
 /** Where the drawn trace comes from, the surface location with its CRS, and the sets that were not drawn. */
-function SurveyPanel({ survey }: { survey: TrajectoryState | undefined }) {
+function SurveyPanel({ survey, projectId }: { survey: TrajectoryState | undefined; projectId: string | null }) {
   if (survey === undefined) return null;
   if (survey.kind === "loading") return <p className={styles.note}>Loading survey…</p>;
   if (survey.kind !== "ready") {
@@ -87,7 +103,17 @@ function SurveyPanel({ survey }: { survey: TrajectoryState | undefined }) {
   return (
     <section data-testid="survey-info" aria-label="Survey">
       <h4>Survey</h4>
-      <p data-testid="survey-label">{i.label}</p>
+      <p data-testid="survey-label">
+        {i.source !== null && projectId !== null ? (
+          <>
+            Survey:{" "}
+            <SourceLink projectId={projectId} documentId={i.source.documentId} filename={i.source.filename} page={i.source.page} format={i.source.format} linkOnly />
+            {i.label.slice(`Survey: ${i.source.filename}`.length)}
+          </>
+        ) : (
+          i.label
+        )}
+      </p>
       <p data-testid="survey-surface">{i.surfaceText ?? "Surface location: no validated location"}</p>
       <p className={styles.note}>{i.references}</p>
       <p className={styles.note}>{i.counts}</p>
