@@ -133,7 +133,7 @@ const runOf = (status: string, over: Record<string, unknown> = {}) => ({
   retry_of_run_id: null, error_code: null, error_message: null, retryable: ["failed", "cancelled", "interrupted"].includes(status),
   stub_run: status === "partial", invalidated_at: null, invalidated_reason: null,
   stages: status === "partial"
-    ? [stage("gather", "succeeded"), stage("extract", "succeeded"), stage("identify", "stubbed", { reason_code: "stub_provider" }), stage("assemble", "succeeded"), stage("design", "not_available", { reason_code: "asset_design_not_wired" })]
+    ? [stage("gather", "succeeded"), stage("extract", "succeeded"), stage("identify", "stubbed", { reason_code: "stub_provider" }), stage("assemble", "succeeded"), stage("design", "stubbed", { reason_code: "stub_provider" })]
     : [stage("gather", status === "running" ? "running" : "pending"), stage("extract", "pending"), stage("identify", "pending"), stage("assemble", "pending"), stage("design", "pending")],
   summary: status === "partial" ? SUMMARY() : null, ...over,
 });
@@ -591,8 +591,8 @@ describe("Run state and draft detail (RR-8)", () => {
     expect(row).toHaveTextContent("not a finished reconstruction");
     expect(row).toHaveTextContent("Stub run");
     const stages = within(row).getByRole("list", { name: "Stages of 15/9-F-12" });
-    expect(stages).toHaveTextContent("S3 Match wellbores: Not available: no model configured (stub run)");
-    expect(stages).toHaveTextContent("S5 Design 3D asset: The 3D model step is not available yet");
+    expect(stages).toHaveTextContent("S3 Match wellbores: Not available: no model configured");
+    expect(stages).toHaveTextContent("S5 Design 3D asset: Not available: no model configured");
     expect(stages).toHaveTextContent("S1 Collect sources: Done");
     expect(row.textContent).not.toMatch(/Processed|Succeeded|Complete/);
   });

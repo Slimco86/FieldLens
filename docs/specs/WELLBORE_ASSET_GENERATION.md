@@ -203,6 +203,7 @@ re-groups files and invalidates the dependent draft spec.
   result is an explicit found / not found. The model never receives page text or URLs, only a sanitised title. Stored: URL, title,
   retrieval date, labelled note ("External visual reference, not evidence of installation") and optionally a content-addressed image
   file (png/jpeg/webp, <= 2 MiB) under `<storage root>/visual-references`.
+- **MD range.** S5 passes the wellbore's known maximum MD (`identity.resolver.known_md_max`, +5%) to the validator; a located part beyond it becomes an unlocated generic one. A wellbore with no trajectory/log range gets no check (never guessed).
 - **Not done / open.** No real search backend is shipped (needs an owner-chosen provider and key); Meta built-in web search is not
   used. The designer does not yet bound located parts to the trajectory MD range (the validator supports it; the range is not passed
   in S5). No live Meta call was made (AG-10).

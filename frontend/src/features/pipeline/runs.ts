@@ -48,7 +48,7 @@ export function stageStateLabel(s: Pick<ReconstructionStage, "stage" | "state" |
     running: "Running",
     succeeded: "Done",
     not_available: s.stage === "design" ? "The 3D model step is not available yet" : "Not wired in this build",
-    stubbed: "Not available: no model configured (stub run)",
+    stubbed: "Not available: no model configured",
     failed: "Failed",
     cancelled: "Cancelled",
     interrupted: "Interrupted",
@@ -60,8 +60,8 @@ export function stageStateLabel(s: Pick<ReconstructionStage, "stage" | "state" |
 export function reasonText(code: string | null): string | null {
   if (code === null) return null;
   if (code === "agent_step_not_implemented") return "the agent step is not implemented in this build";
-  if (code === "asset_design_not_wired") return "the 3D asset designer is not part of this version yet";
-  if (code === "stub_provider") return "the stub provider calls no model";
+  if (code === "asset_design_not_wired") return "the 3D design step is not part of this build";
+  if (code === "stub_provider") return "no model configured";
   return code.replace(/_/g, " ");
 }
 

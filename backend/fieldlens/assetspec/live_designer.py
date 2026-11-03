@@ -34,6 +34,7 @@ from fieldlens.assistant.provider import CancelToken, Pricing, Provider
 from fieldlens.assistant.runner import RequestLimits, WorkUnit
 from fieldlens.contracts.asset_spec import SURFACE_KINDS, ComponentKind, VisualAssetSpecRecord
 from fieldlens.contracts.errors import ContractError
+from fieldlens.identity.resolver import known_md_max
 from fieldlens.merge_proposals.proposer import failure_reason
 
 from . import designer, service
@@ -45,6 +46,7 @@ log = logging.getLogger(__name__)
 PROMPT_VERSION = "asset-design-1"
 MAX_PROMPT_CHARS = 40_000
 MAX_RESEARCHED = 8
+MD_TOLERANCE = 1.05
 PROVIDER_NAME = "meta"
 _NO_RESEARCH = frozenset({"casing", "liner", "tubing", "perforation_interval", "isolation"})
 _FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL | re.IGNORECASE)
@@ -280,6 +282,13 @@ class LiveDesigner:
         with self._factory() as s:
             rows = designer.candidate_rows(s, project_id, wellbore_id)
             head = designer.header(s, project_id, wellbore_id)
+            if md_range_m is None:
+                md_max = known_md_max(s, project_id, wellbore_id)
+                if md_max is not None and md_max > 0:
+                    md_range_m = (
+                        0.0,
+                        md_max * MD_TOLERANCE,
+                    )  # located parts beyond it -> unlocated
         if not rows:
             return DesignOutcome(
                 True,
