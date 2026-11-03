@@ -48,7 +48,7 @@ from fieldlens.processing.runtime import build_runtime
 from fieldlens.projects import build_projects_router
 from fieldlens.projects import guard as deletion_guard
 from fieldlens.projects.purge import ProjectPurger
-from fieldlens.reconstruction.live import build_live_agents
+from fieldlens.reconstruction.live import build_live_agents, build_live_designer
 from fieldlens.reconstruction.routes import build_reconstruction_router
 from fieldlens.reconstruction.runtime import build_runtime as build_reconstruction_runtime
 from fieldlens.retrieval.embedder import EmbedderProvider
@@ -325,7 +325,13 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         app.state.merge_proposer = live_proposer
     app.state.reconstruction = (
         build_reconstruction_runtime(
-            app.state.session_factory, settings, reader=live_reader, proposer=live_proposer
+            app.state.session_factory,
+            settings,
+            reader=live_reader,
+            proposer=live_proposer,
+            designer=build_live_designer(
+                app.state.processing, app.state.session_factory, app.state.blob_store, settings
+            ),
         )
         if app.state.session_factory is not None
         else None

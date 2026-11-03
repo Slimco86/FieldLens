@@ -87,10 +87,16 @@ def _label(attrs: dict[str, Any], row_label: str, kind: ComponentKind) -> str:
     return kind.value.replace("_", " ").capitalize()
 
 
-def _component(row: Any) -> dict[str, Any]:
+def candidate_text(row: Any) -> str:
     attrs: dict[str, Any] = row["attributes"]
-    text = f"{attrs.get('label_text') or ''} {attrs.get('description') or ''}"
-    kind = _kind(str(attrs.get("category")), text)
+    return f"{attrs.get('label_text') or ''} {attrs.get('description') or ''}".strip()
+
+
+def component_for(row: Any, kind_override: ComponentKind | None = None) -> dict[str, Any]:
+    """Deterministic component for one candidate (kind may be chosen by the live designer)."""
+    attrs: dict[str, Any] = row["attributes"]
+    text = candidate_text(row)
+    kind = kind_override or _kind(str(attrs.get("category")), text)
     cid = f"cand-{row['candidate_id'].hex[:12]}"
     evidence: dict[str, Any] = {
         "candidate_id": str(row["candidate_id"]),
@@ -151,16 +157,32 @@ def _component(row: Any) -> dict[str, Any]:
     return comp
 
 
-def design(session: Session, project_id: UUID, wellbore_id: UUID) -> dict[str, Any]:
-    """Raw (unvalidated) spec for one wellbore; the caller validates and persists it."""
+def _component(row: Any) -> dict[str, Any]:
+    return component_for(row)
+
+
+def header(session: Session, project_id: UUID, wellbore_id: UUID) -> dict[str, Any]:
     proj = session.execute(
         select(m.project.c.latest_source_revision_id, m.project.c.active_model_revision_id).where(
             m.project.c.project_id == project_id
         )
     ).one()
+    return {
+        "project_id": str(project_id),
+        "wellbore_id": str(wellbore_id),
+        "source_revision": str(proj[0]) if proj[0] else "none",
+        "identity_revision": str(proj[1]) if proj[1] else None,
+        "spec_version": "1",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "status": "current",
+        "visual_only": True,
+    }
+
+
+def candidate_rows(session: Session, project_id: UUID, wellbore_id: UUID) -> list[Any]:
     from fieldlens.candidates.tables import extraction_candidate as c
 
-    rows = (
+    return list(
         session.execute(
             select(
                 c.c.candidate_id,
@@ -182,15 +204,13 @@ def design(session: Session, project_id: UUID, wellbore_id: UUID) -> dict[str, A
         .mappings()
         .all()
     )
+
+
+def design(session: Session, project_id: UUID, wellbore_id: UUID) -> dict[str, Any]:
+    """Raw (unvalidated) spec for one wellbore; the caller validates and persists it."""
+    rows = candidate_rows(session, project_id, wellbore_id)
     return {
-        "project_id": str(project_id),
-        "wellbore_id": str(wellbore_id),
-        "source_revision": str(proj[0]) if proj[0] else "none",
-        "identity_revision": str(proj[1]) if proj[1] else None,
-        "spec_version": "1",
+        **header(session, project_id, wellbore_id),
         "generator": {"provider": STUB_PROVIDER, "model": STUB_MODEL},
-        "generated_at": datetime.now(UTC).isoformat(),
-        "status": "current",
-        "visual_only": True,
-        "components": [_component(r) for r in rows],
+        "components": [component_for(r) for r in rows],
     }

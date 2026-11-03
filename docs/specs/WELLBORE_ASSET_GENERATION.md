@@ -181,3 +181,28 @@ re-groups files and invalidates the dependent draft spec.
 - **Q1 (owner, 23:46): ALWAYS ASK.** Nothing merges automatically. S3 only creates merge proposals (alias quotes, guard results); a merge is applied only when the user clicks Accept on that proposal; applied merges stay revertible. This supersedes the auto-apply wording in sections 3 and AG-1.
 - **Q3 (owner, 23:46): SHOW DIRECTLY.** A generated asset appears in the viewer immediately; there is no Draft/Accept gate. The latest valid generated spec per wellbore is the current one; earlier ones are kept as history; a failed generation leaves the current one untouched. The 'Draft' badge/Accept action in sections 5 and 7 is removed; the 'illustrative / visual only' label stays.
 - **Component scope (owner, 23:46):** everything that contributes to visual presence belongs in the composite model: casing, liner, tubing, packers, pumps, valves, wellhead, christmas tree and also surface facilities such as separators, chokes, manifolds, tanks and flowlines. The closed kind enum is extended accordingly (e.g. `separator`, `choke`, `manifold`, `tank`, `flowline`, `pump_surface`). **Every element carries a visible label** (non-empty, validated; shown in the 3D view and the list).
+
+## 15. TASK-079 implementation notes (S5 live designer)
+
+- **Division of labour.** The model sees a bounded, ref-labelled list of the wellbore's equipment candidates (untrusted data) and
+  returns per ref only `kind`, `label`, wanted `representation` and a short `note`. The server builds every component from the stored
+  candidate: dimensions only from printed numbers, `located` only from a complete printed MD interval (otherwise `unlocated`),
+  surface facilities at `surface`, evidence from the candidate. The model can only downgrade: `source_dimensioned` needs printed
+  dimensions and evidence, `catalog_reference` needs a stored external reference (and carries no numbers), everything else is
+  `generic_illustrative` with a "Missing: ..." comment. Candidates the model omits are kept deterministically; invented refs,
+  duplicate refs and unknown kinds are dropped and counted. A component the validator rejects is rebuilt as a generic one.
+- **Outcomes.** Refusal, truncation, malformed output, provider failure and validation failure leave the current spec untouched
+  and make S5 a non-fatal `failed` stage (run `partial`); a successful S5 lets the run end `succeeded`. Without a live model S5 is
+  `stubbed` and stores nothing (the existing "Generate (stub)" route is unchanged). A run belongs to one wellbore; a bulk estimate
+  queues one run per wellbore. A user-confirmed run is the authorization; the S5 estimate is information only (no spend gate).
+- **Visual-reference research (`assetspec/research.py`).** Pluggable `SearchBackend`, OFF by default (`FIELDLENS_VISUAL_RESEARCH_BACKEND=off`
+  is the only shipped value; limits `FIELDLENS_VISUAL_RESEARCH_MAX_QUERIES=6`, `_MAX_PAGES=10`, `_DEADLINE_S=120` per component, no USD
+  limit). Only a short equipment-name hint leaves the app. Only URLs returned by the backend are fetched; http/https on 80/443,
+  all resolved addresses must be public, the connection is pinned to the validated address, every redirect is re-validated,
+  response size/time/content type are capped, at most 8 components per wellbore are researched, repeated queries/URLs stop the loop and the
+  result is an explicit found / not found. The model never receives page text or URLs, only a sanitised title. Stored: URL, title,
+  retrieval date, labelled note ("External visual reference, not evidence of installation") and optionally a content-addressed image
+  file (png/jpeg/webp, <= 2 MiB) under `<storage root>/visual-references`.
+- **MD range.** S5 passes the wellbore's known maximum MD (`identity.resolver.known_md_max`, +5%) to the validator; a located part beyond it becomes an unlocated generic one. A wellbore with no trajectory/log range gets no check (never guessed).
+- **Not done / open.** No real search backend is shipped (needs an owner-chosen provider and key); Meta built-in web search is not
+  used. No live Meta call was made (AG-10).

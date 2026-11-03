@@ -10,6 +10,14 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from fieldlens.assetspec.live_designer import DesignerConfig, LiveDesigner
+from fieldlens.assetspec.research import (
+    FileImageSink,
+    OffSearchBackend,
+    ResearchLimits,
+    SafeHttpFetcher,
+    VisualReferenceResearcher,
+)
 from fieldlens.candidates.sources import SourceReader
 from fieldlens.config import Settings
 from fieldlens.evidence.storage import BlobStore
@@ -52,3 +60,41 @@ def build_live_agents(
         ReaderSourceText(factory, SourceReader(factory, store, meta.renderer)),
     )
     return reader, proposer
+
+
+def build_live_designer(
+    processing: ProcessingRuntime | None,
+    factory: sessionmaker[Session],
+    store: BlobStore,
+    settings: Settings,
+    researcher: VisualReferenceResearcher | None = None,
+) -> LiveDesigner | None:
+    """S5 designer on the same Meta context; ``None`` (stub) without a live runtime. Visual-reference
+    research is OFF unless a search backend is plugged in (``FIELDLENS_VISUAL_RESEARCH_BACKEND`` only
+    knows ``off`` today); there is never a default web call."""
+    meta = processing.meta if processing is not None else None
+    if processing is None or meta is None:
+        return None
+    if researcher is None:
+        researcher = VisualReferenceResearcher(
+            OffSearchBackend(),
+            SafeHttpFetcher(),
+            ResearchLimits(
+                settings.visual_research_max_queries,
+                settings.visual_research_max_pages,
+                settings.visual_research_deadline_s,
+            ),
+            FileImageSink(store.root),
+        )
+    return LiveDesigner(
+        factory,
+        meta.ledger,
+        meta.provider,
+        DesignerConfig(
+            period_id=meta.period_id,
+            pricing_id=meta.pricing_id,
+            pricing=meta.pricing,
+            model=settings.meta_model,
+        ),
+        researcher,
+    )
