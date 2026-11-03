@@ -40,13 +40,19 @@ def test_invalid_port_is_refused(monkeypatch: pytest.MonkeyPatch, bad: str) -> N
         _load(monkeypatch, bad)
 
 
-def test_storage_root_is_fresh_per_run_unless_explicit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_storage_root_is_always_fresh_and_ignores_fieldlens_storage_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    stale = tmp_path / "storage" / "e2e"
+    stale.mkdir(parents=True)
+    (stale / "unmarked.bin").write_bytes(b"x")
+    monkeypatch.setenv("FIELDLENS_STORAGE_ROOT", str(tmp_path / "storage"))
     module = _load(monkeypatch, None)
     with module.e2e_storage_root(None) as first:
+        assert first != stale and list(first.iterdir()) == []
         (first / "leftover.bin").write_bytes(b"x")
     assert not first.exists()
-    with module.e2e_storage_root(None) as second:
-        assert list(second.iterdir()) == [] and second != first
-    with module.e2e_storage_root(str(tmp_path / "explicit")) as chosen:
-        assert chosen == tmp_path / "explicit" / "e2e"
+    assert (stale / "unmarked.bin").exists()
+    with module.e2e_storage_root(str(tmp_path / "optin")) as chosen:
+        assert chosen == tmp_path / "optin" / "e2e"
     assert chosen.is_dir()

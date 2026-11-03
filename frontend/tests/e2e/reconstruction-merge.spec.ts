@@ -54,7 +54,7 @@ test("TASK-076: proposal is accepted then reverted from the keyboard; nothing me
   await expect(page.getByRole("list", { name: "Merged name matches" })).toBeVisible();
 
   const revert = page.getByRole("button", { name: "Revert F-12 → 15/9-F-12" });
-  await revert.focus();
+  await expect(revert).toBeFocused(); // focus moved deliberately after Accept
   await page.keyboard.press("Enter");
   await expect(page.getByRole("list", { name: "Reverted name matches" })).toBeVisible();
   expect(posts).toEqual(["accept", "revert"]);

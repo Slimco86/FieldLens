@@ -74,9 +74,10 @@ def _browser_env(local: dict[str, str]) -> dict[str, str]:
 def e2e_storage_root(explicit: str | None) -> Iterator[Path]:
     """Storage root for one e2e run.
 
-    Without an explicit FIELDLENS_STORAGE_ROOT this is a fresh temporary directory removed afterwards:
-    a reused directory holds files from earlier runs and the API fails closed (``storage_root_mismatch``)
-    against the fresh per-run database. An explicit root is honoured as ``<root>/e2e`` and left in place.
+    Always a fresh temporary directory removed afterwards (FIELDLENS_STORAGE_ROOT from the shell or .env is
+    ignored): a reused directory holds files from earlier runs and the API fails closed
+    (``storage_root_mismatch``) against the fresh per-run database. Only the dedicated opt-in
+    FIELDLENS_E2E_STORAGE_ROOT selects a persistent ``<root>/e2e`` that is left in place.
     """
     if not explicit:
         with tempfile.TemporaryDirectory(prefix="fieldlens-e2e-storage-") as fresh:
@@ -185,7 +186,7 @@ def main() -> int:
             socket.SOL_SOCKET, socket.SO_REUSEADDR, 1
         )  # like uvicorn: ignore TIME_WAIT
         probe.bind(("127.0.0.1", API_PORT))
-    storage_base = os.environ.get("FIELDLENS_STORAGE_ROOT") or local.get("FIELDLENS_STORAGE_ROOT")
+    storage_base = os.environ.get("FIELDLENS_E2E_STORAGE_ROOT")
     with (
         e2e_storage_root(storage_base) as storage,
         support.temporary_database(base) as url,
