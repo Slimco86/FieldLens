@@ -163,7 +163,7 @@ class ProviderRequest(_Frozen):
     model: str
     messages: tuple[Message, ...]
     tools: tuple[ToolSpec, ...] = ()
-    max_output_tokens: int = Field(4096, ge=1, le=8192)
+    max_output_tokens: int = Field(4096, ge=1, le=32768)
     effort: Effort | None = None
     """Requested ``reasoning.effort``. ``None`` omits the field: the provider default applies
     (``high`` on muse-spark-1.3 in MI-6, which exhausted small output budgets)."""

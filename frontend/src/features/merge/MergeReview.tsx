@@ -11,7 +11,7 @@ const OK = { tone: "success", icon: CircleCheck } as const;
 const NO = { tone: "danger", icon: CircleX } as const;
 
 const SECTIONS: { status: MergeProposal["status"]; title: string; help: string }[] = [
-  { status: "pending", title: "To review", help: "Proposed by the model with a quote. Nothing is merged until you accept." },
+  { status: "pending", title: "To review", help: "Proposed by the model with a quote or a matching survey. Nothing is merged until you accept." },
   { status: "accepted", title: "Merged", help: "Applied. Reverting restores the separate names and marks dependent drafts out of date." },
   { status: "blocked", title: "Cannot be accepted", help: "A safety check failed, so these can never be merged." },
   { status: "rejected", title: "Rejected", help: "You rejected these; they are not proposed again." },
@@ -37,13 +37,22 @@ function ProposalCard({ p, busy, onAct }: { p: MergeProposal; busy: boolean; onA
         {p.rationale ? ` Model rationale: ${p.rationale}` : ""}
       </p>
       {quotes.length === 0 ? (
-        <p className={styles.note}>No verified quote is stored.</p>
+        <p className={styles.note}>No verified evidence is stored.</p>
       ) : (
         <ul className={styles.list} aria-label={`Quotes for ${title}`}>
           {quotes.map((q, i) => (
             <li key={`${q.document_id}-${i}`}>
-              <q>{q.quote}</q>{" "}
-              <span className={styles.note}>(about {q.alias}; document {q.document_id.slice(0, 8)}, verified in the file)</span>
+              {q.evidence_kind === "survey_match" ? (
+                <>
+                  <strong>Matching survey:</strong> {q.quote}{" "}
+                  <span className={styles.note}>(about {q.alias}; document {q.document_id.slice(0, 8)}, compared by the server, not quoted)</span>
+                </>
+              ) : (
+                <>
+                  <q>{q.quote}</q>{" "}
+                  <span className={styles.note}>(about {q.alias}; document {q.document_id.slice(0, 8)}, verified in the file)</span>
+                </>
+              )}
             </li>
           ))}
         </ul>

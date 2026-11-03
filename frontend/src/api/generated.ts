@@ -3482,8 +3482,15 @@ export interface components {
              */
             document_id: string;
             /**
+             * Evidence Kind
+             * @description `quote`: verbatim passage naming both spellings. `survey_match`: both names' surveys are identical (station count, MD range, md/incl/azi hash).
+             * @default quote
+             * @enum {string}
+             */
+            evidence_kind: "quote" | "survey_match";
+            /**
              * Quote
-             * @description Verbatim text found in the document by the server.
+             * @description Verbatim text found in the document by the server, or for `survey_match` the server-composed statement of the deterministic survey comparison.
              */
             quote: string;
         };

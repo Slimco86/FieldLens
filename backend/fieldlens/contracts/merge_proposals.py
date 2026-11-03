@@ -35,7 +35,15 @@ class MergeGuardResult(ContractModel):
 class MergeEvidenceQuote(ContractModel):
     document_id: UUID
     content_sha256: str = Field(description="Hash of the document when the quote was verified.")
-    quote: str = Field(description="Verbatim text found in the document by the server.")
+    quote: str = Field(
+        description="Verbatim text found in the document by the server, or for `survey_match` "
+        "the server-composed statement of the deterministic survey comparison."
+    )
+    evidence_kind: Literal["quote", "survey_match"] = Field(
+        default="quote",
+        description="`quote`: verbatim passage naming both spellings. `survey_match`: both "
+        "names' surveys are identical (station count, MD range, md/incl/azi hash).",
+    )
 
 
 class MergeProposalMember(ContractModel):

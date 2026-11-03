@@ -102,7 +102,7 @@ class MatchWellboresExecutor:
             reused=decided,
             unit="name groups",
             usd=est.upper_bound_usd,
-            note=None if est.blocks else "No wellbore names need matching.",
+            note=None if est.blocks else self._proposer.explain(project_id).text.capitalize() + ".",
         )
 
     def run(self, ctx: StageContext) -> StageResult:
@@ -124,13 +124,18 @@ class MatchWellboresExecutor:
                 {"k": f"reconstruction-s3:{ctx.project_id}"},
             )
             try:
+                explained = self._proposer.explain(ctx.project_id)
                 if self._proposer.estimate(ctx.project_id).calls == 0:
                     with ctx.factory() as session:
                         pending = _count(session, ctx.project_id, ("pending",))
                         blocked = _count(session, ctx.project_id, ("blocked",))
                     return StageResult(
                         "succeeded",
-                        message="no new matches to propose; earlier results were reused",
+                        message=(
+                            f"the model found no matches: {explained.text}"
+                            if explained.kind == "none_found"
+                            else f"no new matches to propose; {explained.text}"
+                        ),
                         counts={
                             "name_groups": 0,
                             "deferred": 0,
@@ -172,11 +177,19 @@ class MatchWellboresExecutor:
                 output_tokens=tokens_out,
                 fatal=False,
             )
-        message = (
-            f"{run.proposals_created} match(es) proposed for you to review"
-            if run.proposals_created
-            else "no new matches to propose"
-        )
+        if run.proposals_created:
+            message = f"{run.proposals_created} match(es) proposed for you to review"
+        else:
+            dropped = (
+                f"; {run.proposals_dropped} proposal(s) failed validation and were dropped"
+                if run.proposals_dropped
+                else ""
+            )
+            recheck = f" ({explained.text})" if explained.kind == "recheck" else ""
+            message = (
+                f"the model reviewed {run.blocks} name group(s) and found no matches{dropped}"
+                f"{recheck}"
+            )
         return StageResult(
             "succeeded",
             message=message,

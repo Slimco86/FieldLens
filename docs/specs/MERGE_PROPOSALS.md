@@ -55,7 +55,7 @@ interfaces, `BudgetLedger`/`WorkUnit`, `SourceReader` for quote verification.
   groups and current extraction run ids of the project. Stored on runs and proposals; it versions every retrieval of the
   proposal context.
 
-## 4. Deterministic guards (G1..G7)
+## 4. Deterministic guards (G1..G8)
 
 Evaluated at proposal time (a failure persists the proposal as `blocked`, not acceptable) and re-evaluated at accept time
 (a failure returns 409 and changes nothing). The model cannot waive a guard.
@@ -68,10 +68,12 @@ Evaluated at proposal time (a failure persists the proposal as `blocked`, not ac
 | G4 | sidetrack preservation | a merge never changes `parent_wellbore_id` relationships by itself: the resolver re-derives parents by name suffix after the merge; a member with a suffix needs the same suffix on the target (G3), and no accepted merge may fold a sidetrack into its parent |
 | G5 | planned vs as-built | a lexical marker (`plan`, `planned`, `prognosis`, `proposed` versus `as-built`, `as built`, `actual`, `final`, `drilled`) on any member or target name must be shared by all of them; mixed or one-sided markers fail. No planned/as-built state exists in the data model yet, so this is lexical and conservative |
 | G6 | no chains | a source cannot already be an active target, a target cannot already be an active source, and a source has at most one active merge |
-| G7 | evidence | for each merged member there is at least one evidence item whose quote (a) is present in the cited document's text (NFKC, case-folded, whitespace-collapsed; bounded read), (b) contains a boundary-delimited spelling of the member and of the target (the short target alias only when the slot is unique among resolved wells in the project), and (c) names the target without a trailing sidetrack suffix |
+| G7 | evidence | for each merged member there is at least one evidence item. A `quote` item: the quote (a) is present in the cited document's text (NFKC, case-folded, whitespace-collapsed; bounded read), (b) contains a boundary-delimited spelling of the member and of the target (the short target alias only when the slot is unique among resolved wells in the project), and (c) names the target without a trailing sidetrack suffix. A `survey_match` item (no quote, no document id supplied by the model): the server's own candidate table says the member's and target's surveys come from different documents and are equal (`exact` or `stations_md`, see 5.1); it is stored as two evidence items (one per survey document, each with its content hash) |
+| G8 | surface location | both parties' surface locations, when both exist, are not contradictory (>= 50 m apart; <= 5 m is "same"; missing on either side is "unknown" and neither blocks nor supports). A contradictory candidate is never placed in a block; a forced model reference is stored `blocked` and accept returns 409. G1..G6 are unchanged |
 
 Accept-time additional checks: the proposal is `pending`; the target and any `wellbore` member still exist; the evidence
-documents still exist with an unchanged content hash (otherwise `stale`); no other accepted merge conflicts (G6).
+documents still exist with an unchanged content hash (otherwise `stale`); no other accepted merge conflicts (G6); G8 is
+recomputed from current data.
 
 ## 5. Model step
 
@@ -94,6 +96,32 @@ return 503 `provider_unavailable` then.
   result on failure; otherwise `pending`.
 - Pairs already `rejected` by the user are excluded from later blocking, so a rejection is not re-proposed.
 - Usage: input/output tokens, provider calls and USD (from the ledger) are stored on the run, per call.
+
+### 5.1 Candidate evidence table and re-planning (TASK-086)
+
+Real data rarely names both spellings in one document: the unqualified `F-5` comes from a text survey (stations,
+header, surface location), the qualified `15/9-F-5` from a PDF survey and trajectory XML. The model therefore also
+receives, per block and candidate, a deterministic zero-cost table (`merge_proposals/content.py`): name similarity,
+same slot, shared source families (record kinds), survey comparison (`exact` = same station count, MD range and hash of
+md/incl/azi at 2 dp; `stations_md` = same count and MD range; `different`; `no_data`; surveys need >= 10 stations and
+the same document never counts), surface-location comparison (`same`/`contradictory`/`unknown`), plus a bounded
+project context (wellbore names). The model still decides; it may propose a pair on a verbatim quote or on
+`survey_match`. The server verifies the claim against its own table, always stores `pending`, and never applies it.
+Accept/Reject remain user-only. Evidence kind is exposed as `evidence_kind` (`quote` default) and shown in the review UI
+as "Matching survey" instead of a quote.
+
+Plan fingerprint (stored on the run's `dataset_fingerprint`; proposals keep the identity fingerprint) = identity
+fingerprint + `GUARD_VERSION` + `PROMPT_VERSION` + `CONTENT_VERSION` + the evidence signature of every same-slot
+candidate pair (rejected pairs included, so a rejection does not re-plan). A succeeded run with 0 proposals is reused
+only when all match; otherwise the stage re-plans. Stage messages: "the model found no matches: ..." (ran, none),
+"... re-checked because <evidence/guard/prompt changed>" and "no new matches to propose; <why reused>".
+Output bound = configured 8192 + 1024 per block beyond 2; first attempt effort `medium` (owner decision: adequate
+thinking budget to judge ambiguous pairs such as a `stations_md`-only match); one truncation retry (TASK-084) at
+`minimal` effort with the doubled bound (16384 for <= 2 blocks, 18432 for 3, at most 20480 for 4), inside the same
+reservation. Reservation 0.60 USD per call, deadline 240 s, at most 3 calls per run (worst case 1.80 USD reserved,
+settled to actual). The 0.60 covers the first attempt's full spend plus the retry's upper bound at an assumed
+frontier-class rate (about USD 3 in / 15 out per Mtok); the real Meta rate comes from the pricing row and was not
+verified (no live call), and the estimate endpoint reports the bound from that row. Typical actual spend is a few cents.
 
 ## 6. Persistence (migration 0012_merge_proposals)
 
@@ -156,3 +184,5 @@ a provider call without a reservation; a spend above the reservation; secrets, p
 | Persistence/API | `merge_proposals/{tables,service,routes}.py`, `identity/merges.py`, migration `0012_merge_proposals` | same |
 
 Evidence: `env -u MODEL_API_KEY uv run pytest backend/tests/merge_proposals` (26 tests, stub provider only, no network or Meta call; spend USD 0). Tests: `test_designators_and_guards_pure` (G1-G5), `test_blocking_is_guard_prefiltered`, `test_run_creates_pending_and_merges_nothing`, `test_accept_merges_transactionally_and_revert_restores`, `test_reject_persists_and_excludes_pair_from_later_blocking`, `test_invalid_output_is_dropped_and_counted` (5 drop codes), `test_guard_violating_proposal_is_blocked_and_cannot_be_accepted`, `test_vanished_member_blocks_accept`, `test_prompt_injection_in_source_cannot_merge`, `test_provider_failures_are_explicit` (refusal, truncated, malformed x2, timeout, auth), `test_rate_limit_is_retried_once_then_succeeds`, `test_budget_bound_stops_the_call`, `test_partial_run_keeps_good_calls`, `test_call_count_is_bounded`, `test_run_requires_confirmation_and_a_provider`, `test_no_candidates_run_makes_no_call`. Not covered: any live model behavior (needs D7 authorization).
+
+TASK-086 evidence: `backend/tests/merge_proposals/test_survey_evidence.py` (11 tests, VOLVE-mirroring fixture, scripted fake provider, no Meta call, USD 0) covers EXPLORE_POLISH A-1..A-5: candidate table and three pending `survey_match` proposals, unsupported survey claim dropped, guards (different slot, block-qualified bore, planned, sidetrack, contradictory surface) still block, re-plan on prompt/guard/evidence change with none-found/recheck/reused messages, output sizing and truncation retry, accept giving the qualified bore a surface location. Real-data probe (read-only SELECT on the VOLVE project): `F-5`/`F-14` match `exact`, `F-12` `stations_md`; surface `unknown` (qualified bores have none).

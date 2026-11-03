@@ -1,8 +1,9 @@
 """Server-side validation of model output. Nothing from the model is trusted.
 
 Order per proposed group: structural (refs exist in the block, target is the block's target, no
-duplicates) -> evidence (cited document is one shown for the block, the quote occurs in that
-document and names both parties) -> deterministic guards G1..G6. A structural or evidence failure
+duplicates) -> evidence (a quote: the cited document is one shown for the block, the quote occurs
+in it and names both parties; or ``survey_match``: the server's own candidate table shows an exact
+or station/MD survey match between the two parties) -> deterministic guards G1..G6 and G8. A structural or evidence failure
 drops the group with a counted code; a guard failure keeps it as a ``blocked`` proposal that can
 never be accepted."""
 
@@ -27,12 +28,14 @@ class EvidenceItem:
     document_id: UUID
     content_sha256: str
     quote: str
+    kind: str = "quote"  # quote | survey_match
 
     def as_json(self) -> dict[str, str]:
         return {
             "document_id": str(self.document_id),
             "content_sha256": self.content_sha256,
             "quote": self.quote,
+            "evidence_kind": self.kind,
         }
 
 
@@ -99,6 +102,24 @@ def verify_quote(
     return EvidenceItem(document_id, sha, quote)
 
 
+def survey_evidence(
+    source: SourceText, project_id: UUID, block: Block, cand: MemberCandidate
+) -> list[EvidenceItem]:
+    """Deterministic content evidence (TASK-086): never taken from the model, only confirmed
+    against the server's candidate table. One item per surveyed document, hashed for staleness."""
+    ev = cand.evidence
+    if ev is None or not ev.survey_match or ev.survey_target is None or ev.survey_member is None:
+        raise Dropped("survey_match_unsupported")
+    statement = ev.survey_statement(block.target.name, cand.party.name)
+    items: list[EvidenceItem] = []
+    for doc in (ev.survey_member.document_id, ev.survey_target.document_id):
+        sha = source.content_sha(project_id, doc)
+        if sha is None:
+            raise Dropped("source_unavailable")
+        items.append(EvidenceItem(doc, sha, statement[:600], "survey_match"))
+    return items
+
+
 def validate_group(
     group: RawGroup,
     block: Block,
@@ -127,6 +148,10 @@ def validate_group(
         cand = by_ref.get(item.member)
         if cand is None:
             raise Dropped("bad_evidence_member")
+        if item.kind == "survey_match":
+            evidence[item.member].extend(survey_evidence(source, project_id, block, cand))
+            continue
+        assert item.document_id is not None and item.quote is not None
         evidence[item.member].append(
             verify_quote(source, project_id, block, cand.party, item.document_id, item.quote)
         )
@@ -138,8 +163,21 @@ def validate_group(
     checks = guards.evaluate(
         block.target, [c.party for _, c in chosen], merges, in_project_keys=resolved_keys
     )
+    checks.append(guards.surface_check([c.evidence for _, c in chosen]))
+    kinds = {e.kind for items in evidence.values() for e in items}
     checks.append(
-        GuardCheck(G7, True, "every merged name has a verified quote naming both parties")
+        GuardCheck(
+            G7,
+            True,
+            "every merged name has verified evidence ("
+            + " and ".join(
+                sorted(
+                    "a quote naming both parties" if k == "quote" else "a matching survey"
+                    for k in kinds
+                )
+            )
+            + ")",
+        )
     )
     return ValidProposal(
         block,

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -27,6 +28,7 @@ from fieldlens.identity.resolver import (
 )
 from fieldlens.persistence import models as m
 
+from . import content as ct
 from . import guards
 from .designator import Designator, designator_of
 from .guards import Party
@@ -43,6 +45,8 @@ class MemberCandidate:
     party: Party
     documents: list[UUID] = field(default_factory=list)
     records: int = 0
+    evidence: ct.PairEvidence | None = None
+    """Deterministic content comparison with the block's target (survey, surface, families)."""
 
 
 @dataclass
@@ -78,6 +82,8 @@ class Dataset:
     merges: list[ActiveMerge]
     deferred_blocks: int = 0
     resolved_current: bool = True
+    plan_fingerprint: str = ""
+    """Identity fingerprint + candidate evidence + guard/content versions: what a run evaluated."""
 
 
 def _docs(values: set[UUID]) -> list[UUID]:
@@ -143,6 +149,25 @@ def _inputs(session: Session, project_id: UUID) -> _Inputs:
     )
 
 
+def build_content(
+    session: Session, groups: list[SubjectGroup]
+) -> dict[tuple[str, str], ct.PartyContent]:
+    """Content summary per party key (``("wellbore", key)`` or ``("label", normalized label)``)."""
+    out: dict[tuple[str, str], ct.PartyContent] = {}
+    for g in groups:
+        o = g.outcome
+        if isinstance(o, Resolved):
+            keys = [("wellbore", o.wellbore_name)]
+        elif isinstance(o, Unresolved):
+            keys = [("label", label_key(t)) for k in _LABEL_KEYS if (t := _str(g.subject.get(k)))]
+        else:
+            continue
+        pc = ct.party_content(session, g)
+        for key in dict.fromkeys(keys):
+            ct.merge_content(out.setdefault(key, ct.PartyContent()), pc)
+    return out
+
+
 def current_fingerprint(session: Session, project_id: UUID) -> str:
     """Dataset fingerprint: resolver version, resolved wellbores, unresolved labels, current
     extraction runs and active merges. Versions every proposal context."""
@@ -160,7 +185,11 @@ def build_dataset(session: Session, project_id: UUID, *, max_blocks: int = MAX_B
         d = designator_of(key)
         if d is not None and d.block:
             well_slot_count.setdefault(d.slot, set()).add(d.block)
+    contents = build_content(session, inp.groups)
+    empty = ct.PartyContent()
+    target_content = {k: contents.get(("wellbore", k), empty) for k in bores}
     blocks: list[Block] = []
+    signature: list[Any] = []
     for key in sorted(bores):
         target = Party.wellbore(bores[key], key)
         td: Designator | None = target.designator
@@ -177,13 +206,23 @@ def build_dataset(session: Session, project_id: UUID, *, max_blocks: int = MAX_B
             for lk, (name, docs, n) in sorted(label_docs.items())
         ]
         for cand in pool:
+            cd = cand.party.designator
+            if cd is not None and cd.slot == td.slot:
+                cand.evidence = ct.pair_evidence(
+                    target,
+                    target_content[key],
+                    cand.party,
+                    contents.get((cand.party.kind, cand.party.key), empty),
+                )
+                # Rejected pairs stay in the signature: a rejection must not re-plan the stage.
+                signature.append([key, cand.party.kind, cand.party.key, cand.evidence.signature()])
             if (key, cand.party.kind, cand.party.key) in excluded:
                 continue
-            cd = cand.party.designator
             if td.block is None and cand.party.kind == "wellbore" and cd is not None and cd.block:
                 # D9: the pair is proposed once, with the block-qualified wellbore as target.
                 continue
             checks = guards.evaluate(target, [cand.party], merges, in_project_keys=set(bores))
+            checks.append(guards.surface_check([cand.evidence]))
             if guards.failed(checks):
                 dd = cand.party.designator
                 if dd is not None and dd.slot == td.slot and len(family) < MAX_FAMILY:
@@ -201,4 +240,20 @@ def build_dataset(session: Session, project_id: UUID, *, max_blocks: int = MAX_B
                 )
             )
     deferred = max(len(blocks) - max_blocks, 0)
-    return Dataset(fingerprint, blocks[:max_blocks], bores, merges, deferred, inp.resolved_current)
+    return Dataset(
+        fingerprint,
+        blocks[:max_blocks],
+        bores,
+        merges,
+        deferred,
+        inp.resolved_current,
+        plan_fingerprint(fingerprint, signature),
+    )
+
+
+def plan_fingerprint(identity_fingerprint: str, signature: list[Any]) -> str:
+    """What a run evaluated: identity inputs, guard/content versions and the deterministic
+    evidence of every same-slot candidate pair. A change in any of them makes an earlier empty
+    result stale."""
+    raw = json.dumps([identity_fingerprint, guards.GUARD_VERSION, ct.CONTENT_VERSION, signature])
+    return hashlib.sha256(raw.encode()).hexdigest()

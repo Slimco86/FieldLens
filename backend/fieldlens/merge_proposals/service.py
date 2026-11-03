@@ -35,7 +35,8 @@ from fieldlens.identity.tables import identity_merge
 from fieldlens.persistence import models as m
 
 from . import guards, hooks
-from .blocking import _inputs, current_fingerprint
+from .blocking import _inputs, build_content, current_fingerprint
+from .content import PartyContent, pair_evidence
 from .guards import G7, GuardCheck, Party
 from .tables import merge_proposal, merge_proposal_member, merge_proposal_run
 from .validation import ValidProposal
@@ -64,6 +65,7 @@ def store_run(
     model_id: str,
     prompt_version: str,
     fingerprint: str,
+    run_fingerprint: str | None = None,
     blocks: int,
     deferred: int,
     proposals: list[ValidProposal],
@@ -84,7 +86,7 @@ def store_run(
             model_id=model_id[:80],
             prompt_version=prompt_version,
             guard_version=guards.GUARD_VERSION,
-            dataset_fingerprint=fingerprint,
+            dataset_fingerprint=run_fingerprint or fingerprint,
             blocks=blocks,
             deferred_blocks=deferred,
             proposals_created=len(proposals),
@@ -358,8 +360,20 @@ def _recheck(session: Session, project_id: UUID, row: Any) -> list[Party]:
         for x in members
     ]
     target = Party.wellbore(target_row.wellbore_id, target_row.source_key)
+    contents = build_content(session, inp.groups)
+    empty = PartyContent()
+    surface = [
+        pair_evidence(
+            target,
+            contents.get(("wellbore", target.key), empty),
+            p,
+            contents.get((p.kind, p.key), empty),
+        )
+        for p in parties
+    ]
     checks = guards.evaluate(target, parties, inp.merges, in_project_keys=set(inp.bores)) + [
-        GuardCheck(G7, True, "verified when the proposal was created")
+        guards.surface_check(surface),
+        GuardCheck(G7, True, "verified when the proposal was created"),
     ]
     bad = guards.failed(checks)
     if bad:
