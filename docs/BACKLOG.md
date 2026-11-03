@@ -2971,7 +2971,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P1 |
 | Tags | backend, geospatial, frontend |
 | Depends on | TASK-078, TASK-080 |
@@ -2979,13 +2979,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.44.0 |
 | Parent | FL-023 |
 | Slice | FL-023-H |
 
 **Outcome.** The wellbore and field views draw the wellbore's real validated survey (deterministic min-curvature local offsets with CRS/datum and depth reference preserved) instead of the labelled vertical placeholder, through a read-only project-scoped route.
-**Next action.** Spec: WELLBORE_ASSET_GENERATION.md §16 F3 (approved by the owner's 2026-11-03 request). Worker in a worktree (`feature/task-083-trajectory`).
-**Evidence.** Found by integrated QA (D6): `trajectoryFor()` reads only a test hook, so every wellbore shows the labelled vertical placeholder even when trajectory stations exist.
+**Next action.** Open for the owner: should a filename/title saying ACTUAL count as an as-built statement (today the trace reads "status not stated"); live visual check of the first-station stub.
+**Evidence.** Independent QA PASS on `64fa4e3` against a scratch copy of the real data: F-5/F-12/F-14 Survey Report PDF sets draw (F-5 97 stations MD 145.9-3792 m, end TVD 3246.43 m = source, max TVD diff 0.005 m, surface E 435050.94 N 6478558.87 ED50/UTM 31N); an independent min-curvature implementation matches the route end point to the last digit; backend 309 passed, ruff/mypy clean, frontend vitest 339, build clean. Not run: browser screenshot, Playwright; WITSML sets were not selected on real data (F-14 WITSML is invalid stations).
 
 ### TASK-084 · S3/S5 run at default reasoning effort and truncate (live-run finding F1)
 
