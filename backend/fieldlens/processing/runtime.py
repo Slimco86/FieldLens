@@ -14,7 +14,12 @@ from fieldlens.assistant.provider import Pricing as ModelPricing
 from fieldlens.assistant.runner import RequestLimits
 from fieldlens.candidates.pages import PageRenderer
 from fieldlens.config import Settings
-from fieldlens.contracts.processing import ProcessingFailureCode
+from fieldlens.contracts.processing import (
+    ProcessingFailureCode,
+    ProcessingProvider,
+    ProcessingProviderInfo,
+    ProviderStatus,
+)
 from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.jobs.repository import new_owner
@@ -22,6 +27,7 @@ from fieldlens.processing.model_step import ModelClassificationStep, ModelStepCo
 from fieldlens.processing.runner import ProcessingRunner
 from fieldlens.processing.service import PageCounter
 from fieldlens.processing.steps import (
+    STUB_NOTICE,
     DocumentTask,
     PageFailure,
     PageProvider,
@@ -39,6 +45,8 @@ class ProcessingRuntime:
     provider: PageProvider
     step: ProcessingStep
     runner: ProcessingRunner
+    info: ProcessingProviderInfo
+    model: str
 
 
 def is_dead_owner(owner: str, own: str) -> bool:
@@ -71,25 +79,58 @@ class PricingOnlyProvider:
         raise PageFailure(ProcessingFailureCode.PROVIDER_ERROR, "pricing-only provider")
 
 
+def missing_meta_items(settings: Settings) -> list[str]:
+    """Names (never values) of what the live provider still needs."""
+    key = settings.meta_api_key
+    missing: list[str] = []
+    if key is None or not key.get_secret_value().strip():
+        missing.append("MODEL_API_KEY")
+    if settings.processing_meta_input_usd_per_mtok is None:
+        missing.append("FIELDLENS_PROCESSING_META_INPUT_USD_PER_MTOK")
+    if settings.processing_meta_output_usd_per_mtok is None:
+        missing.append("FIELDLENS_PROCESSING_META_OUTPUT_USD_PER_MTOK")
+    if settings.processing_run_cap_usd is None:
+        missing.append("FIELDLENS_PROCESSING_RUN_CAP_USD")
+    return missing
+
+
+def _info(
+    settings: Settings, active: str, model: str, missing: list[str] | None = None
+) -> ProcessingProviderInfo:
+    requested = ProcessingProvider(settings.processing_provider)
+    if missing:
+        return ProcessingProviderInfo(
+            requested=requested,
+            active=ProcessingProvider.STUB,
+            model=model,
+            status=ProviderStatus.PROVIDER_MISCONFIGURED,
+            missing=missing,
+            spends_money=False,
+            message=(
+                "FIELDLENS_PROCESSING_PROVIDER=meta is set but incomplete (missing: "
+                + ", ".join(missing)
+                + "); processing is refused until it is complete."
+            ),
+        )
+    live = active != ProcessingProvider.STUB.value
+    return ProcessingProviderInfo(
+        requested=requested,
+        active=ProcessingProvider(active),
+        model=model,
+        status=ProviderStatus.LIVE if live else ProviderStatus.STUB,
+        spends_money=live,
+        message=f"Live provider active: model {model}." if live else STUB_NOTICE,
+    )
+
+
 def _build_meta(
     factory: sessionmaker[Session], store: BlobStore, settings: Settings
 ) -> tuple[PageProvider, ProcessingStep]:
-    """Live Meta step, refused unless the owner's key, rates and a per-run cap are configured.
+    """Live Meta step; the caller has checked :func:`missing_meta_items`.
     The budget balance is NOT confirmed here: that is an owner action on the ledger."""
-    key = settings.meta_api_key
     in_rate = settings.processing_meta_input_usd_per_mtok
     out_rate = settings.processing_meta_output_usd_per_mtok
-    if (
-        key is None
-        or not key.get_secret_value().strip()
-        or in_rate is None
-        or out_rate is None
-        or settings.processing_run_cap_usd is None
-    ):
-        raise ValueError(
-            "PROCESSING_PROVIDER=meta needs MODEL_API_KEY, both owner Meta rates "
-            "(PROCESSING_META_INPUT/OUTPUT_USD_PER_MTOK) and PROCESSING_RUN_CAP_USD"
-        )
+    assert in_rate is not None and out_rate is not None
     model_pricing = ModelPricing(
         revision=f"processing-{settings.meta_model}"[:64],
         model=settings.meta_model,
@@ -137,13 +178,22 @@ def build_runtime(
     step: ProcessingStep | None = None,
 ) -> ProcessingRuntime:
     """Stub provider and stub step by default. ``meta`` is used only when explicitly configured
-    (and fails closed when incomplete); an injected provider/step (tests) always wins."""
+    and complete. An incomplete ``meta`` configuration does not stop the app: it runs on the stub
+    with ``info.status == provider_misconfigured`` (naming what is missing) and the routes refuse
+    estimate/confirm/retry. An injected provider/step (tests) always wins."""
     counter = PageCounter(store)
+    missing: list[str] = []
     if provider is None and step is None and settings.processing_provider == "meta":
-        chosen_provider, chosen_step = _build_meta(factory, store, settings)
+        missing = missing_meta_items(settings)
+        if not missing:
+            chosen_provider, chosen_step = _build_meta(factory, store, settings)
+        else:
+            chosen_provider, chosen_step = StubProvider(settings), StubStep()
     else:
         chosen_provider = provider or StubProvider(settings)
         chosen_step = step or StubStep()
+    model = str(getattr(chosen_step, "model_name", None) or chosen_provider.name)
+    info = _info(settings, chosen_provider.name, model, missing)
     owner = new_owner()
     runner = ProcessingRunner(
         factory,
@@ -155,4 +205,4 @@ def build_runtime(
         lambda other: is_dead_owner(other, owner),
         StorageRootGuard(factory, store, lane=settings.lane),
     )
-    return ProcessingRuntime(counter, chosen_provider, chosen_step, runner)
+    return ProcessingRuntime(counter, chosen_provider, chosen_step, runner, info, model)

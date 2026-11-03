@@ -26,6 +26,7 @@ from fieldlens.config import Settings
 from fieldlens.contracts.errors import ContractError, ErrorCode
 from fieldlens.contracts.imports import DocumentCategory, ExtractionState
 from fieldlens.contracts.processing import (
+    DocumentModelOutcome,
     DocumentModelRead,
     DocumentProcessingState,
     DocumentProcessingStateList,
@@ -36,6 +37,7 @@ from fieldlens.contracts.processing import (
     ProcessingFailureCode,
     ProcessingPageRange,
     ProcessingProvider,
+    ProcessingProviderInfo,
     ProcessingRoute,
     ProcessingRun,
     ProcessingRunDocument,
@@ -46,7 +48,7 @@ from fieldlens.contracts.processing import (
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.persistence import models as m
 from fieldlens.processing import tables as t
-from fieldlens.processing.identity_store import load_model_reads
+from fieldlens.processing.identity_store import load_model_reads, load_outcome
 from fieldlens.processing.steps import Pricing, quantize
 from fieldlens.reconstruction import tables as reconstruction_tables
 
@@ -206,8 +208,10 @@ def _active_documents(session: Session, project_id: UUID, ids: Sequence[UUID]) -
     return {r.document_id for r in rows}
 
 
-def _fingerprint(selection: Sequence[tuple[UUID, int, int]]) -> str:
+def _fingerprint(selection: Sequence[tuple[UUID, int, int]], force: bool = False) -> str:
     canonical = json.dumps(sorted((str(d), a, b) for d, a, b in selection), separators=(",", ":"))
+    if force:  # a forced and a non-forced selection are different requests
+        canonical += "|force"
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
@@ -224,6 +228,9 @@ def create_estimate(
     idempotency_key: str | None,
     retry_of: UUID | None = None,
     page_bound: int | None = None,
+    *,
+    force: bool = False,
+    model: str | None = None,
 ) -> ProcessingRun:
     if (
         session.execute(
@@ -292,7 +299,7 @@ def create_estimate(
             "some documents cannot be processed as selected; nothing was estimated", refusals
         )
 
-    fingerprint = _fingerprint([(d.document_id, a, b) for d, _, a, b in planned])
+    fingerprint = _fingerprint([(d.document_id, a, b) for d, _, a, b in planned], force)
     lock_budget(session)
     if idempotency_key is not None:
         prior = session.execute(
@@ -328,6 +335,8 @@ def create_estimate(
             step=step,
             provider=provider,
             route=ProcessingRoute.MODEL.value,
+            force_refresh=force,
+            model=model,
             idempotency_key=idempotency_key,
             request_fingerprint=fingerprint,
             retry_of_run_id=retry_of,
@@ -498,6 +507,8 @@ def retry_run(
     project_id: UUID,
     run_id: UUID,
     page_bound: int | None = None,
+    *,
+    model: str | None = None,
 ) -> ProcessingRun:
     """A retry is a *new estimate* for the retryable documents; it spends only after confirm."""
     run = _lock_run(session, project_id, run_id)
@@ -534,6 +545,8 @@ def retry_run(
         None,
         run_id,
         page_bound,
+        force=bool(run.force_refresh),  # a retry of a forced run is forced again
+        model=model,
     )
 
 
@@ -547,6 +560,9 @@ def _estimate_dto(session: Session, settings: Settings, run: Any) -> ProcessingE
         pages=run.estimated_pages,
         route=ProcessingRoute(run.route),
         provider=ProcessingProvider(run.provider),
+        model=run.model,
+        spends_money=run.provider == ProcessingProvider.META.value,
+        force=bool(run.force_refresh),
         estimated_input_tokens=run.estimated_input_tokens,
         estimated_output_tokens=run.estimated_output_tokens,
         estimated_usd=run.estimated_usd,
@@ -704,7 +720,11 @@ def _state_text(
 
 
 def document_states(
-    session: Session, settings: Settings, counter: PageCounter, project_id: UUID
+    session: Session,
+    settings: Settings,
+    counter: PageCounter,
+    project_id: UUID,
+    provider_info: ProcessingProviderInfo,
 ) -> DocumentProcessingStateList:
     latest = session.execute(
         select(m.project.c.latest_source_revision_id).where(m.project.c.project_id == project_id)
@@ -713,7 +733,12 @@ def document_states(
         raise _not_found("project")
     revision_id: UUID | None = latest[0]
     if revision_id is None:
-        return DocumentProcessingStateList(project_id=project_id, source_revision_id=None, items=[])
+        return DocumentProcessingStateList(
+            project_id=project_id,
+            source_revision_id=None,
+            items=[],
+            provider_info=provider_info,
+        )
     ids = [
         r.document_id
         for r in session.execute(
@@ -797,5 +822,20 @@ def document_states(
             )
         )
     return DocumentProcessingStateList(
-        project_id=project_id, source_revision_id=revision_id, items=items
+        project_id=project_id,
+        source_revision_id=revision_id,
+        items=items,
+        provider_info=provider_info,
     )
+
+
+def document_outcome(session: Session, project_id: UUID, document_id: UUID) -> DocumentModelOutcome:
+    exists = session.execute(
+        select(m.source_document.c.document_id).where(
+            m.source_document.c.project_id == project_id,
+            m.source_document.c.document_id == document_id,
+        )
+    ).first()
+    if exists is None:
+        raise _not_found("document")
+    return load_outcome(session, project_id, document_id)
