@@ -64,6 +64,7 @@ OVERRIDES: dict[str, dict[str, Any]] = {
         "subject_kind": "wellbore",
     },
     "reconstruction_run": {"status": "estimated", "source_revision": SHA},
+    "wellbore_asset_spec": {"state": "current", "spec": '{"visual_only": true}'},
     "reconstruction_run_stage": {"stage": "gather", "state": "pending", "kind": "deterministic"},
     "series_axis": {
         "position_kind": "line",

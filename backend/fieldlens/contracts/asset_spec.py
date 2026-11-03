@@ -302,3 +302,9 @@ class AssetSpecGenerateRequest(ContractModel):
         if self.md_min is not None and self.md_max is not None and self.md_min >= self.md_max:
             raise ValueError("md_min must be below md_max")
         return self
+
+
+class AssetSpecHistory(ContractModel):
+    """All stored revisions of a wellbore's spec, newest first (the current one is first when any)."""
+
+    items: list[VisualAssetSpecRecord]

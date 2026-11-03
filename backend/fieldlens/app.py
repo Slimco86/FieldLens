@@ -20,6 +20,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from fieldlens import __version__, security
 from fieldlens.activity import ActivityLog, build_activity_router
+from fieldlens.assetspec.routes import build_asset_spec_router
 from fieldlens.assistant.budget import BudgetLedger
 from fieldlens.candidates.reconcile import settle_finished_units
 from fieldlens.candidates.routes import build_candidates_router
@@ -368,6 +369,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_series_router())
     app.include_router(build_processing_router())
     app.include_router(build_reconstruction_router())
+    app.include_router(build_asset_spec_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
