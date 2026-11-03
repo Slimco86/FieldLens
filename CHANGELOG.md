@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.52.0 - 2026-11-03
+
+- **TASK-090 Wellbore view always shows a wellhead, drops unlocated blocks and joins the trace to the well hole.** Unlocated components are no longer drawn (the tray is gone) but stay in the component list and inspector and remain selectable. A generic default wellhead (labelled "default, generic: not from the sources", not a component, not counted) stands at the origin whenever the spec has no placed wellhead; a christmas tree always stands on a wellhead. The trace starts at the well head using the backend's derived, display-only `tie_in` (vertical or bent arc, labelled "Derived tie-in, display only (not surveyed)"); MD/TVD depth records and formation-top overlays are unchanged, components above the first station are placed by MD along the tie-in, and station counts use real stations only. The dead "Unlocated" view button was removed. Not browser-verified (visual look of the junction and default wellhead). Known low edges: a tie-in whose last point is within 1 mm of the first station could leave a zero-length segment; a wellhead component placed at depth suppresses the default surface wellhead.
+
 ## 0.51.0 - 2026-11-03
 
 - **TASK-088 Source links open PDFs in an embedded viewer.** Reconstruction sources and draft evidence, the upload list ("Open PDF"), Inspector evidence and Survey info open the stored PDF in a lazy-loaded right-hand drawer at the stated page (browser's built-in viewer, `#page=N`, no sandbox, "Open in new tab" link). Evidence shows file name, locator and quoted statement instead of document ids ("Document (filename unavailable)" when unknown). One `Range: bytes=0-0` probe maps 409/415/404/503/network errors to a visible alert; nothing is fetched until a link is opened. Chromium rendering under the content route's CSP was checked only with a hand-made PDF on a loopback server, not the real API. PDF-ness for reconstruction evidence and survey sets comes from the `.pdf` file name.

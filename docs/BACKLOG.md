@@ -3118,7 +3118,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, 3d |
 | Depends on | TASK-091 |
@@ -3126,13 +3126,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_POLISH.md |
-| Version | |
+| Version | 0.52.0 |
 | Parent | FL-023 |
 | Slice | FL-023-O |
 
 **Outcome.** Single view draws no unlocated tray, always shows a wellhead and starts every element at the well hole via the tie-in segment.
-**Next action.** Wave 4 lane E; needs TASK-091.
-**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+**Next action.** Integrated browser pass (junction, default wellhead).
+**Evidence.** Merged 0.52.0. Lint, typecheck, 402 vitest tests and build pass (implementer and independent QA); structural tests only, no WebGL pixels. QA low findings: tie-in last point within 1 mm of the first station may leave a zero-length segment; a depth-placed wellhead component suppresses the default surface wellhead.
 
 ### TASK-091 · Wellhead tie-in segment in the trajectory response (polish item 12 backend)
 
