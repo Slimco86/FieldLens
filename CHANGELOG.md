@@ -8,6 +8,20 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.40.0 - 2026-11-03
+
+- **TASK-076 reconstruction in plain stages with wellbore merge review.** The run now has five stages: Collect sources,
+  Read documents, Match wellbores, Assemble data and Design 3D asset, each with a plain description, a "uses a model"
+  tag, new/reused counts and an information-only cost. No remaining-budget row.
+- **Wellbores that are the same are proposed, never merged silently.** Match wellbores proposes aliases (for example
+  "15/9-F-12" and "F-12") with the quoted evidence; nothing merges until you click Accept in the merge review, and an
+  applied merge can be reverted. Different designators and parent/sidetrack pairs are not proposed.
+- The document read and the matcher use the configured model when the processing runtime is live; without a model the
+  stages read "Not available: no model configured" and the run ends partial. S3 never re-asks decided or unchanged
+  pairs (no repeat spend), runs once per project in bulk runs and honours cancel. The 3D step reads "not available yet"
+  until the asset designer lands.
+- Accepting or reverting a merge invalidates the affected wellbores' current visual asset specs. New migration 0018.
+
 ## 0.39.0 - 2026-11-03
 
 - **TASK-075 model processing: you choose the pages and the estimate is honest.** The estimate dialog has a page count
