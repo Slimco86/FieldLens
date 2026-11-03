@@ -34,6 +34,11 @@ from fieldlens.persistence import models as m
 from .validator import ID_MIN_M, LENGTH_RANGE_M, OD_RANGE_M
 
 MAX_STRUCTURED = 150
+OD_TOL_M = 0.002
+SHOE_COVER_M = 1.0
+MAX_EVIDENCE = 8
+_INSTALLED = ("installed", "permanent", "left in hole", "left in the hole")
+_INTERVENTION = ("running tool", "spear", "fishing", "retrieving tool", "setting tool")
 SHOE_MARKER_M = 1.0
 KINDS = (
     "casing_point",
@@ -66,6 +71,9 @@ class StructuredResult:
     containers_skipped: int = 0
     truncated: int = 0
     record_count: int = 0
+    merged: int = 0  # parts folded into another structured part (shoe into its string, duplicates)
+    conflicts: int = 0  # structured parts that print different ODs for the same place
+    intervention_skipped: int = 0  # running tools / BHA runs: not permanent equipment
 
 
 def _attr(attrs: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
@@ -494,6 +502,103 @@ def _perforation(rec: _Rec) -> dict[str, Any]:
     return comp
 
 
+def _intervention(rec: _Rec) -> bool:
+    """A BHA run, or a tubular component that is a running/fishing tool, is an intervention tool
+    (it was run and pulled), unless a record text marks it installed/permanent."""
+    text = " ".join(
+        str(a.get("original_text") or "") for a in rec.attrs if isinstance(a, dict)
+    ).casefold()
+    if any(w in text for w in _INSTALLED):
+        return False
+    return rec.kind == "bha_run" or any(w in text for w in _INTERVENTION)
+
+
+def _od(comp: dict[str, Any]) -> float | None:
+    od = (comp.get("params") or {}).get("od")
+    return float(od["value"]) if isinstance(od, dict) else None
+
+
+def _span(comp: dict[str, Any]) -> tuple[float, float] | None:
+    p = comp["placement"]
+    return (p["md_top"], p["md_bottom"]) if p.get("state") == "located" else None
+
+
+def _bottom(comp: dict[str, Any], md: float) -> bool:
+    span = _span(comp)
+    return span is not None and abs(span[1] - md) <= SHOE_COVER_M
+
+
+def _join(keep: dict[str, Any], other: dict[str, Any]) -> None:
+    for ev in other["evidence"]:
+        if ev not in keep["evidence"] and len(keep["evidence"]) < MAX_EVIDENCE:
+            keep["evidence"].append(ev)
+
+
+def _flag(comp: dict[str, Any], text: str) -> None:
+    comp["confidence_note"] = " | ".join(p for p in (comp["confidence_note"], text) if p)[:300]
+
+
+_PIPE_VALUES = frozenset({ComponentKind.CASING.value, ComponentKind.LINER.value})
+
+
+def _fold(pairs: list[tuple[_Rec, dict[str, Any]]], out: StructuredResult) -> list[dict[str, Any]]:
+    """One component per string: a casing shoe at a section's bottom is folded into that section
+    (label, evidence); an equal-OD duplicate of the same interval joins its evidence; different
+    ODs keep both parts and are counted as a conflict. A shoe with no covering section stays."""
+    drop: set[int] = set()
+    sections = [
+        (i, c)
+        for i, (r, c) in enumerate(pairs)
+        if r.kind == "wb_geometry_section" and c["kind"] in _PIPE_VALUES and _span(c)
+    ]
+    for i, (rec, comp) in enumerate(pairs):
+        if rec.kind != "casing_point" or (span := _span(comp)) is None:
+            continue
+        md = span[1]
+        cover = [(j, c) for j, c in sections if j not in drop and _bottom(c, md)]
+        if not cover:
+            continue
+        shoe_od = _od(comp)
+        same = [
+            (j, c) for j, c in cover if shoe_od is None or abs((_od(c) or -1) - shoe_od) <= OD_TOL_M
+        ]
+        if not same:
+            out.conflicts += 1
+            for _, c in cover:
+                _flag(c, "Conflict: the casing shoe record prints a different OD; both are shown")
+            _flag(comp, "Conflict: the covering section prints a different OD; both are shown")
+            continue
+        j, sec = same[0]
+        name = _text(rec.attrs, "casing_point.name")
+        printed = _printed(rec.attrs, "casing_point.md") or f"{md:g} m"
+        base = name or sec["label"].split(" ")[0]
+        sec["label"] = f"{base}, shoe {printed}"[:120]
+        _join(sec, comp)
+        _flag(sec, "Shoe record folded into this string")
+        drop.add(i)
+        out.merged += 1
+    # equal-OD duplicates of one located interval (e.g. a section and a tubular component)
+    live = [i for i in range(len(pairs)) if i not in drop]
+    for a_idx, i in enumerate(live):
+        ci = pairs[i][1]
+        if i in drop or ci["kind"] not in _PIPE_VALUES or not _span(ci) or _od(ci) is None:
+            continue
+        for k in live[a_idx + 1 :]:
+            ck = pairs[k][1]
+            if k in drop or ck["kind"] != ci["kind"] or not _span(ck) or _od(ck) is None:
+                continue
+            (t1, b1), (t2, b2) = _span(ci), _span(ck)  # type: ignore[misc]
+            if (
+                abs(_od(ci) - _od(ck)) <= OD_TOL_M  # type: ignore[operator]
+                and abs(t1 - t2) <= SHOE_COVER_M
+                and abs(b1 - b2) <= SHOE_COVER_M
+            ):
+                _join(ci, ck)
+                drop.add(k)
+                out.merged += 1
+    return [c for i, (_, c) in enumerate(pairs) if i not in drop]
+
+
 def components_from_records(records: list[_Rec]) -> StructuredResult:
     out = StructuredResult(record_count=len(records))
     sections_runs = {r.run_id for r in records if r.kind == "wb_geometry_section"}
@@ -505,7 +610,11 @@ def components_from_records(records: list[_Rec]) -> StructuredResult:
         for r in records
         if r.kind == "tubular_assembly"
     }
+    pairs: list[tuple[_Rec, dict[str, Any]]] = []
     for rec in records:
+        if rec.kind in ("bha_run", "tubular_component") and _intervention(rec):
+            out.intervention_skipped += 1
+            continue
         if rec.kind == "casing_point":
             comp = _casing_point(rec)
         elif rec.kind == "tubular_component":
@@ -526,6 +635,9 @@ def components_from_records(records: list[_Rec]) -> StructuredResult:
             comp = _bha(rec)
         else:
             comp = _perforation(rec)
+        pairs.append((rec, comp))
+    folded = _fold(pairs, out)
+    for comp in folded:
         if len(out.components) >= MAX_STRUCTURED:
             out.truncated += 1
             continue

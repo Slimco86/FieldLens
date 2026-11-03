@@ -50,7 +50,7 @@ from .validators import (
     resolve_wellbore,
 )
 
-EQUIPMENT_VALIDATORS_VERSION = "equipment-1"
+EQUIPMENT_VALIDATORS_VERSION = "equipment-2"
 IN_TO_M = 0.0254
 OD_MIN_IN, OD_MAX_IN = 0.5, 40.0  # EQ-9 plausible nominal size
 MAX_LENGTH_M = 15_000.0
@@ -230,6 +230,21 @@ def _attach(ctx: ValidationContext, span: _Span, flags: _Flags) -> UUID | None:
     with session_scope(ctx.factory) as session:
         bores = _document_wellbores(session, ctx.project_id, span.doc.document_id)
         if len(bores) == 1:
+            bound = parse_bore_label(ctx.document_subject) if ctx.document_subject else None
+            linked = parse_bore_label(_wellbore_names(session, ctx.project_id, bores))
+            if bound is not None and bound == linked and ctx.document_subject and span.has_layer:
+                # a bound subject equal to the one linked wellbore (the sweep): the link must not carry a
+                # page that is about another well; a different bound well leaves the link in charge
+                if not _source_names(ctx, span, ctx.document_subject, bound):
+                    other = other_wells_named(span.text, ctx.document_subject, bound)
+                    if other:
+                        flags.flag(
+                            ValidatorName.SUBJECT,
+                            ReasonCode.SUBJECT_PAGE_NAMES_OTHER_WELL,
+                            f"the page names {', '.join(other[:3])}, not the bound well; "
+                            "stays unattached",
+                        )
+                        return None
             flags.ok(ValidatorName.SUBJECT, "document identity link (TASK-046)")
             return next(iter(bores))
         if len(bores) > 1:

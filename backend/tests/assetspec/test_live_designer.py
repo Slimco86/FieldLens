@@ -604,3 +604,30 @@ def test_unknown_research_backend_fails_at_settings_load() -> None:
     with pytest.raises(ValueError, match="VISUAL_RESEARCH_BACKEND"):
         Settings(visual_research_backend="google")
     assert Settings(visual_research_backend="off").visual_research_backend == "off"
+
+
+def test_a_failed_label_call_keeps_the_structured_design_and_never_replaces_a_better_spec(
+    world: World,
+) -> None:
+    from tests.assetspec.test_structured import A, T, seed_records
+
+    pid, wb = _wb(world)
+    seed_records(
+        world,
+        world.imageonly_doc,
+        wb,
+        [("casing_point", [T("casing_point.name", "Shoe A"), A("casing_point.md", 900.0)], {})],
+    )
+    d, _ = _designer(world, [refusal_response(), _reply(*GOOD), refusal_response()])
+    out = d.design(pid, wb, "run-1")
+    assert not out.ok and out.record is not None and "labelling stopped" in out.message
+    rec = _current(world, pid, wb)
+    assert rec.spec.generator.provider != "meta"
+    assert any("Shoe A" in c.label for c in rec.spec.components)  # the structured design is kept
+    # a labelled (model) spec is better: a later failed run must not replace it
+    assert d.design(pid, wb, "run-2").ok
+    labelled = _current(world, pid, wb)
+    assert labelled.spec.generator.provider == "meta"
+    failed = d.design(pid, wb, "run-3")
+    assert not failed.ok and failed.record is None
+    assert _current(world, pid, wb).revision == labelled.revision

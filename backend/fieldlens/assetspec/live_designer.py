@@ -305,6 +305,9 @@ def _store(
     cnt["model_read"] = model_read
     cnt["structured_records"] = structured.record_count
     cnt["containers_skipped"] = structured.containers_skipped
+    cnt["structured_merged"] = structured.merged
+    cnt["structured_conflicts"] = structured.conflicts
+    cnt["intervention_tools_skipped"] = structured.intervention_skipped
     cnt["structured_omitted"] = structured.truncated
     cnt["unchanged"] = 0 if created else 1
     message = (
@@ -318,6 +321,12 @@ def _store(
     )
     if structured.truncated:
         message += f" ({structured.truncated} further structured record(s) not drawn)"
+    if structured.merged:
+        message += f"; {structured.merged} duplicate/shoe record(s) folded into their string"
+    if structured.conflicts:
+        message += f"; {structured.conflicts} structured OD conflict(s) kept visible"
+    if structured.intervention_skipped:
+        message += f"; {structured.intervention_skipped} intervention tool record(s) not drawn"
     if conflicts:
         message += f"; {conflicts} source conflict(s) shown generic, none chosen"
     if sweep is not None:
@@ -517,14 +526,34 @@ class LiveDesigner:
                     "run_already_completed",
                     dict(counts),
                 )
+            all_counts = {**counts, **(sweep.counts() if sweep else {})}
+            all_usd = usd + sweep_usd
+            all_in = tin + (sweep.input_tokens if sweep else 0)
+            all_out = tout + (sweep.output_tokens if sweep else 0)
+            stored = None
+            if reason != "request_cancelled":
+                stored = self._store_unlabelled(
+                    project_id, wellbore_id, run_key, md_range_m, structured, sweep
+                )
+            if stored is not None:  # the structured design is not lost with the label call
+                return DesignOutcome(
+                    False,
+                    f"3D design: model labelling stopped ({failure_text(reason)}); {stored.message}",
+                    reason,
+                    {**all_counts, **stored.counts},
+                    all_usd,
+                    all_in,
+                    all_out,
+                    stored.record,
+                )
             return DesignOutcome(
                 False,
                 f"3D design stopped: {failure_text(reason)}; the current 3D model is unchanged",
                 reason,
-                {**counts, **(sweep.counts() if sweep else {})},
-                usd + sweep_usd,
-                tin + (sweep.input_tokens if sweep else 0),
-                tout + (sweep.output_tokens if sweep else 0),
+                all_counts,
+                all_usd,
+                all_in,
+                all_out,
                 cancelled=reason == "request_cancelled",
             )
         by_ref: dict[str, _RawComponent] = {}
@@ -559,6 +588,43 @@ class LiveDesigner:
             tout + (sweep.output_tokens if sweep else 0),
             sweep,
         )
+
+    def _store_unlabelled(
+        self,
+        project_id: UUID,
+        wellbore_id: UUID,
+        run_key: str,
+        md_range_m: tuple[float, float] | None,
+        structured: StructuredResult,
+        sweep: SweepReport | None,
+    ) -> DesignOutcome | None:
+        """Fallback after a failed label call: structured components plus the model-read items as
+        they are stored (unlabelled). A model-labelled current spec is never replaced by it."""
+        try:
+            with self._factory() as s:
+                try:
+                    current = service.get_current(s, project_id, wellbore_id)
+                except ContractError:
+                    current = None
+                if current is not None and current.spec.generator.provider == PROVIDER_NAME:
+                    return None
+                spec = designer.design(s, project_id, wellbore_id)
+                spec["generator"] = {**spec["generator"], "run_id": run_key[:64]}
+                rows = designer.candidate_rows(s, project_id, wellbore_id)
+            out = _store(
+                self._factory,
+                project_id,
+                wellbore_id,
+                spec,
+                md_range_m,
+                structured,
+                len(rows),
+                sweep=sweep,
+            )
+        except Exception:  # noqa: BLE001 - the fallback must never hide the original failure
+            log.exception("asset design fallback failed")
+            return None
+        return out if out.ok else None
 
     def _research(
         self, refs: dict[str, Any], cancel: CancelToken

@@ -24,10 +24,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from fieldlens.assistant.messages import Effort
 from fieldlens.assistant.provider import CancelToken
 from fieldlens.candidates.equipment import EquipmentExtractor, check_document_scope
 from fieldlens.candidates.equipment_prompt import EQUIPMENT_QUESTION
-from fieldlens.candidates.harness import ExtractionHarness, UnitRequest
+from fieldlens.candidates.harness import ExtractionHarness, UnitOutcome, UnitRequest
 from fieldlens.candidates.sources import SourceError
 from fieldlens.candidates.tables import extraction_candidate as cand
 from fieldlens.identity.tables import record_wellbore_link
@@ -48,7 +49,7 @@ class SweepLimits:
     max_pages_per_document: int = 12
     max_calls: int = 80
     wall_s: float = 900.0
-    retry_output_tokens: int = 16384  # one retry of a truncated page with this output bound
+    retry_effort: Effort = "minimal"  # one retry of a truncated page (output cap stays <= 8192)
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,16 @@ class SweepDoc:
     revision_id: UUID
     name: str
     category: str | None
+    profile: str | None = None
+
+    @property
+    def not_equipment(self) -> bool:
+        if self.category == EQUIPMENT_CATEGORY:
+            return False
+        if self.category in SKIP_CATEGORIES:
+            return True
+        prof = (self.profile or "").casefold()
+        return any(w in prof for w in SKIP_PROFILE_WORDS)
 
     @property
     def rank(self) -> int:
@@ -116,6 +127,8 @@ class SweepReport:
         )
         if self.count("excluded"):
             text += f", {self.count('excluded')} excluded"
+        if self.count("skipped"):
+            text += f", {self.count('skipped')} skipped (not equipment documents)"
         if self.not_swept:
             text += f", {self.not_swept} not swept (bound reached)"
         failed = [f"{d.name}: {d.reason}" for d in self.docs if d.state == "failed"]
@@ -131,11 +144,34 @@ class SweepEstimate:
     documents: int = 0
     pages: int = 0
     reused_pages: int = 0
+    failed_pages: int = 0
+    skipped: int = 0  # documents that are not equipment documents
     usd: Decimal = Decimal(0)
 
 
-HarnessFor = Callable[[int | None], ExtractionHarness]
-"""Builds the equipment harness; the argument is an output-token bound override (None = default)."""
+HarnessFor = Callable[[Effort | None], ExtractionHarness]
+"""Builds the equipment harness; the argument is an effort override (None = the default, low)."""
+
+# Not an equipment document: survey/trajectory/production/log classes and parser profiles.
+SKIP_CATEGORIES = frozenset(
+    {"trajectory", "production_injection", "well_logs", "terrain_bathymetry"}
+)
+SKIP_PROFILE_WORDS = ("survey", "trajectory", "production", "log")
+SKIP_REASON = "skipped: not an equipment document"
+# A cached failure with one of these reasons says nothing about the page: it is read again.
+TRANSIENT_REASONS = frozenset(
+    {
+        "provider_unavailable",
+        "budget_exhausted",
+        "unit_error",
+        "cancelled",
+        "request_cancelled",
+        "provider_timeout",
+        "timeout",
+        "rate_limited",
+        "provider_auth",
+    }
+)
 
 
 def wellbore_documents(session: Session, project_id: UUID, wellbore_id: UUID) -> list[SweepDoc]:
@@ -196,12 +232,71 @@ def wellbore_documents(session: Session, project_id: UUID, wellbore_id: UUID) ->
         .order_by(dmr.c.created_at.asc(), dmr.c.result_id.asc())
     ):
         category[row.document_id] = row.category  # latest classification wins
+    profile: dict[UUID, str] = {
+        r.document_id: r.profile_name
+        for r in session.execute(
+            select(ru.c.document_id, ru.c.profile_name).where(
+                ru.c.project_id == project_id,
+                ru.c.document_id.in_(ids),
+                ru.c.superseded.is_(False),
+                ru.c.profile_name.is_not(None),
+            )
+        )
+    }
     docs = [
-        SweepDoc(d, revision_of[d], names.get(d, str(d)), category.get(d))
+        SweepDoc(d, revision_of[d], names.get(d, str(d)), category.get(d), profile.get(d))
         for d in ids
         if d in revision_of
     ]
     return sorted(docs, key=lambda d: (d.rank, d.name, str(d.document_id)))
+
+
+def _page_request(
+    project_id: UUID, d: SweepDoc, page: int, rotations: dict[int, int], subject: str | None
+) -> UnitRequest:
+    return UnitRequest(
+        project_id,
+        d.revision_id,
+        d.document_id,
+        EQUIPMENT_QUESTION,
+        "equipment",
+        page=page,
+        rotation=rotations.get(page),
+        document_subject=subject,
+    )
+
+
+def unit_status(session: Session, project_id: UUID, key: str) -> tuple[str, int]:
+    """State of a page unit and the retry number to use: ``done``, ``failed`` (deterministic: a
+    refusal, a rejected or truncated reply; stays cached), ``transient`` (provider/budget/cancel:
+    read again as retry N+1) or ``new``."""
+    t = m.agent_work_unit
+    rows = session.execute(
+        select(t.c.unit_key, t.c.state, t.c.stop_reason).where(
+            t.c.project_id == project_id, t.c.unit_key.like(f"{key}%")
+        )
+    ).all()
+    latest: tuple[int, str, str | None] | None = None
+    for r in rows:
+        suffix = r.unit_key[len(key) :]
+        if suffix == "":
+            n = 0
+        elif suffix.startswith(":r") and suffix[2:].isdigit():
+            n = int(suffix[2:])
+        else:
+            continue
+        if latest is None or n > latest[0]:
+            latest = (n, r.state, r.stop_reason)
+    if latest is None:
+        return "new", 0
+    n, state, reason = latest
+    if state == "succeeded":
+        return "done", n
+    if state in ("failed", "cancelled"):
+        transient = state == "cancelled" or (reason or "") in TRANSIENT_REASONS
+        transient = transient or (reason or "").startswith("limit_")
+        return ("transient", n + 1) if transient else ("failed", n)
+    return "new", n  # running / interrupted: the same unit resumes
 
 
 def _subject(session: Session, project_id: UUID, wellbore_id: UUID) -> str | None:
@@ -240,6 +335,9 @@ class EquipmentSweeper:
                 if d.document_id in seen:
                     continue
                 seen.add(d.document_id)
+                if d.not_equipment:
+                    est.skipped += 1
+                    continue
                 try:
                     doc = harness.reader.require(project_id, d.revision_id, d.document_id)
                     if doc.kind != "pdf":
@@ -254,18 +352,15 @@ class EquipmentSweeper:
                     continue
                 est.documents += 1
                 for page in sel.pages[: self.limits.max_pages_per_document]:
-                    req = UnitRequest(
-                        project_id,
-                        d.revision_id,
-                        d.document_id,
-                        EQUIPMENT_QUESTION,
-                        "equipment",
-                        page=page,
-                        rotation=sel.rotations.get(page),
-                        document_subject=subject,
-                    )
-                    if self._cached(session, project_id, harness.unit_key(req, doc)):
+                    req = _page_request(project_id, d, page, sel.rotations, subject)
+                    status, _ = unit_status(session, project_id, harness.unit_key(req, doc))
+                    if status == "done":
                         est.reused_pages += 1
+                        continue
+                    if (
+                        status == "failed"
+                    ):  # a stored deterministic failure: neither read nor reused
+                        est.failed_pages += 1
                         continue
                     est.pages += 1
                     try:
@@ -280,14 +375,6 @@ class EquipmentSweeper:
                     ) / Decimal(1_000_000)
         return est
 
-    @staticmethod
-    def _cached(session: Session, project_id: UUID, key: str) -> bool:
-        t = m.agent_work_unit
-        state = session.execute(
-            select(t.c.state).where(t.c.project_id == project_id, t.c.unit_key == key)
-        ).scalar_one_or_none()
-        return state in ("succeeded", "failed", "cancelled")
-
     # -- the sweep -------------------------------------------------------------------------------
     def sweep(
         self, project_id: UUID, wellbore_id: UUID, cancel: CancelToken | None = None
@@ -300,13 +387,17 @@ class EquipmentSweeper:
         report.considered = len(docs)
         started = self._clock()
         calls = 0
+        swept = 0
         for index, d in enumerate(docs):
             if cancel.cancelled:
                 report.cancelled = True
                 report.not_swept += len(docs) - index
                 break
+            if d.not_equipment:  # survey/trajectory/production/log: no page is read
+                report.docs.append(DocResult(d.document_id, d.name, "skipped", SKIP_REASON))
+                continue
             if (
-                index >= self.limits.max_documents
+                swept >= self.limits.max_documents
                 or calls >= self.limits.max_calls
                 or self._clock() - started >= self.limits.wall_s
             ):
@@ -315,6 +406,7 @@ class EquipmentSweeper:
             result = self._one(
                 project_id, d, subject, cancel, self.limits.max_calls - calls, report
             )
+            swept += 1
             calls += result.calls
             report.docs.append(result)
             if cancel.cancelled:
@@ -322,6 +414,31 @@ class EquipmentSweeper:
                 report.not_swept += len(docs) - index - 1
                 break
         return report
+
+    def _run(
+        self,
+        harness: ExtractionHarness,
+        project_id: UUID,
+        d: SweepDoc,
+        pages: list[int],
+        rotations: dict[int, int],
+        subject: str | None,
+        cancel: CancelToken,
+        retries: dict[int, int] | None = None,
+    ) -> list[UnitOutcome]:
+        summary = harness.run_document(
+            project_id,
+            d.revision_id,
+            d.document_id,
+            EQUIPMENT_QUESTION,
+            kind="equipment",
+            pages=pages,
+            rotations={p: r for p, r in rotations.items() if p in pages},
+            cancel=cancel,
+            document_subject=subject,
+            retries=retries,
+        )
+        return list(summary.pages)
 
     def _one(
         self,
@@ -352,55 +469,58 @@ class EquipmentSweeper:
                 )
                 out.state, out.reason = "excluded", scope.detail[:120]
                 return out
-            extractor = EquipmentExtractor(harness)
-            sel = extractor.select_pages(
+            sel = EquipmentExtractor(harness).select_pages(
                 project_id,
                 d.revision_id,
                 d.document_id,
                 max_pages=min(self.limits.max_pages_per_document, max(calls_left, 1)),
             )
-            summary = harness.run_document(
-                project_id,
-                d.revision_id,
-                d.document_id,
-                EQUIPMENT_QUESTION,
-                kind="equipment",
-                pages=sel.pages,
-                rotations=sel.rotations,
-                cancel=cancel,
-                document_subject=subject,
+            retries: dict[int, int] = {}
+            with self._factory() as s:  # a cached transient failure is read again, not reused
+                for page in sel.pages:
+                    req = _page_request(project_id, d, page, sel.rotations, subject)
+                    status, number = unit_status(s, project_id, harness.unit_key(req, doc))
+                    if status == "transient":
+                        retries[page] = number
+            first = self._run(
+                harness, project_id, d, sel.pages, sel.rotations, subject, cancel, retries
             )
-            outcomes = list(summary.pages)
-            truncated = [o.page for o in outcomes if o.stop_reason == "output_truncated" and o.page]
-            if truncated and not cancel.cancelled:  # one retry with a larger output bound
-                retry = self._harness_for(self.limits.retry_output_tokens).run_document(
+            used = sum(o.provider_calls for o in first)
+            outcomes = list(first)
+            truncated = [o.page for o in first if o.stop_reason == "output_truncated" and o.page]
+            room = max(calls_left - used, 0)
+            if truncated and room and not cancel.cancelled:
+                # one retry at lower effort inside the same output cap (the request contract
+                # allows at most 8192 output tokens)
+                again = self._run(
+                    self._harness_for(self.limits.retry_effort),
                     project_id,
-                    d.revision_id,
-                    d.document_id,
-                    EQUIPMENT_QUESTION,
-                    kind="equipment",
-                    pages=truncated,
-                    rotations={p: r for p, r in sel.rotations.items() if p in truncated},
-                    cancel=cancel,
-                    document_subject=subject,
+                    d,
+                    truncated[:room],
+                    sel.rotations,
+                    subject,
+                    cancel,
                 )
-                by_page = {o.page: o for o in retry.pages}
-                outcomes = [by_page.get(o.page, o) if o.page in truncated else o for o in outcomes]
+                by_page = {o.page: o for o in again}
+                outcomes = [by_page.get(o.page, o) for o in first]
+                outcomes += [o for o in again if o.page not in {x.page for x in first}]
+                used += sum(o.provider_calls for o in again)
+            billed = [*first, *(again if truncated and room and not cancel.cancelled else [])]
+            out.calls = used
+            report.usd += sum((o.cost_usd for o in billed if not o.cache_hit), Decimal(0))
+            report.input_tokens += sum(o.input_tokens for o in billed if not o.cache_hit)
+            report.output_tokens += sum(o.output_tokens for o in billed if not o.cache_hit)
             out.pages = len(outcomes)
             out.pages_failed = sum(1 for o in outcomes if o.state != "succeeded")
-            out.calls = sum(o.provider_calls for o in outcomes)
-            report.usd += sum((o.cost_usd for o in outcomes if not o.cache_hit), Decimal(0))
-            report.input_tokens += sum(o.input_tokens for o in outcomes if not o.cache_hit)
-            report.output_tokens += sum(o.output_tokens for o in outcomes if not o.cache_hit)
             if not outcomes:
                 out.reason = "no equipment pages selected"
             elif cancel.cancelled:
                 out.state, out.reason = "failed", "cancelled"
             elif out.pages_failed:
-                reasons = sorted(
-                    {o.stop_reason or o.state for o in outcomes if o.state != "succeeded"}
-                )
-                out.reason = ", ".join(reasons)[:120]
+                bad = [o for o in outcomes if o.state != "succeeded"]
+                out.reason = "; ".join(f"p{o.page}: {o.stop_reason or o.state}" for o in bad[:4])[
+                    :160
+                ]
                 out.state = "failed"
             elif all(o.cache_hit for o in outcomes):
                 out.state = "reused"
@@ -417,8 +537,11 @@ class EquipmentSweeper:
 def build_sweeper(
     processing: Any, factory: sessionmaker[Session], store: Any, settings: Any
 ) -> EquipmentSweeper | None:
-    """Sweeper on the live Meta context (same provider, ledger period and owner rates);
-    ``None`` without a live runtime."""
+    """Sweeper on the live Meta context (same provider, ledger period, owner rates and provider
+    settings); ``None`` without a live runtime. The sweep adds no USD gate of its own: only the
+    ledger's own refusals (period cap, confirmed balance, per-unit reserve) can stop a page, and
+    such a page is reported and read again next time."""
+    from fieldlens.assistant.runner import RequestLimits
     from fieldlens.candidates.harness import HarnessConfig
     from fieldlens.candidates.sources import SourceReader
 
@@ -426,18 +549,23 @@ def build_sweeper(
     if processing is None or meta is None:
         return None
     reader = SourceReader(factory, store, meta.renderer)
+    limits = RequestLimits(
+        max_attempts=settings.provider_max_attempts,
+        max_tool_calls=settings.provider_max_tool_calls,
+        deadline_s=settings.provider_deadline_s,
+        max_output_tokens=settings.provider_max_output_tokens,
+        max_reserved_usd=settings.provider_max_reserved_usd,
+        image_token_bound=settings.provider_image_token_bound,
+    )
 
-    def harness_for(output_tokens: int | None) -> ExtractionHarness:
-        extra: dict[str, Any] = {}
-        if output_tokens is not None:
-            extra["equipment_max_output_tokens"] = output_tokens
+    def harness_for(effort: Effort | None) -> ExtractionHarness:
         config = HarnessConfig(
             model=settings.meta_model,
             pricing=meta.rates,
             pricing_id=meta.pricing_id,
             period_id=meta.period_id,
-            effort="low",
-            **extra,
+            limits=limits,
+            effort=effort or "low",
         )
         return ExtractionHarness(
             factory=factory,

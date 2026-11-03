@@ -47,6 +47,7 @@ def seed_records(
     doc: UUID,
     wb: UUID,
     records: list[tuple[str, list[dict[str, Any]], dict[str, Any]]],
+    profile: str = "witsml_tubular",
 ) -> None:
     """One current native run for ``doc`` (any earlier run is superseded) with the records linked
     to ``wb``."""
@@ -59,9 +60,16 @@ def seed_records(
             text(
                 "insert into extraction_run (run_id, project_id, document_id, source_revision_id, "
                 "profile_name, profile_version, method, content_sha256, status) values "
-                "(:r, :p, :d, :rev, 'witsml_tubular', '1', 'native_xml', :sha, 'succeeded')"
+                "(:r, :p, :d, :rev, cast(:prof as text), '1', 'native_xml', :sha, 'succeeded')"
             ),
-            {"r": run, "p": world.project_id, "d": doc, "rev": world.revision_id, "sha": "a" * 64},
+            {
+                "r": run,
+                "p": world.project_id,
+                "d": doc,
+                "rev": world.revision_id,
+                "sha": "a" * 64,
+                "prof": profile,
+            },
         )
         for ordinal, (kind, attrs, locator) in enumerate(records, start=1):
             s.execute(
@@ -149,7 +157,8 @@ def test_f5_like_records_give_a_validated_labelled_spec_without_a_model(world: W
         if c.placement.state == "located"
     )  # hole section
     assert any(c.kind.value == "perforation_interval" for c in rec.spec.components)
-    assert any("BHA" in label for label in comps)
+    assert not any("BHA" in label for label in comps)  # a BHA run is an intervention tool
+    assert out.counts["intervention_tools_skipped"] == 1
     assert out.counts["structured"] >= 7 and out.counts["model_read"] == 0
 
 
@@ -230,3 +239,76 @@ def test_structured_and_model_read_items_both_appear(world: World) -> None:
     assert out.counts["structured"] >= 7 and out.counts["model_read"] >= 3
     assert "from model-read items" in out.message
     assert _comps(_current(world, UUID(pid_s), wb))
+
+
+def _section(top: float, bottom: float, od: float, name: str = "casing") -> Any:
+    return (
+        "wb_geometry_section",
+        [
+            T("wb_geometry_section.type_hole_casing", name),
+            A("wb_geometry_section.od_section", od),
+            A("wb_geometry_section.md_top", top),
+            A("wb_geometry_section.md_bottom", bottom),
+        ],
+        {},
+    )
+
+
+def _shoe(md: float, od: float | None, name: str = '9 5/8" casing') -> Any:
+    attrs = [T("casing_point.name", name), A("casing_point.md", md)]
+    if od is not None:
+        attrs.append(A("casing_point.casing_diameter", od))
+    return ("casing_point", attrs, {})
+
+
+def test_shoe_is_folded_into_its_string_keeping_both_evidences(world: World) -> None:
+    wb = f99(world)
+    seed_records(
+        world,
+        world.imageonly_doc,
+        wb,
+        [_section(0.0, 2921.0, 0.2445), _shoe(2921.0, 0.2445), _shoe(5000.0, 0.508, "30 in")],
+    )
+    out = design_without_model(world.factory, world.project_id, wb, "run-1")
+    assert out.ok and out.counts["structured_merged"] == 1
+    comps = _current(world, world.project_id, wb).spec.components
+    string = [c for c in comps if c.placement.state == "located" and c.placement.md_top == 0.0]
+    assert len(string) == 1 and "shoe 2921" in string[0].label
+    assert len(string[0].evidence) == 2  # section + shoe records
+    bare = [c for c in comps if "30 in" in c.label]  # no covering section: the marker stays
+    assert len(bare) == 1 and bare[0].placement.md_bottom == 5000.0
+    assert not [c for c in comps if c.placement.md_bottom == 2921.0 and c is not string[0]]  # type: ignore[union-attr]
+
+
+def test_shoe_and_string_with_different_ods_are_both_kept_and_reported(world: World) -> None:
+    wb = f99(world)
+    seed_records(
+        world,
+        world.imageonly_doc,
+        wb,
+        [_section(0.0, 2921.0, 0.340), _shoe(2921.0, 0.2445)],
+    )
+    out = design_without_model(world.factory, world.project_id, wb, "run-1")
+    assert out.ok and out.counts["structured_conflicts"] == 1
+    assert "OD conflict" in out.message
+    comps = _current(world, world.project_id, wb).spec.components
+    assert sum(1 for c in comps if "Conflict" in (c.confidence_note or "")) == 2
+
+
+def test_intervention_tools_are_not_permanent_equipment(world: World) -> None:
+    wb = f99(world)
+    seed_records(
+        world,
+        world.imageonly_doc,
+        wb,
+        [
+            ("bha_run", [T("bha_run.name", "Spear run")], {}),
+            ("bha_run", [T("bha_run.name", "Installed liner hanger")], {}),
+            _shoe(900.0, 0.34),
+        ],
+    )
+    out = design_without_model(world.factory, world.project_id, wb, "run-1")
+    labels = [c.label for c in _current(world, world.project_id, wb).spec.components]
+    assert out.counts["intervention_tools_skipped"] == 1
+    assert not any("Spear" in label for label in labels)
+    assert any("Installed liner hanger" in label for label in labels)
