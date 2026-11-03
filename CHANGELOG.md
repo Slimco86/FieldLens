@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.51.0 - 2026-11-03
+
+- **TASK-088 Source links open PDFs in an embedded viewer.** Reconstruction sources and draft evidence, the upload list ("Open PDF"), Inspector evidence and Survey info open the stored PDF in a lazy-loaded right-hand drawer at the stated page (browser's built-in viewer, `#page=N`, no sandbox, "Open in new tab" link). Evidence shows file name, locator and quoted statement instead of document ids ("Document (filename unavailable)" when unknown). One `Range: bytes=0-0` probe maps 409/415/404/503/network errors to a visible alert; nothing is fetched until a link is opened. Chromium rendering under the content route's CSP was checked only with a hand-made PDF on a loopback server, not the real API. PDF-ness for reconstruction evidence and survey sets comes from the `.pdf` file name.
+
 ## 0.50.0 - 2026-11-03
 
 - **TASK-089 Explore lists and draws only reconstructed wellbores, placed by surface location.** The Explore tree, the field view and the single-view dropdown show only wellbores with an asset spec (a 200 on the per-wellbore asset-spec read; failures stay listed with Retry; summary counts keep the total, unreconstructed, failed and loading numbers); survey reads are issued only for them. Wells are placed at E/N offsets from the centroid of the located wells (double precision, then float32) when all share the same stated CRS, datum and metre unit, otherwise the labelled schematic grid; a well with no location waits in a labelled "unlocated" row; no reprojection or CRS guessing. Pads and glyphs scale to the nearest-neighbour spacing (same-platform wells are 1-2 m apart) and the camera frames the spread and the deepest trace. Trajectory tubes use the selected-state radius by default. Not browser-verified. The qualified bores (`15/9-F-n`) carry no surface location until their short-name merge is accepted.

@@ -3076,7 +3076,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend |
 | Depends on | TASK-087 |
@@ -3084,13 +3084,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_POLISH.md |
-| Version | |
+| Version | 0.51.0 |
 | Parent | FL-023 |
 | Slice | FL-023-M |
 
 **Outcome.** Reconstruction list, upload list, Inspector evidence and Survey info open PDFs in an embedded viewer at the stated page.
-**Next action.** Wave 3 lane C; needs TASK-087 contract.
-**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+**Next action.** None; lane E (TASK-090) wires the tie-in into `trajectorySource.ts`.
+**Evidence.** Merged 0.51.0. Lint, typecheck, 371 vitest tests and build pass (implementer and independent QA, QA under single-fork run); viewer is a separate 6.18 kB lazy chunk. Browser: Chromium built-in viewer loaded `#page=2` under CSP `default-src 'none'` with a hand-made PDF on loopback only; real API/content route not browser-verified. QA low findings: 'Open PDF' accessible name differs from visible text; survey label slice coupling; pre-existing document ids in DocumentList details.
 
 ### TASK-089 · Reconstructed-only field view with surface-location placement and default thickness (polish items 3, 4, 5, 7)
 
