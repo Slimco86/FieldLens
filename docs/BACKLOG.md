@@ -2721,7 +2721,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, frontend |
 | Depends on | TASK-055, TASK-071 |
@@ -2729,10 +2729,31 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/MODEL_PROCESSING_OUTCOME.md |
-| Version | none |
+| Version | 0.37.0 |
 | Parent | FL-022 |
 | Slice | FL-022-F |
 
 **Outcome.** Owner manual check of 0.36.0 (2026-11-02): inline project delete icon; model re-process available in every state (forced fresh read through estimate -> confirm, cache reuse opt-in); run history, provider/model, tokens/USD and the raw model reply visible per document; a stub run is labeled as such; a misconfigured live provider is reported (409 `provider_misconfigured`) instead of silently stubbed; unprefixed `PROCESSING_*` keys in `.env` are warned about and the prefixed names documented. Migration `0017`.
-**Next action.** Lane `task-072-model-outcome`: backend (fieldlens-rag), then UI (fieldlens-frontend), independent QA, merge, release. Live use needs owner-supplied Meta token rates.
+**Next action.** Follow-ups D1-D3 are tracked in TASK-073. Live Meta processing remains unverified (needs owner authorization).
+**Evidence.** Independent QA (fieldlens-qa) PASS on candidate `46565d8`: backend 1450 passed, ruff/mypy/contracts clean, Vitest 269, build ok, e2e 32 passed with only the known UI-2/UI-10 `shell.spec.ts:285` failures at 1920/2560; /ready 200 on fresh process; purge complete; inline delete verified at 1280/390 px; e2e and default tests pinned to stub. Stub/mocked only; no live Meta call.
+
+### TASK-073 · Model processing panel polish (QA follow-ups D1-D3 from TASK-072)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | ready |
+| Priority | P1 |
+| Tags | backend, frontend |
+| Depends on | TASK-072 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/MODEL_PROCESSING_OUTCOME.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-G |
+
+**Outcome.** (D1) An abandoned re-process estimate must not regress the panel to "Not started": derive processing status from the latest started run. (D2) A stub run must not display a "Cost (actual)" figure; show it as illustrative or hide it. (D3) With a misconfigured provider, the chip/headline must not say "model processing available" while the action is disabled.
+**Next action.** Owner-approved scope pending; small single lane.
 **Evidence.** none yet

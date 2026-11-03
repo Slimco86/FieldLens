@@ -8,6 +8,27 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.37.0 - 2026-11-02
+
+- **TASK-072 re-processable, observable model processing:** "Process with model..." is available in every state and is
+  labelled "Re-process with model..." once a run or result exists. A re-process forces a fresh read
+  (`ProcessingEstimateRequest.force`); an opt-in "Reuse stored result" checkbox reuses the cache with no provider call.
+  Each document shows its run history (state, provider/model, pages, tokens, USD, cache hit, forced) and a collapsible,
+  plain-text raw model reply (bounded to 8 KiB, never rendered as HTML). New `GET
+  /api/v1/projects/{p}/processing/documents/{d}/outcome`; `/processing/documents` carries `provider_info`.
+- **Honest stub and misconfiguration:** a stub run is labelled "Stub run" and states that no model was called. A meta
+  provider with missing key, rates or run cap now starts the app on the stub and answers estimate/confirm/retry with 409
+  `CONFLICT` `details.reason=provider_misconfigured` listing the missing variable names; the UI disables the action.
+- **Config:** unprefixed `PROCESSING_*` keys in `.env` are ignored by settings (prefix is `FIELDLENS_`); startup now logs
+  one warning per such key naming the prefixed variable, without values. `.env.example` and `scripts/init_env.py` list
+  the prefixed keys. Blank prefixed values count as unset.
+- **Test safety:** `scripts/run_e2e.py` and the backend test conftest pin the stub provider and blank `MODEL_API_KEY`
+  regardless of `.env` or ambient environment.
+- **Project sidebar:** the delete icon is inline on the project row; long names truncate with a title.
+- **Migration 0017:** `document_model_result.raw_reply` / `raw_reply_truncated`, `processing_run.force_refresh` / `model`;
+  drops the unique cache-key constraint so forced runs can add rows (downgrade keeps the newest row per key).
+- Live Meta processing is still unverified (stub and fake-provider tests only). Known polish items are tracked as TASK-073.
+
 ## 0.36.0 - 2026-11-02
 
 - **TASK-055 model-assisted identity for PDFs without a native profile:** the Sources panel shows "No native parser; model
