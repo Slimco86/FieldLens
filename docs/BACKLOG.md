@@ -506,6 +506,82 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 **Next action.** Approved 2026-11-02; lanes TASK-075/076/077 start in parallel worktrees.
 **Evidence.** none yet; planning only (2026-11-02).
 
+### FL-024 · Formation tops and levels in the 3D view (picks, labeled level planes, interpolated surfaces)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | geospatial, 3d, backend, frontend |
+| Depends on | FL-023 |
+| Assignee | agent:fieldlens-geospatial |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+
+**Outcome.** Formation picks are placed on their wellbores by MD and drawn underground with names, interpretation status and source links; missing surface geometry degrades to labeled level planes, never to a silent plane (FO-1..7, refines FL-009-B).
+**Next action.** Approved 2026-11-03 (D1, D5 deferred horizons); wave 0 TASK-094/095 in progress.
+**Evidence.** none yet; planning only (2026-11-03).
+
+### FL-025 · Explore charts: wellbore-scoped and field-level
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | charts, backend, frontend |
+| Depends on | FL-023 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+
+**Outcome.** The Explore tab shows production/injection, pressure, perforation/completion event and log charts for one wellbore only, and global charts for the field view, with evidence, units and gaps preserved (XC-1..7, refines FL-010).
+**Next action.** Approved 2026-11-03 (D2); wave 0 in progress; priority 1.
+**Evidence.** none yet; planning only (2026-11-03).
+
+### FL-026 · Single-wellbore fly-over and smooth camera transitions
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | 3d, frontend |
+| Depends on | FL-023 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+
+**Outcome.** A Fly over button drives the camera wellhead to TD visiting every located element, and every focus change flies smoothly and ends facing the trajectory (CM-1..6).
+**Next action.** Approved 2026-11-03 (D6); wave 0 in progress; priority 3.
+**Evidence.** none yet; planning only (2026-11-03).
+
+### FL-027 · Expandable project assistant with persona avatar, generated charts and deep links
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | rag, backend, frontend |
+| Depends on | FL-023 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+
+**Outcome.** An expandable chat in the Explore dock answers project questions from extracted data through allowlisted tools, with citations, server-materialized charts and links to the exact source, scene element or chart window (AV-1..9, refines FL-011 and TASK-019/031).
+**Next action.** Approved 2026-11-03 (D3, D4 no assistant spend cap); wave 0 in progress; priority 2.
+**Evidence.** none yet; planning only (2026-11-03).
+
 ## Tasks
 
 Rows copied from the plan's task table (the plan stays the design-time DAG); `Parent` strips
@@ -1984,6 +2060,279 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 **Next action.** Deferred by the owner on November 1; do not start before TASK-055 and without separate authorization.
 **Evidence.** none yet
 
+### TASK-094 · Wave 0: freeze contracts and the charting dependency for explore enrichment
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend, charts |
+| Depends on | none |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-025 |
+| Slice | FL-025-A |
+
+**Outcome.** DTO-only contracts for formation layers, wellbore/field chart sets and chat (AppLink, AnswerBlock, ChartSpec) are registered and exported to `generated.ts`; ECharts is added to the frontend lockfile; no behavior.
+**Next action.** Dispatched 2026-11-03 in worktree `task-094-contracts`.
+**Evidence.** none yet
+
+### TASK-095 · Wave 0: scene seams, command bus and Explore stage regions
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | frontend, 3d |
+| Depends on | none |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-026 |
+| Slice | FL-026-A |
+
+**Outcome.** Viewers accept a layers slot, an ExploreCommands bus and flyOver command stubs, and the Explore stage has 3D/Charts/Split and dock slots, so parallel lanes touch disjoint files.
+**Next action.** Dispatched 2026-11-03 in worktree `task-095-scene-seams`.
+**Evidence.** none yet
+
+### TASK-096 · Smooth element-to-element camera transitions and single-wellbore fly-over (CM-1..6)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | 3d, frontend |
+| Depends on | TASK-095 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-026 |
+| Slice | FL-026-B |
+
+**Outcome.** Pure camera-path and fly-over planners plus an imperative camera rig replace the 0.75 s lerp; focus changes arrive facing the trajectory; Fly over visits every located element wellhead to TD with controls, announcements and reduced-motion behavior.
+**Next action.** Dispatch after TASK-095 is integrated.
+**Evidence.** none yet
+
+### TASK-097 · Formation layer read model: pick placement, tiers, conflicts (FO-1/2/3/5/6 backend)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | geospatial, backend |
+| Depends on | TASK-094 |
+| Assignee | agent:fieldlens-geospatial |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-024 |
+| Slice | FL-024-A |
+
+**Outcome.** A read endpoint returns formation picks placed by MD on the wellbore trajectory with original units/datum, T1/T2/T3 representations, unsupported qualifiers, TVD conflicts and evidence; no migration.
+**Next action.** Dispatch after TASK-094 is integrated.
+**Evidence.** none yet
+
+### TASK-098 · Formation layers in the 3D viewer: markers, planes, labels, inspector, toggles (FO-3..6 frontend)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | 3d, frontend |
+| Depends on | TASK-094, TASK-095 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-024 |
+| Slice | FL-024-B |
+
+**Outcome.** Formation markers, labeled level planes and interpolated surfaces render with the wellbore, follow exaggeration/cutaway, open the inspector with source links and are toggleable and keyboard-listed; built on fixtures until TASK-097 merges.
+**Next action.** Dispatch after TASK-094 and TASK-095 are integrated.
+**Evidence.** none yet
+
+### TASK-099 · Stretch: depth-domain horizon grid import and T4 surfaces (FO-7)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P1 |
+| Tags | geospatial, backend |
+| Depends on | TASK-097 |
+| Assignee | agent:fieldlens-geospatial |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-024 |
+| Slice | FL-024-C |
+
+**Outcome.** Horizon XYZ files with explicit CRS/datum/no-data import into surfaces (migration 0021) and render as T4; TWT or unknown datum blocks the mesh. Starts only after FO-1..6 are merged (decision D5).
+**Next action.** Deferred by the owner on 2026-11-03 (D5); do not start.
+**Evidence.** none yet
+
+### TASK-100 · Wellbore and field chart read API with exact aggregates and perforation history (XC-1..4 backend)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend, charts |
+| Depends on | TASK-094 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-025 |
+| Slice | FL-025-B |
+
+**Outcome.** Endpoints serve the wellbore-scoped chart set and field aggregates (same-unit sums with exclusions listed, cumulative, pressure, uptime, perforated length as-of, correlation depths) and expose perforation/completion events from the existing engine.
+**Next action.** Dispatch after TASK-094 is integrated.
+**Evidence.** none yet
+
+### TASK-101 · Stretch spike: where pressure-test, lab-test and drilling-report events live in the sources
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P1 |
+| Tags | ingestion, data |
+| Depends on | none |
+| Assignee | agent:fieldlens-ingestion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-025 |
+| Slice | FL-025-E |
+
+**Outcome.** A bounded note states which project sources contain dated pressure/lab/DDR events for F-12/F-14/F-5 and whether a native profile (migration 0022) is feasible before the freeze; no invented events.
+**Next action.** Dispatch in parallel with wave 1 if a worker slot is free.
+**Evidence.** none yet
+
+### TASK-102 · Explore charts UI: wellbore and field chart sets, as-of linking, accessible tables (XC-1..7 frontend)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | charts, frontend |
+| Depends on | TASK-094, TASK-095 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-025 |
+| Slice | FL-025-C |
+
+**Outcome.** Lazy-loaded ECharts views for the wellbore and field sets with separate unit axes, gap-preserving decimated lines, evidence tooltips, stale-response protection, data tables, and a reusable ChartBlock for the assistant; built on fixtures until TASK-100 merges.
+**Next action.** Dispatch after TASK-094 and TASK-095 are integrated.
+**Evidence.** none yet
+
+### TASK-103 · Chat backend: conversations, allowlisted tools, validated typed answers (AV-1/2/3/6/8)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | rag, backend |
+| Depends on | TASK-094 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-027 |
+| Slice | FL-027-A |
+
+**Outcome.** Persistent project-scoped conversations (migration 0020) run through the existing WorkUnit/ledger with read-only typed tools and a server-side answer validator producing text, value, chart, link and gap blocks; fake provider only.
+**Next action.** Dispatch after TASK-094 is integrated.
+**Evidence.** none yet
+
+### TASK-104 · Chat UI: expandable dock panel, persona avatar, block renderers, deep links (AV-4/5/7)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend, rag |
+| Depends on | TASK-094, TASK-095 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-027 |
+| Slice | FL-027-B |
+
+**Outcome.** An expandable accessible chat with an SVG persona avatar renders cited text, values, charts and links; link clicks use the ExploreCommands bus to open sources, fly the camera or open a chart window; built on fixtures until TASK-103 merges.
+**Next action.** Dispatch after TASK-094 and TASK-095 are integrated.
+**Evidence.** none yet
+
+### TASK-105 · Integration: formation layer registration, stage layout, assistant tools for formations and charts
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend, backend, rag |
+| Depends on | TASK-096, TASK-097, TASK-098, TASK-100, TASK-102, TASK-103, TASK-104 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-027 |
+| Slice | FL-027-C |
+
+**Outcome.** The formation layer is mounted in both viewers, chat tools call the formation and chart read models, chart-to-scene linking and the Explore layout are wired, and the combined flow works on merged lanes.
+**Next action.** Dispatch when all seven wave-1 lanes are merged.
+**Evidence.** none yet
+
+### TASK-106 · Independent QA and combined browser acceptance for explore enrichment
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | qa |
+| Depends on | TASK-105 |
+| Assignee | agent:fieldlens-qa |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-025 |
+| Slice | FL-025-D |
+
+**Outcome.** A separate QA agent verifies FO, XC, CM and AV criteria per feature and one combined browser flow (formations, fly-over, wellbore and field charts, cited chart answer with working links), recording mock versus real-data evidence and reproducible defects.
+**Next action.** Dispatch after TASK-105; per-feature QA may start as each lane pair merges.
+**Evidence.** none yet
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
@@ -3196,3 +3545,4 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 **Outcome.** At the default field-view zoom every reconstructed trajectory is a clearly visible line (screen-space minimum width), not a faint dotted trace; selected-radius semantics are unchanged.
 **Next action.** Owner manual check of the look and click-to-select on the thin line.
 **Evidence.** Merged 0.52.1 (61b1c1d). Implementer: lint, typecheck, 407 vitest tests and build pass; +1 draw call for the whole field. Independent browser QA was stopped at the owner's request; not visually verified, picking only unit-tested.
+

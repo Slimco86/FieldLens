@@ -34,6 +34,7 @@ See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
 | FL-020 | [Tracking](TRACKING.md) | Telegram notify, backlog ledger format, one-way Taiga sync |
 | FL-021 | [UI design system](UI_DESIGN_SYSTEM.md) | Approved October 30 (light theme, Mantine, left project sidebar + Sources/Reconstruction/Explore tabs); A: shell and redesigned Projects/Sources; B: demo polish; C: source removal/replacement (TASK-039, semantics pending) |
 | FL-022 | [Agentic extraction](AGENTIC_EXTRACTION.md) | Approved October 30; question-driven model-proposed candidates with read-only tools, deterministic validation and an activity log (TASK-036, TASK-038) |
+| FL-024..027 | [Explore enrichment](EXPLORE_ENRICHMENT.md) | Approved November 3: formations in 3D, wellbore/field charts, fly-over/smooth camera, project assistant; [plan](../../plan/feature-explore-enrichment-1.md) |
 
 ## Project requirement -> acceptance -> verification
 
