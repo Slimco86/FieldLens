@@ -120,7 +120,9 @@ def test_out_of_range_md_components_are_dropped_with_findings(world: World) -> N
     assert r.status_code == 201
     spec = r.json()["spec"]
     assert "9-5/8 in casing" not in {c["label"] for c in spec["components"]}
-    assert [f["code"] for f in spec["findings"]] == ["out_of_md_range"]
+    # structured records of the same wellbore (perforations) beyond the range are dropped too
+    codes = {f["code"] for f in spec["findings"]}
+    assert codes == {"out_of_md_range"} and len(spec["findings"]) >= 1
 
 
 def test_scoping_and_guards(world: World) -> None:

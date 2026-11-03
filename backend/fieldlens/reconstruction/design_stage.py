@@ -2,9 +2,12 @@
 
 A run belongs to one wellbore (a bulk estimate queues one run per merged wellbore), so this stage
 designs ``ctx.wellbore_id`` only. A user-confirmed run is the authorization: the estimate is shown
-for information and no spend gate applies here. Without a model (or on the stub provider) the stage
-is ``stubbed`` and stores nothing; with one, the latest valid spec becomes the current one and the
-earlier ones stay as history. A failed design leaves the current 3D model untouched.
+for information and no spend gate applies here. The input is the union of the wellbore's structured
+records (converted deterministically, no model call) and its model-read equipment items (F2). Without
+a model the spec is still built and stored from them; with one, the model is called only when there
+are model-read items to label. The latest valid spec becomes the current one (an unchanged spec makes
+no new revision) and earlier ones stay as history. A failed design leaves the current 3D model
+untouched. "No equipment data" is reported only when both sources are empty.
 """
 
 from __future__ import annotations
@@ -15,9 +18,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from fieldlens.assetspec.live_designer import LiveDesigner
+from fieldlens.assetspec.live_designer import NO_DATA, LiveDesigner, design_without_model
+from fieldlens.assetspec.structured import wellbores_with_structured
+from fieldlens.assetspec.sweep import wellbore_documents
 from fieldlens.candidates.tables import extraction_candidate as c
 from fieldlens.contracts.reconstruction import ReconstructionStageKind, ReconstructionStageName
+from fieldlens.persistence import models as m
 from fieldlens.reconstruction.matching import _StageCancel
 from fieldlens.reconstruction.stages import StageContext, StagePlan, StageResult, StageStop
 
@@ -53,9 +59,8 @@ class DesignAssetExecutor:
     def estimated_usd(self) -> Decimal:
         return ZERO
 
-    @staticmethod
-    def _wellbores(session: Session, project_id: UUID) -> list[UUID]:
-        return list(
+    def _wellbores(self, session: Session, project_id: UUID) -> list[UUID]:
+        model_read = set(
             session.execute(
                 select(c.c.wellbore_id)
                 .where(
@@ -67,45 +72,80 @@ class DesignAssetExecutor:
                 .distinct()
             ).scalars()
         )
+        found = model_read | set(wellbores_with_structured(session, project_id))
+        if self._designer is not None and self._designer.has_sweeper:  # F2b: documents count too
+            for wb in session.execute(
+                select(m.wellbore.c.wellbore_id).where(m.wellbore.c.project_id == project_id)
+            ).scalars():
+                if wb not in found and wellbore_documents(session, project_id, wb):
+                    found.add(wb)
+        return sorted(found, key=str)
 
     def plan(self, session: Session, project_id: UUID) -> StagePlan:
         wellbores = self._wellbores(session, project_id)
         if self._designer is None:
+            if not wellbores:
+                return StagePlan(
+                    "stub",
+                    new_work=0,
+                    unit="wellbores",
+                    note="No equipment records to design from.",
+                )
             return StagePlan(
-                "stub",
+                "will_run",
                 new_work=len(wellbores),
                 unit="wellbores",
-                note="Not available: no model configured, so no 3D model is designed.",
+                note=(
+                    "No model configured: the 3D model is built from structured records "
+                    "without a model call; model-read items are used unlabelled."
+                ),
             )
         research = (
             " Public pictures of named equipment may be looked up."
             if self._designer.research_enabled
             else ""
         )
+        sweep = self._designer.sweep_estimate(session, project_id, wellbores)
+        usd = self._designer.label_estimate_usd(session, project_id, wellbores)
+        sweep_note = ""
+        if sweep is not None:
+            usd += sweep.usd
+            sweep_note = (
+                f" Equipment sweep: {sweep.documents} document(s), {sweep.pages} page(s) to read, "
+                f"{sweep.reused_pages} already read (estimate for information only)."
+            )
         return StagePlan(
             "will_run",
             new_work=len(wellbores),
+            reused=sweep.reused_pages if sweep is not None else 0,
             unit="wellbores",
-            usd=self._designer.estimate_usd(session, project_id, wellbores),
+            usd=usd,
             note=(
                 "A new 3D model replaces the current one; the previous one stays in history."
                 if wellbores
                 else "No equipment records to design from."
             )
+            + sweep_note
             + research,
         )
 
     def run(self, ctx: StageContext) -> StageResult:
-        if self._designer is None:
-            return StageResult(
-                "stubbed",
-                STUB_REASON,
-                "Not available: no model configured. Stub run: no 3D model was designed.",
-            )
         ctx.checkpoint()
-        outcome = self._designer.design(
-            ctx.project_id, ctx.wellbore_id, str(ctx.run_id), _StageCancel(ctx.checkpoint)
-        )
+        if self._designer is None:
+            outcome = design_without_model(
+                ctx.factory, ctx.project_id, ctx.wellbore_id, str(ctx.run_id)
+            )
+            if outcome.ok and outcome.message == NO_DATA:  # nothing to build and no model
+                return StageResult(
+                    "stubbed",
+                    STUB_REASON,
+                    "No equipment data for this wellbore; nothing to design (no model configured).",
+                    counts=outcome.counts,
+                )
+        else:
+            outcome = self._designer.design(
+                ctx.project_id, ctx.wellbore_id, str(ctx.run_id), _StageCancel(ctx.checkpoint)
+            )
         if outcome.cancelled:
             raise StageStop("cancelled by the user")
         ctx.checkpoint()

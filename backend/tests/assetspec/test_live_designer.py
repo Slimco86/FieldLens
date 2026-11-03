@@ -248,10 +248,12 @@ def _ctx(world: World, pid: UUID, wb: UUID, stop: bool = False) -> StageContext:
 
 def test_executor_states_stub_success_failure_cancel(world: World) -> None:
     pid, wb = _wb(world)
-    assert DesignAssetExecutor(None).run(_ctx(world, pid, wb)).state == "stubbed"
+    # no model: the stored sources still become a spec (F2), nothing is "stubbed" away
+    assert DesignAssetExecutor(None).run(_ctx(world, pid, wb)).state == "succeeded"
+    assert _current(world, pid, wb).spec.generator.provider == "stub"
     with world.factory() as s:
         plan = DesignAssetExecutor(None).plan(s, pid)
-    assert plan.availability == "stub" and plan.new_work == 1
+    assert plan.availability == "will_run" and plan.new_work == 2  # F-99 and F-98 (perforations)
     d, _ = _designer(world, [_reply(*GOOD), refusal_response()])
     ex = DesignAssetExecutor(d)
     with world.factory() as s:
@@ -602,3 +604,30 @@ def test_unknown_research_backend_fails_at_settings_load() -> None:
     with pytest.raises(ValueError, match="VISUAL_RESEARCH_BACKEND"):
         Settings(visual_research_backend="google")
     assert Settings(visual_research_backend="off").visual_research_backend == "off"
+
+
+def test_a_failed_label_call_keeps_the_structured_design_and_never_replaces_a_better_spec(
+    world: World,
+) -> None:
+    from tests.assetspec.test_structured import A, T, seed_records
+
+    pid, wb = _wb(world)
+    seed_records(
+        world,
+        world.imageonly_doc,
+        wb,
+        [("casing_point", [T("casing_point.name", "Shoe A"), A("casing_point.md", 900.0)], {})],
+    )
+    d, _ = _designer(world, [refusal_response(), _reply(*GOOD), refusal_response()])
+    out = d.design(pid, wb, "run-1")
+    assert not out.ok and out.record is not None and "labelling stopped" in out.message
+    rec = _current(world, pid, wb)
+    assert rec.spec.generator.provider != "meta"
+    assert any("Shoe A" in c.label for c in rec.spec.components)  # the structured design is kept
+    # a labelled (model) spec is better: a later failed run must not replace it
+    assert d.design(pid, wb, "run-2").ok
+    labelled = _current(world, pid, wb)
+    assert labelled.spec.generator.provider == "meta"
+    failed = d.design(pid, wb, "run-3")
+    assert not failed.ok and failed.record is None
+    assert _current(world, pid, wb).revision == labelled.revision

@@ -67,6 +67,7 @@ from fieldlens.assistant.messages import (
 )
 from fieldlens.assistant.provider import CancelToken, Pricing, Provider
 from fieldlens.assistant.runner import RequestLimits, WorkUnit
+from fieldlens.assistant.tables import provider_attempt
 from fieldlens.contracts.activity import AgentStepOutcome
 from fieldlens.contracts.candidates import CandidateState
 from fieldlens.contracts.evidence import EvidenceLink
@@ -443,7 +444,26 @@ class ExtractionHarness:
             self._end(unit, handle, key, "failed", reason, None, True)
         except ActivityLogError:
             raise
-        return self._outcome_for(handle, key, state, reason, started, req.page, calls)
+        return self._outcome_for(
+            handle, key, state, reason, started, req.page, calls, self._attempt_usage(unit)
+        )
+
+    def _attempt_usage(self, unit: WorkUnit) -> tuple[int, int, int, Decimal] | None:
+        """Real provider attempts of the unit (failed ones too): count, tokens, spend."""
+        res = unit.reservation
+        if res is None:
+            return None
+        try:
+            with session_scope(self._factory) as s:
+                n = s.execute(
+                    select(func.count()).where(
+                        provider_attempt.c.reservation_id == res.reservation_id
+                    )
+                ).scalar_one()
+            tin, tout = self._ledger.attempt_tokens(res.reservation_id)
+            return int(n), tin, tout, self._ledger.spent_so_far(res.reservation_id)
+        except Exception:  # noqa: BLE001 - accounting detail must not fail the unit
+            return None
 
     def _tools_for(self, req: UnitRequest, toolbox: Toolbox) -> tuple[Any, ...]:
         if req.kind != "equipment":
@@ -896,12 +916,19 @@ class ExtractionHarness:
         started: float,
         page: int | None,
         calls: int,
+        usage: tuple[int, int, int, Decimal] | None = None,
     ) -> UnitOutcome:
         t = m.agent_work_unit
         with session_scope(self._factory) as s:
             row = s.execute(select(t).where(t.c.unit_id == handle.unit_id)).mappings().one()
         out = self._outcome(row, key, False, started, page)
         out.state, out.stop_reason, out.provider_calls = state, reason, calls
+        if usage is not None:  # failed attempts count: calls, tokens and spend are real
+            n, tin, tout, cost = usage
+            out.provider_calls = max(calls, n)
+            out.input_tokens = max(out.input_tokens, tin)
+            out.output_tokens = max(out.output_tokens, tout)
+            out.cost_usd = max(out.cost_usd, cost)
         return out
 
     # -- document run (AX-14) -----------------------------------------------------------------
@@ -921,6 +948,7 @@ class ExtractionHarness:
         cancel: CancelToken | None = None,
         rotations: dict[int, int] | None = None,
         document_subject: str | None = None,
+        retries: dict[int, int] | None = None,
     ) -> RunSummary:
         started = self._clock()
         doc = self._reader.require(project_id, revision_id, document_id)
@@ -991,6 +1019,7 @@ class ExtractionHarness:
                             as_of=as_of,
                             rotation=(rotations or {}).get(page),
                             document_subject=document_subject,
+                            retry=(retries or {}).get(page, 0),
                         ),
                         cancel=token,
                     ): page

@@ -72,6 +72,17 @@ _STATUS_CODES: dict[int, ErrorCode] = {
 logger = logging.getLogger(__name__)
 
 
+def _with_sweeper(
+    designer: Any, processing: Any, factory: Any, store: Any, settings: Settings
+) -> Any:
+    """S5 equipment sweep (F2b) on the same live Meta context; no live model, no sweeper."""
+    if designer is not None:
+        from fieldlens.assetspec.sweep import build_sweeper
+
+        designer.attach_sweeper(build_sweeper(processing, factory, store, settings))
+    return designer
+
+
 def _request_id(request: Request) -> str:
     return getattr(request.state, "request_id", None) or uuid.uuid4().hex
 
@@ -330,8 +341,14 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
             settings,
             reader=live_reader,
             proposer=live_proposer,
-            designer=build_live_designer(
-                app.state.processing, app.state.session_factory, app.state.blob_store, settings
+            designer=_with_sweeper(
+                build_live_designer(
+                    app.state.processing, app.state.session_factory, app.state.blob_store, settings
+                ),
+                app.state.processing,
+                app.state.session_factory,
+                app.state.blob_store,
+                settings,
             ),
         )
         if app.state.session_factory is not None

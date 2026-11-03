@@ -38,7 +38,10 @@ from fieldlens.identity.resolver import known_md_max
 from fieldlens.merge_proposals.proposer import failure_reason, failure_text
 
 from . import designer, service
+from .merge_sources import reconcile
 from .research import ResearchResult, VisualReferenceResearcher, clean_text
+from .structured import StructuredResult, structured_components
+from .sweep import NOT_AVAILABLE, EquipmentSweeper, SweepEstimate, SweepReport
 from .validator import validate_spec
 
 log = logging.getLogger(__name__)
@@ -233,6 +236,134 @@ def _compose(
     return comp
 
 
+NO_DATA = "no equipment data for this wellbore; nothing to design"
+
+
+def _md_range(session: Session, project_id: UUID, wellbore_id: UUID) -> tuple[float, float] | None:
+    md_max = known_md_max(session, project_id, wellbore_id)
+    if md_max is not None and md_max > 0:
+        return (0.0, md_max * MD_TOLERANCE)  # located parts beyond it -> unlocated
+    return None
+
+
+def _store(
+    factory: sessionmaker[Session],
+    project_id: UUID,
+    wellbore_id: UUID,
+    spec: dict[str, Any],
+    md_range_m: tuple[float, float] | None,
+    structured: StructuredResult,
+    model_read: int,
+    counts: dict[str, int] | None = None,
+    usd: Decimal = Decimal("0"),
+    tin: int = 0,
+    tout: int = 0,
+    sweep: SweepReport | None = None,
+) -> DesignOutcome:
+    """Validate, rebuild rejected parts as generic ones, store unless unchanged (one transaction)."""
+    cnt: Counter[str] = Counter(counts or {})
+    if sweep is not None:
+        cnt.update(sweep.counts())
+    all_parts: list[dict[str, Any]] = spec["components"]
+    s_part = [c for c in all_parts if str(c["id"]).startswith("rec-")]
+    m_part = [c for c in all_parts if not str(c["id"]).startswith("rec-")]
+    s_part, m_part, conflicts = reconcile(s_part, m_part)
+    cnt["source_conflicts"] = conflicts
+    spec = {**spec, "components": [*s_part, *m_part]}
+    comps: list[dict[str, Any]] = spec["components"]
+    first = validate_spec(spec, md_range_m=md_range_m)
+    rebuilt = {f.component_id for f in first.findings if f.component_id}
+    if rebuilt:
+        fixed = []
+        for c in comps:
+            if c["id"] in rebuilt:
+                c = _generic(c, "Shown as a generic shape: the detailed form was rejected.")
+                if c["kind"] not in {k.value for k in SURFACE_KINDS}:
+                    c["placement"] = {"state": "unlocated", "reason": "placement rejected"}
+            fixed.append(c)
+        spec = {**spec, "components": fixed}
+        cnt["rebuilt_generic"] = len(rebuilt)
+    try:
+        with factory.begin() as s:
+            record, created = service.store_validated_checked(
+                s, project_id, wellbore_id, spec, md_range_m=md_range_m, skip_unchanged=True
+            )
+    except ContractError:
+        return DesignOutcome(
+            False,
+            "3D design rejected by validation; the current 3D model is unchanged",
+            "validation_failed",
+            dict(cnt),
+            usd,
+            tin,
+            tout,
+        )
+    cnt["components"] = len(record.spec.components)
+    cnt["dropped"] = len(record.spec.findings)
+    cnt["unlocated"] = sum(1 for c in record.spec.components if c.placement.state == "unlocated")
+    cnt["structured"] = len(structured.components)
+    cnt["model_read"] = model_read
+    cnt["structured_records"] = structured.record_count
+    cnt["containers_skipped"] = structured.containers_skipped
+    cnt["structured_merged"] = structured.merged
+    cnt["structured_conflicts"] = structured.conflicts
+    cnt["intervention_tools_skipped"] = structured.intervention_skipped
+    cnt["structured_omitted"] = structured.truncated
+    cnt["unchanged"] = 0 if created else 1
+    message = (
+        f"Designed {len(structured.components)} component(s) from structured records, "
+        f"{model_read} from model-read items; "
+        + (
+            f"revision {record.revision}"
+            if created
+            else f"unchanged, revision {record.revision} kept"
+        )
+    )
+    if structured.truncated:
+        message += f" ({structured.truncated} further structured record(s) not drawn)"
+    if structured.merged:
+        message += f"; {structured.merged} duplicate/shoe record(s) folded into their string"
+    if structured.conflicts:
+        message += f"; {structured.conflicts} structured OD conflict(s) kept visible"
+    if structured.intervention_skipped:
+        names = ", ".join(dict.fromkeys(structured.intervention_names[:3]))
+        more = structured.intervention_skipped - len(structured.intervention_names[:3])
+        message += (
+            f"; {structured.intervention_skipped} intervention/BHA record(s) not drawn: {names}"
+            + (f" (+{more} more)" if more > 0 else "")
+        )
+    if conflicts:
+        message += f"; {conflicts} source conflict(s) shown generic, none chosen"
+    if sweep is not None:
+        message += ". " + sweep.message()
+    return DesignOutcome(True, message, None, dict(cnt), usd, tin, tout, record)
+
+
+def design_without_model(
+    factory: sessionmaker[Session], project_id: UUID, wellbore_id: UUID, run_key: str
+) -> DesignOutcome:
+    """S5 with no live model: structured records (and any model-read items, in their stored
+    form) become the spec deterministically; no model call, no spend."""
+    with factory() as s:
+        rows = designer.candidate_rows(s, project_id, wellbore_id)
+        structured = structured_components(s, project_id, wellbore_id)
+        if not rows and not structured.components:
+            return DesignOutcome(True, NO_DATA, counts={"designed": 0})
+        spec = designer.design(s, project_id, wellbore_id)
+        spec["generator"] = {**spec["generator"], "run_id": run_key[:64]}
+        md_range_m = _md_range(s, project_id, wellbore_id)
+    return _store(
+        factory,
+        project_id,
+        wellbore_id,
+        spec,
+        md_range_m,
+        structured,
+        len(rows),
+        sweep=SweepReport(available=False, note=NOT_AVAILABLE),
+    )
+
+
 class LiveDesigner:
     def __init__(
         self,
@@ -241,7 +372,9 @@ class LiveDesigner:
         provider: Provider,
         config: DesignerConfig,
         researcher: VisualReferenceResearcher | None = None,
+        sweeper: EquipmentSweeper | None = None,
     ) -> None:
+        self._sweeper = sweeper
         self._factory = factory
         self._ledger = ledger
         self._provider = provider
@@ -249,11 +382,34 @@ class LiveDesigner:
         self._researcher = researcher
 
     @property
+    def has_sweeper(self) -> bool:
+        return self._sweeper is not None
+
+    def attach_sweeper(self, sweeper: EquipmentSweeper | None) -> None:
+        """Plug in the S5 equipment sweep (F2b); without one only stored sources are used."""
+        self._sweeper = sweeper
+
+    @property
     def research_enabled(self) -> bool:
         return self._researcher is not None and self._researcher.enabled
 
     # -- planning (information only; no call, no spend) ---------------------------------------
+    def sweep_estimate(
+        self, session: Session, project_id: UUID, wellbore_ids: list[UUID]
+    ) -> SweepEstimate | None:
+        if self._sweeper is None:
+            return None
+        return self._sweeper.estimate(session, project_id, wellbore_ids)
+
     def estimate_usd(self, session: Session, project_id: UUID, wellbore_ids: list[UUID]) -> Decimal:
+        sweep = self.sweep_estimate(session, project_id, wellbore_ids)
+        return self.label_estimate_usd(session, project_id, wellbore_ids) + (
+            sweep.usd if sweep is not None else Decimal("0")
+        )
+
+    def label_estimate_usd(
+        self, session: Session, project_id: UUID, wellbore_ids: list[UUID]
+    ) -> Decimal:
         total = Decimal("0")
         for wb in wellbore_ids:
             rows = designer.candidate_rows(session, project_id, wb)
@@ -279,21 +435,50 @@ class LiveDesigner:
         md_range_m: tuple[float, float] | None = None,
     ) -> DesignOutcome:
         cancel = cancel or CancelToken()
+        sweep: SweepReport | None = None
+        if self._sweeper is not None:  # F2b: read the wellbore's documents first (cached per page)
+            sweep = self._sweeper.sweep(project_id, wellbore_id, cancel)
+            if cancel.cancelled:
+                return DesignOutcome(
+                    False, "cancelled", "request_cancelled", sweep.counts(), cancelled=True
+                )
+        sweep_usd = sweep.usd if sweep is not None else Decimal("0")
         with self._factory() as s:
             rows = designer.candidate_rows(s, project_id, wellbore_id)
             head = designer.header(s, project_id, wellbore_id)
-            if md_range_m is None:
-                md_max = known_md_max(s, project_id, wellbore_id)
-                if md_max is not None and md_max > 0:
-                    md_range_m = (
-                        0.0,
-                        md_max * MD_TOLERANCE,
-                    )  # located parts beyond it -> unlocated
-        if not rows:
+            structured = structured_components(s, project_id, wellbore_id)
+            md_range_m = md_range_m or _md_range(s, project_id, wellbore_id)
+        if not rows and not structured.components:
             return DesignOutcome(
                 True,
-                "no equipment data for this wellbore; nothing to design",
-                counts={"designed": 0},
+                NO_DATA,
+                counts={"designed": 0, **(sweep.counts() if sweep else {})},
+                usd=sweep_usd,
+                input_tokens=sweep.input_tokens if sweep else 0,
+                output_tokens=sweep.output_tokens if sweep else 0,
+            )
+        if not rows:  # structured records only: no model call, nothing to label
+            spec = {
+                **head,
+                "generator": {
+                    "provider": designer.STRUCTURED_PROVIDER,
+                    "model": designer.STRUCTURED_MODEL,
+                    "run_id": run_key[:64],
+                },
+                "components": structured.components,
+            }
+            return _store(
+                self._factory,
+                project_id,
+                wellbore_id,
+                spec,
+                md_range_m,
+                structured,
+                0,
+                usd=sweep_usd,
+                tin=sweep.input_tokens if sweep else 0,
+                tout=sweep.output_tokens if sweep else 0,
+                sweep=sweep,
             )
         refs = {f"c{i}": r for i, r in enumerate(rows, 1)}
         references, researched = self._research(refs, cancel)
@@ -346,14 +531,34 @@ class LiveDesigner:
                     "run_already_completed",
                     dict(counts),
                 )
+            all_counts = {**counts, **(sweep.counts() if sweep else {})}
+            all_usd = usd + sweep_usd
+            all_in = tin + (sweep.input_tokens if sweep else 0)
+            all_out = tout + (sweep.output_tokens if sweep else 0)
+            stored = None
+            if reason != "request_cancelled":
+                stored = self._store_unlabelled(
+                    project_id, wellbore_id, run_key, md_range_m, structured, sweep
+                )
+            if stored is not None:  # the structured design is not lost with the label call
+                return DesignOutcome(
+                    False,
+                    f"3D design: model labelling stopped ({failure_text(reason)}); {stored.message}",
+                    reason,
+                    {**all_counts, **stored.counts},
+                    all_usd,
+                    all_in,
+                    all_out,
+                    stored.record,
+                )
             return DesignOutcome(
                 False,
                 f"3D design stopped: {failure_text(reason)}; the current 3D model is unchanged",
                 reason,
-                dict(counts),
-                usd,
-                tin,
-                tout,
+                all_counts,
+                all_usd,
+                all_in,
+                all_out,
                 cancelled=reason == "request_cancelled",
             )
         by_ref: dict[str, _RawComponent] = {}
@@ -372,52 +577,59 @@ class LiveDesigner:
                 "model": self._config.model,
                 "run_id": run_key[:64],
             },
-            "components": comps,
+            "components": [*structured.components, *comps],
         }
-        first = validate_spec(spec, md_range_m=md_range_m)
-        rebuilt = {f.component_id for f in first.findings if f.component_id}
-        if rebuilt:
-            fixed = []
-            for c in comps:
-                if c["id"] in rebuilt:
-                    c = _generic(c, "Shown as a generic shape: the detailed form was rejected.")
-                    if c["kind"] in {k.value for k in SURFACE_KINDS}:
-                        pass
-                    else:
-                        c["placement"] = {"state": "unlocated", "reason": "placement rejected"}
-                fixed.append(c)
-            spec["components"] = fixed
-            counts["rebuilt_generic"] = len(rebuilt)
-        try:
-            with self._factory.begin() as s:
-                record = service.store_validated(
-                    s, project_id, wellbore_id, spec, md_range_m=md_range_m
-                )
-        except ContractError:
-            return DesignOutcome(
-                False,
-                "3D design rejected by validation; the current 3D model is unchanged",
-                "validation_failed",
-                dict(counts),
-                usd,
-                tin,
-                tout,
-            )
-        counts["components"] = len(record.spec.components)
-        counts["dropped"] = len(record.spec.findings)
-        counts["unlocated"] = sum(
-            1 for c in record.spec.components if c.placement.state == "unlocated"
-        )
-        return DesignOutcome(
-            True,
-            f"3D model designed: {counts['components']} labelled part(s), revision {record.revision}",
-            None,
+        return _store(
+            self._factory,
+            project_id,
+            wellbore_id,
+            spec,
+            md_range_m,
+            structured,
+            len(comps),
             dict(counts),
-            usd,
-            tin,
-            tout,
-            record,
+            usd + sweep_usd,
+            tin + (sweep.input_tokens if sweep else 0),
+            tout + (sweep.output_tokens if sweep else 0),
+            sweep,
         )
+
+    def _store_unlabelled(
+        self,
+        project_id: UUID,
+        wellbore_id: UUID,
+        run_key: str,
+        md_range_m: tuple[float, float] | None,
+        structured: StructuredResult,
+        sweep: SweepReport | None,
+    ) -> DesignOutcome | None:
+        """Fallback after a failed label call: structured components plus the model-read items as
+        they are stored (unlabelled). A model-labelled current spec is never replaced by it."""
+        try:
+            with self._factory() as s:
+                try:
+                    current = service.get_current(s, project_id, wellbore_id)
+                except ContractError:
+                    current = None
+                if current is not None and current.spec.generator.provider == PROVIDER_NAME:
+                    return None
+                spec = designer.design(s, project_id, wellbore_id)
+                spec["generator"] = {**spec["generator"], "run_id": run_key[:64]}
+                rows = designer.candidate_rows(s, project_id, wellbore_id)
+            out = _store(
+                self._factory,
+                project_id,
+                wellbore_id,
+                spec,
+                md_range_m,
+                structured,
+                len(rows),
+                sweep=sweep,
+            )
+        except Exception:  # noqa: BLE001 - the fallback must never hide the original failure
+            log.exception("asset design fallback failed")
+            return None
+        return out if out.ok else None
 
     def _research(
         self, refs: dict[str, Any], cancel: CancelToken
