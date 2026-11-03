@@ -161,6 +161,31 @@ the first station are placed by linear interpolation of `md_m` over `tie_in.poin
   tie-in and no warning. Missing first-station TVD at MD > 0 keeps the existing
   `WELLHEAD_START_UNKNOWN` block.
 
+### Wellbore view: tie-in, default wellhead, unlocated components (TASK-090, EXPLORE_POLISH E)
+
+- **Tie-in.** `TrajectoryInput.tieIn` (mapped from the API `tie_in` by `tieInInput`) is prepended to the drawn
+  path by `WellPath.fromTrajectory`: the points from MD 0 to just before the first station (the last tie-in
+  point *is* the first station, so it is not duplicated). The trace is one tube from the well hole (origin) to
+  the end; it is labelled "Derived tie-in, display only (not surveyed)" in the label layer and in the model
+  notes. A tie-in is used only when the first station MD > 0 and it validates (>= 2 finite points, strictly
+  increasing MD, starts at the origin, ends on the first station within 1 mm); otherwise it is ignored
+  (`tieInIgnored`), never repaired.
+- **Placement.** Components/casing/tubing/hole sections with MD between 0 and the first station are placed by
+  linear interpolation of `md_m` over the tie-in (`WellPath.at`/`slice`); absolute MD/TVD are unchanged, so
+  the formation-top overlay stays valid. Tie-in points are not survey stations: `stationCount`, the Survey info
+  counts and every calculation use the real stations only.
+- **No tie-in** (`tie_in` null and first station MD > 0): the trace starts at the first station, components above
+  it stay unlocated, and the model note plus the backend `TIE_IN_NOT_DERIVED` warning (shown with the other
+  survey warnings) explain it. Nothing is invented.
+- **Default wellhead.** A wellhead is always drawn at the well hole. When no `wellhead` component is placed
+  there (absent, or unlocated/outside the MD range) `SceneModel.defaultWellhead` supplies the generic default
+  wellhead (`wellheadBody`, default dimensions, labelled "Wellhead (default, generic: not from the sources)");
+  it is not a component (not in the list, counts or inspector). A christmas tree stands on it.
+- **Unlocated components** are no longer drawn (no tray): they stay in the component list ("listed only, not
+  drawn in the 3D view") and inspector, selectable, with no invented depth. The `Unlocated` view button
+  and `fitUnlocated` command were removed.
+- `toTrajectoryState` passes `tie_in` through `tieInInput` into `TrajectoryInput.tieIn` (tested end to end).
+
 ### Field view: reconstructed-only set, layout and thickness (TASK-089, EXPLORE_POLISH D)
 
 - **Which wellbores.** Only wellbores with a current asset spec are listed in the field-view tree,

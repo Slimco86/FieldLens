@@ -219,7 +219,7 @@ interface SceneBodyProps {
 
 function SceneBody({ record, projectId, wellbore, picker, generateButton, genError }: SceneBodyProps) {
   const [exaggeration, setExaggeration] = useState<number>(() => defaultExaggeration(locatedMdMax(record.spec)));
-  const [view, setView] = useState<"wellhead" | "whole" | "unlocated" | "selection">("wellhead");
+  const [view, setView] = useState<"wellhead" | "whole" | "selection">("wellhead");
   const [surfaceScale, setSurfaceScale] = useState<number>(1);
   const [cutaway, setCutaway] = useState(true);
   const [labels, setLabels] = useState<LabelMode>("all");
@@ -273,9 +273,6 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
         }}
       >
         Reset
-      </button>
-      <button type="button" onClick={() => { setView("unlocated"); commands.current?.fitUnlocated(); }} disabled={model.unlocated.length === 0}>
-        Unlocated
       </button>
       <button type="button" aria-label="Zoom in" onClick={() => commands.current?.zoom(0.8)}>
         +

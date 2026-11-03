@@ -119,8 +119,11 @@ export interface SceneModel {
   downhole: SceneElement[];
   surface: SceneElement[];
   unlocated: SceneElement[];
-  /** Centre of the unlocated tray and its half extents (render coordinates), or null when empty. */
-  tray: { center: Vec3; halfX: number; halfZ: number } | null;
+  /**
+   * The generic default wellhead drawn at the well hole when no wellhead component is placed there
+   * (labelled default; not a component of the spec, so it is not in `elements`, the list or the counts).
+   */
+  defaultWellhead: SceneElement | null;
   byId: Map<string, SceneElement>;
   notes: string[];
 }
@@ -130,23 +133,31 @@ export interface ModelOptions {
   surfaceScale: number;
 }
 
-const TRAY_WEST_M = 40;
-const TRAY_GAP_M = 4;
+/** Id/label of the generic default wellhead (never a spec component). */
+export const DEFAULT_WELLHEAD_ID = "default-wellhead";
+export const DEFAULT_WELLHEAD_LABEL = "Wellhead (default, generic: not from the sources)";
 
 /**
  * Pure mapping from a spec and a path to renderable descriptors. Placement rules:
  * located -> interpolated by MD along the path; surface -> ground layout near the wellhead;
- * unlocated (or MD outside the path) -> the separate tray, never an invented depth.
+ * unlocated (or MD outside the path) -> listed only, not drawn and never given an invented depth.
+ * A wellhead is always drawn at the well hole (origin): the spec's, else a labelled generic default.
  */
 export function buildSceneModel(spec: VisualAssetSpec, path: WellPath, options: ModelOptions = { surfaceScale: 1 }): SceneModel {
+  void options; // surface scale is applied by the renderer; the model has no scale-dependent layout since the tray was removed
   const notes: string[] = [];
   const comps = spec.components ?? [];
   const elements: SceneElement[] = [];
   let surfaceSlot = 0;
-  let trayCursor = 0;
-  const wh = comps.find((c) => c.kind === "wellhead");
+  const placedHere = (c: AssetComponent): boolean => {
+    const pl = c.placement;
+    if (pl.state === "surface") return true;
+    return pl.state === "located" && path.covers(lengthToMetres(pl.md_top, pl.unit)) && path.covers(lengthToMetres(pl.md_bottom, pl.unit));
+  };
+  const wh = comps.find((c) => c.kind === "wellhead" && placedHere(c));
   const whLen = wh?.params?.length ? sizeToMetres(wh.params.length) : DEFAULT_DIMS.wellhead.length;
-  const treeBase = wh ? whLen : 0;
+  // A tree stands on the wellhead: the spec's or the default one.
+  const treeBase = whLen;
 
   const baseDims = (c: AssetComponent) => {
     const d = DEFAULT_DIMS[c.kind];
@@ -187,9 +198,8 @@ export function buildSceneModel(spec: VisualAssetSpec, path: WellPath, options: 
       if (len === null) dims.length = "default";
       mdTopM = null;
       mdBottomM = null;
-      const w = Math.max(outerR * 2 * options.surfaceScale, 1.2) + TRAY_GAP_M;
-      position = [-TRAY_WEST_M, 0, -(trayCursor + w / 2)];
-      trayCursor += w;
+      // Not drawn: the element stays in the list and inspector only.
+      position = [0, 0, 0];
       tangent = [0, 1, 0];
     };
 
@@ -290,15 +300,19 @@ export function buildSceneModel(spec: VisualAssetSpec, path: WellPath, options: 
   }
 
   const unlocated = elements.filter((e) => e.zone === "unlocated");
-  const tray =
-    unlocated.length > 0
-      ? {
-          center: [-TRAY_WEST_M, 0, -trayCursor / 2] as Vec3,
-          halfX: Math.max(6, ...unlocated.map((e) => e.outerRadiusM * options.surfaceScale + 3)),
-          halfZ: trayCursor / 2 + 1,
-        }
-      : null;
+  const hasWellhead = elements.some((e) => e.kind === "wellhead" && e.zone !== "unlocated");
+  const defaultWellhead: SceneElement | null = hasWellhead ? null : defaultWellheadElement();
+  if (!hasWellhead) notes.push("No wellhead is placed at the well hole in the sources: a generic default wellhead is drawn there (illustrative, not documented).");
   if (!path.available) notes.push(`Trajectory unavailable: components are drawn along a vertical placeholder line (MD treated as depth), not a surveyed path.`);
+  else if (path.tieInKind !== null) {
+    notes.push(
+      `The trace starts at the well hole with a derived ${path.tieInKind} tie-in (MD 0-${path.firstStationMd.toFixed(1)} m, display only, not surveyed) joining it to the first surveyed station; depth records are unchanged.`,
+    );
+  } else if (path.mdMin > 1e-6) {
+    notes.push(
+      `The first surveyed station is at MD ${path.mdMin.toFixed(1)} m, below the wellhead, and no tie-in was derived: the trace starts at that station and components above it are not placed.${path.tieInIgnored !== null ? ` (A supplied tie-in was ignored: ${path.tieInIgnored}.)` : ""}`,
+    );
+  }
   if (spec.components?.length === 0) notes.push("The spec has no components.");
   return {
     path,
@@ -306,9 +320,42 @@ export function buildSceneModel(spec: VisualAssetSpec, path: WellPath, options: 
     downhole: elements.filter((e) => e.zone === "downhole"),
     surface: elements.filter((e) => e.zone === "surface"),
     unlocated,
-    tray,
+    defaultWellhead,
     byId: new Map(elements.map((e) => [e.id, e])),
     notes,
+  };
+}
+
+/** The generic default wellhead descriptor: at the origin, default dimensions, always illustrative. */
+function defaultWellheadElement(): SceneElement {
+  const d = DEFAULT_DIMS.wellhead;
+  const source: AssetComponent = {
+    id: DEFAULT_WELLHEAD_ID,
+    kind: "wellhead",
+    label: DEFAULT_WELLHEAD_LABEL,
+    representation: "generic_illustrative",
+    placement: { state: "surface", offset_east_m: null, offset_north_m: null },
+  } as AssetComponent;
+  return {
+    id: DEFAULT_WELLHEAD_ID,
+    kind: "wellhead",
+    label: DEFAULT_WELLHEAD_LABEL,
+    zone: "surface",
+    representation: "generic_illustrative",
+    placement: { state: "surface", offset: { east: 0, north: 0, fromSpec: false } },
+    mdTopM: null,
+    mdBottomM: null,
+    outerRadiusM: d.od / 2,
+    innerRadiusM: null,
+    lengthM: d.length,
+    dims: { od: "default", id: "default", length: "default" },
+    position: [0, 0, 0],
+    tangent: [0, 1, 0],
+    baseOffsetM: 0,
+    route: null,
+    illustrative: true,
+    scaleClass: "surface",
+    source,
   };
 }
 

@@ -12,7 +12,7 @@ interface Props {
 const GROUPS: { key: "downhole" | "surface" | "unlocated"; title: string }[] = [
   { key: "downhole", title: "Downhole (by measured depth)" },
   { key: "surface", title: "Surface facilities" },
-  { key: "unlocated", title: "Unlocated components" },
+  { key: "unlocated", title: "Unlocated components (listed only, not drawn in the 3D view)" },
 ];
 
 /** Keyboard-navigable component list: arrows move focus, Enter/Space selects (and flies to it). */
