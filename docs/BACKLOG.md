@@ -2929,7 +2929,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | in_progress |
 | Priority | P0 |
 | Tags | qa |
 | Depends on | TASK-079, TASK-080 |
@@ -2942,5 +2942,47 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Slice | FL-023-F |
 
 **Outcome.** Independent acceptance of AG-1..AG-10 and an owner-authorized live Meta run, reported separately from stubs.
-**Next action.** Blocked; needs a USD allowance for the live run.
-**Evidence.** none yet; planning only (2026-11-02).
+**Next action.** Stub/fake-provider acceptance of 0.43.0 is done; the live Meta run needs the owner's authorization (proposal: one most-complete wellbore, a PDF of at most 5 pages, estimated USD 0.05-0.30, allowance cap about USD 1.00, isolated lane, never the app database). Defects D1-D5 are in TASK-082; D6 is TASK-083.
+**Evidence.** Master 0.43.0 integrated QA (2026-11-03): backend 1585 passed, ruff/mypy strict clean, alembic single head with a clean downgrade/upgrade round trip, frontend vitest 329 and build clean, full Playwright 37 passed / 2 failed (stale shell.spec UI-2/UI-10 assertions, D4); cross-feature walk with the stub provider and synthetic fixtures PASS. Not verified: any live provider behaviour.
+
+### TASK-082 · 0.43.0 final-QA polish: badge contrast, canvas role, focus return, stale e2e assertions, e2e storage root
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P1 |
+| Tags | frontend, qa |
+| Depends on | TASK-081 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-G |
+
+**Outcome.** Fixes the reproduced integrated-QA defects: illustrative badge contrast (D1), scene canvas role (D2), focus return after back-to-field and merge Accept/Reject/Revert (D3), stale shell.spec assertions (D4) and the e2e runner's stale storage root (D5).
+**Next action.** Worker running in a worktree; independent re-verification, then a patch release.
+**Evidence.** none yet.
+
+### TASK-083 · Real survey trajectory in the 3D views
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P1 |
+| Tags | backend, geospatial, frontend |
+| Depends on | TASK-078, TASK-080 |
+| Assignee | agent:fieldlens-geospatial |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-H |
+
+**Outcome.** The wellbore and field views draw the wellbore's real validated survey (deterministic min-curvature local offsets with CRS/datum and depth reference preserved) instead of the labelled vertical placeholder, through a read-only project-scoped route.
+**Next action.** Needs a feature spec (route contract, CRS and datum handling, planned vs as-built, units, local render origin, field-view positions from validated coordinates) and owner approval; the engineering/trajectory module already exists.
+**Evidence.** Found by integrated QA (D6): `trajectoryFor()` reads only a test hook, so every wellbore shows the labelled vertical placeholder even when trajectory stations exist.
