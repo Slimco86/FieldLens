@@ -2992,7 +2992,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | bug |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, rag |
 | Depends on | TASK-076 |
@@ -3000,13 +3000,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/WELLBORE_ASSET_GENERATION.md |
-| Version | none |
+| Version | 0.44.1 |
 | Parent | FL-023 |
 | Slice | FL-023-I |
 
 **Outcome.** S3 (and S5) no longer fail `output_truncated` on real Meta: low reasoning effort, a retry with a larger bound, real tokens recorded on failure and a readable failure message.
-**Next action.** Worker in a worktree (`feature/task-084-s3-truncation`).
-**Evidence.** Owner live run on F-5/F-12 (2026-11-03): S3 failed `output_truncated` after USD 0.010 with 0 tokens recorded; S3/S5 configs used `effort=None` (provider default high).
+**Next action.** Owner live re-run on F-5/F-12. Minor follow-ups: unknown usage on a truncated reply shows as 0 tokens (should be unknown); the S3 output bound is fixed (2048, doubled on retry) rather than sized to block count; max_attempts=2 leaves no headroom for a 429 plus a truncation.
+**Evidence.** Independent QA PASS on `d7228d7`: full backend 1590 passed, ruff/mypy clean; scenarios truncate-once, truncate-twice, truncation then 429/5xx, cancel, re-run without re-spend all pass with one settled reservation; shared runner/budget change does not alter S2, harness or chat callers. Fake provider only: whether low/minimal effort avoids truncation on real Muse Spark is not measured.
 
 ### TASK-085 · S5 designs from structured equipment records (live-run finding F2)
 

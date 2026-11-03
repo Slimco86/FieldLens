@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.44.1 - 2026-11-03
+
+- **TASK-084 fix: reconstruction S3 "Match wellbores" failed `output_truncated` on real Meta.** S3 and S5 ran at the provider's default (high) reasoning effort, which used up the output bound. They now run at low effort, a truncated reply is retried once with minimal effort and a doubled bound in the same reservation, the failed stage records the real tokens and USD, and the message reads "The model ran out of output space; try again (a retry was already attempted)" (code `output_truncated`).
+
 ## 0.44.0 - 2026-11-03
 
 - **TASK-083 the 3D views draw the real survey.** New read-only `GET /api/v1/projects/{project_id}/wellbores/{wellbore_id}/trajectory`: the wellbore's validated as-built survey, minimum-curvature local offsets from the wellhead computed in double precision, MD/TVD references, units and the surface location with its stated CRS/datum preserved (never assumed), display-only downsampling with source/displayed counts, and the sets not drawn with reasons. A set whose north reference is not stated is blocked, not guessed. The wellbore and field views fetch it per wellbore; located equipment sits on the real trace; a wellbore without a valid survey keeps the labelled placeholder with the reason. The field view keeps its schematic grid.
