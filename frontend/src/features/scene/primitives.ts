@@ -87,21 +87,21 @@ class Kit {
   }
 
   /** Gate (default) or ball valve at a point; flow along `axis`; `s` is the body size. */
-  valve(x: number, y: number, z: number, s: number, axis: "x" | "z" = "x", style: "gate" | "ball" = "gate", body: MaterialRole = "paintBlue"): void {
+  valve(x: number, y: number, z: number, s: number, axis: "x" | "z" = "x", style: "gate" | "ball" = "gate", body: MaterialRole = "paintBlue", wheel: MaterialRole = "paintRed"): void {
     const g = new THREE.Group();
     const sub = new Kit(g, this.lib, this.generic);
     if (style === "gate") {
       sub.box(body, s * 1.0, s * 0.85, s * 0.7);
       sub.cyl("steelDark", s * 0.3, s * 0.55, 0, s * 0.7, 0);
       sub.cyl("steelBright", s * 0.05, s * 0.5, 0, s * 1.15, 0);
-      sub.ring("paintRed", s * 0.34, 0.14, 0, s * 1.4, 0, "y");
+      sub.ring(wheel, s * 0.34, 0.14, 0, s * 1.4, 0, "y");
     } else {
       sub.sphere(body, s * 0.55);
       sub.cyl("steelDark", s * 0.12, s * 0.5, 0, s * 0.6, 0);
-      sub.box("paintRed", s * 0.1, s * 0.08, s * 0.9, 0, s * 0.9, 0);
+      sub.box(wheel, s * 0.1, s * 0.08, s * 0.9, 0, s * 0.9, 0);
     }
-    sub.cyl("steelBright", s * 0.42, s * 0.1, -s * 0.55, 0, 0, "x");
-    sub.cyl("steelBright", s * 0.42, s * 0.1, s * 0.55, 0, 0, "x");
+    sub.cyl("steelBright", s * 0.42, s * 0.1, -s * 0.55, 0, 0, "x", true);
+    sub.cyl("steelBright", s * 0.42, s * 0.1, s * 0.55, 0, 0, "x", true);
     if (axis === "z") g.rotation.y = HALF_PI;
     g.position.set(x, y, z);
     this.parent.add(g);
@@ -198,21 +198,38 @@ function mandrel(k: Kit, R: number, L: number): void {
   k.box("steelDark", R * 0.2, L * 0.12, R * 0.34, R * 1.2, L * 0.1, 0);
 }
 
+/**
+ * Wellhead: casing-head spool and tubing spool (blue-grey steel) between dark flanges with stud rings, brass
+ * seal rings, a red and a blue gate valve with contrasting handwheels, and a pressure gauge with a cream dial.
+ * Repeated studs are instanced; everything uses shared unit geometries and the shared material cache.
+ */
 function wellheadBody(k: Kit, R: number, H: number): void {
   const y0 = -H / 2;
+  // Casing head: base flange, spool, mid flange.
   k.cyl("steelDark", R, H * 0.12, 0, y0 + H * 0.06);
   k.around("steelBright", R * 0.88, y0 + H * 0.06, 16, R * 0.08, H * 0.16, R * 0.08);
-  k.cyl("steel", R * 0.7, H * 0.28, 0, y0 + H * 0.26);
+  k.cyl("casing", R * 0.7, H * 0.28, 0, y0 + H * 0.26);
   k.cyl("steelDark", R * 0.9, H * 0.08, 0, y0 + H * 0.44);
+  k.around("brass", R * 0.8, y0 + H * 0.44, 12, R * 0.07, H * 0.11, R * 0.07);
+  // Tubing spool and top flange.
   k.cyl("steel", R * 0.62, H * 0.3, 0, y0 + H * 0.63);
   k.ring("brass", R * 0.64, 0.05, 0, y0 + H * 0.5);
   k.cyl("steelDark", R * 0.8, H * 0.08, 0, y0 + H * 0.82);
   k.around("steelBright", R * 0.7, y0 + H * 0.82, 12, R * 0.07, H * 0.12, R * 0.07);
-  k.cyl("steel", R * 0.4, H * 0.1, 0, y0 + H * 0.95);
-  for (const s of [1, -1]) {
-    k.cyl("steel", R * 0.12, R * 0.9, s * R * 1.0, y0 + H * 0.26, 0, "x");
-    k.valve(s * R * 1.7, y0 + H * 0.26, 0, R * 0.34, "x", "gate", "paintRed");
+  k.cyl("steelBright", R * 0.4, H * 0.1, 0, y0 + H * 0.95);
+  // Side outlets: one red valve with a blue wheel, one blue valve with a red wheel.
+  const wing: [number, MaterialRole, MaterialRole][] = [
+    [1, "paintRed", "paintBlue"],
+    [-1, "paintBlue", "paintRed"],
+  ];
+  for (const [s, body, wheel] of wing) {
+    k.cyl("steel", R * 0.12, R * 0.9, s * R * 1.0, y0 + H * 0.26, 0, "x", true);
+    k.valve(s * R * 1.7, y0 + H * 0.26, 0, R * 0.34, "x", "gate", body, wheel);
   }
+  // Pressure gauge on the top cap: stem, bezel and cream dial facing +Z.
+  k.cyl("steelDark", R * 0.05, R * 0.3, 0, y0 + H * 1.0 + R * 0.1, 0, "y", true);
+  k.cyl("steelBright", R * 0.17, R * 0.06, 0, y0 + H * 1.0 + R * 0.34, 0, "z", true);
+  k.cyl("paintCream", R * 0.14, R * 0.07, 0, y0 + H * 1.0 + R * 0.34, R * 0.01, "z", true);
 }
 
 function christmasTree(k: Kit, R: number, H: number): void {

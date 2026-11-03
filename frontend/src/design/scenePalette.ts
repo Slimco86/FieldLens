@@ -20,6 +20,8 @@ export const scenePalette = {
   labelMuted: "#b8c7dc",
   // Selection / attention accent (matches the design attention colour family).
   highlight: "#ffb347",
+  // Selection tint for warm-hued materials whose own colour is close to the amber accent (perforations, brass, orange/yellow paint).
+  highlightCool: "#8fd3ff",
   // Field view (TASK-080): pads under each wellbore and the colour of markers; never engineering state.
   fieldPad: "#3a5379",
   fieldPadMissing: "#4d4838",
@@ -27,22 +29,24 @@ export const scenePalette = {
   fieldPadLoading: "#34455f",
   fieldMarkerDocumented: "#6fe0c0",
   fieldMarkerIllustrative: "#9aa6b4",
-  // Materials.
-  steel: "#a9b3bd",
-  steelDark: "#5c6670",
-  steelBright: "#cfd6dc",
-  casing: "#7d8994",
-  rubber: "#1d2024",
-  brass: "#c9973a",
-  paintBlue: "#2c68b4",
-  paintRed: "#b8362b",
-  paintYellow: "#d9a62b",
-  paintGreen: "#2f8a6b",
-  paintCream: "#d8d4c4",
-  paintOrange: "#d9692b",
+  // Materials: distinct hues per element family (casing blue-grey, tubing light, cement sand, hole brown, rubber charcoal).
+  steel: "#b4bdc6",
+  steelDark: "#716d6b",
+  steelBright: "#e3e9ee",
+  casing: "#6f8296",
+  rubber: "#2a2c31",
+  brass: "#d1a03c",
+  paintBlue: "#2f6fd0",
+  paintRed: "#c43a2d",
+  paintYellow: "#e0b030",
+  paintGreen: "#2f9a72",
+  paintCream: "#e2dcc6",
+  paintOrange: "#e0702a",
   paintGrey: "#8a96a3",
-  perforation: "#ff7a2f",
+  perforation: "#ff6a3d",
   concrete: "#6c7480",
+  cement: "#a89a82",
+  openHole: "#6b4f3a",
   genericGrey: "#9aa6b4",
   genericMix: "#8d98a6",
 } as const;
@@ -63,4 +67,6 @@ export type MaterialRole =
   | "paintGrey"
   | "perforation"
   | "concrete"
+  | "cement"
+  | "openHole"
   | "genericGrey";
