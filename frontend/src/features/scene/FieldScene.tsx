@@ -291,7 +291,7 @@ function FieldInspector({ well, onOpen, survey }: { well: FieldWell | null; onOp
       </KeyValueList>
       {well.status === "error" && <p role="alert">{well.message}</p>}
       {well.placement === "unlocated" && <p className={styles.note}>No planar surface location is stated for this wellbore, so it waits in the unlocated row south of the field; this is not its map position.</p>}
-      {well.counts.unlocated > 0 && <p className={styles.note}>Unlocated components are not drawn in the field view; the wellbore view shows them in its separate tray.</p>}
+      {well.counts.unlocated > 0 && <p className={styles.note}>Unlocated components are not drawn in the field view; the wellbore view lists them (list and inspector) but does not draw them.</p>}
       <button type="button" onClick={() => onOpen(well.id)} data-testid="field-inspector-open">
         Open wellbore view
       </button>

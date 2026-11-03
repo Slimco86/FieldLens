@@ -26,7 +26,6 @@ export interface ViewerCommands {
   fitAll(): void;
   /** Wellhead, surface facilities and the top of the hole (the default first view). */
   fitWellhead(): void;
-  fitUnlocated(): void;
   focus(id: string): void;
   zoom(factor: number): void;
 }
@@ -165,7 +164,7 @@ interface BuiltAssets {
   bounds: THREE.Box3;
 }
 
-function buildAssets(model: SceneModel, options: ViewerOptions): BuiltAssets {
+export function buildAssets(model: SceneModel, options: ViewerOptions): BuiltAssets {
   const lib = new SceneResources();
   const ctx: BuildContext = { lib, path: model.path, exaggeration: options.exaggeration, surfaceScale: options.surfaceScale, cutaway: options.cutaway };
   const root = new THREE.Group();
@@ -199,7 +198,9 @@ function buildAssets(model: SceneModel, options: ViewerOptions): BuiltAssets {
   for (const v of verts) bounds.expandByPoint(new THREE.Vector3(...v.position));
   bounds.expandByPoint(new THREE.Vector3(0, 0, 0));
 
+  // Unlocated components are listed (list + inspector) but never drawn: they have no place in the well.
   model.elements.forEach((el, index) => {
+    if (el.zone === "unlocated") return;
     const g = buildElement(el, ctx);
     root.add(g);
     const b = elementBounds(g);
@@ -212,6 +213,33 @@ function buildAssets(model: SceneModel, options: ViewerOptions): BuiltAssets {
     }
     anchors.push({ id: el.id, text: el.label, position: c, priority: 1 + index * 0.01 + (el.zone === "downhole" ? 0.5 : 0), kind: "element", illustrative: el.illustrative });
   });
+
+  // The wellhead is always present at the well hole: the generic default when the spec has none placed.
+  const dw = model.defaultWellhead;
+  if (dw !== null) {
+    const g = buildElement(dw, ctx);
+    root.add(g);
+    const b = elementBounds(g);
+    if (!b.isEmpty()) {
+      bounds.union(b);
+      const c = b.getCenter(new THREE.Vector3());
+      c.y = b.max.y;
+      anchors.push({ id: dw.id, text: dw.label, position: c, priority: 1.9, kind: "element", illustrative: true });
+    }
+  }
+
+  // The derived tie-in (wellhead to the first surveyed station) is drawn as part of the same tube.
+  if (model.path.available && model.path.tieInKind !== null) {
+    const m = model.path.at(model.path.firstStationMd / 2);
+    anchors.push({
+      id: "tie-in",
+      text: `Derived ${model.path.tieInKind} tie-in, display only (not surveyed)`,
+      position: new THREE.Vector3(...m.position),
+      priority: 31,
+      kind: "area",
+      illustrative: true,
+    });
+  }
 
   // Depth marks along the path (MD), a ring perpendicular to the path and a label.
   if (options.depthMarks) {
@@ -239,36 +267,6 @@ function buildAssets(model: SceneModel, options: ViewerOptions): BuiltAssets {
     }
   }
 
-  if (model.tray !== null) {
-    const t = model.tray;
-    const hx = t.halfX;
-    const hz = t.halfZ;
-    const plate = new THREE.Mesh(
-      lib.track(new THREE.PlaneGeometry(hx * 2, hz * 2)),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(scenePalette.trayFill), transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }),
-    );
-    plate.rotation.x = -Math.PI / 2;
-    plate.position.set(t.center[0], 0.06, t.center[2]);
-    plate.name = "tray";
-    const edge = new THREE.LineLoop(
-      lib.track(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-hx, 0, -hz), new THREE.Vector3(hx, 0, -hz), new THREE.Vector3(hx, 0, hz), new THREE.Vector3(-hx, 0, hz)])),
-      new THREE.LineBasicMaterial({ color: new THREE.Color(scenePalette.trayEdge) }),
-    );
-    edge.position.set(t.center[0], 0.08, t.center[2]);
-    root.add(plate, edge);
-    lib.own(plate.material as THREE.Material);
-    lib.own(edge.material as THREE.Material);
-    anchors.push({
-      id: "tray",
-      text: "Unlocated components — not placed in the well (sizes illustrative)",
-      position: new THREE.Vector3(t.center[0], 0.2, t.center[2] + hz),
-      priority: 2,
-      kind: "area",
-      illustrative: true,
-    });
-    const tb = new THREE.Box3().setFromObject(plate);
-    bounds.union(tb);
-  }
   root.updateMatrixWorld(true);
   return { root, lib, anchors, bounds };
 }
@@ -361,14 +359,12 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
       fitAll: () => frame.go(sphereOf(built.bounds)),
       fitWellhead: () => {
         const b = boundsOf((e) => e.zone === "surface" || e.kind === "wellhead" || e.kind === "christmas_tree");
+        const dwGroup = built.root.children.find((c) => c.userData["elementId"] === model.defaultWellhead?.id);
+        if (dwGroup !== undefined) b.union(elementBounds(dwGroup));
         if (b.isEmpty()) b.set(new THREE.Vector3(-10, 0, -10), new THREE.Vector3(10, 6, 10));
         // Include the top of the hole so the first cased metres are in view.
         b.expandByPoint(new THREE.Vector3(0, -WELLHEAD_VIEW_DEPTH_M, 0));
         frame.go({ ...sphereOf(b), keepDirection: false });
-      },
-      fitUnlocated: () => {
-        const b = boundsOf((e) => e.zone === "unlocated");
-        if (!b.isEmpty()) frame.go(sphereOf(b));
       },
       focus: (id) => {
         const el = model.byId.get(id);

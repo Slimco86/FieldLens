@@ -1,6 +1,6 @@
 import { ApiError } from "../../api/client";
 import { getTrajectory, type WellboreTrajectory } from "./api";
-import type { TrajectoryInput } from "./trajectory";
+import { tieInInput, type TrajectoryInput } from "./trajectory";
 
 declare global {
   interface Window {
@@ -81,6 +81,8 @@ export function toTrajectoryState(t: WellboreTrajectory): TrajectoryState {
     input: {
       source: label,
       stations: t.points.map((p) => ({ md_m: p.md_m, tvd_m: p.tvd_m, east_m: p.east_m, north_m: p.north_m })),
+      // Derived, display-only tie-in (null when none was derived); never a survey station.
+      tieIn: tieInInput(t.tie_in),
     },
     info: {
       label,

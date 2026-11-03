@@ -30,14 +30,14 @@ describe("spec -> scene mapping", () => {
     expect(new Set(COMPONENT_KINDS).size).toBe(20);
   });
 
-  it("unlocated components go to the tray and keep no invented depth", () => {
+  it("unlocated components are listed, keep no invented depth and have no tray", () => {
     const { m } = model("f12-unlocated.json");
     expect(m.unlocated.length).toBeGreaterThan(0);
     for (const el of m.unlocated) {
       expect(el.mdTopM).toBeNull();
       expect(el.zone).toBe("unlocated");
     }
-    expect(m.tray).not.toBeNull();
+    expect("tray" in m).toBe(false);
   });
 
   it("surface kinds sit on the ground plane near the wellhead", () => {
