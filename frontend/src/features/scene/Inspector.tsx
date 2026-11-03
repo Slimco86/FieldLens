@@ -4,6 +4,7 @@ import { KeyValue, KeyValueList } from "../../design";
 import styles from "./Scene.module.css";
 
 const DIM_TEXT = { spec: "from spec", default: "default (illustrative)", interval: "from interval", derived: "derived" } as const;
+const has = <T,>(v: T | null | undefined): v is T => v !== null && v !== undefined;
 const fmt = (m: number) => `${Math.round(m * 1000) / 1000} m`;
 
 /** Details of the selected element, including every evidence reference and the visual reference. */
@@ -35,7 +36,7 @@ export function Inspector({ element }: { element: SceneElement | null }) {
           {fmt(element.lengthM)} ({DIM_TEXT[element.dims.length]})
         </KeyValue>
       </KeyValueList>
-      {s.confidence_note !== null && <p className={styles.note}>{s.confidence_note}</p>}
+      {has(s.confidence_note) && <p className={styles.note}>{s.confidence_note}</p>}
       <h4>Evidence</h4>
       {(s.evidence ?? []).length === 0 ? (
         <p className={styles.note} data-testid="inspector-no-evidence">No evidence references: this component is not source-backed.</p>
@@ -43,25 +44,25 @@ export function Inspector({ element }: { element: SceneElement | null }) {
         <ul className={styles.evidence} data-testid="inspector-evidence">
           {(s.evidence ?? []).map((e, i) => (
             <li key={i}>
-              {e.document_id !== null ? `Document ${e.document_id}` : "Candidate"}
-              {e.page !== null ? `, page ${e.page}` : ""}
-              {e.candidate_id !== null ? ` (candidate ${e.candidate_id})` : ""}
-              {e.quote !== null ? `: “${e.quote}”` : ""}
+              {has(e.document_id) ? `Document ${e.document_id}` : "Candidate"}
+              {has(e.page) ? `, page ${e.page}` : ""}
+              {has(e.candidate_id) ? ` (candidate ${e.candidate_id})` : ""}
+              {has(e.quote) ? `: “${e.quote}”` : ""}
             </li>
           ))}
         </ul>
       )}
-      {ref !== null && (
+      {has(ref) && (
         <p data-testid="inspector-visual-reference">
           Visual reference:{" "}
-          {ref.url !== null && /^https?:\/\//i.test(ref.url) ? (
+          {has(ref.url) && /^https?:\/\//i.test(ref.url) ? (
             <a href={ref.url} target="_blank" rel="noopener noreferrer">
               {ref.title ?? ref.url}
             </a>
           ) : (
             (ref.title ?? "see note")
           )}
-          {ref.note !== null ? ` — ${ref.note}` : ""}
+          {has(ref.note) ? ` — ${ref.note}` : ""}
         </p>
       )}
     </div>
