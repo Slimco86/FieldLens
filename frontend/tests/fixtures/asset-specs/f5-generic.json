@@ -1,0 +1,30 @@
+{
+  "project_id": "00000000-0000-4000-8000-0000000007a1",
+  "wellbore_id": "00000000-0000-4000-8000-0000000f0005",
+  "source_revision": "srcrev-f5",
+  "identity_revision": null,
+  "spec_version": "1",
+  "generator": {"provider": "stub", "model": "stub-designer-1", "run_id": "fixture-f5"},
+  "generated_at": "2026-11-02T20:00:00Z",
+  "status": "current",
+  "visual_only": true,
+  "components": [
+    {
+      "id": "blk-1", "kind": "generic_block", "label": "Equipment (type unknown)",
+      "placement": {"state": "unlocated", "reason": "No category or depth"},
+      "representation": "generic_illustrative",
+      "confidence_note": "Illustrative placeholder only."
+    },
+    {
+      "id": "tank-1", "kind": "tank", "label": "Storage tank",
+      "placement": {"state": "surface", "offset_east_m": 60},
+      "representation": "generic_illustrative"
+    },
+    {
+      "id": "blk-2", "kind": "generic_block", "label": "Equipment (type unknown)",
+      "placement": {"state": "located", "md_top": 1200, "md_bottom": 1260, "unit": "m", "depth_reference": "MD"},
+      "representation": "generic_illustrative",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d001", "page": 6, "quote": "item at 1200 m"}]
+    }
+  ]
+}

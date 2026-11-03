@@ -1088,6 +1088,48 @@ export interface components {
          * @description Discriminated historical query time.
          */
         AsOf: components["schemas"]["InstantAsOf"] | components["schemas"]["DayAsOf"];
+        /** AssetComponent */
+        AssetComponent: {
+            /**
+             * Confidence Note
+             * @description Free text, never proof.
+             * @default null
+             */
+            confidence_note: string | null;
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceRef"][];
+            /** Id */
+            id: string;
+            kind: components["schemas"]["ComponentKind"];
+            /**
+             * Label
+             * @description Visible name; never blank.
+             */
+            label: string;
+            /** @default null */
+            params: components["schemas"]["ComponentParams"] | null;
+            /** Placement */
+            placement: components["schemas"]["Located"] | components["schemas"]["Unlocated"] | components["schemas"]["Surface"];
+            representation: components["schemas"]["Representation"];
+            /** @default null */
+            visual_reference: components["schemas"]["VisualReference"] | null;
+        };
+        /**
+         * AssetSpecGenerateRequest
+         * @description Stub-designer input. The MD range (from the trajectory, when known) bounds located parts.
+         */
+        AssetSpecGenerateRequest: {
+            /**
+             * Md Max
+             * @default null
+             */
+            md_max: number | null;
+            /**
+             * Md Min
+             * @default null
+             */
+            md_min: number | null;
+        };
         /**
          * AttemptStatus
          * @enum {string}
@@ -1258,6 +1300,33 @@ export interface components {
             /** Tags */
             tags: string[];
         };
+        /**
+         * ComponentKind
+         * @description Closed enum of registered render primitives; unknown kinds are rejected.
+         * @enum {string}
+         */
+        ComponentKind: "casing" | "liner" | "tubing" | "packer" | "pump_esp" | "bearing" | "plug" | "nipple" | "valve" | "mandrel" | "perforation_interval" | "wellhead" | "christmas_tree" | "generic_block" | "separator" | "choke" | "manifold" | "tank" | "flowline" | "pump_surface";
+        /**
+         * ComponentParams
+         * @description Bounded numeric params. Which of them a kind accepts is checked by the validator.
+         */
+        ComponentParams: {
+            /**
+             * @description Inside diameter (below ``od``).
+             * @default null
+             */
+            id: components["schemas"]["SizeQuantity"] | null;
+            /**
+             * @description Body length (or height).
+             * @default null
+             */
+            length: components["schemas"]["SizeQuantity"] | null;
+            /**
+             * @description Outside diameter.
+             * @default null
+             */
+            od: components["schemas"]["SizeQuantity"] | null;
+        };
         /** ConvertedTextLocator */
         ConvertedTextLocator: {
             /**
@@ -1340,6 +1409,11 @@ export interface components {
          * @enum {string}
          */
         DegradedReason: "embedder_disabled" | "model_missing" | "model_load_failed" | "embedder_busy" | "embedding_failed" | "vector_index_incomplete" | "vector_index_partial" | "query_embedding_invalid" | "no_indexed_documents";
+        /**
+         * DepthReference
+         * @enum {string}
+         */
+        DepthReference: "MD";
         /** DerivationLocator */
         DerivationLocator: {
             /** Input Claim Ids */
@@ -2032,6 +2106,32 @@ export interface components {
             source_revision_id: string | null;
         };
         /**
+         * EvidenceRef
+         * @description Where a component's facts come from: a document (page, quote) and/or a candidate.
+         */
+        EvidenceRef: {
+            /**
+             * Candidate Id
+             * @default null
+             */
+            candidate_id: string | null;
+            /**
+             * Document Id
+             * @default null
+             */
+            document_id: string | null;
+            /**
+             * Page
+             * @default null
+             */
+            page: number | null;
+            /**
+             * Quote
+             * @default null
+             */
+            quote: string | null;
+        };
+        /**
          * EvidenceSearchQuery
          * @description Typed arguments of the ``search_evidence`` tool and of the read endpoint.
          */
@@ -2639,6 +2739,11 @@ export interface components {
          * @enum {string}
          */
         ExtractionStatus: "queued" | "running" | "succeeded" | "partial" | "failed" | "interrupted" | "unsupported";
+        /**
+         * FindingCode
+         * @enum {string}
+         */
+        FindingCode: "spec_too_large" | "header_invalid" | "too_many_components" | "unknown_kind" | "schema_invalid" | "duplicate_id" | "param_not_allowed" | "param_out_of_bounds" | "out_of_md_range" | "missing_evidence" | "generic_dimensioned" | "placement_not_allowed" | "label_empty";
         /** GateCondition */
         GateCondition: {
             /** Code */
@@ -3113,6 +3218,26 @@ export interface components {
          */
         JobStatus: "queued" | "running" | "succeeded" | "partial" | "failed" | "cancelled" | "interrupted";
         JsonValue: unknown;
+        /**
+         * LengthUnit
+         * @enum {string}
+         */
+        LengthUnit: "m" | "ft";
+        /** Located */
+        Located: {
+            /** @default MD */
+            depth_reference: components["schemas"]["DepthReference"];
+            /** Md Bottom */
+            md_bottom: number;
+            /** Md Top */
+            md_top: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "located";
+            unit: components["schemas"]["LengthUnit"];
+        };
         /**
          * Locator
          * @description Closed locator variants keyed by ``kind``.
@@ -4915,6 +5040,11 @@ export interface components {
             raw_text: string;
         };
         /**
+         * Representation
+         * @enum {string}
+         */
+        Representation: "source_dimensioned" | "catalog_reference" | "generic_illustrative";
+        /**
          * RequeueOutcome
          * @enum {string}
          */
@@ -5317,6 +5447,20 @@ export interface components {
             /** Csrf Token */
             csrf_token: string;
         };
+        /** SizeQuantity */
+        SizeQuantity: {
+            unit: components["schemas"]["SizeUnit"];
+            /**
+             * Value
+             * @description Positive finite number in ``unit``.
+             */
+            value: number;
+        };
+        /**
+         * SizeUnit
+         * @enum {string}
+         */
+        SizeUnit: "mm" | "in" | "m" | "ft";
         /**
          * SourceContext
          * @description Source inspection: labeled observations only; no entity or as-of defaults.
@@ -5590,6 +5734,50 @@ export interface components {
             /** Unsupported Count */
             unsupported_count: number;
         };
+        /**
+         * SpecFinding
+         * @description Why a component (or the whole document) was dropped; never a silent repair.
+         */
+        SpecFinding: {
+            code: components["schemas"]["FindingCode"];
+            /**
+             * Component Id
+             * @default null
+             */
+            component_id: string | null;
+            /**
+             * Index
+             * @description Position in the submitted list.
+             * @default null
+             */
+            index: number | null;
+            /** Message */
+            message: string;
+        };
+        /** SpecGenerator */
+        SpecGenerator: {
+            /** Model */
+            model: string;
+            /** Provider */
+            provider: string;
+            /**
+             * Run Id
+             * @default null
+             */
+            run_id: string | null;
+        };
+        /**
+         * SpecState
+         * @description Persistence state of one stored revision.
+         * @enum {string}
+         */
+        SpecState: "current" | "superseded" | "invalidated";
+        /**
+         * SpecStatus
+         * @description No draft/accept gate: the latest valid generated spec is shown directly.
+         * @enum {string}
+         */
+        SpecStatus: "current" | "superseded";
         /** StartGate */
         StartGate: {
             /** Can Start */
@@ -5649,10 +5837,49 @@ export interface components {
          */
         StorageState: "pending_verification" | "stored" | "failed";
         /**
+         * StoredImageRef
+         * @description A bounded image file kept outside the database (reference only; fetching is a later lane).
+         */
+        StoredImageRef: {
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "image/png" | "image/jpeg" | "image/webp";
+            /** Sha256 */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Storage Key */
+            storage_key: string;
+        };
+        /**
          * SubjectType
          * @enum {string}
          */
         SubjectType: "field" | "well" | "wellbore" | "completion" | "component" | "interval";
+        /**
+         * Surface
+         * @description Above ground, near the wellhead. The offset is an optional local layout hint in metres
+         *     (east/north of the wellhead), never a surveyed position.
+         */
+        Surface: {
+            /**
+             * Offset East M
+             * @default null
+             */
+            offset_east_m: number | null;
+            /**
+             * Offset North M
+             * @default null
+             */
+            offset_north_m: number | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "surface";
+        };
         /** TextLocator */
         TextLocator: {
             /**
@@ -5754,6 +5981,22 @@ export interface components {
          * @enum {string}
          */
         UnitStatus: "stated" | "not_applicable" | "missing";
+        /**
+         * Unlocated
+         * @description Placement unknown: shown in a side preview, never at an invented depth.
+         */
+        Unlocated: {
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "unlocated";
+        };
         /** UnresolvedIdentityGroup */
         UnresolvedIdentityGroup: {
             /** Detail */
@@ -5812,6 +6055,99 @@ export interface components {
             /** @default null */
             reason: components["schemas"]["ReasonCode"] | null;
             validator: components["schemas"]["ValidatorName"];
+        };
+        /** VisualAssetSpec */
+        VisualAssetSpec: {
+            /** Components */
+            components?: components["schemas"]["AssetComponent"][];
+            /** Findings */
+            findings?: components["schemas"]["SpecFinding"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            generator: components["schemas"]["SpecGenerator"];
+            /**
+             * Identity Revision
+             * @description Identity/merge basis the spec was built on.
+             * @default null
+             */
+            identity_revision: string | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Source Revision */
+            source_revision: string;
+            /**
+             * Spec Version
+             * @default 1
+             * @constant
+             */
+            spec_version: "1";
+            status: components["schemas"]["SpecStatus"];
+            /**
+             * Visual Only
+             * @description Constant: nothing in a spec feeds calculations or published claims.
+             * @default true
+             * @constant
+             */
+            visual_only: true;
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+        };
+        /**
+         * VisualAssetSpecRecord
+         * @description One stored revision of a wellbore's spec.
+         */
+        VisualAssetSpecRecord: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Revision */
+            revision: number;
+            spec: components["schemas"]["VisualAssetSpec"];
+            /**
+             * Spec Id
+             * Format: uuid
+             */
+            spec_id: string;
+            state: components["schemas"]["SpecState"];
+        };
+        /**
+         * VisualReference
+         * @description An external visual reference: untrusted data, "not evidence of installation".
+         */
+        VisualReference: {
+            /** @default null */
+            image: components["schemas"]["StoredImageRef"] | null;
+            /**
+             * Note
+             * @default null
+             */
+            note: string | null;
+            /**
+             * Retrieved At
+             * @default null
+             */
+            retrieved_at: string | null;
+            /**
+             * Title
+             * @default null
+             */
+            title: string | null;
+            /**
+             * Url
+             * @default null
+             */
+            url: string | null;
         };
         /** Well */
         Well: {

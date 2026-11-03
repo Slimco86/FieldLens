@@ -1,0 +1,43 @@
+{
+  "project_id": "00000000-0000-4000-8000-0000000007a1",
+  "wellbore_id": "00000000-0000-4000-8000-0000000f0012",
+  "source_revision": "srcrev-f12",
+  "identity_revision": "idrev-3",
+  "spec_version": "1",
+  "generator": {"provider": "stub", "model": "stub-designer-1", "run_id": "fixture-f12"},
+  "generated_at": "2026-11-02T20:00:00Z",
+  "status": "current",
+  "visual_only": true,
+  "components": [
+    {
+      "id": "csg-9", "kind": "casing", "label": "9-5/8 in casing",
+      "placement": {"state": "located", "md_top": 0, "md_bottom": 2650, "unit": "m", "depth_reference": "MD"},
+      "params": {"od": {"value": 9.625, "unit": "in"}},
+      "representation": "source_dimensioned",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d002", "page": 2, "quote": "9 5/8 in casing to 2650 m"}]
+    },
+    {
+      "id": "tbg", "kind": "tubing", "label": "Tubing",
+      "placement": {"state": "unlocated", "reason": "Depth not printed on the page"},
+      "representation": "generic_illustrative",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d002", "page": 2, "quote": "Tubing run"}],
+      "confidence_note": "Placeholder; tubing size and depth unknown."
+    },
+    {
+      "id": "pkr", "kind": "packer", "label": "Packer",
+      "placement": {"state": "unlocated", "reason": "Depth is TVD only"},
+      "representation": "generic_illustrative",
+      "evidence": [{"document_id": "00000000-0000-4000-8000-00000000d002", "page": 3, "quote": "Packer set"}]
+    },
+    {
+      "id": "pump", "kind": "pump_esp", "label": "Pump",
+      "placement": {"state": "unlocated", "reason": "No depth in sources"},
+      "representation": "generic_illustrative"
+    },
+    {
+      "id": "plug", "kind": "plug", "label": "Plug",
+      "placement": {"state": "unlocated"},
+      "representation": "generic_illustrative"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "description": "VisualAssetSpec fixtures (TASK-077). Visual only. md_range_m is the assumed trajectory MD range in metres; every file validates with zero findings.",
+  "specs": [
+    {"file": "f14-dimensioned.json", "case": "rich source-dimensioned wellbore", "md_range_m": [0, 3400]},
+    {"file": "f12-unlocated.json", "case": "unlocated components", "md_range_m": [0, 3000]},
+    {"file": "f5-generic.json", "case": "generic placeholders only", "md_range_m": [0, 2000]}
+  ]
+}
