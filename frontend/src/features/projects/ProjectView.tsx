@@ -10,6 +10,7 @@ import { bumpProjectList, useProjectListVersion } from "./listVersion";
 import { ReconstructionPanel } from "../pipeline/ReconstructionPanel";
 import { ProjectForm } from "./ProjectForm";
 import { keyString, projectKeys, saveSelectedProjectId, type Project, type Section } from "./keys";
+import { ExploreScene } from "../scene/ExploreScene";
 import { useActionScope, useScopedResource } from "./scope";
 import styles from "./ProjectView.module.css";
 
@@ -255,7 +256,11 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
                 />
               ))}
             {(state.data.deletion_state ?? "none") === "none" && section === "explore" && (
-              <ExploreWorkspace stage={<Unavailable section="explore" project={state.data} />} />
+              state.data.latest_source_revision_id === null ? (
+                <ExploreWorkspace stage={<Unavailable section="explore" project={state.data} />} />
+              ) : (
+                <ExploreScene projectId={projectId} />
+              )
             )}
           </section>
         </>
