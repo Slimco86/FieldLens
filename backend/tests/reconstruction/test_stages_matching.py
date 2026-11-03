@@ -371,3 +371,37 @@ def test_s3_cancel_is_honoured_before_the_call(world: World) -> None:
     with pytest.raises(StageStop):
         MatchWellboresExecutor(proposer).run(_ctx(world, pid, stop=True))
     assert provider.calls == []
+
+
+# -- D2: live wiring only from a live runtime, never a call in tests -----------------------------
+def test_live_agents_exist_only_with_a_live_processing_runtime(world: World) -> None:
+    from types import SimpleNamespace
+
+    from fieldlens.assistant.budget import BudgetLedger
+    from fieldlens.assistant.provider import Pricing as ModelPricing
+    from fieldlens.processing.runtime import MetaContext
+    from fieldlens.processing.steps import Pricing
+    from fieldlens.reconstruction.live import build_live_agents
+    from fieldlens.reconstruction.reading import ProcessingStepReader
+
+    settings = Settings()
+    store = world.api.client.app.state.blob_store
+    assert build_live_agents(None, world.factory, store, settings) == (None, None)
+    stub_runtime: Any = SimpleNamespace(meta=None)
+    assert build_live_agents(stub_runtime, world.factory, store, settings) == (None, None)
+
+    ledger = BudgetLedger(world.factory)
+    model_pricing = ModelPricing("t", "m", Decimal("1"), Decimal("2")).validate()
+    meta = MetaContext(
+        ledger, uuid4(), uuid4(), model_pricing, SimpleNamespace(name="fake"),  # type: ignore[arg-type]
+        SimpleNamespace(), Pricing("t", Decimal("1"), Decimal("2")),  # type: ignore[arg-type]
+    )  # fmt: skip
+    live: Any = SimpleNamespace(
+        meta=meta,
+        step=SimpleNamespace(max_pages_per_document=None),
+        provider=SimpleNamespace(name="meta"),
+        counter=SimpleNamespace(count=lambda _k: 1),
+    )
+    reader, proposer = build_live_agents(live, world.factory, store, settings)
+    assert isinstance(reader, ProcessingStepReader) and reader.live
+    assert proposer is not None and reader.usd_per_document > 0
