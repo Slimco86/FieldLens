@@ -30,9 +30,9 @@ from fieldlens.assistant.errors import (
     RequestCancelled,
     RequestLimitExceeded,
 )
-from fieldlens.assistant.messages import Effort
+from fieldlens.assistant.messages import Effort, ProviderRequest
 from fieldlens.assistant.provider import Pricing as ModelPricing
-from fieldlens.assistant.provider import Provider
+from fieldlens.assistant.provider import Provider, attempt_upper_bound_usd, estimate_input_tokens
 from fieldlens.assistant.runner import RequestLimits, WorkUnit
 from fieldlens.candidates.pages import PageText
 from fieldlens.contracts.processing import ProcessingFailureCode
@@ -43,6 +43,8 @@ from fieldlens.processing import tables as t
 from fieldlens.processing.live_budget import failure_text
 from fieldlens.processing.steps import (
     Checkpoint,
+    ChunkPlan,
+    DocumentPlan,
     DocumentTask,
     PageFailure,
     PageProvider,
@@ -66,6 +68,8 @@ class ModelStepConfig:
     pricing: ModelPricing
     model: str
     max_pages: int = 5
+    """DEPRECATED (TASK-075): unused; the user chooses the pages."""
+    pages_per_call: int = 10
     limits: RequestLimits = field(
         default_factory=lambda: RequestLimits(
             max_attempts=2,
@@ -131,24 +135,62 @@ class ModelClassificationStep:
         self._page_text = page_text
 
     @property
-    def max_pages_per_document(self) -> int:
-        return self._config.max_pages
+    def max_pages_per_document(self) -> int | None:
+        return None  # TASK-075: the user chooses the pages; large selections run in chunks
 
     @property
     def model_name(self) -> str:
         return self._config.model
+
+    # -- plan (estimate and run share it, so the bound of a call == its estimate) ------------
+    def _chunks(self, start: int, end: int) -> list[list[int]]:
+        pages = list(range(start, end + 1))
+        size = self._config.pages_per_call
+        return [pages[i : i + size] for i in range(0, len(pages), size)]
+
+    def _request(self, usable: dict[int, str]) -> ProviderRequest:
+        return ProviderRequest(
+            model=self._config.model,
+            messages=tuple(ir.build_messages(usable)),
+            tools=(),
+            max_output_tokens=self._config.limits.max_output_tokens,
+            effort=self._config.effort,
+        )
+
+    def _chunk_plan(
+        self, pages: list[int], texts: dict[int, PageText]
+    ) -> tuple[ChunkPlan, dict[int, str]]:
+        usable = {
+            n: texts[n].text for n in pages if texts[n].has_text_layer and texts[n].text.strip()
+        }
+        missing = tuple(n for n in pages if n not in usable)
+        if not usable:
+            return ChunkPlan(tuple(pages), missing, 0, 0, ZERO), usable
+        request = self._request(usable)
+        limits = self._config.limits
+        return (
+            ChunkPlan(
+                tuple(pages),
+                missing,
+                estimate_input_tokens(request, limits.image_token_bound),
+                request.max_output_tokens,
+                attempt_upper_bound_usd(request, self._config.pricing, limits.image_token_bound),
+            ),
+            usable,
+        )
+
+    def plan_document(self, storage_key: str, start: int, end: int) -> DocumentPlan:
+        """Read the selected pages locally and bound every call exactly as the runner will."""
+        texts = {n: self._page_text(storage_key, n) for n in range(start, end + 1)}
+        chunks = tuple(self._chunk_plan(c, texts)[0] for c in self._chunks(start, end))
+        pricing = self._config.pricing
+        return DocumentPlan(chunks, pricing.input_usd_per_mtok, pricing.output_usd_per_mtok)
 
     # -- one document -----------------------------------------------------------------------
     def run_document(
         self, task: DocumentTask, provider: PageProvider, checkpoint: Checkpoint
     ) -> None:
         pages = list(task.pages)
-        if len(pages) > self._config.max_pages:
-            raise PageFailure(
-                ProcessingFailureCode.PROVIDER_ERROR,
-                "the page window exceeds the model page bound",
-                retryable=False,
-            )
         with session_scope(self._factory) as s:
             forced = bool(
                 s.execute(
@@ -175,68 +217,97 @@ class ModelClassificationStep:
             return
 
         texts = self._read_pages(task, pages)
-        usable = {n: p.text for n, p in texts.items() if p.has_text_layer and p.text.strip()}
-        if not usable:
+        planned = [self._chunk_plan(c, texts) for c in self._chunks(task.page_start, task.page_end)]
+        all_usable = {n: text for _, usable in planned for n, text in usable.items()}
+        if not all_usable:
             self._persist(task, provider, ir.no_text_outcome(), None, None, ZERO)
             self._charge(pages, ZERO, checkpoint)
             return
 
-        remaining = self._remaining_confirmed(task)
-        if remaining <= ZERO:
-            raise RunStop(ProcessingFailureCode.BUDGET_STOP, "the confirmed estimate is used up")
-        limits = self._limits(remaining)
-        unit = WorkUnit(
-            provider=self._provider,
-            ledger=self._ledger,
-            period_id=self._config.period_id,
-            pricing_id=self._config.pricing_id,
-            pricing=self._config.pricing,
-            model=self._config.model,
-            request_key=f"doc-identity:{task.run_id}:{task.document_id}",
-            work_unit=f"doc-identity:{task.document_id}"[:120],
-            limits=limits,
-            effort=self._config.effort,
-        )
-        response = None
-        failure: BaseException | None = None
-        try:
-            self._raise_if_cancelled(task)
-            with unit:
-                response = unit.step(ir.build_messages(usable))
-        except RunStop:
-            raise
-        except AssistantError as exc:
-            failure = exc
-        cost = unit.closed.committed_usd if unit.closed is not None else ZERO
-        cost = quantize(Decimal(cost))
-
-        outcome: ir.ModelOutcome | None = None
-        reply_text: str | None = None
-        if failure is None and response is not None:
+        outcomes: list[ir.ModelOutcome] = []
+        replies: list[str] = []
+        in_tok = out_tok = 0
+        total_cost = ZERO
+        calls = sum(1 for plan, _ in planned if plan.calls)
+        called = 0
+        for plan, usable in planned:
+            chunk_pages = list(plan.pages)
+            if not usable:
+                self._charge(chunk_pages, ZERO, checkpoint)  # no text layer: no call, no spend
+                continue
+            called += 1
+            label = (
+                f"chunk {called} of {calls} (pages {plan.pages[0]}-{plan.pages[-1]}): "
+                if calls > 1
+                else ""
+            )
+            unit = WorkUnit(
+                provider=self._provider,
+                ledger=self._ledger,
+                period_id=self._config.period_id,
+                pricing_id=self._config.pricing_id,
+                pricing=self._config.pricing,
+                model=self._config.model,
+                request_key=f"doc-identity:{task.run_id}:{task.document_id}"
+                + (f":{called}" if calls > 1 else ""),
+                work_unit=(
+                    f"doc-identity:{task.document_id}" + (f":{called}" if calls > 1 else "")
+                )[:120],
+                limits=self._limits(plan.bound_usd),
+                effort=self._config.effort,
+            )
+            response = None
+            failure: BaseException | None = None
             try:
-                reply_text = response.text()
-                outcome = ir.validate(ir.parse_output(reply_text), usable)
-            except ir.OutputError as exc:
+                self._raise_if_cancelled(task)
+                with unit:
+                    response = unit.step(ir.build_messages(usable))
+            except RunStop:
+                raise
+            except AssistantError as exc:
                 failure = exc
-        if failure is not None or outcome is None or response is None:
-            assert failure is not None
-            mapped = map_failure(failure)
-            self._charge(pages, cost, checkpoint)  # a billed failure is still real spend
-            if isinstance(mapped, RunStop):
-                raise mapped
-            raise PageFailure(mapped.code, mapped.message, retryable=True)
+            cost = quantize(Decimal(unit.closed.committed_usd if unit.closed else ZERO))
 
-        usage = response.usage
+            outcome: ir.ModelOutcome | None = None
+            reply_text: str | None = None
+            if failure is None and response is not None:
+                try:
+                    reply_text = response.text()
+                    outcome = ir.validate(ir.parse_output(reply_text), usable)
+                except ir.OutputError as exc:
+                    failure = exc
+            if failure is not None or outcome is None or response is None:
+                assert failure is not None
+                mapped = map_failure(failure)
+                self._charge(chunk_pages, cost, checkpoint, label)  # a billed failure is real spend
+                if isinstance(mapped, RunStop):
+                    raise mapped
+                raise PageFailure(mapped.code, label + mapped.message, retryable=True)
+            outcomes.append(outcome)
+            if reply_text is not None:
+                replies.append(
+                    f"--- {label.rstrip(': ')} ---\n{reply_text}" if label else reply_text
+                )
+            usage = response.usage
+            in_tok += (usage.input_tokens if usage else None) or 0
+            out_tok += (usage.output_tokens if usage else None) or 0
+            total_cost += cost
+            self._charge(chunk_pages, cost, checkpoint, label)
+
+        merged = ir.with_partial_no_text_warning(
+            ir.merge_outcomes(outcomes),
+            sum(len(plan.no_text_pages) for plan, _ in planned),
+            len(pages),
+        )
         self._persist(
             task,
             provider,
-            outcome,
-            usage.input_tokens if usage else None,
-            usage.output_tokens if usage else None,
-            cost,
-            reply_text,
+            merged,
+            in_tok or None,
+            out_tok or None,
+            quantize(total_cost),
+            "\n\n".join(replies) if replies else None,
         )
-        self._charge(pages, cost, checkpoint)
 
     # -- helpers ----------------------------------------------------------------------------
     def _read_pages(self, task: DocumentTask, pages: list[int]) -> dict[int, PageText]:
@@ -250,28 +321,27 @@ class ModelClassificationStep:
                 ) from exc
         return out
 
-    def _limits(self, remaining: Decimal) -> RequestLimits:
+    @property
+    def spend_multiplier(self) -> int:
+        """Confirmed estimate = one attempt per call; the reservation allows ``max_attempts``."""
+        return max(1, self._config.limits.max_attempts)
+
+    def _limits(self, reserved: Decimal) -> RequestLimits:
+        """Reservation of one call == its pre-flight bound x ``max_attempts`` (retry headroom).
+
+        The confirmed estimate stays the sum of single-call bounds; a transient retry can add at
+        most one more bound per call (spec section 8). Spend is still booked from attempts."""
         base = self._config.limits
-        cap = min(base.max_reserved_usd, remaining)
         return RequestLimits(
             max_attempts=base.max_attempts,
             max_tool_calls=0,
             deadline_s=base.deadline_s,
             max_output_tokens=base.max_output_tokens,
-            max_reserved_usd=cap,
+            max_reserved_usd=quantize(reserved * base.max_attempts),
             image_token_bound=base.image_token_bound,
             retry_backoff_s=base.retry_backoff_s,
             default_effort=base.default_effort,
         )
-
-    def _remaining_confirmed(self, task: DocumentTask) -> Decimal:
-        with session_scope(self._factory) as s:
-            row = s.execute(
-                select(pr.c.confirmed_usd, pr.c.actual_usd).where(
-                    pr.c.project_id == task.project_id, pr.c.run_id == task.run_id
-                )
-            ).one()
-        return Decimal(row.confirmed_usd or 0) - Decimal(row.actual_usd)
 
     def _raise_if_cancelled(self, task: DocumentTask) -> None:
         with session_scope(self._factory) as s:
@@ -312,12 +382,18 @@ class ModelClassificationStep:
             )
 
     @staticmethod
-    def _charge(pages: list[int], cost: Decimal, checkpoint: Checkpoint) -> None:
-        """Report every page of the window; the spend is split across them and sums to ``cost``."""
+    def _charge(pages: list[int], cost: Decimal, checkpoint: Checkpoint, label: str = "") -> None:
+        """Report every page of the window; the spend is split across them and sums to ``cost``.
+        A stop raised while charging names the chunk."""
         n = len(pages)
         share = quantize(cost / n) if n else ZERO
         spent = ZERO
         for index, page in enumerate(pages):
             part = cost - spent if index == n - 1 else share
             spent += part
-            checkpoint(page, PageUsage(0, 0, quantize(part)))
+            try:
+                checkpoint(page, PageUsage(0, 0, quantize(part)))
+            except RunStop as halt:
+                if label and halt.code is ProcessingFailureCode.CONFIRMED_ESTIMATE_EXCEEDED:
+                    raise RunStop(halt.code, label + halt.message) from halt
+                raise

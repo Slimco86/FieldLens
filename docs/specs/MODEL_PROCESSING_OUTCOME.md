@@ -147,8 +147,12 @@ anywhere from 0 to 20,000 characters (`MAX_TEXT_CHARS`). 8,000 tokens/page is a 
   stored only if every chunk succeeded, otherwise the document is `failed` naming the chunk, with recorded spend.
   `[Assumed]` 10 pages/call; to be confirmed with a bounded live check.
 - **No gates on the user path.** Remove from the model route: total-cap and run-cap checks at estimate and confirm,
-  `provider_max_reserved_usd` as a reservation ceiling, `remaining_budget` in the UI. The WorkUnit reservation equals
-  the confirmed per-call bound. Still enforced (not spend limits): provider configuration/paused ledger, one active run
+  `provider_max_reserved_usd` as a reservation ceiling, `remaining_budget` in the UI. The WorkUnit reservation is the
+  confirmed per-call bound times `max_attempts` (2: retry headroom, so a transient failure that billed nothing does not
+  block the retry); the confirmed estimate stays the sum of single-call bounds, i.e. an upper bound for one attempt
+  per call, and a retry can add at most one more bound per call, which is still within what the user confirmed: the run stops with `confirmed_estimate_exceeded` (naming the chunk) only when actual spend exceeds the reservation total (estimate × `max_attempts`), never for a recovered retry. A connection error (no connection, nothing processed)
+  is retryable and booked as zero; timeouts and 5xx stay conservatively chargeable. Estimate details (calls, pages
+  without text, rates) are recomputed locally from the stored run when the in-memory cache is empty (no migration). Still enforced (not spend limits): provider configuration/paused ledger, one active run
   per document, idempotency, cancel. The ledger keeps recording every reservation and commit (accounting, run history,
   outcome view); its technical cap (`FIELDLENS_BUDGET_LEDGER_CAP_USD`, 150) remains a hidden safety net, not a UI gate.
   The DTO fields `remaining_budget_usd`/`total_cap_usd` stay for compatibility but are no longer displayed.

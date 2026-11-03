@@ -329,7 +329,10 @@ class ProcessingRunner:
                         actual_usd=prd.c.actual_usd + usage.cost_usd,
                     )
                 )
-                exceeded = updated.actual_usd > claim.confirmed_usd
+                # The model step reserves bound x max_attempts per call: a recovered retry may exceed the
+                # one-attempt estimate by one more bound per call and is still what the user confirmed.
+                allowance = claim.confirmed_usd * int(getattr(self._step, "spend_multiplier", 1))
+                exceeded = updated.actual_usd > allowance
                 cancel = updated.cancel_requested
             if exceeded:
                 raise self._record_stop(

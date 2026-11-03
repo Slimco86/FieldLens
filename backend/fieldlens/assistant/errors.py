@@ -110,7 +110,11 @@ class ProviderTimeout(AssistantError):
 
 
 class ProviderConnectionError(AssistantError):
+    """No connection was established, so nothing was processed: transient, not billed."""
+
     code = "provider_connection"
+    retryable = True
+    chargeable = False
 
 
 class ProviderRefusal(AssistantError):

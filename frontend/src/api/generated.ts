@@ -3982,8 +3982,14 @@ export interface components {
         /** ProcessingEstimate */
         ProcessingEstimate: {
             /**
+             * Calls
+             * @description Sequential provider calls (null when unknown, e.g. after a restart).
+             * @default null
+             */
+            calls: number | null;
+            /**
              * Confirmable
-             * @description True while the run is in the estimated state and the estimate fits the budget.
+             * @description True while the run is in the estimated state (and, on the stub route, the estimate fits the budget).
              */
             confirmable: boolean;
             /** Estimated Input Tokens */
@@ -3992,7 +3998,10 @@ export interface components {
             estimated_output_tokens: number;
             /** Estimated Usd */
             estimated_usd: string;
-            /** Fits Budget */
+            /**
+             * Fits Budget
+             * @description Stub route only; always true on the model route (no spend gate, TASK-075).
+             */
             fits_budget: boolean;
             /**
              * Force
@@ -4001,13 +4010,28 @@ export interface components {
              */
             force: boolean;
             /**
+             * Input Usd Per Mtok
+             * @default null
+             */
+            input_usd_per_mtok: string | null;
+            /**
              * Model
              * @description Model that will run ('stub' for the stub provider); null on runs created before the model was recorded.
              * @default null
              */
             model: string | null;
+            /**
+             * Output Usd Per Mtok
+             * @default null
+             */
+            output_usd_per_mtok: string | null;
             /** Pages */
             pages: number;
+            /**
+             * Pages Without Text
+             * @description Selected page numbers with no text layer: read, send nothing, cost nothing (OCR is not available). Only known while the run is estimated.
+             */
+            pages_without_text?: number[];
             /**
              * Pricing Source
              * @description Where the rates come from; 'stub_illustrative' is never an owner rate card.
@@ -4031,6 +4055,12 @@ export interface components {
              * @description Aggregate live-spend cap (PROCESSING_FLOW D7).
              */
             total_cap_usd: string;
+            /**
+             * Upper Bound
+             * @description The estimate is a pre-flight upper bound computed from the real page text; the actual cost is usually lower.
+             * @default false
+             */
+            upper_bound: boolean;
         };
         /** ProcessingEstimateRequest */
         ProcessingEstimateRequest: {

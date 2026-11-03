@@ -151,10 +151,30 @@ class ProcessingEstimate(ContractModel):
         ge=0,
         description="Cap minus ledger spend and minus other confirmed, unfinished estimates.",
     )
-    fits_budget: bool
-    confirmable: bool = Field(
-        description="True while the run is in the estimated state and the estimate fits the budget."
+    fits_budget: bool = Field(
+        description="Stub route only; always true on the model route (no spend gate, TASK-075)."
     )
+    confirmable: bool = Field(
+        description="True while the run is in the estimated state (and, on the stub route, the "
+        "estimate fits the budget)."
+    )
+    upper_bound: bool = Field(
+        default=False,
+        description="The estimate is a pre-flight upper bound computed from the real page text; "
+        "the actual cost is usually lower.",
+    )
+    calls: int | None = Field(
+        default=None,
+        ge=0,
+        description="Sequential provider calls (null when unknown, e.g. after a restart).",
+    )
+    pages_without_text: list[int] = Field(
+        default_factory=list,
+        description="Selected page numbers with no text layer: read, send nothing, cost nothing "
+        "(OCR is not available). Only known while the run is estimated.",
+    )
+    input_usd_per_mtok: Decimal | None = Field(default=None, ge=0)
+    output_usd_per_mtok: Decimal | None = Field(default=None, ge=0)
 
 
 class ProcessingRunDocument(ContractModel):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,14 @@ FILLER = ["Daily drilling report", "Mud weight 1.25 sg", "Rig crew on shift"]
 
 def pdf_of(pages: int, tag: str) -> bytes:
     return make_pdf([PdfPage(lines=[f"{tag} page {i}", *FILLER]) for i in range(1, pages + 1)])
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ambient FIELDLENS_PROCESSING_* / MODEL_API_KEY must not leak into the test apps."""
+    for key in list(os.environ):
+        if key.startswith("FIELDLENS_PROCESSING_") or key == "MODEL_API_KEY":
+            monkeypatch.delenv(key, raising=False)
 
 
 @dataclass

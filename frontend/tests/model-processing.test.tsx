@@ -73,6 +73,11 @@ const estimate = (over: Record<string, unknown> = {}, runId = RUN) => ({
     remaining_budget_usd: "4.5",
     fits_budget: true,
     confirmable: true,
+    upper_bound: true,
+    calls: 1,
+    pages_without_text: [],
+    input_usd_per_mtok: "0.30",
+    output_usd_per_mtok: "2.50",
     model: "muse-spark",
     spends_money: true,
     force: false,
@@ -225,8 +230,10 @@ describe("model processing: no native parser", () => {
     expect(s.calls.some((c) => c.endsWith("/confirm"))).toBe(false);
     expect(within(dialog).getByText(/5 \(pages 1-5 of 12\)/)).toBeInTheDocument();
     expect(within(dialog).getByText(/8,000 input, 2,000 output/)).toBeInTheDocument();
-    expect(within(dialog).getByText("USD 0.007400")).toBeInTheDocument();
-    expect(within(dialog).getByText(/USD 4\.5 of USD 5 total cap/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/^USD 0\.007400 \(upper bound/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Remaining budget|total cap/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/upper bound for one attempt per call; a retry can add at most one more bound per call; actual is usually lower/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/USD 0\.30 input, USD 2\.50 output per million tokens/)).toBeInTheDocument();
     expect(within(dialog).getByText(/confirming makes live model calls/)).toBeInTheDocument();
 
     // Cancel spends nothing and returns focus to the Process button
@@ -262,12 +269,37 @@ describe("model processing: no native parser", () => {
     expect(screen.queryByRole("button", { name: /Process with model/ })).not.toBeInTheDocument();
   });
 
-  it("an estimate that does not fit the budget cannot be confirmed", async () => {
-    install({ docs: () => state(), calls: [], onEstimate: () => json(estimate({ fits_budget: false, confirmable: false }), 201) });
+  it("a live estimate has no budget gate: confirmable even with a stale fits_budget flag", async () => {
+    install({ docs: () => state(), calls: [], onEstimate: () => json(estimate({ fits_budget: false, confirmable: true }), 201) });
     const { user } = await open();
     await user.click(await screen.findByRole("button", { name: /Process with model/ }));
-    expect(await screen.findByText(/does not fit the remaining budget/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Confirm and start/ })).toBeDisabled();
+    await screen.findByRole("dialog");
+    expect(screen.queryByText(/does not fit the remaining budget/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Confirm and start/ })).toBeEnabled();
+  });
+
+  it("the user chooses the page count; changing it re-estimates pages 1..N and Confirm waits for it", async () => {
+    const s: Server = { docs: () => state(), calls: [], bodies: {} };
+    install(s);
+    const { user } = await open();
+    await user.click(await screen.findByRole("button", { name: /Process with model/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(s.bodies?.["estimate"]).toEqual([{ documents: [{ document_id: D, pages: { page_start: 1, page_end: 5 } }], force: false }]);
+    const field = within(dialog).getByRole("textbox", { name: /Page count/ });
+    expect(field).toHaveValue("5");
+    await user.clear(field);
+    await user.type(field, "9");
+    expect(within(dialog).getByRole("button", { name: /Confirm and start/ })).toBeDisabled();
+    await user.click(within(dialog).getByRole("button", { name: "Update estimate" }));
+    await waitFor(() => expect(s.bodies?.["estimate"]).toHaveLength(2));
+    expect(s.bodies?.["estimate"]?.[1]).toEqual({ documents: [{ document_id: D, pages: { page_start: 1, page_end: 9 } }], force: false });
+  });
+
+  it("lists pages without a text layer", async () => {
+    install({ docs: () => state(), calls: [], onEstimate: () => json(estimate({ pages_without_text: [2, 4] }), 201) });
+    const { user } = await open();
+    await user.click(await screen.findByRole("button", { name: /Process with model/ }));
+    expect(await screen.findByText(/2 of 5 selected pages have no text layer \(pages 2, 4\)/)).toBeInTheDocument();
   });
 
   it("a confirm that the server rejects shows the error in the dialog and says nothing was spent", async () => {
@@ -294,7 +326,11 @@ describe("model processing: no native parser", () => {
   });
 
   it("a document over the page cap needs a valid range before an estimate is requested", async () => {
-    const s: Server = { docs: () => state({ over_page_cap: true, page_count: 800 }), calls: [] };
+    const s: Server = {
+      docs: () => state({ over_page_cap: true, page_count: 800 }),
+      calls: [],
+      info: () => providerInfo({ active: "stub", requested: "stub", status: "stub", model: "stub", spends_money: false }),
+    };
     install(s);
     const { user } = await open();
     const last = await screen.findByLabelText("Last page");
@@ -544,14 +580,14 @@ describe("re-process is always available", () => {
     const dialog = await screen.findByRole("dialog");
     const box = within(dialog).getByRole("checkbox", { name: "Reuse the stored result if the document is unchanged (no model call)" });
     expect(box).not.toBeChecked();
-    expect(s.bodies?.["estimate"]).toEqual([{ documents: [{ document_id: D }], force: true }]);
+    expect(s.bodies?.["estimate"]).toEqual([{ documents: [{ document_id: D, pages: { page_start: 1, page_end: 5 } }], force: true }]);
     await user.click(box);
     await waitFor(() => expect(s.bodies?.["estimate"]).toHaveLength(2));
-    expect(s.bodies?.["estimate"]?.[1]).toEqual({ documents: [{ document_id: D }], force: false });
+    expect(s.bodies?.["estimate"]?.[1]).toEqual({ documents: [{ document_id: D, pages: { page_start: 1, page_end: 5 } }], force: false });
     await waitFor(() => expect(within(screen.getByRole("dialog")).getByRole("checkbox")).toBeChecked());
     await user.click(within(screen.getByRole("dialog")).getByRole("checkbox"));
     await waitFor(() => expect(s.bodies?.["estimate"]).toHaveLength(3));
-    expect(s.bodies?.["estimate"]?.[2]).toEqual({ documents: [{ document_id: D }], force: true });
+    expect(s.bodies?.["estimate"]?.[2]).toEqual({ documents: [{ document_id: D, pages: { page_start: 1, page_end: 5 } }], force: true });
   });
 
   it("a never-processed document sends force=false and offers no reuse checkbox", async () => {
@@ -561,7 +597,7 @@ describe("re-process is always available", () => {
     await user.click(await screen.findByRole("button", { name: /Process with model/ }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
-    expect(s.bodies?.["estimate"]).toEqual([{ documents: [{ document_id: D }], force: false }]);
+    expect(s.bodies?.["estimate"]).toEqual([{ documents: [{ document_id: D, pages: { page_start: 1, page_end: 5 } }], force: false }]);
   });
 
   it("the dialog names provider and model and says whether money is spent", async () => {
@@ -573,7 +609,7 @@ describe("re-process is always available", () => {
     expect(facts).toHaveTextContent("meta");
     expect(facts).toHaveTextContent("muse-spark");
     expect(facts).toHaveTextContent(/Yes: confirming spends provider budget/);
-    expect(within(live).getByText(/USD 4\.5 of USD 5 total cap/)).toBeInTheDocument();
+    expect(within(live).queryByText(/Remaining budget|total cap/)).not.toBeInTheDocument();
     await user.click(within(live).getByRole("button", { name: "Cancel" }));
     cleanup();
     install({ docs: () => state(), calls: [], info: () => providerInfo({ active: "stub", requested: "stub", status: "stub", model: "stub", spends_money: false }), onEstimate: () => json(estimate({ provider: "stub", model: "stub", spends_money: false, estimated_usd: "0" }), 201) });

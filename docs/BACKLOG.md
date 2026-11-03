@@ -2803,7 +2803,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | ready |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, frontend |
 | Depends on | TASK-074 |
@@ -2811,13 +2811,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/MODEL_PROCESSING_OUTCOME.md |
-| Version | none |
+| Version | 0.39.0 |
 | Parent | FL-022 |
 | Slice | FL-022-I |
 
-**Outcome.** The estimate is computed from the selected pages' real text with the runner's bound, the user picks the page count (default min(5,total)), large selections run in chunks, and no total/run cap or remaining budget applies to a confirmed manual run (spec section 8).
-**Next action.** Draft awaiting owner review; lane A (0.38.0).
-**Evidence.** none yet; planning only (2026-11-02).
+**Outcome.** The estimate is computed from the selected pages' real text with the runner's bound, the user picks the page count (default min(5,total)), large selections run in chunks, and no total/run cap or remaining budget applies to a confirmed manual run (spec section 8). A retry gets reservation headroom (bound x attempts) and a recovered retry never fails the run on cost.
+**Next action.** Known gaps: `pages_done` counts a failed chunk (cosmetic); the reconstruction dialog's remaining-budget row is removed by TASK-076; the 10 pages/call value needs a bounded live check.
+**Evidence.** Independent QA (two passes) PE-1..PE-7 PASS; D1-D3 and N1 fixed and covered by tests (processing/assistant/contracts 313 passed after the last fix; earlier full suite 1515 passed with one stale-venv version test); ruff, mypy strict, frontend lint/typecheck/vitest/contracts/build clean. No e2e run for the document dialog beyond the earlier model-processing spec (2/2). Fake provider only; no live Meta.
 
 ### TASK-076 · Reconstruction stages S2 read / S3 match wellbores, merge UI and plain-language modal
 

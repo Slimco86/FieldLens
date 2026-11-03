@@ -8,6 +8,19 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.39.0 - 2026-11-03
+
+- **TASK-075 model processing: you choose the pages and the estimate is honest.** The estimate dialog has a page count
+  (1..total, default 5, always pages 1..N). The estimate is computed from the real text of the selected pages with the
+  same bound the runner enforces, so the 0.37.1 "budget does not cover this call" failure cannot recur. It is an upper
+  bound for one attempt per call; a retry gets reservation headroom and a recovered retry never fails the run on cost.
+- A confirmed run is the authorization: no run cap, total cap, per-call ceiling or "Remaining budget" on the model
+  route (the stub route keeps its old gates). Selections over `FIELDLENS_PROCESSING_PAGES_PER_CALL` (default 10) pages
+  run as sequential calls; a failing chunk fails the document naming the chunk; nothing partial is stored as success.
+  Pages without a text layer are counted and listed; an image-only selection ends with a "no text layer" outcome and no
+  spend. Estimate details survive an API restart. Deprecated variables are marked in `.env.example`.
+- Processing tests no longer depend on exported `FIELDLENS_PROCESSING_*` / `MODEL_API_KEY`.
+
 ## 0.38.0 - 2026-11-03
 
 - **TASK-077 visual asset spec (`VisualAssetSpec`):** a typed, declarative description of a wellbore's visual 3D asset:

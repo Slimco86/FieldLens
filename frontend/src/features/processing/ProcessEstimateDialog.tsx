@@ -1,4 +1,5 @@
-import { Button, Checkbox, Modal } from "@mantine/core";
+import { useState } from "react";
+import { Button, Checkbox, Modal, NumberInput } from "@mantine/core";
 import { Callout } from "../../design";
 import type { Failure } from "../projects/scope";
 import { STUB_TEXT, misconfiguredText, type ProcessingRun } from "./api";
@@ -16,6 +17,9 @@ interface Props {
   reuse?: boolean;
   reestimating?: boolean;
   onReuseChange?: (reuse: boolean) => void;
+  /** Pages in the document when the user may choose how many to read (live model route); otherwise null. */
+  pageTotal?: number | null;
+  onPagesChange?: (pages: number) => void;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -31,14 +35,22 @@ export function ProcessEstimateDialog({
   reuse = false,
   reestimating = false,
   onReuseChange,
+  pageTotal = null,
+  onPagesChange,
   onConfirm,
   onClose,
 }: Props) {
   const e = run.estimate;
   const live = e.provider !== "stub";
   const spends = e.spends_money;
-  const blocked = !e.confirmable || !e.fits_budget;
   const doc = run.documents[0];
+  const [wanted, setWanted] = useState<number | string>(doc?.pages.page_end ?? e.pages);
+  const chosen = typeof wanted === "number" && Number.isInteger(wanted) ? wanted : null;
+  const validPages = chosen !== null && pageTotal !== null && chosen >= 1 && chosen <= pageTotal;
+  const stale = pageTotal !== null && chosen !== e.pages;
+  const blocked = !e.confirmable || stale;
+  const noText = e.pages_without_text ?? [];
+  const calls = e.calls ?? null;
   return (
     <Modal.Root opened onClose={onClose} size="lg" transitionProps={{ duration: 0 }} trapFocus returnFocus={false}>
       <Modal.Overlay />
@@ -88,6 +100,28 @@ export function ProcessEstimateDialog({
                 Updating the estimate…
               </p>
             )}
+            {pageTotal !== null && (
+              <div className={styles.row}>
+                <NumberInput
+                  label={`Page count (1-${pageTotal}, starting at page 1)`}
+                  value={wanted}
+                  onChange={setWanted}
+                  min={1}
+                  max={pageTotal}
+                  allowDecimal={false}
+                  allowNegative={false}
+                  disabled={reestimating || confirming}
+                  w={220}
+                />
+                <Button
+                  variant="default"
+                  disabled={!validPages || !stale || reestimating || confirming}
+                  onClick={() => chosen !== null && onPagesChange?.(chosen)}
+                >
+                  Update estimate
+                </Button>
+              </div>
+            )}
             <dl className={styles.facts} aria-label="Estimate totals">
               <dt>Pages to read</dt>
               <dd>
@@ -97,19 +131,27 @@ export function ProcessEstimateDialog({
               <dt>Estimated tokens</dt>
               <dd>
                 {e.estimated_input_tokens.toLocaleString("en-US")} input, {e.estimated_output_tokens.toLocaleString("en-US")} output
+                {calls !== null && ` (${calls} model call${calls === 1 ? "" : "s"})`}
               </dd>
               <dt>Estimated cost</dt>
-              <dd>USD {e.estimated_usd}</dd>
-              <dt>Rates</dt>
-              <dd>{e.pricing_source}</dd>
-              <dt>Remaining budget</dt>
               <dd>
-                USD {e.remaining_budget_usd} of USD {e.total_cap_usd} total cap
+                USD {e.estimated_usd}
+                {e.upper_bound &&
+                  " (upper bound for one attempt per call; a retry can add at most one more bound per call; actual is usually lower)"}
+              </dd>
+              <dt>Rates</dt>
+              <dd>
+                {e.pricing_source}
+                {e.input_usd_per_mtok != null && e.output_usd_per_mtok != null &&
+                  `: USD ${e.input_usd_per_mtok} input, USD ${e.output_usd_per_mtok} output per million tokens`}
               </dd>
             </dl>
-            {!e.fits_budget && (
-              <Callout tone="danger" role="alert">
-                <p>This estimate does not fit the remaining budget. It cannot be confirmed.</p>
+            {noText.length > 0 && (
+              <Callout tone="warning" role="status">
+                <p>
+                  {noText.length} of {e.pages} selected pages have no text layer (page{noText.length === 1 ? "" : "s"} {noText.join(", ")}); OCR is not
+                  available, so they send nothing and cost nothing.
+                </p>
               </Callout>
             )}
             {failure !== null && missing !== null && (
