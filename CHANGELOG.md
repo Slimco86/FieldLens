@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.48.0 - 2026-11-03
+
+- **TASK-086 S3 matches short wellbore names (F-5, F-12, F-14) to their block-qualified bores.** The earlier "no new matches; earlier results were reused" was a cached empty answer: the model needed a quote naming both spellings in one document, which the data never contains. S3 now gives the model a deterministic candidate table (name similarity, same slot, source families, survey fingerprint comparison, surface-location comparison) and the model still decides; a pair may be proposed on a quote or on server-verified survey content (`evidence_kind: survey_match`, shown as "Matching survey"). Proposals stay pending for Accept/Reject. New guard G8 blocks contradictory surface locations (accept re-checks it). An empty result is re-planned when evidence, guards or the prompt change, and the stage message says whether the model found none or results were reused. S3 uses medium reasoning effort with a larger output bound (8192 + 1024 per block, retry at minimal with double), reserved USD 0.60 per call (worst case 1.80 per run); the internal provider request cap rose to 32768. No migration. Not yet verified with live Meta.
+
 ## 0.47.0 - 2026-11-03
 
 - **TASK-091 wellhead tie-in segment in the trajectory response.** When a survey starts below the wellhead (F-5: first station MD 145.9, TVD 145.9, inclination 0), `GET .../trajectory` adds a derived, display-only `tie_in` (vertical, or a smooth bend that ends tangent to the first station when physically plausible, max 10 deg/30 m) from MD 0 to the first station, with `TIE_IN_DERIVED` / `TIE_IN_NOT_DERIVED` warnings. Surveyed stations, MD/TVD values and every calculation are unchanged; the trace is not translated. Limit: an inclined first station that is not a plausible continuation of a vertical hole gets no tie-in (the gap and a warning remain).

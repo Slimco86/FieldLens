@@ -3034,7 +3034,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Field | Value |
 |---|---|
 | Type | feature |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | rag, backend, frontend |
 | Depends on | TASK-085 |
@@ -3042,13 +3042,13 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_POLISH.md |
-| Version | |
+| Version | 0.48.0 |
 | Parent | FL-023 |
 | Slice | FL-023-K |
 
 **Outcome.** Short-name wellbores (F-5, F-12, F-14) are proposed for merge with their block-qualified wellbores; the agent decides over a deterministic candidate table with enough reasoning budget; stale-cache message fixed.
-**Next action.** Wave 1 lane A; see specs/EXPLORE_POLISH.md section A.
-**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+**Next action.** Owner live S3 on VOLVE (cost a few cents, reserved worst case USD 1.80): confirm F-5/F-14 (exact survey match) and F-12 (station count/MD range only) are proposed, check Meta pricing against the 0.60 reservation, medium effort vs truncation.
+**Evidence.** Merged 0.48.0 (aa598c2). Independent QA PASS A-1..A-5: merge_proposals/reconstruction/identity 123 passed, assistant/assetspec/candidates/processing 623 passed, ruff/mypy/lint/typecheck/check:contracts clean, merge-review vitest 7/7; adversarial probes (forged survey_match, G8 at accept, no re-plan after rejection) pass. Fake provider only; real surface locations absent on qualified bores so G8 stays unknown there; live Meta, real-data timing and pricing unverified. Residual: stations_md ignores incl/azi, CRS-blind G8, 0.60 reservation assumes ~3/15 USD per Mtok.
 
 ### TASK-087 · Document content route and readable evidence statements (polish items 2, 6, 8 backend)
 
