@@ -35,12 +35,15 @@ class DesignAssetExecutor:
         "no engineering numbers come from it. It may look up public pictures of named equipment, "
         "within fixed limits; the latest 3D model replaces the previous one, which stays in history."
     )
-    reason_code: str | None = None
     message: str | None = None
     page_cap: int | None = None
 
     def __init__(self, designer: LiveDesigner | None) -> None:
         self._designer = designer
+
+    @property
+    def reason_code(self) -> str | None:
+        return STUB_REASON if self._designer is None else None
 
     @property
     def available(self) -> bool:

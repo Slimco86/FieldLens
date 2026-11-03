@@ -192,7 +192,7 @@ class Settings(BaseSettings):
     # application. Loop/step limits, no USD limit (owner decision).
     visual_research_backend: str = "off"
     """``off`` is the only backend shipped; a search backend is plugged in through the
-    :class:`~fieldlens.assetspec.research.SearchBackend` protocol."""
+    ``SearchBackend`` protocol of the asset-spec research module."""
     visual_research_max_queries: int = Field(6, ge=1, le=20)
     visual_research_max_pages: int = Field(10, ge=1, le=30)
     visual_research_deadline_s: float = Field(120.0, gt=0, le=600)

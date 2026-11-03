@@ -174,8 +174,8 @@ def test_estimate_then_separate_confirm_runs_partial(world: World) -> None:
     ]
     by_stage = {x["stage"]: x for x in item["stages"]}
     assert by_stage["extract"]["availability"] == "stub" and by_stage["extract"]["page_cap"] == 5
-    assert by_stage["design"]["availability"] == "not_available"
-    assert by_stage["design"]["reason_code"] == "asset_design_not_wired"
+    assert by_stage["design"]["availability"] == "stub"
+    assert by_stage["design"]["reason_code"] == "stub_provider"
     assert est["stub"] is True and "remaining_budget_usd" not in est
     assert all(x["title"] and x["description"] for x in item["stages"])
     # estimating alone starts nothing
@@ -197,7 +197,7 @@ def test_estimate_then_separate_confirm_runs_partial(world: World) -> None:
         "extract": "succeeded",  # nothing needs reading in this project: no model needed
         "identify": "stubbed",  # name groups exist, but no model was called
         "assemble": "succeeded",
-        "design": "not_available",
+        "design": "stubbed",
     }
     assert run["retryable"] is False
     assert float(run["actual_usd"]) == 0.0
@@ -393,7 +393,7 @@ def test_no_live_call_flag_and_default_executors(world: World) -> None:
     est = _estimate(world, pid, wellbore_ids=[bore])
     assert est["live_calls"] is False and est["provider"] == "stub"
     rt = world.api.client.app.state.reconstruction
-    assert [e.available for e in rt.executors] == [True, True, True, True, False]
+    assert [e.available for e in rt.executors] == [True, True, True, True, True]
     run = _start(world, pid, bore)
     assert run["provider"] == "stub"
 

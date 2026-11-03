@@ -10,6 +10,11 @@ ALLOWED = {
     ROOT / "app.py",  # router registration
     ROOT / "persistence" / "models.py",  # table metadata
     ROOT / "contracts" / "registry.py",  # DTO registry
+    # S5 orchestration (TASK-079): composes the designer; calculation modules still never import it
+    ROOT / "reconstruction" / "design_stage.py",
+    ROOT / "reconstruction" / "live.py",
+    ROOT / "reconstruction" / "runtime.py",
+    ROOT / "reconstruction" / "stages.py",
 }
 PATTERN = re.compile(
     r"(fieldlens\.assetspec|fieldlens\.contracts\.asset_spec|\bimport asset_spec\b|\basset_spec,)"

@@ -11,8 +11,7 @@ Safety properties (AG-9):
   multicast, reserved or metadata addresses); the connection goes to the validated address (DNS
   rebinding safe) and every redirect hop is validated again;
 * only URLs returned by the search backend are fetched (a URL read from a document or from a page is
-  never followed), size, time and redirect caps apply, and only text/HTML/PDF-free content types
-  and small images are accepted;
+  never followed), size, time and redirect caps apply, and only HTML/text pages and small PNG/JPEG/WebP images are accepted;
 * hard limits on queries, pages and wall-clock time per component, repeated queries/URLs stop the
   loop, and the result is an explicit found / not found outcome;
 * page content is untrusted data: it is never given to the model as instructions and never
@@ -274,7 +273,9 @@ class VisualReferenceResearcher:
         image_sink: ImageSink | None = None,
         clock: Callable[[], float] = time.monotonic,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        resolver: Resolver = system_resolver,
     ) -> None:
+        self._resolver = resolver
         self._backend = backend
         self._fetcher = fetcher
         self.limits = limits or ResearchLimits()
@@ -334,7 +335,9 @@ class VisualReferenceResearcher:
                     result.reason = "limit_time"
                     return result
                 try:
-                    check_url(hit.url)  # allowlist: only search results, only public hosts
+                    check_url(
+                        hit.url, self._resolver
+                    )  # allowlist: only search results, only public hosts
                 except UrlRejected as exc:
                     result.rejected.append(str(exc))
                     continue

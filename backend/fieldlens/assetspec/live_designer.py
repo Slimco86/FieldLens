@@ -326,7 +326,7 @@ class LiveDesigner:
                 usd = closed.committed_usd if closed is not None else usd
             except Exception:  # noqa: BLE001
                 log.exception("asset design settle failed")
-            reason = failure_reason(exc)
+            reason = "malformed_output" if isinstance(exc, OutputError) else failure_reason(exc)
             return DesignOutcome(
                 False,
                 f"3D design stopped: {reason}; the current 3D model is unchanged",
