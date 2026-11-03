@@ -67,6 +67,8 @@ export interface WellboreRow {
   gate: Gate;
   blockNotStated: boolean;
   categories: Category[];
+  /** Names merged into this wellbore by an accepted proposal (revertible in the match review). */
+  mergedFrom: S["MergedAlias"][];
 }
 
 /** Ready wellbores first (server verdict), then the rest; stable within each group. Nothing is computed from data. */
@@ -84,6 +86,7 @@ export function buildRows(exposure: S["ProjectExposure"], gate: S["StartGate"] |
         gate: g,
         blockNotStated: [...g.warnings, ...b.gate.warnings].some((x) => x.code === "BLOCK_NOT_STATED"),
         categories: b.categories,
+        mergedFrom: b.merged_from ?? [],
       };
     }),
   );
@@ -193,9 +196,22 @@ export function filesOf(c: Category): { document_id: string; filename: string; r
 
 function SourcesCell({ row, projectId, onOpenSource }: { row: WellboreRow; projectId: string; onOpenSource: (documentId: string) => void }) {
   const cats = row.categories.filter((c) => c.groups.length > 0 || c.record_count > 0);
-  if (cats.length === 0) return <span>No source file carries data for this wellbore.</span>;
+  const merged =
+    row.mergedFrom.length === 0 ? null : (
+      <p className={styles.note} aria-label={`Merged into ${row.wellboreName}`}>
+        Merged from: {row.mergedFrom.map((a) => a.name).join(", ")}. Their files are listed here with this wellbore.
+      </p>
+    );
+  if (cats.length === 0)
+    return (
+      <>
+        {merged}
+        <span>No source file carries data for this wellbore.</span>
+      </>
+    );
   return (
     <div aria-label={`Source files of ${row.wellboreName}`} role="group">
+      {merged}
       {cats.map((c) => (
         <div key={c.category}>
           <h6 className={styles.catHeading}>
@@ -485,8 +501,8 @@ export function ReconstructionList({ projectId, refreshKey, onOpenSource }: Prop
               Reconstruct all ready wellbores ({readyRows.length})
             </Button>
             <span className={styles.note} id="rc-all-reason">
-              Requests a free estimate first; nothing starts or is spent until you confirm it. Today runs end partial:
-              there is no OCR, no agent extraction and merge review is not available.
+              Shows what each step would do first; nothing starts until you confirm it. Wellbore matches are only
+              proposed: you accept or reject them in Wellbore name matches above.
             </span>
           </div>
           {failure !== null && (

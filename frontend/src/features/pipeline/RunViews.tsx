@@ -4,7 +4,7 @@ import { Callout, Chip } from "../../design";
 import type { ChipSpec } from "../../design/StatusChip";
 import type { ReconstructionEvidenceRef, ReconstructionRun } from "./api";
 import { locatorText } from "./locator";
-import { STAGE_NAME, STATUS_LABEL, STATUS_NOTE, isActive, reasonText, stageStateLabel, usd, type RunStatus } from "./runs";
+import { STATUS_LABEL, STATUS_NOTE, isActive, reasonText, stageLabel, stageStateLabel, usd, type RunStatus } from "./runs";
 import styles from "./Pipeline.module.css";
 
 const STATUS_CHIP: Record<RunStatus, ChipSpec> = {
@@ -29,9 +29,9 @@ function StageList({ run }: { run: ReconstructionRun }) {
     <ol className={styles.list} aria-label={`Stages of ${run.wellbore_name}`}>
       {run.stages.map((s) => (
         <li key={s.stage}>
-          <strong>{STAGE_NAME[s.stage]}</strong>: {stageStateLabel(s)}
-          {s.state === "not_available" && reasonText(s.reason_code) !== null && <> ({reasonText(s.reason_code)})</>}
-          {s.message !== null && s.state !== "not_available" && <> - {s.message}</>}
+          <strong>{stageLabel(s.stage)}</strong>: {stageStateLabel(s)}
+          {(s.state === "not_available" || s.state === "stubbed") && reasonText(s.reason_code) !== null && <> ({reasonText(s.reason_code)})</>}
+          {s.message !== null && s.state !== "not_available" && s.state !== "stubbed" && <> - {s.message}</>}
           {s.state === "failed" && s.error_code !== null && <> (<code>{s.error_code}</code>)</>}
         </li>
       ))}
@@ -59,6 +59,12 @@ export function RunCell({
   return (
     <div className={styles.nested}>
       <RunChip status={run.status} />
+      {run.stub_run && <Chip spec={{ tone: "warning", icon: TriangleAlert }} label="Stub run" />}
+      {run.invalidated_at !== null && (
+        <p className={styles.note} role="status">
+          This draft is out of date: wellbore matches changed after it was built. Reconstruct again to refresh it.
+        </p>
+      )}
       {STATUS_NOTE[run.status] !== undefined && <p className={styles.note}>{STATUS_NOTE[run.status]}</p>}
       <StageList run={run} />
       <div className={styles.actions}>

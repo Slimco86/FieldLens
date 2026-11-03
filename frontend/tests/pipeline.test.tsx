@@ -110,13 +110,13 @@ const EXPOSURE = (over: Record<string, unknown> = {}) => ({
 const EST = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const stage = (name: string, state: string, over: Record<string, unknown> = {}) => ({
   stage: name, kind: name === "extract" || name === "identify" ? "agent" : "deterministic",
-  ordinal: ["gather", "extract", "identify", "assemble"].indexOf(name) + 1, state, counts: {}, input_tokens: 0, output_tokens: 0,
+  ordinal: ["gather", "extract", "identify", "assemble", "design"].indexOf(name) + 1, state, counts: {}, input_tokens: 0, output_tokens: 0,
   actual_usd: "0", reason_code: null, error_code: null, message: null, started_at: null, finished_at: null, ...over,
 });
 const SUMMARY = () => ({
   wellbore_id: "b3", wellbore_name: "15/9-F-12", draft: true, published: false, scene_3d: "not_generated",
   note: "Draft assembled from validated records; agent stages did not run.", actual_usd: "0",
-  stages_succeeded: ["gather", "assemble"], stages_not_available: ["extract", "identify"], stages_failed: [],
+  stages_succeeded: ["gather", "extract", "assemble"], stages_not_available: [], stages_stubbed: ["identify"], stages_failed: [],
   coverage: [
     { category: "trajectory", present: true, record_count: 120, accepted_candidate_count: 0, open_candidate_count: 1, conflicting_record_count: 0, gap_reasons: [], evidence_truncated: false,
       evidence: [{ document_id: D1, filename: "traj.csv", record_kind: "trajectory_station", locator: { kind: "text", document_id: D1, line_start: 26, line_end: 26 } }] },
@@ -131,23 +131,26 @@ const runOf = (status: string, over: Record<string, unknown> = {}) => ({
   status, provider: "stub", pricing_source: "stub_illustrative", estimated_usd: "0.0200", actual_usd: "0", confirmed_usd: "0.0200",
   confirmed_at: "2026-11-02T08:00:00Z", created_at: "2026-11-02T08:00:00Z", started_at: null, finished_at: null, cancel_requested: false,
   retry_of_run_id: null, error_code: null, error_message: null, retryable: ["failed", "cancelled", "interrupted"].includes(status),
+  stub_run: status === "partial", invalidated_at: null, invalidated_reason: null,
   stages: status === "partial"
-    ? [stage("gather", "succeeded"), stage("extract", "not_available", { reason_code: "agent_step_not_implemented" }), stage("identify", "not_available", { reason_code: "agent_step_not_implemented" }), stage("assemble", "succeeded")]
-    : [stage("gather", status === "running" ? "running" : "pending"), stage("extract", "pending"), stage("identify", "pending"), stage("assemble", "pending")],
+    ? [stage("gather", "succeeded"), stage("extract", "succeeded"), stage("identify", "stubbed", { reason_code: "stub_provider" }), stage("assemble", "succeeded"), stage("design", "not_available", { reason_code: "asset_design_not_wired" })]
+    : [stage("gather", status === "running" ? "running" : "pending"), stage("extract", "pending"), stage("identify", "pending"), stage("assemble", "pending"), stage("design", "pending")],
   summary: status === "partial" ? SUMMARY() : null, ...over,
 });
+const STAGE_EST = [
+  { stage: "gather", kind: "deterministic", title: "Collect sources", description: "Counts stored files and records.", availability: "will_run", estimated_usd: "0.0000", reason_code: null, note: null, new_work: 0, reused: 0, unit: "item", page_cap: null },
+  { stage: "extract", kind: "agent", title: "Read documents", description: "Reads PDFs without a parser.", availability: "stub", estimated_usd: "0.0000", reason_code: "stub_provider", note: null, new_work: 2, reused: 1, unit: "documents", page_cap: 5 },
+  { stage: "identify", kind: "agent", title: "Match wellbores", description: "Proposes matches for you to review.", availability: "stub", estimated_usd: "0.0000", reason_code: "stub_provider", note: null, new_work: 1, reused: 0, unit: "name groups", page_cap: null },
+  { stage: "assemble", kind: "deterministic", title: "Assemble data", description: "Builds the draft summary.", availability: "will_run", estimated_usd: "0.0000", reason_code: null, note: null, new_work: 0, reused: 0, unit: "item", page_cap: null },
+  { stage: "design", kind: "agent", title: "Design 3D asset", description: "Builds a 3D representation.", availability: "not_available", estimated_usd: "0.0000", reason_code: "asset_design_not_wired", note: null, new_work: 0, reused: 0, unit: "item", page_cap: null },
+];
 const estItem = (id: string, name: string, over: Record<string, unknown> = {}) => ({
   wellbore_id: id, wellbore_name: name, source_revision: "rev1", run_id: RUN, run_status: "estimated", already_active: false, estimated_usd: "0.0200",
-  stages: [
-    { stage: "gather", kind: "deterministic", availability: "will_run", estimated_usd: "0.0000", reason_code: null, page_cap: null },
-    { stage: "extract", kind: "agent", availability: "not_available", estimated_usd: "0.0200", reason_code: "agent_step_not_implemented", page_cap: 500 },
-    { stage: "identify", kind: "agent", availability: "not_available", estimated_usd: "0.0000", reason_code: "agent_step_not_implemented", page_cap: null },
-    { stage: "assemble", kind: "deterministic", availability: "will_run", estimated_usd: "0.0000", reason_code: null, page_cap: null },
-  ], ...over,
+  stages: STAGE_EST, ...over,
 });
 const ESTIMATE = (items: unknown[], over: Record<string, unknown> = {}) => ({
-  project_id: P, estimate_id: EST, items, total_estimated_usd: "0.0200", total_cap_usd: "5.0000", remaining_budget_usd: "4.9000",
-  fits_budget: true, confirmable: true, confirmed: false, live_calls: false, provider: "stub", pricing_source: "stub_illustrative",
+  project_id: P, estimate_id: EST, items, total_estimated_usd: "0.0200", stub: true, stage_totals: STAGE_EST,
+  confirmable: true, confirmed: false, live_calls: false, provider: "stub", pricing_source: "stub_illustrative",
   pricing_label: "stub planning rate, illustrative", ...over,
 });
 
@@ -172,6 +175,7 @@ function install(runs: ReturnType<typeof runOf>[] = [], routes: Mock["routes"] =
     if (override !== undefined) return Promise.resolve(override(body));
     if (key === "GET /identity/start-gate") return Promise.resolve(json(GATE()));
     if (key === "GET /identity/exposure") return Promise.resolve(json(EXPOSURE()));
+    if (key === "GET /merge-proposals?limit=200") return Promise.resolve(json({ items: [], total: 0 }));
     if (key === "GET /reconstruction-runs") return Promise.resolve(json({ items: m.runs, total: m.runs.length }));
     if (key === "POST /reconstruction-runs/estimates") return Promise.resolve(json(ESTIMATE([estItem("b3", "15/9-F-12")]), 201));
     if (/^POST \/reconstruction-runs\/estimates\/[^/]+\/confirm$/.test(key)) {
@@ -363,14 +367,15 @@ describe("Reconstruct: estimate, separate confirm (RR-6)", () => {
     render(panel());
     const dlg = await openDialog();
     expect(posts(m, "/estimates")[0]!.body).toEqual({ wellbore_ids: ["b3"] });
-    expect(within(dlg).getByRole("table", { name: "Estimate per wellbore" })).toHaveTextContent("15/9-F-12");
+    expect(within(dlg).getByRole("table", { name: "Wellbores in this run" })).toHaveTextContent("15/9-F-12");
     expect(dlg).toHaveTextContent("USD 0.0200");
-    expect(dlg).toHaveTextContent("USD 4.9000 of USD 5.0000 total cap");
-    expect(dlg).toHaveTextContent("stub");
-    expect(dlg).toHaveTextContent("no live model calls");
-    expect(dlg).toHaveTextContent("capped at 500");
-    expect(dlg).toHaveTextContent("Not available yet");
-    expect(dlg).toHaveTextContent("Extract");
+    const stages = within(dlg).getByRole("list", { name: "What each stage does" });
+    expect(stages).toHaveTextContent("S2 Read documents");
+    expect(stages).toHaveTextContent("2 new, 1 reused from earlier results (documents)");
+    expect(stages).toHaveTextContent("Proposes matches for you to review");
+    expect(stages).toHaveTextContent("Available after the 3D asset feature");
+    expect(dlg).toHaveTextContent("Stub provider: no model will be called");
+    expect(dlg).not.toHaveTextContent(/Remaining budget|total cap|Not available yet/);
     expect(posts(m, "/confirm")).toHaveLength(0);
     await userEvent.click(within(dlg).getByRole("button", { name: CONFIRM }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -536,16 +541,16 @@ describe("Reconstruct: duplicate start and errors", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("The local API is unreachable");
   });
 
-  it("disables Confirm when the estimate does not fit the budget", async () => {
+  it("shows no budget or cap and keeps Confirm available for any estimated cost", async () => {
     install([], {
       ...f12().routes,
-      "POST /reconstruction-runs/estimates": () =>
-        json(ESTIMATE([estItem("b3", "15/9-F-12")], { fits_budget: false, confirmable: false, remaining_budget_usd: "0.0100" }), 201),
+      "POST /reconstruction-runs/estimates": () => json(ESTIMATE([estItem("b3", "15/9-F-12")], { total_estimated_usd: "9.0000" }), 201),
     });
     render(panel());
     const dlg = await openDialog();
-    expect(within(dlg).getByRole("button", { name: CONFIRM })).toBeDisabled();
-    expect(within(dlg).getByRole("alert")).toHaveTextContent("does not fit the remaining budget");
+    expect(within(dlg).getByRole("button", { name: CONFIRM })).toBeEnabled();
+    expect(dlg).toHaveTextContent("information only");
+    expect(dlg).not.toHaveTextContent(/budget|cap\b/i);
   });
 
   it("shows a rejected confirm (cap exceeded) inside the dialog and spends nothing", async () => {
@@ -583,11 +588,12 @@ describe("Run state and draft detail (RR-8)", () => {
     render(panel());
     const row = (await screen.findAllByRole("row"))[1]!;
     expect(row).toHaveTextContent("Partial");
-    expect(row).toHaveTextContent("This is not a finished reconstruction");
+    expect(row).toHaveTextContent("not a finished reconstruction");
+    expect(row).toHaveTextContent("Stub run");
     const stages = within(row).getByRole("list", { name: "Stages of 15/9-F-12" });
-    expect(stages).toHaveTextContent("Extract: Not available yet: agent extraction");
-    expect(stages).toHaveTextContent("Identify: Not available yet: agent merge identification");
-    expect(stages).toHaveTextContent("Gather: Done");
+    expect(stages).toHaveTextContent("S3 Match wellbores: Stub run: no model was called");
+    expect(stages).toHaveTextContent("S5 Design 3D asset: Available after the 3D asset feature");
+    expect(stages).toHaveTextContent("S1 Collect sources: Done");
     expect(row.textContent).not.toMatch(/Processed|Succeeded|Complete/);
   });
 

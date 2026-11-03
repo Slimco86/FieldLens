@@ -3184,6 +3184,39 @@ export interface components {
              */
             value_text: string;
         };
+        /**
+         * MergedAlias
+         * @description A name merged into this wellbore by an applied, revertible merge record (TASK-076).
+         */
+        MergedAlias: {
+            /** Automatic */
+            automatic: boolean;
+            /**
+             * Decided By
+             * @description 'auto:reconstruction' for an automatic merge.
+             */
+            decided_by: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "label" | "wellbore";
+            /**
+             * Merged At
+             * Format: date-time
+             */
+            merged_at: string;
+            /**
+             * Name
+             * @description The merged name as stored (a label or a wellbore key).
+             */
+            name: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+        };
         /** MergeDecisionRequest */
         MergeDecisionRequest: {
             /**
@@ -4456,8 +4489,6 @@ export interface components {
              * @default null
              */
             estimate_id: string | null;
-            /** Fits Budget */
-            fits_budget: boolean;
             /**
              * Items
              * @description The per-wellbore split.
@@ -4466,9 +4497,8 @@ export interface components {
             /**
              * Live Calls
              * @default false
-             * @constant
              */
-            live_calls: false;
+            live_calls: boolean;
             /** Pricing Label */
             pricing_label: string;
             /** Pricing Source */
@@ -4484,10 +4514,17 @@ export interface components {
              * @constant
              */
             provider: "stub";
-            /** Remaining Budget Usd */
-            remaining_budget_usd: string;
-            /** Total Cap Usd */
-            total_cap_usd: string;
+            /**
+             * Stage Totals
+             * @description Per stage, summed over the wellbores that would start (informational).
+             */
+            stage_totals?: components["schemas"]["ReconstructionStageEstimate"][];
+            /**
+             * Stub
+             * @description True when no agent step calls a model.
+             * @default true
+             */
+            stub: boolean;
             /** Total Estimated Usd */
             total_estimated_usd: string;
         };
@@ -4603,6 +4640,17 @@ export interface components {
              * @default null
              */
             finished_at: string | null;
+            /**
+             * Invalidated At
+             * @description Set when a merge applied or reverted after this draft was built.
+             * @default null
+             */
+            invalidated_at: string | null;
+            /**
+             * Invalidated Reason
+             * @default null
+             */
+            invalidated_reason: string | null;
             /** Pricing Source */
             pricing_source: string;
             /**
@@ -4613,9 +4661,8 @@ export interface components {
             /**
              * Provider
              * @default stub
-             * @constant
              */
-            provider: "stub";
+            provider: string;
             /**
              * Retry Of Run Id
              * @default null
@@ -4638,7 +4685,7 @@ export interface components {
             source_revision: string;
             /**
              * Stages
-             * @description Always S1..S4, in order.
+             * @description S1..S5, in order.
              */
             stages: components["schemas"]["ReconstructionStage"][];
             /**
@@ -4647,6 +4694,12 @@ export interface components {
              */
             started_at: string | null;
             status: components["schemas"]["ReconstructionRunStatus"];
+            /**
+             * Stub Run
+             * @description True when an agent stage ran on the stub provider (no model).
+             * @default false
+             */
+            stub_run: boolean;
             /** @default null */
             summary: components["schemas"]["ReconstructionSummary"] | null;
             /**
@@ -4711,7 +4764,7 @@ export interface components {
             message: string | null;
             /**
              * Ordinal
-             * @description S1..S4.
+             * @description S1..S5.
              */
             ordinal: number;
             /**
@@ -4737,18 +4790,36 @@ export interface components {
         ReconstructionStageEstimate: {
             /**
              * Availability
+             * @description will_run: a real step; stub: runs without a model; not_available: not wired.
              * @enum {string}
              */
-            availability: "will_run" | "not_available";
+            availability: "will_run" | "stub" | "not_available";
+            /**
+             * Description
+             * @description What the stage does, in plain words.
+             */
+            description: string;
             /**
              * Estimated Usd
-             * @description Stub planning rate reserved against the cap; spent only if the stage runs.
+             * @description Informational only; the model step bounds its own spend.
              */
             estimated_usd: string;
             kind: components["schemas"]["ReconstructionStageKind"];
             /**
+             * New Work
+             * @description Units of new work (documents, proposals).
+             * @default 0
+             */
+            new_work: number;
+            /**
+             * Note
+             * @description Why there is nothing to do, or what is reused.
+             * @default null
+             */
+            note: string | null;
+            /**
              * Page Cap
-             * @description S2 only: the page cap that will bound its scope (500).
+             * @description S2 only: the page cap that will bound its scope.
              * @default null
              */
             page_cap: number | null;
@@ -4757,7 +4828,24 @@ export interface components {
              * @default null
              */
             reason_code: string | null;
+            /**
+             * Reused
+             * @description Units whose stored result is reused.
+             * @default 0
+             */
+            reused: number;
             stage: components["schemas"]["ReconstructionStageName"];
+            /**
+             * Title
+             * @description Plain-language name, e.g. 'Read documents'.
+             */
+            title: string;
+            /**
+             * Unit
+             * @description What new_work/reused count.
+             * @default item
+             */
+            unit: string;
         };
         /**
          * ReconstructionStageKind
@@ -4768,12 +4856,12 @@ export interface components {
          * ReconstructionStageName
          * @enum {string}
          */
-        ReconstructionStageName: "gather" | "extract" | "identify" | "assemble";
+        ReconstructionStageName: "gather" | "extract" | "identify" | "assemble" | "design";
         /**
          * ReconstructionStageState
          * @enum {string}
          */
-        ReconstructionStageState: "pending" | "running" | "succeeded" | "not_available" | "failed" | "cancelled" | "interrupted" | "skipped";
+        ReconstructionStageState: "pending" | "running" | "succeeded" | "not_available" | "stubbed" | "failed" | "cancelled" | "interrupted" | "skipped";
         /**
          * ReconstructionSummary
          * @description Draft from S4. States what ran, what did not, and what remains unresolved.
@@ -4809,6 +4897,8 @@ export interface components {
             stages_failed: components["schemas"]["ReconstructionStageName"][];
             /** Stages Not Available */
             stages_not_available: components["schemas"]["ReconstructionStageName"][];
+            /** Stages Stubbed */
+            stages_stubbed?: components["schemas"]["ReconstructionStageName"][];
             /** Stages Succeeded */
             stages_succeeded: components["schemas"]["ReconstructionStageName"][];
             /** Unresolved */
@@ -5912,6 +6002,11 @@ export interface components {
              */
             categories: components["schemas"]["CategoryExposure"][];
             gate: components["schemas"]["WellboreGate"];
+            /**
+             * Merged From
+             * @description Names merged into this wellbore; each is revertible in the merge review.
+             */
+            merged_from?: components["schemas"]["MergedAlias"][];
             /**
              * Project Id
              * Format: uuid

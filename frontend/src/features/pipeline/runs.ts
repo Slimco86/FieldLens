@@ -24,28 +24,31 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
 };
 
 export const STATUS_NOTE: Partial<Record<RunStatus, string>> = {
-  partial: "Partial: the stages that could run finished; others are not available yet. This is not a finished reconstruction.",
+  partial: "Partial: the run finished but not every stage did real work (see the stages below). This is a draft, not a finished reconstruction.",
   failed: "This run failed. Nothing was completed.",
   cancelled: "This run was cancelled before it finished.",
   interrupted: "This run was interrupted and did not finish.",
 };
 
 export const STAGE_NAME: Record<StageName, string> = {
-  gather: "Gather",
-  extract: "Extract",
-  identify: "Identify",
-  assemble: "Assemble",
+  gather: "Collect sources",
+  extract: "Read documents",
+  identify: "Match wellbores",
+  assemble: "Assemble data",
+  design: "Design 3D asset",
 };
 
-const AGENT_NOUN: Partial<Record<StageName, string>> = { extract: "extraction", identify: "merge identification" };
+/** Plain-language numbered label used in lists, e.g. "S2 Read documents". */
+export const stageLabel = (s: StageName): string => `S${Object.keys(STAGE_NAME).indexOf(s) + 1} ${STAGE_NAME[s]}`;
 
-/** Label of a stage in the plain words a user needs; "not available" always names what is missing. */
+/** Label of a stage in the plain words a user needs; a stub or not-wired stage never reads as done. */
 export function stageStateLabel(s: Pick<ReconstructionStage, "stage" | "state" | "reason_code">): string {
   const map: Record<StageState, string> = {
     pending: "Pending",
     running: "Running",
     succeeded: "Done",
-    not_available: `Not available yet: agent ${AGENT_NOUN[s.stage] ?? s.stage}`,
+    not_available: s.stage === "design" ? "Available after the 3D asset feature" : "Not wired in this build",
+    stubbed: "Stub run: no model was called",
     failed: "Failed",
     cancelled: "Cancelled",
     interrupted: "Interrupted",
@@ -56,7 +59,10 @@ export function stageStateLabel(s: Pick<ReconstructionStage, "stage" | "state" |
 
 export function reasonText(code: string | null): string | null {
   if (code === null) return null;
-  return code === "agent_step_not_implemented" ? "the agent step is not implemented in this build" : code.replace(/_/g, " ");
+  if (code === "agent_step_not_implemented") return "the agent step is not implemented in this build";
+  if (code === "asset_design_not_wired") return "the 3D asset designer is not part of this version yet";
+  if (code === "stub_provider") return "the stub provider calls no model";
+  return code.replace(/_/g, " ");
 }
 
 /** The newest confirmed run per wellbore (estimates that were never confirmed are not runs). */
