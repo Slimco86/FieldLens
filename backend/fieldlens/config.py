@@ -7,14 +7,16 @@ Pass ``_env_file=None`` for an explicit, file-independent configuration.
 from __future__ import annotations
 
 import ipaddress
+import logging
 import os
 import re
+from collections.abc import Mapping
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from fieldlens.localenv import ENV_FILE, REPO_ROOT, load_local_env
@@ -150,7 +152,8 @@ class Settings(BaseSettings):
 
     # Staged document processing runs (TASK-054, PROCESSING_FLOW D3/D7/D8). The stub provider is
     # the default and never spends. ``meta`` (TASK-055 model step) needs explicit configuration:
-    # MODEL_API_KEY, both owner rates and a per-run cap below; otherwise startup refuses it.
+    # MODEL_API_KEY, both owner rates and a per-run cap below; otherwise the app starts on the
+    # stub, reports ``provider_misconfigured`` and refuses processing requests (TASK-072).
     processing_provider: Literal["stub", "meta"] = "stub"
     processing_max_pages: int = Field(500, ge=1, le=500)
     """Pages per document and per run (D3); larger documents need an explicit page range."""
@@ -185,6 +188,25 @@ class Settings(BaseSettings):
 
     local_data_root: Path | None = None
     """Opt-in read-only root of the local Volve subset (tests only); unset => local_data skips."""
+
+    @field_validator(
+        "processing_provider",
+        "processing_run_cap_usd",
+        "processing_meta_input_usd_per_mtok",
+        "processing_meta_output_usd_per_mtok",
+        "processing_model_pages",
+        mode="before",
+    )
+    @classmethod
+    def _blank_processing_value_is_default(cls, value: object, info: ValidationInfo) -> object:
+        """``scripts/init_env.py`` lists these keys empty: a blank value means 'not set'."""
+        if isinstance(value, str) and not value.strip():
+            defaults: dict[str, object] = {
+                "processing_provider": "stub",
+                "processing_model_pages": 5,
+            }
+            return defaults.get(str(info.field_name))  # the optional fields default to None
+        return value
 
     @field_validator("local_data_root", mode="before")
     @classmethod
@@ -254,3 +276,48 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+_IGNORED_UNPREFIXED = re.compile(
+    r"^(PROCESSING_(PROVIDER|RUN_CAP_USD|MODEL_PAGES|META_[A-Z0-9_]+)|META_[A-Z0-9_]+)$"
+)
+_ENV_KEY_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
+
+
+def ignored_unprefixed_keys(
+    environ: Mapping[str, str] | None = None, env_file: Path | str | None = ENV_FILE
+) -> list[str]:
+    """Sorted names (never values) of unprefixed processing/meta settings present in the process
+    environment or the ``.env`` file. Settings only read ``FIELDLENS_*``, so these are ignored."""
+    names: set[str] = set()
+    for key in os.environ if environ is None else environ:
+        if _IGNORED_UNPREFIXED.match(key):
+            names.add(key)
+    if env_file is not None:
+        path = Path(env_file)
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+        except (OSError, UnicodeDecodeError):
+            lines = []
+        for line in lines:
+            match = _ENV_KEY_LINE.match(line)
+            if match and _IGNORED_UNPREFIXED.match(match.group(1)):
+                names.add(match.group(1))
+    return sorted(names)
+
+
+def warn_ignored_unprefixed(
+    log: logging.Logger,
+    environ: Mapping[str, str] | None = None,
+    env_file: Path | str | None = ENV_FILE,
+) -> list[str]:
+    """One warning per ignored unprefixed key, naming the prefixed variable to use."""
+    names = ignored_unprefixed_keys(environ, env_file)
+    for name in names:
+        log.warning(
+            "%s is set but ignored: settings read only FIELDLENS_-prefixed variables; "
+            "use FIELDLENS_%s",
+            name,
+            name,
+        )
+    return names

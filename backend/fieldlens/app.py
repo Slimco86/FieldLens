@@ -23,7 +23,7 @@ from fieldlens.activity import ActivityLog, build_activity_router
 from fieldlens.assistant.budget import BudgetLedger
 from fieldlens.candidates.reconcile import settle_finished_units
 from fieldlens.candidates.routes import build_candidates_router
-from fieldlens.config import Settings, get_settings
+from fieldlens.config import Settings, get_settings, warn_ignored_unprefixed
 from fieldlens.contracts.errors import ContractError, ErrorBody, ErrorCode, ErrorEnvelope
 from fieldlens.contracts.registry import export_component_schemas
 from fieldlens.contracts.system import (
@@ -218,6 +218,7 @@ def _spa_response(request: Request) -> Response | None:
 
 def create_app(settings: Settings | None = None, *, session_token: str | None = None) -> FastAPI:
     settings = settings or get_settings()
+    warn_ignored_unprefixed(logger)
     engine = create_db_engine(settings)
 
     @asynccontextmanager
