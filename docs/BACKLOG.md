@@ -3028,3 +3028,150 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 **Outcome.** S5 builds components from natively parsed equipment records (casing, tubulars, wellbore geometry sections, BHA, perforations) plus model-read candidates; "no equipment data" only when both are empty.
 **Next action.** None; live re-run of F-5/F-12 by the owner.
 **Evidence.** Owner live run: F-5 has 14 equipment records (casing_point, tubular_assembly/component, wb_geometry_section, bha_run) but S5 reported "no equipment data" because it reads only `extraction_candidate` rows. Merged 0.45.0: independent QA round 2 PASS on head e37d36f (full backend 1626 passed, ruff/mypy clean, F-5 scratch-DB run gave 13 labelled components, duplicates folded) plus a cosmetic fix 140ee20 naming skipped intervention tools. Fake provider only; real-PDF sweep and live Meta unverified.
+
+### TASK-086 · S3 short-name wellbore matching with agent over deterministic candidate evidence (polish item 1)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | rag, backend, frontend |
+| Depends on | TASK-085 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_POLISH.md |
+| Version | |
+| Parent | FL-023 |
+| Slice | FL-023-K |
+
+**Outcome.** Short-name wellbores (F-5, F-12, F-14) are proposed for merge with their block-qualified wellbores; the agent decides over a deterministic candidate table with enough reasoning budget; stale-cache message fixed.
+**Next action.** Wave 1 lane A; see specs/EXPLORE_POLISH.md section A.
+**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+
+### TASK-087 · Document content route and readable evidence statements (polish items 2, 6, 8 backend)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend |
+| Depends on | TASK-085 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_POLISH.md |
+| Version | |
+| Parent | FL-023 |
+| Slice | FL-023-L |
+
+**Outcome.** PDF content route plus filename/locator/statement on evidence and document/page on the survey reference, with no extra document I/O.
+**Next action.** Wave 1 lane B; see specs/EXPLORE_POLISH.md section B.
+**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+
+### TASK-088 · Source links and embedded PDF viewer (polish items 2, 6, 8 frontend)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | ready |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-087 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_POLISH.md |
+| Version | |
+| Parent | FL-023 |
+| Slice | FL-023-M |
+
+**Outcome.** Reconstruction list, upload list, Inspector evidence and Survey info open PDFs in an embedded viewer at the stated page.
+**Next action.** Wave 3 lane C; needs TASK-087 contract.
+**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+
+### TASK-089 · Reconstructed-only field view with surface-location placement and default thickness (polish items 3, 4, 5, 7)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | ready |
+| Priority | P0 |
+| Tags | frontend, 3d |
+| Depends on | TASK-085 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_POLISH.md |
+| Version | |
+| Parent | FL-023 |
+| Slice | FL-023-N |
+
+**Outcome.** Tree, field scene and dropdown show only wellbores with an asset spec; wells placed by surface E/N when CRS/datum/unit agree; traces thick by default.
+**Next action.** Wave 3 lane D.
+**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+
+### TASK-090 · Wellbore view: no unlocated tray, default wellhead, connected trajectory (polish items 11, 12 frontend)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | ready |
+| Priority | P0 |
+| Tags | frontend, 3d |
+| Depends on | TASK-091 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_POLISH.md |
+| Version | |
+| Parent | FL-023 |
+| Slice | FL-023-O |
+
+**Outcome.** Single view draws no unlocated tray, always shows a wellhead and starts every element at the well hole via the tie-in segment.
+**Next action.** Wave 4 lane E; needs TASK-091.
+**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+
+### TASK-091 · Wellhead tie-in segment in the trajectory response (polish item 12 backend)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | ready |
+| Priority | P0 |
+| Tags | backend, geospatial |
+| Depends on | TASK-085 |
+| Assignee | agent:fieldlens-geospatial |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_POLISH.md |
+| Version | |
+| Parent | FL-023 |
+| Slice | FL-023-P |
+
+**Outcome.** Derived display-only tie-in (vertical or smooth bend) from MD 0 to the first station; depth records unchanged.
+**Next action.** Wave 2 lane F.
+**Evidence.** None yet (owner list of November 3, plan approved 15:18).
+
+### TASK-092 · 3D material fidelity, blended highlight, detailed wellhead (polish items 9, 10, 11 wellhead)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | ready |
+| Priority | P0 |
+| Tags | frontend, 3d |
+| Depends on | TASK-085 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_POLISH.md |
+| Version | |
+| Parent | FL-023 |
+| Slice | FL-023-Q |
+
+**Outcome.** Varied roughness/metalness and colour roles, blended selection highlight and a multi-colour procedural wellhead.
+**Next action.** Wave 2 lane G.
+**Evidence.** None yet (owner list of November 3, plan approved 15:18).
