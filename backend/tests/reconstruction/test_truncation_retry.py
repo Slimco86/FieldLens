@@ -1,4 +1,4 @@
-"""TASK-084: S3 runs at low effort, retry a truncated call once (larger bound, minimal effort)
+"""TASK-084/086: S3 runs at medium effort, retry a truncated call once (larger bound, minimal effort)
 inside the same ledger unit, and record real tokens and USD even when the stage fails."""
 
 from __future__ import annotations
@@ -63,8 +63,8 @@ def test_s3_truncated_once_then_answers(world: World) -> None:
     assert result.counts["proposed"] == 1
     assert count(world, "merge_proposal") == 1  # no duplicate proposals from the retry
     first, second = provider.calls[0], provider.calls[1]
-    assert (first.effort, first.max_output_tokens) == ("low", 4096)
-    assert (second.effort, second.max_output_tokens) == ("minimal", 8192)
+    assert (first.effort, first.max_output_tokens) == ("medium", 8192)
+    assert (second.effort, second.max_output_tokens) == ("minimal", 16384)
     # both attempts are in the ONE reservation and both are counted
     assert count(world, "spend_reservation") == 1
     assert result.input_tokens == 700 + 900 and result.output_tokens == 4096 + 120

@@ -14,7 +14,7 @@ from fieldlens.assistant.runner import RequestLimits
 from fieldlens.assistant.stub import StubProvider
 from fieldlens.identity.resolver import resolve_project
 from fieldlens.merge_proposals.designator import normalize_text
-from fieldlens.merge_proposals.proposer import MergeProposer, ProposerConfig
+from fieldlens.merge_proposals.proposer import OUTPUT_BASE_TOKENS, MergeProposer, ProposerConfig
 from fieldlens.persistence.session import session_scope
 from tests.assistant_support import MODEL, PRICING
 from tests.retrieval.support import World, attr, rec
@@ -108,6 +108,7 @@ def make_proposer(
         limits=RequestLimits(
             max_attempts=2,
             max_tool_calls=0,
+            max_output_tokens=OUTPUT_BASE_TOKENS,
             max_reserved_usd=Decimal(max_reserved),
             retry_backoff_s=0.0,
         ),

@@ -44,7 +44,7 @@ log = logging.getLogger(__name__)
 
 MAX_BLOCKS_PER_CALL = 4
 MAX_CALLS = 3
-OUTPUT_BASE_TOKENS = 4096
+OUTPUT_BASE_TOKENS = 8192
 OUTPUT_TOKENS_PER_BLOCK = 1024
 OUTPUT_FREE_BLOCKS = 2
 CONTEXT_WELLBORES = 40
@@ -75,14 +75,15 @@ class ProposerConfig:
         default_factory=lambda: RequestLimits(
             max_attempts=2,
             max_tool_calls=0,
-            deadline_s=90.0,
+            deadline_s=240.0,
             max_output_tokens=OUTPUT_BASE_TOKENS,
-            max_reserved_usd=Decimal("0.30"),
+            max_reserved_usd=Decimal("0.60"),
         )
     )
-    effort: Any = "low"
-    """TASK-084: ``low`` (not the provider default ``high``) so reasoning cannot eat the output
-    bound; the bound itself grows with the number of blocks in a call (``output_bound``)."""
+    effort: Any = "medium"
+    """TASK-086: ``medium`` gives room to judge ambiguous pairs (survey matches only on station
+    count/MD range); the bound (8192 + 1024 per block beyond 2) covers reasoning plus JSON, and the
+    single truncation retry (``minimal`` effort, doubled bound) shares the reservation."""
     max_blocks_per_call: int = MAX_BLOCKS_PER_CALL
     max_calls: int = MAX_CALLS
 
@@ -376,7 +377,9 @@ class MergeProposer:
         cost: Decimal | None = None
         try:
             with unit:
-                response = unit.step_retry_truncated(messages)
+                response = unit.step_retry_truncated(
+                    messages, retry_cap=limits.max_output_tokens * 2
+                )
             closed = unit.closed
             cost = closed.committed_usd if closed is not None else None
             raw = parse_output(response.text())

@@ -360,8 +360,8 @@ def test_a3_reused_message_when_pairs_already_proposed(world: World) -> None:
 
 
 def test_a4_output_bound_grows_with_blocks_and_truncation_retry_stays(world: World) -> None:
-    assert proposer.output_bound(4096, 1) == 4096 and proposer.output_bound(4096, 2) == 4096
-    assert proposer.output_bound(4096, 4) == 6144
+    assert proposer.output_bound(8192, 1) == 8192 and proposer.output_bound(8192, 2) == 8192
+    assert proposer.output_bound(8192, 4) == 10240
     pid = _volve(world)
     prop, provider = _proposer(
         world,
@@ -375,8 +375,11 @@ def test_a4_output_bound_grows_with_blocks_and_truncation_retry_stays(world: Wor
     run = _run(world, pid)
     assert run["state"] == "succeeded" and run["proposals_created"] == 3
     first, second = provider.calls
-    assert (first.effort, first.max_output_tokens) == ("low", 5120)
-    assert (second.effort, second.max_output_tokens) == ("minimal", 8192)
+    assert (first.effort, first.max_output_tokens) == (
+        "medium",
+        9216,
+    )  # 8192 + 1024 for the third block
+    assert (second.effort, second.max_output_tokens) == ("minimal", 18432)  # doubled
     assert count(world, "spend_reservation") == 1
 
 

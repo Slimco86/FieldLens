@@ -115,8 +115,13 @@ fingerprint + `GUARD_VERSION` + `PROMPT_VERSION` + `CONTENT_VERSION` + the evide
 candidate pair (rejected pairs included, so a rejection does not re-plan). A succeeded run with 0 proposals is reused
 only when all match; otherwise the stage re-plans. Stage messages: "the model found no matches: ..." (ran, none),
 "... re-checked because <evidence/guard/prompt changed>" and "no new matches to propose; <why reused>".
-Output bound = configured 4096 + 1024 per block beyond 2; effort stays `low`; one truncation retry at `minimal`
-effort and bound 8192 (TASK-084) is kept; reservation 0.30 USD per call.
+Output bound = configured 8192 + 1024 per block beyond 2; first attempt effort `medium` (owner decision: adequate
+thinking budget to judge ambiguous pairs such as a `stations_md`-only match); one truncation retry (TASK-084) at
+`minimal` effort with the doubled bound (16384 for <= 2 blocks, 18432 for 3, at most 20480 for 4), inside the same
+reservation. Reservation 0.60 USD per call, deadline 240 s, at most 3 calls per run (worst case 1.80 USD reserved,
+settled to actual). The 0.60 covers the first attempt's full spend plus the retry's upper bound at an assumed
+frontier-class rate (about USD 3 in / 15 out per Mtok); the real Meta rate comes from the pricing row and was not
+verified (no live call), and the estimate endpoint reports the bound from that row. Typical actual spend is a few cents.
 
 ## 6. Persistence (migration 0012_merge_proposals)
 
