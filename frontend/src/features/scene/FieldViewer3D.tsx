@@ -34,6 +34,8 @@ declare global {
   interface Window {
     /** Test/profiling hook next to `__fieldlensSceneProbe`: the instancing state of the field scene. */
     __fieldlensFieldStats?: () => FieldStats;
+    /** Test hook: canvas-relative pixel position of a wellbore's pad (null when off screen). */
+    __fieldlensFieldScreen?: (id: string) => { x: number; y: number } | null;
     /** Test/profiling hook: forces the viewer to rebuild its GPU resources `n` times (leak check). */
     __fieldlensFieldRebuild?: (n: number) => void;
   }
@@ -49,7 +51,9 @@ interface Props {
 }
 
 const DEFAULT_DIR = new THREE.Vector3(1, 0.5, 1).normalize();
-const FOCUS_RADIUS_M = 34;
+/** Close-up framing of one wellbore scales with the pad so the camera never ends up inside it. */
+const focusRadius = (plan: FieldPlan): number => Math.max(60, plan.display.padHalfM * 1.8);
+const focusDrop = (plan: FieldPlan): number => focusRadius(plan) * 0.3;
 const reducedMotion = (): boolean => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Owner of the instanced far set's GPU resources (one geometry per shape, one material per kind of mesh). */
@@ -372,7 +376,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
 
   const fieldSphere = useMemo(() => {
     const e = plan.extentM;
-    return { center: new THREE.Vector3(0, -Math.min(e * 0.3, 400), 0), radius: Math.max(e * 0.72, 150) };
+    return { center: new THREE.Vector3(0, -Math.min(e * 0.38, 500), 0), radius: Math.max(e * 0.85, 150) };
   }, [plan]);
 
   useEffect(() => {
@@ -380,7 +384,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
       flyTo: (id) => {
         const w = plan.byId.get(id);
         if (w === undefined) return;
-        frame.go(new THREE.Vector3(w.position[0], -12, w.position[2]), FOCUS_RADIUS_M, false);
+        frame.go(new THREE.Vector3(w.position[0], -focusDrop(plan), w.position[2]), focusRadius(plan), false);
       },
       fitAll: () => frame.go(fieldSphere.center, fieldSphere.radius, false),
       zoom: (factor) => {
@@ -409,7 +413,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
     if (ctl === null || userMoved.current) return;
     const id = initial.current;
     const w = id === null ? undefined : plan.byId.get(id);
-    if (w !== undefined) frame.go(new THREE.Vector3(w.position[0], -12, w.position[2]), FOCUS_RADIUS_M, true);
+    if (w !== undefined) frame.go(new THREE.Vector3(w.position[0], -focusDrop(plan), w.position[2]), focusRadius(plan), true);
     else frame.go(fieldSphere.center, fieldSphere.radius, true);
   }, [ctl, plan, frame, fieldSphere]);
   useEffect(() => {
@@ -439,12 +443,20 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
       return { wells: plan.wells.length, focusedId: selectedId, glyphs: c.glyphs, placeholders: c.placeholders, markersShown: f.markers?.count ?? 0, farDrawCalls: c.drawCalls };
     };
     window.__fieldlensFieldRebuild = (n) => setRebuild((v) => v + n);
+    window.__fieldlensFieldScreen = (wid) => {
+      const w = plan.byId.get(wid);
+      if (w === undefined) return null;
+      const v = new THREE.Vector3(w.position[0], plan.display.glyphHeightM * 0.4, w.position[2]).project(cam);
+      if (v.z > 1 || v.z < -1) return null;
+      return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
+    };
     return () => {
+      delete window.__fieldlensFieldScreen;
       delete window.__fieldlensSceneProbe;
       delete window.__fieldlensFieldStats;
       delete window.__fieldlensFieldRebuild;
     };
-  }, [gl, scene, camera, ctl, plan, selectedId]);
+  }, [gl, scene, camera, ctl, plan, selectedId, size]);
 
   useFrame((_, delta) => {
     const cam = camera as THREE.PerspectiveCamera;
