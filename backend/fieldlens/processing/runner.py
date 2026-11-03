@@ -414,6 +414,14 @@ class ProcessingRunner:
         message: str | None,
         retryable: bool,
     ) -> None:
+        if state == "failed":  # one structured line: ids, code and the safe reason only
+            logger.warning(
+                "processing document failed run_id=%s document_id=%s code=%s reason=%s",
+                claim.run_id,
+                document_id,
+                code.value if code else None,
+                (message or "")[:400],
+            )
         with session_scope(self._factory) as s:
             self._fence(s, claim)
             s.execute(
