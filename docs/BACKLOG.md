@@ -2715,3 +2715,24 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 **Outcome.** Typed-name-confirmed `DELETE /api/v1/projects/{id}`: cancels in-flight work, deletes the project's stored files and every project-scoped row through a crash-resumable purge (immutability guards stay enabled, allowed only for the purged project), keeps the spend ledger, and a sidebar dialog with counts, progress and retry. Completeness test over every table with `project_id`. Migration `0015`.
 **Next action.** None. Follow-ups: running extraction runs are marked superseded and waited on, not cancelled mid-run; a genuinely running job was not caught mid-run in QA.
 **Evidence.** QA-071 PASS after two repair rounds (nav e2e regression, dialog trap, focus, failed wording, shell.spec assertion) and an integration pass on top of 0.34.0 (migration 0015 re-chained onto 0014; purge honors the storage-root identity guard; 1357 backend tests, 216 Vitest, e2e 29 passed with only the known UI-2/UI-10 failures); merged `2e6fe9b`, release 0.35.0.
+
+### TASK-072 · Re-processable, observable model processing; inline project delete; provider configuration visibility
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | ready |
+| Priority | P0 |
+| Tags | backend, frontend |
+| Depends on | TASK-055, TASK-071 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-03 |
+| Sprint | Hackathon |
+| Spec | specs/MODEL_PROCESSING_OUTCOME.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-F |
+
+**Outcome.** Owner manual check of 0.36.0 (2026-11-02): inline project delete icon; model re-process available in every state (forced fresh read through estimate -> confirm, cache reuse opt-in); run history, provider/model, tokens/USD and the raw model reply visible per document; a stub run is labeled as such; a misconfigured live provider is reported (409 `provider_misconfigured`) instead of silently stubbed; unprefixed `PROCESSING_*` keys in `.env` are warned about and the prefixed names documented. Migration `0017`.
+**Next action.** Lane `task-072-model-outcome`: backend (fieldlens-rag), then UI (fieldlens-frontend), independent QA, merge, release. Live use needs owner-supplied Meta token rates.
+**Evidence.** none yet
