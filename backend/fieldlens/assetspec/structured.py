@@ -74,6 +74,7 @@ class StructuredResult:
     merged: int = 0  # parts folded into another structured part (shoe into its string, duplicates)
     conflicts: int = 0  # structured parts that print different ODs for the same place
     intervention_skipped: int = 0  # running tools / BHA runs: not permanent equipment
+    intervention_names: list[str] = field(default_factory=list)
 
 
 def _attr(attrs: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
@@ -513,6 +514,20 @@ def _intervention(rec: _Rec) -> bool:
     return rec.kind == "bha_run" or any(w in text for w in _INTERVENTION)
 
 
+def _intervention_name(rec: _Rec) -> str:
+    if rec.kind == "bha_run":
+        return "BHA run"
+    for key in (
+        "tubular_component.type",
+        "tubular_component.description",
+        "tubular_component.name",
+    ):
+        v = _text(rec.attrs, key)
+        if v:
+            return v[:40]
+    return "intervention tool"
+
+
 def _od(comp: dict[str, Any]) -> float | None:
     od = (comp.get("params") or {}).get("od")
     return float(od["value"]) if isinstance(od, dict) else None
@@ -614,6 +629,7 @@ def components_from_records(records: list[_Rec]) -> StructuredResult:
     for rec in records:
         if rec.kind in ("bha_run", "tubular_component") and _intervention(rec):
             out.intervention_skipped += 1
+            out.intervention_names.append(_intervention_name(rec))
             continue
         if rec.kind == "casing_point":
             comp = _casing_point(rec)

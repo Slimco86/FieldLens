@@ -310,5 +310,6 @@ def test_intervention_tools_are_not_permanent_equipment(world: World) -> None:
     out = design_without_model(world.factory, world.project_id, wb, "run-1")
     labels = [c.label for c in _current(world, world.project_id, wb).spec.components]
     assert out.counts["intervention_tools_skipped"] == 1
+    assert "not drawn: BHA run" in out.message
     assert not any("Spear" in label for label in labels)
     assert any("Installed liner hanger" in label for label in labels)

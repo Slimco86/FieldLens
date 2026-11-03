@@ -326,7 +326,12 @@ def _store(
     if structured.conflicts:
         message += f"; {structured.conflicts} structured OD conflict(s) kept visible"
     if structured.intervention_skipped:
-        message += f"; {structured.intervention_skipped} intervention tool record(s) not drawn"
+        names = ", ".join(dict.fromkeys(structured.intervention_names[:3]))
+        more = structured.intervention_skipped - len(structured.intervention_names[:3])
+        message += (
+            f"; {structured.intervention_skipped} intervention/BHA record(s) not drawn: {names}"
+            + (f" (+{more} more)" if more > 0 else "")
+        )
     if conflicts:
         message += f"; {conflicts} source conflict(s) shown generic, none chosen"
     if sweep is not None:
