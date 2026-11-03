@@ -61,6 +61,20 @@ describe("Wellbore name matches (merge review)", () => {
     expect(st.posts).toEqual([]);
   });
 
+  it("labels survey_match evidence as a server comparison, not a quote", async () => {
+    install([
+      proposal("p1", "pending", {
+        members: [member("F-12", "member", [{ document_id: DOC, evidence_kind: "survey_match", quote: "211 stations, MD 0-3400 m, identical", content_sha256: "s" }])],
+      }),
+    ]);
+    render(<MergeReview projectId={P} onChanged={() => undefined} />);
+    const list = await screen.findByRole("list", { name: "To review name matches" });
+    const ev = within(list).getByRole("list", { name: /Quotes for/ });
+    expect(ev).toHaveTextContent("Matching survey: 211 stations, MD 0-3400 m, identical");
+    expect(ev).toHaveTextContent("compared by the server");
+    expect(ev.querySelector("q")).toBeNull();
+  });
+
   it("accepts with the keyboard, refreshes the list and reports the change", async () => {
     const st = install([proposal("p1", "pending")]);
     const changed = vi.fn();
