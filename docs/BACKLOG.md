@@ -487,6 +487,25 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 **Next action.** Owner approved the spec October 30 (TASK-035). Order: TASK-038 (activity log backend), then TASK-036 (extraction) after TASK-004, TASK-009 and TASK-011; TASK-040 (Reconstruction view) after the shell. Stub provider only, no live spend.
 **Evidence.** Spec approved with owner decisions recorded (specs/AGENTIC_EXTRACTION.md section 6). Implementation not started; added by the owner's October 30 realignment (no existing task covered model judgement in extraction).
 
+### FL-023 · Wellbore identity grouping and agent-generated visual 3D asset (single and field view)
+
+| Field | Value |
+|---|---|
+| Type | feature |
+| Status | specifying |
+| Priority | P0 |
+| Tags | rag, backend, frontend, 3d |
+| Depends on | FL-022 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+
+**Outcome.** The reconstruction agent merges differently named sources of one wellbore into one file group, then designs a declarative, validated visual asset (trajectory plus plausible assembly, labelled illustrative) rendered in single-wellbore and multi-wellbore (field) 3D views. Plots, history, formations and reservoir are a later feature.
+**Next action.** Draft plan awaiting owner review (owner questions Q1-Q5 in the spec); no implementation or delegation before approval.
+**Evidence.** none yet; planning only (2026-11-02).
+
 ## Tasks
 
 Rows copied from the plan's task table (the plan stays the design-time DAG); `Parent` strips
@@ -2778,3 +2797,150 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 **Outcome.** Owner live test of 0.37.0 (2026-11-02): every Process with model run failed `provider_error: provider_unavailable` with no usable cause. Root cause: the `processing-live` budget period has `starting_balance_usd` NULL (balance confirmation is an owner ledger action that nothing offered), so `BudgetLedger.reserve` raises `ProviderUnavailable("starting balance is not confirmed")` before any call; `map_failure` then drops the reason. Owner decision: no owner step; the user's manual confirm in the UI is the spend authorization. Fix: (1) the `processing-live` period balance is auto-confirmed (= ledger cap) when the live runtime is built, also repairing a NULL-balance period; other periods untouched; (2) failure message/outcome and one server log line carry the safe ledger reason; (3) `FIELDLENS_PROCESSING_RUN_CAP_USD` is optional; total cap (5 USD), per-call reservation and page limits remain.
 **Next action.** Low-severity gap: an unrecorded pricing revision surfaces as an IntegrityError step error rather than the stated reason (only reachable by manual row deletion). Owner restart required.
 **Evidence.** Independent QA PASS on `bb0a4f8`: backend 1458 passed, ruff/mypy/contracts clean, npm gates clean, vitest 269 (one unrelated flaky `sources-slim` test seen once); concurrency and idempotency checked. Fake-provider only; no live Meta call, no e2e or browser run.
+
+### TASK-075 · Model processing: user-chosen pages, estimate from real text, no spend gates
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend, frontend |
+| Depends on | TASK-074 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/MODEL_PROCESSING_OUTCOME.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-I |
+
+**Outcome.** The estimate is computed from the selected pages' real text with the runner's bound, the user picks the page count (default min(5,total)), large selections run in chunks, and no total/run cap or remaining budget applies to a confirmed manual run (spec section 8).
+**Next action.** Draft awaiting owner review; lane A (0.38.0).
+**Evidence.** none yet; planning only (2026-11-02).
+
+### TASK-076 · Reconstruction stages S2 read / S3 match wellbores, merge UI and plain-language modal
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | rag, backend, frontend |
+| Depends on | TASK-055, TASK-057 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-A |
+
+**Outcome.** Wires the document read and the TASK-057 merge guards into reconstruction so aliases of one wellbore become one file group (revertible), adds the merge review UI (absorbs TASK-065) and rewrites the stage modal.
+**Next action.** Awaiting owner answer to Q1; lane B (0.39.0).
+**Evidence.** none yet; planning only (2026-11-02).
+
+### TASK-077 · VisualAssetSpec contract, validator, persistence and stub designer
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | backend |
+| Depends on | TASK-041 |
+| Assignee | agent:fieldlens-backend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-B |
+
+**Outcome.** Typed declarative asset spec (registered primitive kinds, MD placement or unlocated, evidence, illustrative label), server validation, migration 0019, fixtures, stub designer.
+**Next action.** Awaiting owner review; lane C (0.40.0); merge first so lane D can start.
+**Evidence.** none yet; planning only (2026-11-02).
+
+### TASK-078 · R3F foundation, primitive library and single-wellbore 3D view
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend, 3d |
+| Depends on | TASK-077 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-C |
+
+**Outcome.** First 3D in the app: trajectory tube, parametric primitives from a spec, picking with evidence inspector, draft preview, keyboard list, disposal discipline.
+**Next action.** Blocked on TASK-077; lane D (0.41.0).
+**Evidence.** none yet; planning only (2026-11-02).
+
+### TASK-079 · S5 live asset designer with bounded visual-reference research
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | rag, backend |
+| Depends on | TASK-076, TASK-077 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-D |
+
+**Outcome.** Agent stage that fills the spec from candidates and records; optional allowlisted web visual-reference tool; estimate and run history; fake provider by default.
+**Next action.** Blocked on TASK-076/077; lane E (0.42.0). Needs owner answer to Q4.
+**Evidence.** none yet; planning only (2026-11-02).
+
+### TASK-080 · Field (multi-wellbore) 3D view with LOD and instancing
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend, 3d |
+| Depends on | TASK-078 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-E |
+
+**Outcome.** All project wellbores in one scene, shared materials/instancing, fly-to and linked selection; measured frame time.
+**Next action.** Blocked on TASK-078; first item to cut if time is short (lane F, 0.43.0).
+**Evidence.** none yet; planning only (2026-11-02).
+
+### TASK-081 · Independent QA and bounded live acceptance of FL-023
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | qa |
+| Depends on | TASK-079, TASK-080 |
+| Assignee | agent:fieldlens-qa |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/WELLBORE_ASSET_GENERATION.md |
+| Version | none |
+| Parent | FL-023 |
+| Slice | FL-023-F |
+
+**Outcome.** Independent acceptance of AG-1..AG-10 and an owner-authorized live Meta run, reported separately from stubs.
+**Next action.** Blocked; needs a USD allowance for the live run.
+**Evidence.** none yet; planning only (2026-11-02).

@@ -368,3 +368,21 @@ absent from required task ancestors, and consistent pending version metadata.
 - [Development workflow](../docs/DEVELOPMENT_WORKFLOW.md)
 - [Agent roster](../.github/agents/README.md)
 - [Equipment source findings](../docs/EQUIPMENT_DATA_FEASIBILITY.md)
+
+### Implementation Phase 8 (owner request, November 2: estimate, wellbore grouping, visual 3D asset)
+
+- **GOAL-008**: Honest user-chosen-page estimates (TASK-075) and an agentic reconstruction that merges aliases of one
+  wellbore and generates a visual 3D asset for single and field views. Draft; not approved
+  ([spec](../docs/specs/WELLBORE_ASSET_GENERATION.md)). Parallel worktree lanes: A TASK-075; B TASK-076; C TASK-077;
+  D TASK-078 (after C); E TASK-079 (after B, C); F TASK-080 (after D); G TASK-081 QA. Serialize the contract registry,
+  `generated.ts`, the Alembic head (0018 for B, 0019 for C) and VERSION/CHANGELOG.
+
+| Task | Slice | Depends on | Description | Completed | Date |
+|---|---|---|---|---|---|
+| TASK-075 | processing | TASK-074 | Estimate from real text, page choice, chunking, no spend gates | | |
+| TASK-076 | reconstruction | TASK-055, TASK-057 | S2/S3 executors, merge UI, new modal | | |
+| TASK-077 | contract | TASK-041 | VisualAssetSpec, validator, persistence | | |
+| TASK-078 | 3d | TASK-077 | R3F foundation, primitives, single-wellbore view | | |
+| TASK-079 | agent | TASK-076, TASK-077 | S5 asset designer, visual-reference tool | | |
+| TASK-080 | 3d | TASK-078 | Field view | | |
+| TASK-081 | qa | TASK-079, TASK-080 | Independent QA and live acceptance | | |

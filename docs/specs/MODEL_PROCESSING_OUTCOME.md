@@ -113,3 +113,59 @@ reason was dropped from the failure text and never logged.
   provider_unavailable: the live processing budget period is paused ...") and the runner logs one
   warning per failed document: `run_id`, `document_id`, code and reason; never document text or a key.
 
+
+## 8. Amendment (TASK-075, proposed): user-chosen pages, honest estimate, no spend limits on a confirmed run
+
+> **Status:** Draft from the owner's 2026-11-02 23:17 feedback; awaiting owner review before any implementation.
+
+**Owner decision.** A confirmed manual run is the authorization. The user is only *informed* of the estimated cost; the
+app imposes no total cap, run cap, per-call reservation ceiling or remaining-budget gate on it, and shows no remaining
+budget (neither in the document dialog nor in the reconstruction dialog). The user chooses the number of pages;
+default `min(5, total)`; whatever is chosen runs once confirmed.
+
+**Why the 0.37.1 failure happened.** The estimate was `1,600 tokens/page` (a constant) while the runner's pre-flight
+bound counts one token per UTF-8 byte of the real page text plus the output allowance; the confirmed estimate is also
+the reservation ceiling, so a text-dense PDF (about 14 KB over 5 pages, bound about USD 0.0245 against an estimate of
+USD 0.0185) stopped with `budget_stop` before any call. No single tokens-per-page constant is right: one page may carry
+anywhere from 0 to 20,000 characters (`MAX_TEXT_CHARS`). 8,000 tokens/page is a safe but crude workaround, not a fix.
+
+### Design
+
+- **Estimate from the real text.** Estimating a model run reads the chosen pages' text locally (pdfium; no network, no
+  spend) and computes input tokens with the same bound the runner uses (`estimate_input_tokens` over the real prompt),
+  output tokens as the configured output allowance per call, cost with the owner rates. Therefore *runner bound <=
+  confirmed estimate* by construction, and the failure above cannot recur. Pages without a text layer count as read,
+  contribute no input, and are listed ("N of M selected pages have no text layer; OCR is not available").
+  `FIELDLENS_PROCESSING_INPUT_TOKENS_PER_PAGE` / `..._OUTPUT_TOKENS_PER_PAGE` stop applying to the model route (the stub
+  keeps illustrative numbers).
+- **Page selection.** `ProcessingEstimateRequest.documents[].pages` already exists as an optional range; the dialog
+  adds a page-count field (1..total, default `min(5, total)`, reading pages `1..N`). The refusal `page_cap_exceeded` /
+  `range_exceeds_cap` (`FIELDLENS_PROCESSING_MAX_PAGES`) no longer applies to the model route.
+- **Chunked calls.** Selected pages are sent in sequential calls of at most `FIELDLENS_PROCESSING_PAGES_PER_CALL`
+  (default 10) pages so a large selection never exceeds model context; one reservation per call, each equal to that
+  call's bound. Identity/category proposals are validated per chunk and merged deterministically; the document result is
+  stored only if every chunk succeeded, otherwise the document is `failed` naming the chunk, with recorded spend.
+  `[Assumed]` 10 pages/call; to be confirmed with a bounded live check.
+- **No gates on the user path.** Remove from the model route: total-cap and run-cap checks at estimate and confirm,
+  `provider_max_reserved_usd` as a reservation ceiling, `remaining_budget` in the UI. The WorkUnit reservation equals
+  the confirmed per-call bound. Still enforced (not spend limits): provider configuration/paused ledger, one active run
+  per document, idempotency, cancel. The ledger keeps recording every reservation and commit (accounting, run history,
+  outcome view); its technical cap (`FIELDLENS_BUDGET_LEDGER_CAP_USD`, 150) remains a hidden safety net, not a UI gate.
+  The DTO fields `remaining_budget_usd`/`total_cap_usd` stay for compatibility but are no longer displayed.
+
+### Acceptance criteria
+
+| ID | Type | Criterion | Test |
+|---|---|---|---|
+| PE-1 | Behavioral | For any readable PDF and page count N, the confirmed estimate is >= the runner's pre-flight bound for those pages; a text-dense fixture that failed in 0.37.1 now runs to success with the fake provider | pytest |
+| PE-2 | Behavioral | The dialog offers a page count (default `min(5,total)`, 1..total); changing it re-estimates; the selection is part of the confirmed run and the idempotency fingerprint | vitest + pytest |
+| PE-3 | Behavioral | A selection larger than one call (e.g. 25 pages, 10 per call) runs as sequential calls, one reservation each; a failing chunk fails the document with the chunk named and spend recorded; partial text results are not stored as a success | pytest |
+| PE-4 | Negative | No total/run cap or remaining budget influences estimate/confirm/run on the model route; the dialogs (document and reconstruction) show no remaining budget or cap | pytest + vitest |
+| PE-5 | Edge | Pages without a text layer are counted and reported; an all-image selection estimates zero input and ends with an honest "no text layer" outcome, not a spend | pytest |
+| PE-6 | Behavioral | Estimate shows provider/model, spends-money flag, pages, input/output tokens, USD, rates and "upper bound; actual is usually lower"; actual cost and tokens appear in run history afterward | vitest |
+| PE-7 | Regression | Stub path, misconfigured-provider 409, force/reuse, history and raw-reply behaviour of TASK-072 unchanged | existing suites |
+
+### Open decisions
+
+- `[Assumed]` pages are always `1..N` (no arbitrary start page); a from/to range can follow if wanted.
+- Environment variables that become unused on the model route are deprecated in `.env.example` but still parsed.

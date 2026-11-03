@@ -86,3 +86,11 @@ claims for S2 until TASK-055's own checks.
 - `[Assumed]` bulk start runs wellbores sequentially with at most two concurrent; one estimate covers the bulk.
 - Open: whether the user must confirm per wellbore or once for the bulk (default: once, showing the per-wellbore split).
 - Open: when S2 is live, which documents count as in scope for a wellbore whose files carry several wellbores.
+
+## Amendment (proposed, 2026-11-02): stage redesign
+
+Draft; awaiting owner review. The stage list becomes S1 Collect sources, S2 Read documents (TASK-055 model read),
+S3 Match wellbores (TASK-057 merge, grouping all files of one wellbore), S4 Assemble data, S5 Design 3D asset
+(`VisualAssetSpec`). The modal explains each stage and shows informational cost only (no remaining budget, per
+TASK-075). See [WELLBORE_ASSET_GENERATION](WELLBORE_ASSET_GENERATION.md) sections 3 and 5; it supersedes the
+"stage list S1..S4" assumption above once approved.
