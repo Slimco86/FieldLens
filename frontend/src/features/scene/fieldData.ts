@@ -11,6 +11,17 @@ export interface WellboreRef {
 const CONCURRENCY = 4;
 
 /**
+ * The "has an asset spec" signal. No list endpoint or exposure field says which wellbores are
+ * reconstructed, so the signal is the existing per-wellbore current-spec route (200 = reconstructed,
+ * 404 = not yet). It is read once per wellbore with bounded concurrency and kept in the owner's state
+ * (ExploreScene), so switching between the field and wellbore views does not refetch. Failed reads
+ * are "unknown": they stay listed in the field view with a retry.
+ */
+export function reconstructed(wellbores: readonly WellboreRef[], specs: ReadonlyMap<string, FieldSpecState>): WellboreRef[] {
+  return wellbores.filter((w) => specs.get(w.id)?.kind === "ready");
+}
+
+/**
  * Loads the current asset spec of every wellbore (bounded concurrency, aborted on unmount). The
  * existing per-wellbore route is used: a project of ~12 wellbores costs 12 small reads, so no new
  * endpoint is needed. A 404 means "no spec yet" (a labelled placeholder), anything else is a failure
