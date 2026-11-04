@@ -146,18 +146,6 @@ class FormationLinkTarget(ContractModel):
     pick_id: UUID | None = None
 
 
-def _is_iso_date_or_number(value: str) -> bool:
-    try:
-        date.fromisoformat(value)
-    except ValueError:
-        try:
-            float(value)
-        except ValueError:
-            return False
-        return value.lower() not in {"nan", "inf", "-inf", "+inf", "infinity", "-infinity"}
-    return True
-
-
 class ChartLinkTarget(ContractModel):
     """Opens the Charts tab on a chart and window."""
 
@@ -165,31 +153,6 @@ class ChartLinkTarget(ContractModel):
     chart_key: ChartKey
     wellbore_id: UUID | None = Field(default=None, description="Null selects the field chart set.")
     window: ChartWindow | None = None
-
-    @model_validator(mode="after")
-    def _window(self) -> ChartLinkTarget:
-        if self.window is not None:
-            for bound in (self.window.from_, self.window.to):
-                if bound is not None and not _is_iso_date_or_number(bound):
-                    raise ValueError("chart window bounds are ISO dates or finite numbers")
-            if (
-                self.window.from_ is not None
-                and self.window.to is not None
-                and _is_iso_date_or_number(self.window.from_)
-                and _is_iso_date_or_number(self.window.to)
-            ):
-                try:
-                    ordered = date.fromisoformat(self.window.from_) <= date.fromisoformat(
-                        self.window.to
-                    )
-                except ValueError:
-                    try:
-                        ordered = float(self.window.from_) <= float(self.window.to)
-                    except ValueError:
-                        raise ValueError("chart window bounds must be the same type") from None
-                if not ordered:
-                    raise ValueError("chart window start must not be after its end")
-        return self
 
 
 class AppLinkTarget(
