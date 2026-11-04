@@ -50,6 +50,12 @@
   background: var(--fl-color-surface);
   border-bottom: var(--fl-border-width) solid var(--fl-color-border);
 }
+.headerBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fl-space-sm);
+  font-weight: 600;
+}
 .header h2 {
   margin: 0;
   font-size: var(--fl-font-size-md);
