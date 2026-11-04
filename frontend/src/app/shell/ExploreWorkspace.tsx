@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ActionIcon, Button } from "@mantine/core";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
+import { useExploreCommandHandlers } from "../../features/scene/ExploreCommandsContext";
+import type { ExploreCommandMap } from "../../features/scene/exploreCommands";
 import {
   ExploreStageProvider,
   readStageMode,
@@ -39,6 +41,12 @@ export interface ExploreRegions {
   assistant?: ReactNode;
   /** Wellbore-versus-field context exposed to slots through `useExploreStage()`. Defaults to field. */
   context?: ExploreStageContext;
+  /**
+   * Charts-tab hook for the `openChart` command (the workspace's only `openChart` handler). Return false when the
+   * chart/wellbore is not in the loaded set (the command is then `unhandled`); otherwise apply the window and focus
+   * the chart. The workspace itself then reveals the Charts pane (3D -> Charts; Split stays Split).
+   */
+  onOpenChart?: (payload: ExploreCommandMap["openChart"]) => boolean;
 }
 
 type Collapsible = "tree" | "inspector" | "dock" | "assistant";
@@ -110,7 +118,7 @@ function StageSwitch({ mode, onChange }: { mode: StageMode; onChange: (m: StageM
   );
 }
 
-export function ExploreWorkspace({ tree, stage, inspector, dock, charts, assistant, context = FIELD_CONTEXT }: ExploreRegions) {
+export function ExploreWorkspace({ tree, stage, inspector, dock, charts, assistant, context = FIELD_CONTEXT, onOpenChart }: ExploreRegions) {
   const [collapsed, setCollapsed] = useState<Record<Collapsible, boolean>>({
     tree: false,
     inspector: false,
@@ -120,6 +128,18 @@ export function ExploreWorkspace({ tree, stage, inspector, dock, charts, assista
   const [mode, setMode] = useState<StageMode>(() => readStageMode());
   useEffect(() => writeStageMode(mode), [mode]);
   const hasCharts = charts !== undefined;
+  // `openChart` has exactly one handler: this one (registered only when a Charts pane exists). It reveals the pane.
+  useExploreCommandHandlers({
+    ...(hasCharts
+      ? {
+          openChart: (p: ExploreCommandMap["openChart"]) => {
+            if (onOpenChart !== undefined && !onOpenChart(p)) return false;
+            setMode((m) => (m === "3d" ? "charts" : m));
+            return true;
+          },
+        }
+      : {}),
+  });
   // Without a charts slot there is nothing to switch to: the stage is always the 3D body.
   const effective: StageMode = hasCharts ? mode : "3d";
   const stageState = useMemo<ExploreStageState>(() => ({ mode: effective, context }), [effective, context]);

@@ -5,7 +5,11 @@
   min-width: 0;
 }
 .row {
-  display: flex;
+  display: grid;
+  /* Named columns: absent regions simply leave their column at zero width. */
+  grid-template-columns: [tree] auto [stage] minmax(0, 1fr) [inspector] auto;
+  grid-auto-flow: row;
+  align-items: stretch;
   gap: var(--fl-space-md);
   min-width: 0;
   min-height: var(--fl-layout-stage-min);
@@ -22,19 +26,49 @@
   overflow: hidden;
 }
 .tree {
-  flex: none;
+  grid-column: tree;
+  grid-row: 1;
   width: var(--fl-layout-tree);
 }
 .inspector {
-  flex: none;
+  grid-column: inspector;
+  grid-row: 1;
   width: var(--fl-layout-inspector);
 }
 .stage {
-  flex: 1;
+  grid-column: stage;
+  grid-row: 1;
 }
 .tree.collapsed,
 .inspector.collapsed {
   width: var(--fl-layout-rail);
+}
+/* Narrow widths: one column in DOM (= tab) order tree, stage, inspector; nothing overlaps or scrolls sideways. */
+@media (max-width: 960px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .tree,
+  .stage,
+  .inspector,
+  .tree.collapsed,
+  .inspector.collapsed {
+    grid-column: 1;
+    grid-row: auto;
+    width: auto;
+  }
+  .stage {
+    min-height: var(--fl-layout-stage-min);
+  }
+  .tree.collapsed .bar,
+  .inspector.collapsed .bar {
+    flex-direction: row;
+  }
+  .tree.collapsed .bar > span,
+  .inspector.collapsed .bar > span {
+    writing-mode: horizontal-tb;
+  }
 }
 .bar {
   display: flex;

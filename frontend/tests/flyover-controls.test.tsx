@@ -12,6 +12,7 @@ function fakeCommands() {
     fitAll: vi.fn(),
     fitWellhead: vi.fn(),
     focus: vi.fn(),
+    focusPoint: vi.fn(),
     zoom: vi.fn(),
     flyOver: vi.fn(() => true),
     stopFlyOver: vi.fn(() => true),
