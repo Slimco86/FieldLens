@@ -56,7 +56,7 @@ def aggregates(
 
     out.minimum = min(picked)
     out.maximum = max(picked)
-    out.mean = math.fsum(picked) / valid
+    out.mean = min(max(math.fsum(picked) / valid, out.minimum), out.maximum)  # fp-safe
     out.total = math.fsum(picked) if summable else None
     out.first_valid_x = label(first)
     out.last_valid_x = label(last)
@@ -93,7 +93,7 @@ def display(
         gaps_omitted=omitted if applied else 0,
         extrema_preserved=True,
     )
-    return points, info, gaps
+    return points, info, gaps + (omitted if applied else 0)
 
 
 def cumulative(y: NDArray[np.float64]) -> NDArray[np.float64]:

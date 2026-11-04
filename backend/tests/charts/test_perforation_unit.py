@@ -42,8 +42,11 @@ def test_union_of_overlapping_intervals_steps_over_dates() -> None:
         ],
         None,
     )
-    totals = [(s.x, s.total) for s in res.steps]
-    assert totals == [("2020-01-01", 10.0), ("2020-02-01", 20.0), ("2020-03-01", 30.0)]
+    assert [s.x for s in res.steps] == ["2020-01-01", "2020-02-01", "2020-03-01"]
+    # no baseline of the initial history exists, so the engine does not resolve an exact total:
+    # the step is a gap with the stated reason, never a zero or a guessed sum
+    assert all(s.total is None and s.reason for s in res.steps)
+    assert all("baseline_not_established" in (s.reason or "") for s in res.steps)
     assert res.dated_events == 3 and res.undated_events == 0
 
 
@@ -52,7 +55,8 @@ def test_same_day_events_form_one_step_without_invented_order() -> None:
         WB, [_row(1, 100.0, 110.0, "2020-01-01"), _row(2, 120.0, 130.0, "2020-01-01")], None
     )
     assert len(res.steps) == 1
-    assert res.steps[0].total == 20.0 and len(res.steps[0].event_ids) == 2
+    assert len(res.steps[0].event_ids) == 2
+    assert res.steps[0].total is None and res.steps[0].reason
 
 
 def test_unknown_history_before_first_event_is_not_zero() -> None:
@@ -72,7 +76,9 @@ def test_as_of_excludes_later_events() -> None:
 
 def test_undated_record_is_listed_with_reason_and_not_stepped() -> None:
     res = perforation.build(
-        WB, [_row(1, 100.0, 110.0, None, precision="unknown"), _row(2, 1.0, 2.0, "2020-01-01")], None
+        WB,
+        [_row(1, 100.0, 110.0, None, precision="unknown"), _row(2, 1.0, 2.0, "2020-01-01")],
+        None,
     )
     assert res.undated_events == 1 and res.dated_events == 1
     assert any(e.effective_time_unknown_reason for e in res.history.events)

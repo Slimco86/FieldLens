@@ -32,7 +32,9 @@ def test_aggregates_are_exact_over_full_resolution() -> None:
 
 def test_aggregates_not_summable_have_no_total_and_all_null_has_no_extrema() -> None:
     x = _days(3)
-    assert numeric.aggregates(x, np.array([1.0, 2.0, 3.0]), unit="bar", summable=False).total is None
+    assert (
+        numeric.aggregates(x, np.array([1.0, 2.0, 3.0]), unit="bar", summable=False).total is None
+    )
     empty = numeric.aggregates(x, np.full(3, np.nan), unit=None, summable=True)
     assert empty.valid_count == 0 and empty.null_count == 3
     assert empty.minimum is None and empty.maximum is None and empty.total is None
@@ -71,6 +73,20 @@ def test_display_preserves_gaps_as_null_points() -> None:
     pts, info, gaps = numeric.display(_days(5), y)
     assert [p.y for p in pts] == [1.0, None, 3.0, None, 5.0]
     assert gaps == 2 and info.gap_markers_preserved is True
+
+
+def test_gap_count_includes_omitted_gaps_after_downsampling() -> None:
+    n = 40_000
+    y = np.sin(np.arange(n) / 9.0)
+    y[::3] = np.nan
+    pts, info, gaps = numeric.display(_days(n), y)
+    assert gaps == sum(1 for p in pts if p.y is None) + info.gaps_omitted
+
+
+def test_mean_is_within_extrema_for_constant_series() -> None:
+    y = np.full(1000, 0.1)
+    agg = numeric.aggregates(_days(1000), y, unit=None, summable=True)
+    assert agg.minimum <= agg.mean <= agg.maximum
 
 
 def test_display_is_deterministic() -> None:
