@@ -247,7 +247,7 @@ def test_wellbore_link_must_be_in_project_and_in_tool_results() -> None:
     ]
 
 
-def test_element_and_formation_links_are_never_accepted() -> None:
+def test_element_and_formation_links_without_tool_results_are_dropped() -> None:
     ev, _ = _evidence()
     answer = _validator(ev).validate(
         [

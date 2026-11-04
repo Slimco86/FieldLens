@@ -20,16 +20,26 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from fieldlens.assetspec import service as assetspec
 from fieldlens.assistant.messages import ToolCallPart, ToolSpec
 from fieldlens.chat.evidence_pool import ContextClass, ToolRecord, TurnEvidence
+from fieldlens.context import formations as formation_service
+from fieldlens.contracts.asset_spec import (
+    AssetComponent,
+    Located,
+    Representation,
+    Surface,
+    Unlocated,
+)
 from fieldlens.contracts.chat import ChatContext, ChatToolCallSummary
-from fieldlens.contracts.errors import ContractError
+from fieldlens.contracts.context_layers import DepthValue, FormationPick
+from fieldlens.contracts.errors import ContractError, ErrorCode
 from fieldlens.contracts.series import IndexEncoding, SeriesKind, WindowResolution
 from fieldlens.merge_proposals import service as proposals
 from fieldlens.persistence import models as m
@@ -65,6 +75,10 @@ class NoArgs(_Args):
 
 class WellboreArgs(_Args):
     wellbore_id: UUID
+
+
+class OptionalWellboreArgs(_Args):
+    wellbore_id: UUID | None = None
 
 
 class CompareArgs(_Args):
@@ -457,6 +471,264 @@ def _draft_proposals(ctx: ToolContext, args: DraftArgs) -> dict[str, Any]:
     }
 
 
+LEVEL_PLANE_NOTICE = (
+    "Level planes are illustrative scene geometry at a pick's elevation, not interpreted horizons."
+)
+MAX_PICKS = 25
+MAX_SURFACES = 25
+MAX_COMPONENTS = 30
+
+
+def _depth(d: DepthValue | None) -> dict[str, Any] | None:
+    if d is None:
+        return None
+    return {
+        "reference": d.reference.value,
+        "value": d.value,
+        "unit": d.unit,
+        "datum": d.datum,
+        "datum_status": d.datum_status.value,
+        "unknown_reason": d.unknown_reason,
+    }
+
+
+def _pick_item(ctx: ToolContext, pick: FormationPick) -> dict[str, Any]:
+    for link in pick.evidence:
+        ctx.evidence.add_evidence(link)
+    marker = (
+        ctx.evidence.add_citable(
+            ctx.call_id,
+            evidence=pick.evidence[0],
+            record_id=pick.evidence[0].record_id,
+            label=f"formation pick {pick.surface_name}"[:200],
+        )
+        if pick.evidence
+        else None
+    )
+    ctx.evidence.wellbores.add(pick.wellbore_id)
+    ctx.evidence.picks[pick.pick_id] = (pick.surface_key, pick.wellbore_id)
+    ctx.evidence.surfaces.setdefault(pick.surface_key, set()).add(pick.wellbore_id)
+    return {
+        "cite": marker,
+        "pick_id": str(pick.pick_id),
+        "wellbore_id": str(pick.wellbore_id),
+        "surface_key": pick.surface_key,
+        "surface_name": pick.surface_name,
+        "name": pick.name,
+        "md": _depth(pick.md),
+        "tvd": _depth(pick.tvd),
+        "tvdss": _depth(pick.tvdss),
+        "twt": _depth(pick.twt),
+        "qualifier": pick.qualifier,
+        "validation_state": str(pick.validation_state),
+        "label": pick.label,
+        "tier": pick.tier.value,
+        "extraction_method": pick.extraction_method,
+    }
+
+
+def _formation_set(ctx: ToolContext, wellbore_id: UUID | None) -> Any:
+    with session_scope(ctx.factory) as s:
+        return formation_service.formation_layer_set(s, ctx.project_id, wellbore_id)
+
+
+def _blocked(items: Any) -> list[dict[str, Any]]:
+    return [{"reason": b.reason.value, "message": b.message[:240]} for b in list(items)[:10]]
+
+
+def _formation_picks(ctx: ToolContext, args: OptionalWellboreArgs) -> dict[str, Any]:
+    layers = _formation_set(ctx, args.wellbore_id)
+    picks = [p for surface in layers.surfaces for p in surface.picks]
+    items = [_pick_item(ctx, p) for p in picks[:MAX_PICKS]]
+    return {
+        "wellbore_id": str(args.wellbore_id) if args.wellbore_id else None,
+        "picks": items,
+        "total_picks": len(picks),
+        "truncated": len(picks) > len(items),
+        "unsupported_not_drawn": [
+            {
+                "pick_id": str(u.pick_id),
+                "surface_name": u.surface_name,
+                "qualifier": u.qualifier,
+                "reason": u.reason.value,
+            }
+            for u in layers.unsupported[:10]
+        ],
+        "empty_reason": layers.empty_reason,
+        "depth_note": "md/tvd/tvdss are source values with their own unit and datum; "
+        "none is converted or assumed.",
+        "instruction": "Use value blocks for depths. Link a pick with kind=formation, "
+        "surface_key and pick_id from this result.",
+        "scope": ctx.scope_note(layers.generated_from_revision),
+    }
+
+
+def _formation_layers(ctx: ToolContext, args: OptionalWellboreArgs) -> dict[str, Any]:
+    layers = _formation_set(ctx, args.wellbore_id)
+    surfaces: list[dict[str, Any]] = []
+    for surface in layers.surfaces[:MAX_SURFACES]:
+        for link in surface.evidence:
+            ctx.evidence.add_evidence(link)
+        for pick in surface.picks:
+            ctx.evidence.wellbores.add(pick.wellbore_id)
+            ctx.evidence.picks[pick.pick_id] = (surface.surface_key, pick.wellbore_id)
+        ctx.evidence.surfaces.setdefault(surface.surface_key, set()).update(surface.wellbore_ids)
+        ctx.evidence.wellbores.update(surface.wellbore_ids)
+        first = surface.evidence[0] if surface.evidence else None
+        marker = ctx.evidence.add_citable(
+            ctx.call_id,
+            evidence=first,
+            record_id=first.record_id if first else None,
+            label=f"formation {surface.name} ({surface.tier_label})"[:200],
+        )
+        surfaces.append(
+            {
+                "cite": marker,
+                "surface_key": surface.surface_key,
+                "name": surface.name,
+                "tier": surface.tier.value,
+                "tier_label": surface.tier_label,
+                "status": surface.status.value,
+                "scope": surface.scope.value,
+                "wellbore_ids": [str(w) for w in surface.wellbore_ids[:20]],
+                "pick_ids": [str(p.pick_id) for p in surface.picks[:20]],
+                "pick_count": len(surface.picks),
+                "illustrative": surface.tier_label.lower().count("illustrative") > 0,
+                "blocked": _blocked(surface.blocked),
+            }
+        )
+    return {
+        "wellbore_id": str(args.wellbore_id) if args.wellbore_id else None,
+        "surfaces": surfaces,
+        "surface_count": len(layers.surfaces),
+        "truncated": len(layers.surfaces) > len(surfaces),
+        "conflicts": [
+            {
+                "pick_id": str(c.pick_id),
+                "wellbore_id": str(c.wellbore_id),
+                "reason": c.reason.value,
+                "message": c.message[:240],
+            }
+            for c in layers.conflicts[:10]
+        ],
+        "layer_blocked": _blocked(layers.blocked),
+        "unsupported_count": len(layers.unsupported),
+        "empty_reason": layers.empty_reason,
+        "vertical_reference": layers.frame.vertical_reference,
+        "vertical_reference_status": layers.frame.vertical_reference_status.value,
+        "illustrative_notice": LEVEL_PLANE_NOTICE,
+        "instruction": "Report tier_label as given. A 'level plane - illustrative' surface is "
+        "not an interpreted horizon. Link a surface with kind=formation and its surface_key.",
+        "scope": ctx.scope_note(layers.generated_from_revision),
+    }
+
+
+_REPRESENTATION_NOTE = {
+    Representation.GENERIC_ILLUSTRATIVE: "generic placeholder; no source data about this item",
+    Representation.CATALOG_REFERENCE: (
+        "shape follows a documented catalog model; not evidence that it is installed"
+    ),
+    Representation.SOURCE_DIMENSIONED: "dimensions cite source evidence (see evidence)",
+}
+
+
+def _placement(c: AssetComponent) -> dict[str, Any]:
+    p = c.placement
+    if isinstance(p, Located):
+        return {
+            "state": "located",
+            "md_top": p.md_top,
+            "md_bottom": p.md_bottom,
+            "unit": p.unit.value,
+            "depth_reference": p.depth_reference.value,
+        }
+    if isinstance(p, Surface):
+        return {"state": "surface"}
+    assert isinstance(p, Unlocated)
+    return {"state": "unlocated", "reason": p.reason or "placement unknown"}
+
+
+def _component(
+    ctx: ToolContext, spec_id: UUID, wellbore_id: UUID, c: AssetComponent
+) -> dict[str, Any]:
+    element_id = element_uuid(spec_id, c.id)
+    ctx.evidence.elements.add(element_id)
+    ctx.evidence.element_wellbores[element_id] = wellbore_id
+    sources: list[dict[str, Any]] = []
+    for ref in c.evidence[:3]:
+        if ref.document_id is not None:
+            ctx.evidence.documents.add(ref.document_id)
+            if ref.page is not None:
+                ctx.evidence.pages.setdefault(ref.document_id, set()).add(ref.page)
+        sources.append(
+            {
+                "document_id": str(ref.document_id) if ref.document_id else None,
+                "page": ref.page,
+                "locator": ref.locator,
+                "statement": (ref.statement or "")[:200] or None,
+            }
+        )
+    params = None
+    if c.params is not None and c.representation is not Representation.GENERIC_ILLUSTRATIVE:
+        params = {
+            k: _quantity(q.value, q.unit.value)
+            for k, q in (("od", c.params.od), ("id", c.params.id), ("length", c.params.length))
+            if q is not None
+        }
+    return {
+        "element_id": str(element_id),
+        "component_id": c.id,
+        "kind": c.kind.value,
+        "label": c.label,
+        "placement": _placement(c),
+        "representation": c.representation.value,
+        "representation_note": _REPRESENTATION_NOTE[c.representation],
+        "params": params,
+        "sources": sources,
+        "confidence_note": (c.confidence_note or "")[:200] or None,
+    }
+
+
+def element_uuid(spec_id: UUID, component_id: str) -> UUID:
+    """Stable id of one spec component (component ids are slugs; links carry a UUID)."""
+    return uuid5(spec_id, component_id)
+
+
+def _equipment_summary(ctx: ToolContext, args: WellboreArgs) -> dict[str, Any]:
+    try:
+        with session_scope(ctx.factory) as s:
+            rec = assetspec.get_current(s, ctx.project_id, args.wellbore_id)
+    except ContractError as exc:
+        if exc.code is ErrorCode.NOT_FOUND:
+            raise ToolError(f"no equipment description for this wellbore: {exc.message}") from exc
+        raise
+    spec = rec.spec
+    ctx.evidence.wellbores.add(args.wellbore_id)
+    components = [
+        _component(ctx, rec.spec_id, args.wellbore_id, c) for c in spec.components[:MAX_COMPONENTS]
+    ]
+    marker = ctx.evidence.add_citable(
+        ctx.call_id, label=f"visual asset spec r{rec.revision} (visual only)"
+    )
+    return {
+        "cite": marker,
+        "wellbore_id": str(args.wellbore_id),
+        "spec_revision": rec.revision,
+        "spec_state": rec.state.value,
+        "generated_at": rec.created_at.isoformat(),
+        "visual_only": True,
+        "caveat": "A visual description. It does not establish what is installed; generic and "
+        "catalog items are placeholders/references, not installed equipment.",
+        "components": components,
+        "component_count": len(spec.components),
+        "truncated": len(spec.components) > len(components),
+        "missing_data": [f.message[:200] for f in spec.findings[:10]],
+        "instruction": "Link an item with kind=element, its element_id and this wellbore_id. "
+        "State representation_note when describing an item.",
+        "scope": ctx.scope_note(spec.source_revision),
+    }
+
+
 # --- registry -------------------------------------------------------------------------------
 
 
@@ -555,6 +827,40 @@ TOOLS: dict[str, Tool] = {
             SeriesSummaryArgs,
             _series_summary,
             ContextClass.SOURCE,
+        ),
+        Tool(
+            _spec(
+                "get_formation_picks",
+                "List formation picks (MD/TVD/TVDSS with source units and datum) for one "
+                "wellbore or the project, with source citations.",
+                {"wellbore_id": _STR},
+            ),
+            OptionalWellboreArgs,
+            _formation_picks,
+            ContextClass.SOURCE,
+        ),
+        Tool(
+            _spec(
+                "get_formation_layers",
+                "List formation surfaces with tier labels (level planes are illustrative, not "
+                "interpreted horizons), blocked reasons and conflicts.",
+                {"wellbore_id": _STR},
+            ),
+            OptionalWellboreArgs,
+            _formation_layers,
+            ContextClass.SOURCE,
+        ),
+        Tool(
+            _spec(
+                "get_equipment_summary",
+                "Summarize a wellbore's visual equipment description: items, placement, "
+                "representation (generic/catalog/source) and missing-data notes.",
+                {"wellbore_id": _STR},
+                ["wellbore_id"],
+            ),
+            WellboreArgs,
+            _equipment_summary,
+            ContextClass.PUBLISHED,
         ),
         Tool(
             _spec(
