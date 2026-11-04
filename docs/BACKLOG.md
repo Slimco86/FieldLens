@@ -522,7 +522,7 @@ uv run python scripts/track.py plan       # summary; Taiga sync arrives with FL-
 | Version | none |
 
 **Outcome.** Formation picks are placed on their wellbores by MD and drawn underground with names, interpretation status and source links; missing surface geometry degrades to labeled level planes, never to a silent plane (FO-1..7, refines FL-009-B).
-**Next action.** Approved 2026-11-03 (D1, D5 deferred horizons); wave 0 TASK-094/095 in progress.
+**Next action.** Approved 2026-11-03 (D1, D5 deferred horizons); integrated and released as 0.54.0 (2026-11-04). Pending: owner manual test, independent browser pass (frame time CM-6, focus order, narrow layout), live-Meta AV-9, re-verification of fixes TASK-107..110.
 **Evidence.** none yet; planning only (2026-11-03).
 
 ### FL-025 · Explore charts: wellbore-scoped and field-level
@@ -2065,7 +2065,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, charts |
 | Depends on | none |
@@ -2086,7 +2086,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, 3d |
 | Depends on | none |
@@ -2107,7 +2107,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | 3d, frontend |
 | Depends on | TASK-095 |
@@ -2128,7 +2128,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | geospatial, backend |
 | Depends on | TASK-094 |
@@ -2149,7 +2149,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | 3d, frontend |
 | Depends on | TASK-094, TASK-095 |
@@ -2191,7 +2191,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, charts |
 | Depends on | TASK-094 |
@@ -2233,7 +2233,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | charts, frontend |
 | Depends on | TASK-094, TASK-095 |
@@ -2254,7 +2254,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | rag, backend |
 | Depends on | TASK-094 |
@@ -2275,7 +2275,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, rag |
 | Depends on | TASK-094, TASK-095 |
@@ -2296,7 +2296,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | proposed |
+| Status | done |
 | Priority | P0 |
 | Tags | frontend, backend, rag |
 | Depends on | TASK-096, TASK-097, TASK-098, TASK-100, TASK-102, TASK-103, TASK-104 |
