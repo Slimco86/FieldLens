@@ -1,8 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useExploreStage, type ExploreStageContext } from "../../app/shell/exploreStage";
-import { AssistantPanel } from "../assistant";
-import type { ChatContext } from "../assistant/api";
-import { AsOfControl, ChartBlock, ChartCursorProvider, ChartPanel, createChartCursorStore, type CursorWindow } from "../charts";
+import { publishExploreContext } from "../assistant/exploreBridge";
+import { AsOfControl, ChartCursorProvider, ChartPanel, createChartCursorStore, type CursorWindow } from "../charts";
 import { FormationPanel } from "../context/formations/FormationPanel";
 import { formationFocusTarget } from "../context/formations/formationModel";
 import { createFormationStore } from "../context/formations/formationStore";
@@ -139,7 +138,7 @@ export function useExploreEnrichment({ projectId, context, revision, selectedEle
   );
   const wellboreId = context.kind === "wellbore" ? context.wellboreId : null;
   const assistant = useMemo(
-    () => <ExploreAssistant projectId={projectId} wellboreId={wellboreId} selectedElementId={selectedElementId} asOf={asOf} />,
+    () => <ExploreContextPublisher projectId={projectId} wellboreId={wellboreId} selectedElementId={selectedElementId} asOf={asOf} />,
     [projectId, wellboreId, selectedElementId, asOf],
   );
   const formationPanel = useMemo(() => <FormationPanel state={state} store={store} wellboreId={wellboreId} />, [state, store, wellboreId]);
@@ -159,15 +158,15 @@ function ChartHost({ hostRef, children }: { hostRef: RefObject<HTMLDivElement | 
   );
 }
 
-/** Assistant dock content: sends the live stage selection as typed context (narrows, never widens, scope) and renders chart blocks with the Charts-tab component. */
-function ExploreAssistant({ projectId, wellboreId, selectedElementId, asOf }: { projectId: string; wellboreId: string | null; selectedElementId: string | null; asOf: string | null }) {
+/** Renders nothing: publishes the live stage selection to the project-level assistant (it narrows, never widens, scope). */
+function ExploreContextPublisher({ projectId, wellboreId, selectedElementId, asOf }: { projectId: string; wellboreId: string | null; selectedElementId: string | null; asOf: string | null }) {
   const stage = useExploreStage();
   const view = stage?.mode ?? "3d";
-  const chatContext = useMemo<ChatContext>(
-    () => ({ wellbore_id: wellboreId, selected_element_id: selectedElementId, selected_surface_key: null, view, as_of: asOf, chart_key: null }),
-    [wellboreId, selectedElementId, view, asOf],
-  );
-  return <AssistantPanel projectId={projectId} context={chatContext} renderChart={(spec) => <ChartBlock spec={spec} wellboreId={wellboreId} />} />;
+  useEffect(() => {
+    publishExploreContext({ projectId, wellboreId, selectedElementId, asOf, view });
+  }, [projectId, wellboreId, selectedElementId, asOf, view]);
+  useEffect(() => () => publishExploreContext(null), []);
+  return null;
 }
 
 /**

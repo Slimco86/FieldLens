@@ -11,6 +11,7 @@ import { ReconstructionPanel } from "../pipeline/ReconstructionPanel";
 import { ProjectForm } from "./ProjectForm";
 import { keyString, projectKeys, saveSelectedProjectId, type Project, type Section } from "./keys";
 import { ExploreScene } from "../scene/ExploreScene";
+import { ProjectAssistant } from "../assistant/ProjectAssistant";
 import { useActionScope, useScopedResource } from "./scope";
 import styles from "./ProjectView.module.css";
 
@@ -263,6 +264,7 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
               )
             )}
           </section>
+          <ProjectAssistant projectId={projectId} section={section} onSection={onSection} onOpenSource={openSource} />
         </>
       )}
     </section>

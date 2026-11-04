@@ -1,7 +1,8 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ExploreWorkspace } from "../../app/shell/ExploreWorkspace";
 import type { ExploreStageContext } from "../../app/shell/exploreStage";
-import { ExploreCommandsProvider } from "./ExploreCommandsContext";
+import { publishExploreBus } from "../assistant/exploreBridge";
+import { ExploreCommandsProvider, useExploreCommandBus } from "./ExploreCommandsContext";
 import type { ExploreCommandBus } from "./exploreCommands";
 import { EmptyState, ErrorState, LoadingState } from "../../design";
 import { getExposure } from "../pipeline/api";
@@ -49,9 +50,20 @@ export function ExploreScene({
   return (
     <ExploreCommandsProvider {...(bus === undefined ? {} : { bus })}>
       <SourceViewerHost projectId={projectId} onOpenSource={onOpenSource} />
+      <ExploreBusPublisher />
       <ExploreSceneInner projectId={projectId} modelRevision={modelRevision} />
     </ExploreCommandsProvider>
   );
+}
+
+/** Renders nothing: makes the mounted bus reachable by the project-level assistant (cleared on unmount). */
+function ExploreBusPublisher() {
+  const bus = useExploreCommandBus();
+  useEffect(() => {
+    publishExploreBus(bus);
+    return () => publishExploreBus(null);
+  }, [bus]);
+  return null;
 }
 
 function ExploreSceneInner({ projectId, modelRevision }: { projectId: string; modelRevision: string | null }) {

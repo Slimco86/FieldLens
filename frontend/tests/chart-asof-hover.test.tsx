@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getExploreBridge } from "../src/features/assistant/exploreBridge";
 import { ChartBlock } from "../src/features/charts/ChartBlock";
 import { ExploreCommandsProvider } from "../src/features/scene/ExploreCommandsContext";
 import { createExploreCommandBus } from "../src/features/scene/exploreCommands";
@@ -11,10 +12,8 @@ import { render } from "./render";
 vi.mock("../src/features/charts/echartsRuntime", () => ({
   init: vi.fn(() => ({ setOption: vi.fn(), on: vi.fn(), off: vi.fn(), dispatchAction: vi.fn(), resize: vi.fn(), dispose: vi.fn() })),
 }));
-// The assistant is a boundary: expose the context it would send.
-vi.mock("../src/features/assistant", () => ({
-  AssistantPanel: (p: { context: unknown }) => <output data-testid="assistant-context">{JSON.stringify(p.context)}</output>,
-}));
+// The project-level assistant is a boundary: the enrichment publishes the context it would send.
+const sentContext = () => ({ ...getExploreBridge().context });
 vi.mock("../src/features/context/formations/FormationPanel", () => ({ FormationPanel: () => null }));
 
 let urls: string[] = [];
@@ -68,15 +67,15 @@ describe("as-of control (D3)", () => {
     const user = userEvent.setup();
     mount();
     const input = await screen.findByLabelText("As of");
-    expect(JSON.parse(screen.getByTestId("assistant-context").textContent!)).toMatchObject({ as_of: null });
+    expect(sentContext()).toMatchObject({ asOf: null });
     fireEvent.change(input, { target: { value: "2024-03-31" } });
     await waitFor(() => expect(chartUrls().at(-1)).toBe(`/api/v1/projects/${PROJECT}/charts/field?as_of=2024-03-31`));
-    expect(JSON.parse(screen.getByTestId("assistant-context").textContent!)).toMatchObject({ as_of: "2024-03-31" });
+    expect(sentContext()).toMatchObject({ asOf: "2024-03-31" });
     expect(await screen.findByText("Showing the record as of 2024-03-31")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Clear as-of date (show latest)" }));
     await waitFor(() => expect(chartUrls().at(-1)).toBe(`/api/v1/projects/${PROJECT}/charts/field`));
-    expect(JSON.parse(screen.getByTestId("assistant-context").textContent!)).toMatchObject({ as_of: null });
+    expect(sentContext()).toMatchObject({ asOf: null });
   });
 
   it("surfaces a server 422 as an alert", async () => {
