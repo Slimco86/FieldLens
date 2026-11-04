@@ -385,7 +385,7 @@ def _series_item(ctx: ToolContext, info: Any) -> dict[str, Any]:
 def _list_series(ctx: ToolContext, args: ListSeriesArgs) -> dict[str, Any]:
     page = ctx.need_series().list_series(
         ctx.project_id,
-        wellbore_label=args.wellbore_label,
+        wellbore_label_token=args.wellbore_label,
         kind=args.kind,
         mnemonic=args.mnemonic,
         limit=args.limit,
@@ -400,6 +400,58 @@ def _list_series(ctx: ToolContext, args: ListSeriesArgs) -> dict[str, Any]:
         "truncated": page.total > len(items),
         "scope": ctx.scope_note(),
     }
+
+
+def _extrema(
+    svc: SeriesService,
+    ctx: ToolContext,
+    series_id: UUID,
+    unit: str | None,
+    start: str | None,
+    end: str | None,
+) -> dict[str, Any] | None:
+    """Exact extrema with WHERE they occur (date or index), from full-resolution samples."""
+    try:
+        w = svc.get_window(
+            ctx.project_id, series_id, start=start, end=end, resolution=WindowResolution.FULL
+        )
+    except ContractError:
+        return None  # too many samples for full resolution; the plain min/max still stand
+    at = w.dates if w.dates is not None else w.index
+    pts = [(at[i], v) for i, v in enumerate(w.values) if v is not None]
+    if not pts:
+        return {"note": "no valid samples in range"}
+
+    def point(pos: Any, value: float, occurrences: int | None = None) -> dict[str, Any]:
+        out: dict[str, Any] = {"value": value, "unit": unit, "at": pos}
+        if occurrences is not None:
+            out["occurrences"] = occurrences
+        return out
+
+    lo = min(v for _, v in pts)
+    hi = max(v for _, v in pts)
+    nonzero = [(a, v) for a, v in pts if v != 0]
+    result: dict[str, Any] = {
+        "range_from": pts[0][0],
+        "range_to": pts[-1][0],
+        "valid_samples": len(pts),
+        "min_first_at": point(
+            next(a for a, v in pts if v == lo), lo, sum(1 for _, v in pts if v == lo)
+        ),
+        "min_last_at": next(a for a, v in reversed(pts) if v == lo),
+        "max_first_at": point(
+            next(a for a, v in pts if v == hi), hi, sum(1 for _, v in pts if v == hi)
+        ),
+        "zero_samples": len(pts) - len(nonzero),
+        "note": "'at' is the sample date (or index for depth series). Zero values often mean "
+        "the well was shut in or not producing/injecting; min_nonzero excludes them.",
+    }
+    if nonzero:
+        lnz = min(v for _, v in nonzero)
+        result["min_nonzero"] = point(next(a for a, v in nonzero if v == lnz), lnz)
+        result["first_nonzero_at"] = nonzero[0][0]
+        result["last_nonzero_at"] = nonzero[-1][0]
+    return result
 
 
 def _series_summary(ctx: ToolContext, args: SeriesSummaryArgs) -> dict[str, Any]:
@@ -439,7 +491,15 @@ def _series_summary(ctx: ToolContext, args: SeriesSummaryArgs) -> dict[str, Any]
     marker = ctx.evidence.add_citable(
         ctx.call_id, label=f"series {info.measure}, document {info.document_id}"
     )
-    out.update({"cite": marker, "window": window, "scope": ctx.scope_note(info.revision)})
+    extrema = _extrema(svc, ctx, args.series_id, info.unit, args.start, end)
+    out.update(
+        {
+            "cite": marker,
+            "window": window,
+            "extrema": extrema,
+            "scope": ctx.scope_note(info.revision),
+        }
+    )
     return out
 
 
@@ -794,7 +854,9 @@ TOOLS: dict[str, Tool] = {
         Tool(
             _spec(
                 "list_series",
-                "List stored log/production series (well-level, not attributed to a wellbore).",
+                "List stored log/production series (well-level, not attributed to a wellbore). "
+                "wellbore_label matches a well name token, e.g. 'F-12' or '15/9-F-12'; "
+                "kind is 'log' or 'production'; mnemonic is the exact measure name.",
                 {
                     "wellbore_label": _STR,
                     "kind": {"type": "string", "enum": ["log", "production"]},
@@ -809,7 +871,10 @@ TOOLS: dict[str, Tool] = {
         Tool(
             _spec(
                 "get_series_summary",
-                "Exact statistics of one stored series, optionally within a window.",
+                "Exact statistics of one stored series, optionally within a window (start/end "
+                "YYYY-MM-DD for time series). 'extrema' gives the date of the minimum, maximum "
+                "and lowest non-zero value, and the first/last non-zero dates (e.g. when a well "
+                "started or stopped producing or injecting).",
                 {"series_id": _STR, "start": _STR, "end": _STR},
                 ["series_id"],
             ),
@@ -894,10 +959,17 @@ class ToolRunner:
             return self._finish(call_id, call.name, None, {"error": "unknown tool"}, False, started)
         try:
             args = tool.args.model_validate(call.arguments)
-        except ValidationError:
-            return self._finish(
-                call_id, call.name, tool, {"error": "invalid arguments"}, False, started
-            )
+        except ValidationError as exc:
+            problems = [
+                {"field": ".".join(str(p) for p in e["loc"]) or "(arguments)", "problem": e["type"]}
+                for e in exc.errors()[:8]
+            ]
+            feedback = {
+                "error": "invalid arguments",
+                "problems": problems,
+                "allowed_arguments": sorted(tool.args.model_fields),
+            }
+            return self._finish(call_id, call.name, tool, feedback, False, started)
         project_id, factory, retrieval, series, context, evidence = self._base
         ctx = ToolContext(project_id, factory, retrieval, series, context, evidence, call_id)
         try:
