@@ -96,6 +96,7 @@ def build_chart(
     empty_message: str = "No records exist for this chart.",
     x_name: str = "Reporting date",
     x_kind: AxisKind = AxisKind.TIME,
+    x_unit: str | None = None,
     evidence: list[EvidenceLink] | None = None,
 ) -> ChartSpec:
     excluded = list(excluded or [])
@@ -121,6 +122,8 @@ def build_chart(
                 )
             )
         kept = kept[:MAX_SERIES_PER_CHART]
+    if any(line.time_axis != (x_kind is AxisKind.TIME) for line in kept):
+        raise ValueError("every line must match the declared x axis kind (ISO dates vs numbers)")
     cache_key = digest(
         chart_id, seed, as_of, window.model_dump() if window else None, [ln.revision for ln in kept]
     )
@@ -152,7 +155,7 @@ def build_chart(
             name=x_name,
             kind=x_kind,
             position=AxisPosition.X,
-            unit=None,
+            unit=x_unit,
             unit_status=SeriesUnitStatus.STATED,
         )
     ]
