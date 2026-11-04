@@ -492,7 +492,7 @@ def _surfaces_for_bore(bore: Bore, placed: list[_Placed]) -> list[FormationSurfa
                 name=group[0].pick.surface_name,
                 tier=tier,
                 tier_label=(
-                    f"T2 {LEVEL_PLANE_LABEL}" if plane is not None else "T1 pick marker - observed"
+                    LEVEL_PLANE_LABEL if plane is not None else "T1 pick marker - observed"
                 ),
                 status=TIER_STATUS[tier],
                 scope=FormationScope.WELLBORE,
