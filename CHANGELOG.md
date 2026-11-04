@@ -8,6 +8,11 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.53.0 - 2026-11-03
+
+- **TASK-094 Explore enrichment contracts (FL-025-A).** DTO-only contracts for formation layers (pick/level plane/surface tiers with explicit vertical reference and evidence), wellbore/field chart sets, and chat (typed `AppLink`, answer blocks, turns, run states), registered and exported to `generated.ts`; `echarts` 6.1.0 added. No behavior. Ruff, mypy, 77 contract tests, `check:contracts`, typecheck and lint pass.
+- **TASK-095 Explore scene seams (FL-026-A).** Optional `layers` slot inside both viewer Canvases, a typed ref-based Explore command bus (focus/openSource/openChart, fly-over stubs) and 3D/Charts/Split stage regions with an assistant dock slot; no visual change until a charts slot is supplied. Lint, typecheck, 421 vitest tests and build pass; not browser-verified.
+
 ## 0.52.1 - 2026-11-03
 
 - **TASK-093 Field-view trajectories stay visible at overview zoom.** The integrated browser pass showed the tubes as faint dotted lines at the default zoom. Each field-view trajectory now also has a 3 px screen-space minimum-width line (one merged `LineSegments2` for the whole field, +1 draw call; picking selects the well); the world-space tube is unchanged and covers the line when zoomed in. Lint, typecheck, 407 vitest tests and build pass; not browser-verified (owner testing manually).
