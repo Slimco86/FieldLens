@@ -15,6 +15,9 @@ ALLOWED = {
     ROOT / "reconstruction" / "live.py",
     ROOT / "reconstruction" / "runtime.py",
     ROOT / "reconstruction" / "stages.py",
+    # TASK-109: the assistant reads the spec for read-only, labelled equipment answers (never calculations)
+    ROOT / "chat" / "tools.py",
+    ROOT / "contracts" / "chat.py",  # reuses COMPONENT_ID_PATTERN for slug element ids
 }
 PATTERN = re.compile(
     r"(fieldlens\.assetspec|fieldlens\.contracts\.asset_spec|\bimport asset_spec\b|\basset_spec,)"
