@@ -44,7 +44,7 @@
   width: var(--fl-layout-rail);
 }
 /* Narrow widths: one column in DOM (= tab) order tree, stage, inspector; nothing overlaps or scrolls sideways. */
-@media (max-width: 960px) {
+@media (max-width: 60em) {
   .row {
     grid-template-columns: minmax(0, 1fr);
     min-height: 0;

@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useMemo, useRef, useState, type ReactNode 
 import { ExploreWorkspace } from "../../app/shell/ExploreWorkspace";
 import type { ExploreStageContext } from "../../app/shell/exploreStage";
 import { ExploreCommandsProvider } from "./ExploreCommandsContext";
+import type { ExploreCommandBus } from "./exploreCommands";
 import { EmptyState, ErrorState, LoadingState } from "../../design";
 import { getExposure } from "../pipeline/api";
 import { useScopedResource } from "../projects/scope";
@@ -33,9 +34,20 @@ interface WellboreRef {
 }
 
 /** Owns the Explore command bus for everything below it (viewers, charts, assistant dock, source viewer). */
-export function ExploreScene({ projectId, modelRevision = null, onOpenSource }: { projectId: string; modelRevision?: string | null; onOpenSource?: (documentId: string) => void }) {
+export function ExploreScene({
+  projectId,
+  modelRevision = null,
+  onOpenSource,
+  bus,
+}: {
+  projectId: string;
+  modelRevision?: string | null;
+  onOpenSource?: (documentId: string) => void;
+  /** Optional externally owned bus (tests and hosts that dispatch commands themselves). */
+  bus?: ExploreCommandBus;
+}) {
   return (
-    <ExploreCommandsProvider>
+    <ExploreCommandsProvider {...(bus === undefined ? {} : { bus })}>
       <SourceViewerHost projectId={projectId} onOpenSource={onOpenSource} />
       <ExploreSceneInner projectId={projectId} modelRevision={modelRevision} />
     </ExploreCommandsProvider>
@@ -413,8 +425,7 @@ function SceneBody({ record, projectId, wellbore, modelRevision, picker, generat
 
   return (
     <ExploreWorkspace
-      context={wbContext}
-      {...(enrich === null ? {} : enrich.workspace)}
+      {...(enrich === null ? { context: wbContext } : enrich.workspace)}
       tree={<ComponentList model={model} selectedId={selectedId} onSelect={select} />}
       stage={stage}
       inspector={

@@ -141,6 +141,21 @@ Frontend `features/assistant/` mounts in the Explore dock; link activation goes 
 Chat turns are recorded in the existing ledger for usage visibility but are not blocked by a spend ceiling (D4); the
 reconstruction pipeline keeps its own existing limits.
 
+### 4.5 Integration wiring (TASK-105)
+
+`features/scene/exploreEnrichment.tsx` (`useExploreEnrichment`) connects the parts once per Explore stage (wellbore or
+field): one formation store + `useFormationLayers`, one chart cursor store, the lazy `FormationLayer` passed as the
+viewers' `layers`, `FormationPanel` below the inspector, `ChartPanel` in the `charts` slot (enables the 3D/Charts/Split
+switch; the chart set follows the wellbore/field context) and `AssistantPanel` in the `assistant` slot. Each bus
+command has one acting path: `focusWellbore/Element`, `flyOver`, `stopFlyOver` -> viewers; `focusFormation` -> the
+viewer camera (`makeFocusFormationHandler`, refuses with no motion when the pose is null) plus the panel's selection;
+`openChart` -> `ExploreWorkspace` (reveals Charts, applies a complete window, refuses another wellbore/field scope,
+unloaded charts and invalid windows); `openSource` -> `SourceViewerHost` (page -> PDF drawer, otherwise Sources tab,
+otherwise refused). Fly-over stays a single-wellbore control. The Explore row is a named-column CSS grid that stacks in
+DOM order below 960px. Known limits: no as-of picker yet (`as_of` is null for charts and chat); a half-open
+`openChart` window is not applied; `selected_surface_key` is not sent; an unplaceable but listed formation is
+selected (reported handled) without camera motion.
+
 ## 5. Failure conditions
 
 No formation picks -> layer shows "no formation picks in this project" and nothing else changes. Pick depth unit/datum

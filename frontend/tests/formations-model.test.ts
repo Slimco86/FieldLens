@@ -260,7 +260,8 @@ describe("command-bus helpers", () => {
 
   it("dispatches focusFormation and reports stale and missing camera", () => {
     const bus = createExploreCommandBus();
-    expect(requestFocusFormation(bus, WB, B1)).toMatchObject({ ok: false, outcome: "no-subscriber" });
+    // Focus commands queue when no camera listens yet (bounded, TTL) instead of reporting no-subscriber.
+    expect(requestFocusFormation(bus, WB, B1)).toMatchObject({ ok: false, outcome: "queued" });
     expect(requestFocusFormation(null, WB, B1).message).toMatch(/camera is not available/);
     bus.subscribe({ focusFormation: (p) => p.formationId === B1 });
     expect(requestFocusFormation(bus, WB, B1)).toEqual({ ok: true, message: null, outcome: "handled" });

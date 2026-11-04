@@ -65,8 +65,8 @@ export function dispatchCommand(bus: ExploreCommandBus | null, command: ExploreC
       return { ok: false, message: "Nothing is listening for this link here; open the Explore view and try again." };
     case "unhandled":
       return { ok: false, message: "The target could not be found: it may be stale, hidden or not loaded." };
-    case "not-implemented":
-      return { ok: false, message: "This action is not implemented yet." };
+    case "queued":
+      return { ok: false, message: "Nothing is listening for this link yet; it will run when the view is ready." };
   }
 }
 
