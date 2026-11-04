@@ -72,3 +72,33 @@
   justify-content: center;
   padding: var(--fl-space-md);
 }
+.stageSwitch {
+  display: flex;
+  align-items: center;
+  gap: var(--fl-space-xs);
+  padding: var(--fl-space-xs) var(--fl-space-sm);
+  border-bottom: var(--fl-border-width) solid var(--fl-color-border);
+  background: var(--fl-color-surface-sunken);
+}
+.stageSwitch button[aria-pressed="true"] {
+  font-weight: 700;
+}
+.panes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: var(--fl-space-md);
+  padding: var(--fl-space-md);
+}
+.pane {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: auto;
+}
+.pane[hidden] {
+  display: none;
+}

@@ -14,6 +14,8 @@ import { buildTubeCompanion, createCompanionMaterial, createCompanionMesh, wellO
 import type { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { defaultExaggeration } from "./sceneModel";
 import { instanceCounts, lodFor, type FieldPlan, type FieldWell, type Lod } from "./fieldModel";
+import { useExploreCommandHandlers } from "./ExploreCommandsContext";
+import { RENDER_ORIGIN, renderLayers, type SceneLayerContext, type SceneLayers } from "./sceneLayers";
 import styles from "./Scene.module.css";
 
 export interface FieldCommands {
@@ -50,6 +52,8 @@ interface Props {
   onClear: () => void;
   commands: MutableRefObject<FieldCommands | null>;
   onContextLost: () => void;
+  /** Optional scene content mounted inside the Canvas (empty by default); see `SceneLayerContext`. */
+  layers?: SceneLayers;
 }
 
 const DEFAULT_DIR = new THREE.Vector3(1, 0.62, 1).normalize();
@@ -669,6 +673,16 @@ export default function FieldViewer3D(props: Props) {
   const labelEls = useRef(new Map<string, HTMLElement>());
   const [lost, setLost] = useState(false);
 
+  const { commands } = props;
+  useExploreCommandHandlers({
+    focusWellbore: (p) => {
+      if (commands.current === null || !plan.byId.has(p.wellboreId)) return false;
+      commands.current.flyTo(p.wellboreId);
+      return true;
+    },
+  });
+  const layerCtx = useMemo<SceneLayerContext>(() => ({ scope: "field", origin: RENDER_ORIGIN, exaggeration: null, cutaway: true }), []);
+
   return (
     <div className={styles.canvasWrap} data-testid="scene-canvas-wrap">
       <Canvas
@@ -695,6 +709,7 @@ export default function FieldViewer3D(props: Props) {
         data-testid="scene-canvas"
       >
         <FieldContents {...props} layerRef={layerRef} labelEls={labelEls} />
+        {renderLayers(props.layers, layerCtx)}
       </Canvas>
       <div className={styles.labelLayer} ref={layerRef} aria-hidden="true" data-testid="scene-label-layer">
         {plan.wells.map((w) => (
