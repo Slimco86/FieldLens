@@ -2396,6 +2396,27 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 **Next action.** Owner browser check of 0.54.1 (merged, unit-tested only).
 **Evidence.** a56c186; chart-overview tests; lint, typecheck, full vitest, build pass. Not browser-verified.
 
+### TASK-115 · Model processing reads scanned pages visually and any readable non-PDF file
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | in_progress |
+| Priority | P0 |
+| Tags | backend, frontend, rag |
+| Depends on | TASK-075 |
+| Assignee | agent:fieldlens-rag |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/MODEL_VISUAL_READ.md |
+| Version | none |
+| Parent | FL-022 |
+| Slice | FL-022-J |
+
+**Outcome.** Pages without a text layer are rendered and sent to the model as images with a real cost estimate (identities labelled unverified); non-PDF documents (text/`.ascii`/csv/xml/las/xlsx/binary preview) are sent as bounded sections so the model identifies and extracts them. Owner report 2026-11-04: `FWR_Completion_F14.pdf` (60 scanned pages) estimated USD 0 and read nothing.
+**Next action.** Backend slice in `FieldLens-worktrees/task-115-visual-read`, then frontend slice, then independent QA. Live Meta image input needs one bounded authorized check.
+**Evidence.** Spec drafted and approved 2026-11-04; implementation pending.
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
