@@ -9,7 +9,10 @@ import { buildElement, elementBounds, type BuildContext } from "./primitives";
 import { SceneResources, setHighlighted } from "./resources";
 import { buildTubeGeometry } from "./tube";
 import type { SceneElement, SceneModel } from "./sceneModel";
-import { useExploreCommandHandlers } from "./ExploreCommandsContext";
+import { useExploreCommandBus, useExploreCommandHandlers } from "./ExploreCommandsContext";
+import { arrivalPose, normalize, type OrbitPose, type V3 } from "./cameraPath";
+import { CameraRig } from "./cameraRig";
+import { buildFlyOverPlan, FlyOverPlayer, type FlyOverStatus } from "./flyOverPlan";
 import { RENDER_ORIGIN, renderLayers, type SceneLayerContext, type SceneLayers } from "./sceneLayers";
 import styles from "./Scene.module.css";
 export { webgl2Available } from "./webgl";
@@ -30,6 +33,15 @@ export interface ViewerCommands {
   fitWellhead(): void;
   focus(id: string): void;
   zoom(factor: number): void;
+  /** Start the single-wellbore fly-over (CM-3); false when there is nothing located to visit. */
+  flyOver(): boolean;
+  /** Stop a running or paused fly-over and hand the camera back at its current pose; true when one was active. */
+  stopFlyOver(): boolean;
+  pauseFlyOver(): void;
+  resumeFlyOver(): void;
+  /** Jump (with a short flight) to the next/previous stop. */
+  stepFlyOver(direction: 1 | -1): void;
+  setFlySpeed(speed: number): void;
 }
 
 export interface ViewerProbe {
@@ -59,6 +71,8 @@ interface Props {
   wellboreId?: string;
   /** Optional scene content mounted inside the Canvas (empty by default); see `SceneLayerContext`. */
   layers?: SceneLayers;
+  /** Fly-over state changes (stop changes, play/pause/stop/finish); never called per frame. */
+  onFlyOverStatus?: (status: FlyOverStatus) => void;
 }
 
 interface Anchor {
@@ -283,9 +297,13 @@ interface ViewTarget {
   center: THREE.Vector3;
   radius: number;
   keepDirection: boolean;
+  /** MD on the trajectory the target sits at: the arrival then faces the trajectory (CM-2). */
+  md?: number;
 }
 
-function SceneContents({ model, options, selectedId, onSelect, commands, onAnchors, anchorsRef, layerRef, labelModeRef, selectedRef }: Props & {
+const toV3 = (v: THREE.Vector3): V3 => [v.x, v.y, v.z];
+
+function SceneContents({ model, options, selectedId, onSelect, commands, onFlyOverStatus, onAnchors, anchorsRef, layerRef, labelModeRef, selectedRef }: Props & {
   onAnchors: (a: Anchor[]) => void;
   anchorsRef: MutableRefObject<Anchor[]>;
   layerRef: MutableRefObject<HTMLDivElement | null>;
@@ -299,7 +317,15 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
     [model, exaggeration, surfaceScale, cutaway, depthMarks],
   );
   const { camera, gl, scene, controls, size } = useThree();
-  const anim = useRef<{ t: number; dur: number; fromPos: THREE.Vector3; toPos: THREE.Vector3; fromTarget: THREE.Vector3; toTarget: THREE.Vector3 } | null>(null);
+  const rig = useMemo(() => new CameraRig(), []);
+  const tour = useRef<FlyOverPlayer | null>(null);
+  /** While a seek/entry flight runs, the tour clock waits (the rig owns the camera). */
+  const hold = useRef(false);
+  const tourFit = useRef<(() => void) | null>(null);
+  const speedRef = useRef(1);
+  const statusRef = useRef(onFlyOverStatus);
+  statusRef.current = onFlyOverStatus;
+  const bus = useExploreCommandBus();
   const first = useRef(true);
   const lastNear = useRef(0);
 
@@ -321,30 +347,64 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
 
   const ctl = controls as unknown as { target: THREE.Vector3; update: () => void } | null;
 
+  const publish = (state: FlyOverStatus | null, announcement?: string) => {
+    if (state === null) return;
+    statusRef.current?.(announcement === undefined ? state : { ...state, announcement });
+  };
+
+  /** Stop the tour (if any) and hand the camera back at its current pose. */
+  const endTour = (announcement = "Fly-over stopped.") => {
+    const p = tour.current;
+    if (p === null || p.state === "idle") return false;
+    p.stop();
+    hold.current = false;
+    rig.cancel();
+    publish(p.status(), announcement);
+    return true;
+  };
+
   const frame = useMemo(
     () => ({
-      go(t: ViewTarget) {
+      go(t: ViewTarget, opts: { keepTour?: boolean; durationS?: number } = {}) {
         if (ctl === null) return;
+        if (opts.keepTour !== true) {
+          const p = tour.current;
+          if (p !== null && p.state !== "idle") {
+            p.stop();
+            hold.current = false;
+            statusRef.current?.({ ...p.status(), announcement: "Fly-over stopped." });
+          }
+        }
         const cam = camera as THREE.PerspectiveCamera;
-        const dir = t.keepDirection ? cam.position.clone().sub(ctl.target).normalize() : DEFAULT_DIR.clone();
+        const here = cam.position.clone().sub(ctl.target);
+        const preferred = t.keepDirection && here.lengthSq() > 1e-12 ? toV3(here.normalize()) : toV3(DEFAULT_DIR);
         const fov = (cam.fov * Math.PI) / 180;
         const aspect = size.width / Math.max(1, size.height);
         const fit = Math.max(1, 1 / Math.min(1, aspect));
-        const dist = Math.max(2.5, (t.radius / Math.sin(fov / 2)) * 1.15 * Math.min(fit, 1.6));
-        const toPos = t.center.clone().add(dir.multiplyScalar(dist));
-        if (reducedMotion() || first.current) {
-          cam.position.copy(toPos);
-          ctl.target.copy(t.center);
-          ctl.update();
-          first.current = false;
-          invalidate();
-          return;
+        const fitRange = Math.max(2.5, (t.radius / Math.sin(fov / 2)) * 1.15 * Math.min(fit, 1.6));
+        let to: OrbitPose;
+        if (t.md !== undefined && model.path.available) {
+          // CM-2: face the trajectory (>= 35 degrees off its tangent) with a window of it in view.
+          const half = Math.max(t.radius * 1.2, 10);
+          const window: V3[] = [];
+          for (let k = -6; k <= 6; k += 1) window.push(model.path.at(t.md + (half * k) / 6).position);
+          to = arrivalPose({ target: toV3(t.center), fitRange, preferredDir: preferred, tangent: model.path.at(t.md).tangent, window, view: { fovDeg: cam.fov, aspect } });
+        } else {
+          to = { target: toV3(t.center), dir: normalize(preferred), range: fitRange };
         }
-        anim.current = { t: 0, dur: 0.75, fromPos: cam.position.clone(), toPos, fromTarget: ctl.target.clone(), toTarget: t.center.clone() };
+        rig.sync({ position: toV3(cam.position), target: toV3(ctl.target) });
+        const instant = reducedMotion() || first.current;
+        first.current = false;
+        const applied = rig.fly(to, { instant, ...(opts.durationS === undefined ? {} : { durationS: opts.durationS }) });
+        if (applied !== null) {
+          cam.position.set(...applied.position);
+          ctl.target.set(...applied.target);
+          ctl.update();
+        }
         invalidate();
       },
     }),
-    [camera, ctl, size.width, size.height],
+    [camera, ctl, size.width, size.height, model.path, rig],
   );
 
   useEffect(() => {
@@ -361,6 +421,7 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
       }
       return box;
     };
+    tourFit.current = () => frame.go(sphereOf(built.bounds), { keepTour: true });
     commands.current = {
       fitAll: () => frame.go(sphereOf(built.bounds)),
       fitWellhead: () => {
@@ -378,40 +439,147 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
         if (g === undefined || el === undefined) return;
         const b = elementBounds(g);
         const t = sphereOf(b);
+        let md: number = model.path.mdMin;
+        if (el.zone === "downhole" && el.mdTopM !== null) md = el.mdBottomM !== null ? (el.mdTopM + el.mdBottomM) / 2 : el.mdTopM;
         // Long tubes: frame a window of the pipe, not its whole length.
         if (el.mdTopM !== null && el.mdBottomM !== null && (el.kind === "casing" || el.kind === "liner" || el.kind === "tubing" || el.kind === "perforation_interval")) {
           const mid = model.path.at((el.mdTopM + el.mdBottomM) / 2).position;
           t.center = new THREE.Vector3(...mid);
           t.radius = Math.min(t.radius, Math.max(el.outerRadiusM * options.exaggeration * 4, 30));
         }
-        frame.go({ ...t, keepDirection: true });
+        frame.go({ ...t, keepDirection: true, md });
       },
       zoom: (factor) => {
         if (ctl === null) return;
+        endTour();
         const cam = camera as THREE.PerspectiveCamera;
-        const off = cam.position.clone().sub(ctl.target).multiplyScalar(factor);
-        const toPos = ctl.target.clone().add(off);
-        if (reducedMotion()) {
-          cam.position.copy(toPos);
+        const dir = cam.position.clone().sub(ctl.target);
+        const range = Math.max(dir.length() * factor, 1e-3);
+        rig.sync({ position: toV3(cam.position), target: toV3(ctl.target) });
+        const to: OrbitPose = { target: toV3(ctl.target), dir: normalize(toV3(dir)), range };
+        const applied = rig.fly(to, { instant: reducedMotion(), durationS: 0.35 });
+        if (applied !== null) {
+          cam.position.set(...applied.position);
           ctl.update();
-          invalidate();
-        } else {
-          anim.current = { t: 0, dur: 0.35, fromPos: cam.position.clone(), toPos, fromTarget: ctl.target.clone(), toTarget: ctl.target.clone() };
-          invalidate();
+        }
+        invalidate();
+      },
+      flyOver: () => {
+        if (ctl === null) return false;
+        const cam = camera as THREE.PerspectiveCamera;
+        const radii = new Map<string, number>();
+        for (const el of model.elements) {
+          const g = built.root.children.find((c) => c.userData["elementId"] === el.id);
+          if (g === undefined) continue;
+          let r = Math.max(elementBounds(g).getBoundingSphere(new THREE.Sphere()).radius, 1);
+          if (el.mdTopM !== null && el.mdBottomM !== null && (el.kind === "casing" || el.kind === "liner" || el.kind === "tubing" || el.kind === "perforation_interval")) {
+            r = Math.min(r, Math.max(el.outerRadiusM * options.exaggeration * 4, 30));
+          }
+          radii.set(el.id, r);
+        }
+        const plan = buildFlyOverPlan(model.path, model.elements, { view: { fovDeg: cam.fov, aspect: size.width / Math.max(1, size.height) }, radii });
+        if (plan.stops.length === 0 || !model.path.available) return false;
+        const player = new FlyOverPlayer(plan, reducedMotion());
+        player.setSpeed(speedRef.current);
+        player.play();
+        tour.current = player;
+        // Enter smoothly from wherever the camera is; the tour clock waits until it arrives.
+        const start = plan.poseAtMd(model.path.mdMin, plan.stops[0]!.pose.range);
+        rig.sync({ position: toV3(cam.position), target: toV3(ctl.target) });
+        const applied = rig.fly(start, { instant: reducedMotion() });
+        hold.current = applied === null;
+        if (applied !== null) {
+          cam.position.set(...applied.position);
+          ctl.target.set(...applied.target);
+          ctl.update();
+        }
+        publish(player.status(), "Fly-over started.");
+        invalidate();
+        return true;
+      },
+      stopFlyOver: () => {
+        const was = endTour();
+        invalidate();
+        return was;
+      },
+      pauseFlyOver: () => {
+        const p = tour.current;
+        if (p === null || p.state !== "playing") return;
+        p.pause();
+        publish(p.status(), "Fly-over paused.");
+      },
+      resumeFlyOver: () => {
+        const p = tour.current;
+        if (p === null || p.state !== "paused") return;
+        p.play();
+        publish(p.status(), "Fly-over resumed.");
+        invalidate();
+      },
+      stepFlyOver: (direction) => {
+        const p = tour.current;
+        if (p === null || ctl === null || p.state === "idle") return;
+        const pose = direction === 1 ? p.next() : p.prev();
+        if (pose === null) return;
+        const cam = camera as THREE.PerspectiveCamera;
+        rig.sync({ position: toV3(cam.position), target: toV3(ctl.target) });
+        const applied = rig.fly(pose, { instant: reducedMotion() });
+        hold.current = applied === null;
+        if (applied !== null) {
+          cam.position.set(...applied.position);
+          ctl.target.set(...applied.target);
+          ctl.update();
+        }
+        publish(p.status());
+        invalidate();
+      },
+      setFlySpeed: (speed) => {
+        speedRef.current = Math.min(4, Math.max(0.5, speed));
+        const p = tour.current;
+        if (p !== null) {
+          p.setSpeed(speed);
+          if (p.state !== "idle") publish(p.status(), `Speed ${p.speed}x.`);
         }
       },
     };
     return () => {
+      endTour();
       commands.current = null;
     };
-  }, [built, model, commands, frame, camera, ctl, options.exaggeration]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- publish/endTour only read refs
+  }, [built, model, commands, frame, camera, ctl, options.exaggeration, rig, size.width, size.height]);
 
-  // Initial framing once the controls exist, and whenever a new model is loaded.
+  // Initial framing once the controls exist, and whenever a new model is loaded; then let the bus
+  // replay any focus command that arrived before this viewer was ready (S-1).
   useEffect(() => {
     if (ctl === null) return;
     first.current = true;
     commands.current?.fitWellhead();
-  }, [model.path, ctl, commands]);
+    bus?.replay();
+  }, [model.path, ctl, commands, bus]);
+
+  // Pointer, wheel and key input cancel a flight or the tour and hand control back; Esc anywhere too.
+  const { domElement } = gl;
+  useEffect(() => {
+    const cancel = () => {
+      rig.cancel();
+      hold.current = false;
+      endTour();
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && tour.current !== null && tour.current.state !== "idle") cancel();
+    };
+    domElement.addEventListener("pointerdown", cancel);
+    domElement.addEventListener("wheel", cancel, { passive: true });
+    domElement.addEventListener("keydown", cancel);
+    document.addEventListener("keydown", esc);
+    return () => {
+      domElement.removeEventListener("pointerdown", cancel);
+      domElement.removeEventListener("wheel", cancel);
+      domElement.removeEventListener("keydown", cancel);
+      document.removeEventListener("keydown", esc);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- endTour only reads refs
+  }, [domElement, rig]);
 
   // Profiling/test probe (only when the page sets the flag before load).
   useEffect(() => {
@@ -483,16 +651,36 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onAncho
 
   useFrame((_, delta) => {
     const cam = camera as THREE.PerspectiveCamera;
-    // Fly animation: ease the camera and the orbit target (refs only, no React state).
-    const a = anim.current;
-    if (a !== null && ctl !== null) {
-      a.t = Math.min(1, a.t + delta / a.dur);
-      const e = a.t < 0.5 ? 2 * a.t * a.t : 1 - (-2 * a.t + 2) ** 2 / 2;
-      cam.position.lerpVectors(a.fromPos, a.toPos, e);
-      ctl.target.lerpVectors(a.fromTarget, a.toTarget, e);
-      ctl.update();
-      if (a.t >= 1) anim.current = null;
-      else invalidate();
+    // Camera flights and the fly-over tour (refs only, no React state per frame).
+    if (ctl !== null) {
+      const flown = rig.step(delta);
+      if (flown !== null) {
+        cam.position.set(...flown.position);
+        ctl.target.set(...flown.target);
+        ctl.update();
+        invalidate();
+      } else if (hold.current) {
+        hold.current = false;
+      }
+      const p = tour.current;
+      if (p !== null && p.state === "playing" && !hold.current && flown === null) {
+        const f = p.advance(delta);
+        if (f.pose !== null && (f.phase !== "dwell" || f.stopChanged || !p.plan.stops.length)) {
+          const pos: V3 = [f.pose.target[0] + f.pose.dir[0] * f.pose.range, f.pose.target[1] + f.pose.dir[1] * f.pose.range, f.pose.target[2] + f.pose.dir[2] * f.pose.range];
+          cam.position.set(...pos);
+          ctl.target.set(...f.pose.target);
+          ctl.update();
+        }
+        if (f.stopChanged) publish(p.status());
+        if (f.fitAllNow) {
+          tourFit.current?.();
+          statusRef.current?.({ ...p.status(), announcement: "Fly-over: fitting the whole well." });
+        }
+        if (f.finished) publish(p.status());
+        invalidate();
+      } else if (p !== null && p.state === "playing") {
+        invalidate();
+      }
     }
     // Clip planes and fog follow the orbit distance (depth cue; keeps near detail at 3 km depth).
     const dist = ctl === null ? cam.position.length() : cam.position.distanceTo(ctl.target);
@@ -606,21 +794,29 @@ export default function Viewer3D(props: Props) {
   const selectedRef = useRef<string | null>(selectedId);
   const [lost, setLost] = useState(false);
 
-  // Explore command bus: handlers read the latest props through a ref inside the hook.
+  // Explore command bus: handlers read the latest props through a ref inside the hook. Without a
+  // `wellboreId` the viewer cannot tell which wellbore a command targets, so it refuses them (S-2).
   const { commands, model, wellboreId } = props;
+  const mine = (id: string): boolean => wellboreId !== undefined && id === wellboreId;
   useExploreCommandHandlers({
     focusWellbore: (p) => {
-      if (wellboreId !== undefined && p.wellboreId !== wellboreId) return false;
-      if (commands.current === null) return false;
+      if (!mine(p.wellboreId)) return false;
+      if (commands.current === null) return "defer";
       commands.current.fitAll();
       return true;
     },
     focusElement: (p) => {
-      if (wellboreId !== undefined && p.wellboreId !== wellboreId) return false;
-      if (commands.current === null || !model.byId.has(p.elementId)) return false;
+      if (!mine(p.wellboreId) || !model.byId.has(p.elementId)) return false;
+      if (commands.current === null) return "defer";
       commands.current.focus(p.elementId);
       return true;
     },
+    flyOver: (p) => {
+      if (!mine(p.wellboreId)) return false;
+      if (commands.current === null) return "defer";
+      return commands.current.flyOver();
+    },
+    stopFlyOver: () => commands.current?.stopFlyOver() ?? false,
   });
 
   const layerCtx = useMemo<SceneLayerContext>(

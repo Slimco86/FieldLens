@@ -17,6 +17,8 @@ import { useFieldSpecs } from "./fieldData";
 import type { FieldSpecState } from "./fieldModel";
 import { webgl2Available } from "./webgl";
 import type { LabelMode, ViewerCommands, ViewerOptions } from "./Viewer3D";
+import { FlyOverControls } from "./FlyOverControls";
+import { IDLE_FLY_STATUS, type FlyOverStatus } from "./flyOverPlan";
 import styles from "./Scene.module.css";
 
 const Viewer3D = lazy(() => import("./Viewer3D"));
@@ -240,6 +242,7 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lost, setLost] = useState(0);
   const commands = useRef<ViewerCommands | null>(null);
+  const [flyStatus, setFlyStatus] = useState<FlyOverStatus>(IDLE_FLY_STATUS);
   const [gl] = useState(() => webgl2Available());
 
   const spec = record.spec;
@@ -293,6 +296,7 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
       <button type="button" aria-label="Zoom out" onClick={() => commands.current?.zoom(1.25)}>
         −
       </button>
+      <FlyOverControls commands={commands} status={flyStatus} disabled={!gl || lost > 0 || model.elements.every((e) => e.zone === "unlocated")} />
       <label>
         Radius exaggeration{" "}
         <select value={exaggeration} onChange={(e) => setExaggeration(Number(e.target.value))}>
@@ -382,6 +386,7 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
               onSelect={select}
               commands={commands}
               wellboreId={wellbore.id}
+              onFlyOverStatus={setFlyStatus}
               onContextLost={() => setLost((n) => n + 1)}
             />
           </Suspense>

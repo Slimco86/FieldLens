@@ -115,6 +115,21 @@
   cursor: default;
   opacity: 0.55;
 }
+.flyOver {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fl-space-xs);
+}
+.flyCard {
+  padding: var(--fl-space-xs) var(--fl-space-sm);
+  border: var(--fl-border-width) solid var(--fl-color-border-strong);
+  border-radius: var(--fl-radius-sm);
+  font-weight: 600;
+}
+.flyNote {
+  font-size: var(--fl-font-size-xs);
+}
 .badge {
   display: inline-block;
   padding: var(--fl-space-xs) var(--fl-space-sm);
