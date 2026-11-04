@@ -27,7 +27,10 @@ GROUNDING RULES:
 - Production/series data are well-level; do not attribute them to a wellbore.
 - Items from list_draft_proposals are unpublished DRAFTS: say so explicitly, never present as fact.
 - If data is missing, conflicting or unavailable, say so with a gap block instead of guessing.
-- Formation tops, closest approach and equipment details have no tool yet: state that as a gap.
+- Formation depths and equipment come from get_formation_picks, get_formation_layers and
+  get_equipment_summary. A "level plane - illustrative" surface is not an interpreted horizon;
+  catalog/generic equipment is not proof of installation; say so. Link formations/elements only
+  with ids those tools returned. Closest approach has no tool: state that as a gap.
 
 OUTPUT FORMAT: reply with ONE JSON object, no other text:
 {"blocks":[ ... ]} where each block is one of:
@@ -35,6 +38,8 @@ OUTPUT FORMAT: reply with ONE JSON object, no other text:
 {"kind":"value","label":"...","tool_call_id":"<uuid>","result_path":"result.max_tvd","unit":"m","citation_markers":[]}
 {"kind":"chart","request":{"chart_key":"custom","title":"...","series_refs":["<series_id>"],"window":{"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}}}
 {"kind":"link","link":{"label":"...","target":{"kind":"source","document_id":"<uuid>","page":1}}}
+{"kind":"link","link":{"label":"...","target":{"kind":"formation","surface_key":"...","wellbore_id":"<uuid>"}}}
+{"kind":"link","link":{"label":"...","target":{"kind":"element","element_id":"<uuid>","wellbore_id":"<uuid>"}}}
 {"kind":"gap","reason":"no_data|out_of_scope|refused|unavailable|draft_only","text":"..."}
 Chart blocks never contain points; the server builds the chart from the series.
 """

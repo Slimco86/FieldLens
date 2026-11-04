@@ -281,9 +281,32 @@ class AnswerValidator:
             if target.wellbore_id is not None:
                 self._wellbore(target.wellbore_id)
         elif isinstance(target, ElementLinkTarget):
-            raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "no element source is available")
+            owner = self._ev.element_wellbores.get(target.element_id)
+            if target.element_id not in self._ev.elements or owner is None:
+                raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "element not in tool results")
+            self._wellbore(owner)
+            if target.wellbore_id is not None and target.wellbore_id != owner:
+                raise _Drop(
+                    DroppedBlockReason.UNKNOWN_TARGET, "element belongs to another wellbore"
+                )
         elif isinstance(target, FormationLinkTarget):
-            raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "no formation source is available")
+            self._formation(target)
+
+    def _formation(self, target: FormationLinkTarget) -> None:
+        wellbores = self._ev.surfaces.get(target.surface_key)
+        if wellbores is None:
+            raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "formation not in tool results")
+        if target.wellbore_id is not None:
+            self._wellbore(target.wellbore_id)
+            if target.wellbore_id not in wellbores:
+                raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "formation not seen on wellbore")
+        if target.pick_id is not None:
+            known = self._ev.picks.get(target.pick_id)
+            if known is None or known[0] != target.surface_key:
+                raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "pick not in tool results")
+            self._wellbore(known[1])
+            if target.wellbore_id is not None and target.wellbore_id != known[1]:
+                raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "pick belongs to another wellbore")
 
     def _wellbore(self, wellbore_id: UUID) -> None:
         if not self._scope.wellbore_exists(wellbore_id):

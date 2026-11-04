@@ -98,6 +98,12 @@ class TurnEvidence:
     locators: dict[UUID, list[dict[str, Any]]] = field(default_factory=dict)
     wellbores: set[UUID] = field(default_factory=set)
     elements: set[UUID] = field(default_factory=set)
+    element_wellbores: dict[UUID, UUID] = field(default_factory=dict)
+    """element id -> the wellbore whose asset spec the tool read."""
+    surfaces: dict[str, set[UUID]] = field(default_factory=dict)
+    """formation surface_key -> wellbores the tool reported for it."""
+    picks: dict[UUID, tuple[str, UUID]] = field(default_factory=dict)
+    """pick id -> (surface_key, wellbore id), as reported by a formation tool this turn."""
     series: dict[UUID, SeriesRef] = field(default_factory=dict)
     citables: dict[str, Citable] = field(default_factory=dict)
     numbers: set[float] = field(default_factory=set)

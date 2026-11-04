@@ -32,6 +32,9 @@ READ_ONLY_TOOLS = {
     "list_series",
     "get_series_summary",
     "list_draft_proposals",
+    "get_formation_picks",
+    "get_formation_layers",
+    "get_equipment_summary",
 }
 
 
