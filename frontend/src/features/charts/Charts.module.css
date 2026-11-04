@@ -10,7 +10,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--fl-space-sm, 8px) var(--fl-space-md);
+  gap: var(--fl-space-sm) var(--fl-space-md);
 }
 .panelTitle {
   margin: 0;
@@ -18,13 +18,13 @@
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
   gap: var(--fl-space-md);
 }
 .block {
   display: flex;
   flex-direction: column;
-  gap: var(--fl-space-sm, 8px);
+  gap: var(--fl-space-sm);
   min-width: 0;
   padding: var(--fl-space-md);
   border: var(--fl-border-width) solid var(--fl-color-border);
@@ -35,7 +35,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px var(--fl-space-md);
+  gap: var(--fl-space-xs) var(--fl-space-md);
 }
 .title {
   margin: 0;
@@ -44,10 +44,10 @@
 .badges {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--fl-space-xs);
 }
 .badge {
-  padding: 0 6px;
+  padding: 0 var(--fl-space-xs);
   border: var(--fl-border-width) solid var(--fl-color-border-strong);
   border-radius: var(--fl-radius-xs);
   font-size: var(--fl-font-size-sm);
@@ -63,7 +63,7 @@
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--fl-space-xs);
 }
 .plotWrap {
   position: relative;
@@ -84,9 +84,9 @@
 }
 .srOnly {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  margin: -0.0625rem;
   padding: 0;
   overflow: hidden;
   clip: rect(0 0 0 0);
@@ -99,8 +99,8 @@
 .tables {
   display: flex;
   flex-direction: column;
-  gap: var(--fl-space-sm, 8px);
-  max-height: 320px;
+  gap: var(--fl-space-sm);
+  max-height: 20rem;
   overflow: auto;
 }
 .table {
@@ -109,7 +109,7 @@
 }
 .table th,
 .table td {
-  padding: 2px 8px;
+  padding: var(--fl-space-xs) var(--fl-space-sm);
   border: var(--fl-border-width) solid var(--fl-color-border);
   text-align: left;
 }

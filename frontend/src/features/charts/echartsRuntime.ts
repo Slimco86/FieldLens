@@ -5,10 +5,10 @@
  */
 import { BarChart, LineChart, ScatterChart } from "echarts/charts";
 import { DataZoomInsideComponent, GridComponent, LegendComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
-import { init, use, type ECharts } from "echarts/core";
+import { init, use as registerEcharts, type ECharts } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
-use([LineChart, BarChart, ScatterChart, GridComponent, TooltipComponent, LegendComponent, MarkLineComponent, DataZoomInsideComponent, CanvasRenderer]);
+registerEcharts([LineChart, BarChart, ScatterChart, GridComponent, TooltipComponent, LegendComponent, MarkLineComponent, DataZoomInsideComponent, CanvasRenderer]);
 
 export { init };
 export type { ECharts };
