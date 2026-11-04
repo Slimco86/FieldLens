@@ -25,6 +25,7 @@ from fieldlens.contracts.processing import (
 from fieldlens.evidence.root_guard import StorageRootGuard
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.jobs.repository import new_owner
+from fieldlens.processing.document_text import DocumentTextReader
 from fieldlens.processing.model_step import ModelClassificationStep, ModelStepConfig
 from fieldlens.processing.runner import ProcessingRunner
 from fieldlens.processing.service import PageCounter
@@ -187,6 +188,7 @@ def _build_meta(
             pricing=model_pricing,
             model=settings.meta_model,
             pages_per_call=settings.processing_pages_per_call,
+            images_per_call=settings.processing_images_per_call,
             limits=RequestLimits(
                 max_attempts=2,
                 max_tool_calls=0,
@@ -196,6 +198,8 @@ def _build_meta(
             ),
         ),
         renderer.page_text,
+        renderer=renderer,
+        document_text=DocumentTextReader(store),
     )
     rates = Pricing("owner_meta_rates", in_rate, out_rate)
     context = MetaContext(ledger, period, pricing_id, model_pricing, meta_provider, renderer, rates)

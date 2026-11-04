@@ -29,6 +29,7 @@ from fieldlens.contracts.imports import ExtractionState
 from fieldlens.persistence import models as m
 from fieldlens.persistence.session import session_scope
 from fieldlens.processing import tables as pt
+from fieldlens.processing.document_text import FAMILIES as TEXT_FAMILIES
 from fieldlens.processing.identity_read import PROMPT_VERSION, SCHEMA_VERSION
 from fieldlens.processing.steps import (
     DocumentTask,
@@ -52,6 +53,9 @@ class ReadTarget:
     storage_key: str
     source_revision_id: UUID
     labels: tuple[str, ...]
+    format_family: str = "pdf"
+    sha256: str = ""
+    text_encoding: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +117,8 @@ def read_scope(session: Session, project_id: UUID) -> ReadScope:
             sd.c.original_filename,
             sd.c.storage_key,
             sd.c.format_family,
+            sd.c.sha256,
+            sd.c.origin_metadata,
             dp.c.storage_state,
             dp.c.extraction_state,
             dc.c.user_categories,
@@ -148,7 +154,7 @@ def read_scope(session: Session, project_id: UUID) -> ReadScope:
     reused = 0
     for r in rows:
         if (
-            r.format_family != "pdf"
+            (r.format_family != "pdf" and r.format_family not in TEXT_FAMILIES)
             or r.storage_state != "stored"
             or r.extraction_state != ExtractionState.UNSUPPORTED.value
         ):
@@ -163,6 +169,9 @@ def read_scope(session: Session, project_id: UUID) -> ReadScope:
                 r.storage_key,
                 latest,
                 tuple(r.user_categories or ()),
+                r.format_family,
+                r.sha256,
+                (r.origin_metadata or {}).get("text_encoding"),
             )
         )
     return ReadScope(todo, reused)
@@ -177,7 +186,7 @@ class ProcessingStepReader:
         settings: Settings,
         step: ProcessingStep,
         provider: PageProvider,
-        page_count: Callable[[str], int],
+        page_count: Callable[..., int],
         per_document_usd: Decimal,
     ) -> None:
         self._factory = factory
@@ -200,11 +209,16 @@ class ProcessingStepReader:
         self, project_id: UUID, target: ReadTarget, checkpoint: Callable[[], None]
     ) -> ReadOutcome:
         try:
-            pages = self._count(target.storage_key)
+            if target.format_family == "pdf":
+                pages = self._count(target.storage_key)
+            else:
+                pages = self._count(target.storage_key, target.format_family, target.text_encoding)
         except Exception as exc:
-            raise ReadFailure("document_unavailable", "the stored PDF could not be read") from exc
+            raise ReadFailure(
+                "document_unavailable", "the stored document could not be read"
+            ) from exc
         if pages <= 0:
-            raise ReadFailure("document_unavailable", "the PDF has no pages")
+            raise ReadFailure("document_unavailable", "the document has no pages")
         window = min(
             pages, self._step.max_pages_per_document or pages, self._settings.processing_model_pages
         )
@@ -212,6 +226,7 @@ class ProcessingStepReader:
         task = DocumentTask(
             project_id, run_id, target.document_id, target.source_revision_id,
             target.storage_key, pages, 1, window, target.labels,
+            target.format_family, target.sha256, target.text_encoding,
         )  # fmt: skip
         spent = ZERO
         done = 0

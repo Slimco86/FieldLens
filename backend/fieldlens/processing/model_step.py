@@ -10,10 +10,12 @@ errors, and :class:`RunStop` for cancel or budget, in which case no rows are wri
 
 from __future__ import annotations
 
+import base64
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
+from typing import Any, Protocol
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -30,7 +32,7 @@ from fieldlens.assistant.errors import (
     RequestCancelled,
     RequestLimitExceeded,
 )
-from fieldlens.assistant.messages import Effort, ProviderRequest
+from fieldlens.assistant.messages import Effort, ImagePart, ProviderRequest
 from fieldlens.assistant.provider import Pricing as ModelPricing
 from fieldlens.assistant.provider import Provider, attempt_upper_bound_usd, estimate_input_tokens
 from fieldlens.assistant.runner import RequestLimits, WorkUnit
@@ -40,6 +42,7 @@ from fieldlens.persistence.session import session_scope
 from fieldlens.processing import identity_read as ir
 from fieldlens.processing import identity_store as store
 from fieldlens.processing import tables as t
+from fieldlens.processing.document_text import DocumentTextError, DocumentTextReader
 from fieldlens.processing.live_budget import failure_text
 from fieldlens.processing.steps import (
     Checkpoint,
@@ -61,6 +64,20 @@ ZERO = Decimal("0")
 PageTextSource = Callable[[str, int], PageText]
 
 
+class PageImageSource(Protocol):
+    def render(self, sha256: str, storage_key: str, page: int) -> Any: ...
+
+
+# a 1x1 PNG: estimates count images at a fixed per-image token bound, so content is irrelevant
+_PLACEHOLDER = ImagePart(
+    media_type="image/png",
+    data_base64=(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5E"
+        "rkJggg=="
+    ),
+)
+
+
 @dataclass(frozen=True)
 class ModelStepConfig:
     period_id: UUID
@@ -70,6 +87,7 @@ class ModelStepConfig:
     max_pages: int = 5
     """DEPRECATED (TASK-075): unused; the user chooses the pages."""
     pages_per_call: int = 10
+    images_per_call: int = 4
     limits: RequestLimits = field(
         default_factory=lambda: RequestLimits(
             max_attempts=2,
@@ -127,12 +145,17 @@ class ModelClassificationStep:
         provider: Provider,
         config: ModelStepConfig,
         page_text: PageTextSource,
+        *,
+        renderer: PageImageSource | None = None,
+        document_text: DocumentTextReader | None = None,
     ) -> None:
         self._factory = factory
         self._ledger = ledger
         self._provider = provider
         self._config = config
         self._page_text = page_text
+        self._renderer = renderer
+        self._document_text = document_text
 
     @property
     def max_pages_per_document(self) -> int | None:
@@ -143,30 +166,76 @@ class ModelClassificationStep:
         return self._config.model
 
     # -- plan (estimate and run share it, so the bound of a call == its estimate) ------------
-    def _chunks(self, start: int, end: int) -> list[list[int]]:
-        pages = list(range(start, end + 1))
-        size = self._config.pages_per_call
-        return [pages[i : i + size] for i in range(0, len(pages), size)]
+    def _load_texts(
+        self, storage_key: str, family: str, encoding: str | None, pages: list[int]
+    ) -> tuple[dict[int, PageText], bool]:
+        """Text of every page (PDF text layer, or the sections of a non-PDF document) and whether
+        the document is a binary preview."""
+        if family == "pdf":
+            return {n: self._page_text(storage_key, n) for n in pages}, False
+        if self._document_text is None:
+            raise DocumentTextError("unsupported_family", "this document family is not readable")
+        doc = self._document_text.sections(storage_key, family, encoding)
+        count = len(doc.sections)
+        out: dict[int, PageText] = {}
+        for n in pages:
+            if not 1 <= n <= count:
+                raise DocumentTextError("document_unavailable", "section out of range")
+            out[n] = PageText(doc.sections[n - 1], n, count, True, False)
+        return out, doc.kind == "binary_preview"
 
-    def _request(self, usable: dict[int, str]) -> ProviderRequest:
+    def _kinds(self, pages: list[int], texts: dict[int, PageText], family: str) -> dict[int, str]:
+        """'text' | 'image' (no text layer, a renderer exists, PDF) | 'none' (unreadable)."""
+        out: dict[int, str] = {}
+        for n in pages:
+            if texts[n].has_text_layer and texts[n].text.strip():
+                out[n] = "text"
+            elif family == "pdf" and self._renderer is not None:
+                out[n] = "image"
+            else:
+                out[n] = "none"
+        return out
+
+    def _chunks(self, pages: list[int], kinds: dict[int, str]) -> list[list[int]]:
+        """Close a chunk at pages_per_call pages OR images_per_call image pages."""
+        chunks: list[list[int]] = []
+        current: list[int] = []
+        images = 0
+        for n in pages:
+            is_image = kinds[n] == "image"
+            if current and (
+                len(current) >= self._config.pages_per_call
+                or (is_image and images >= self._config.images_per_call)
+            ):
+                chunks.append(current)
+                current, images = [], 0
+            current.append(n)
+            images += is_image
+        if current:
+            chunks.append(current)
+        return chunks
+
+    def _request(
+        self, usable: dict[int, str], images: dict[int, ImagePart] | None = None
+    ) -> ProviderRequest:
         return ProviderRequest(
             model=self._config.model,
-            messages=tuple(ir.build_messages(usable)),
+            messages=tuple(ir.build_messages(usable, images)),
             tools=(),
             max_output_tokens=self._config.limits.max_output_tokens,
             effort=self._config.effort,
         )
 
     def _chunk_plan(
-        self, pages: list[int], texts: dict[int, PageText]
+        self, pages: list[int], texts: dict[int, PageText], kinds: dict[int, str]
     ) -> tuple[ChunkPlan, dict[int, str]]:
-        usable = {
-            n: texts[n].text for n in pages if texts[n].has_text_layer and texts[n].text.strip()
-        }
-        missing = tuple(n for n in pages if n not in usable)
-        if not usable:
+        usable = {n: texts[n].text for n in pages if kinds[n] == "text"}
+        image_pages = tuple(n for n in pages if kinds[n] == "image")
+        missing = tuple(n for n in pages if kinds[n] == "none")
+        if not usable and not image_pages:
             return ChunkPlan(tuple(pages), missing, 0, 0, ZERO), usable
-        request = self._request(usable)
+        # only the count of images matters for the bound (a fixed per-image token bound)
+        request = self._request(usable, {n: _PLACEHOLDER for n in image_pages})
         limits = self._config.limits
         return (
             ChunkPlan(
@@ -175,14 +244,24 @@ class ModelClassificationStep:
                 estimate_input_tokens(request, limits.image_token_bound),
                 request.max_output_tokens,
                 attempt_upper_bound_usd(request, self._config.pricing, limits.image_token_bound),
+                image_pages,
             ),
             usable,
         )
 
-    def plan_document(self, storage_key: str, start: int, end: int) -> DocumentPlan:
+    def plan_document(
+        self,
+        storage_key: str,
+        start: int,
+        end: int,
+        family: str = "pdf",
+        encoding: str | None = None,
+    ) -> DocumentPlan:
         """Read the selected pages locally and bound every call exactly as the runner will."""
-        texts = {n: self._page_text(storage_key, n) for n in range(start, end + 1)}
-        chunks = tuple(self._chunk_plan(c, texts)[0] for c in self._chunks(start, end))
+        pages = list(range(start, end + 1))
+        texts, _ = self._load_texts(storage_key, family, encoding, pages)
+        kinds = self._kinds(pages, texts, family)
+        chunks = tuple(self._chunk_plan(c, texts, kinds)[0] for c in self._chunks(pages, kinds))
         pricing = self._config.pricing
         return DocumentPlan(chunks, pricing.input_usd_per_mtok, pricing.output_usd_per_mtok)
 
@@ -216,10 +295,10 @@ class ModelClassificationStep:
             self._charge(pages, ZERO, checkpoint)  # zero provider calls, zero spend
             return
 
-        texts = self._read_pages(task, pages)
-        planned = [self._chunk_plan(c, texts) for c in self._chunks(task.page_start, task.page_end)]
-        all_usable = {n: text for _, usable in planned for n, text in usable.items()}
-        if not all_usable:
+        texts, preview = self._read_pages(task, pages)
+        kinds = self._kinds(pages, texts, task.format_family)
+        planned = [self._chunk_plan(c, texts, kinds) for c in self._chunks(pages, kinds)]
+        if not any(usable or plan.image_pages for plan, usable in planned):
             self._persist(task, provider, ir.no_text_outcome(), None, None, ZERO)
             self._charge(pages, ZERO, checkpoint)
             return
@@ -228,12 +307,15 @@ class ModelClassificationStep:
         replies: list[str] = []
         in_tok = out_tok = 0
         total_cost = ZERO
+        unreadable = sum(len(plan.no_text_pages) for plan, _ in planned)
         calls = sum(1 for plan, _ in planned if plan.calls)
         called = 0
         for plan, usable in planned:
             chunk_pages = list(plan.pages)
-            if not usable:
-                self._charge(chunk_pages, ZERO, checkpoint)  # no text layer: no call, no spend
+            images = self._render(task, plan.image_pages)
+            unreadable += len(plan.image_pages) - len(images)
+            if not usable and not images:
+                self._charge(chunk_pages, ZERO, checkpoint)  # nothing readable: no call, no spend
                 continue
             called += 1
             label = (
@@ -261,7 +343,7 @@ class ModelClassificationStep:
             try:
                 self._raise_if_cancelled(task)
                 with unit:
-                    response = unit.step(ir.build_messages(usable))
+                    response = unit.step(ir.build_messages(usable, images))
             except RunStop:
                 raise
             except AssistantError as exc:
@@ -273,7 +355,7 @@ class ModelClassificationStep:
             if failure is None and response is not None:
                 try:
                     reply_text = response.text()
-                    outcome = ir.validate(ir.parse_output(reply_text), usable)
+                    outcome = ir.validate(ir.parse_output(reply_text), usable, images)
                 except ir.OutputError as exc:
                     failure = exc
             if failure is not None or outcome is None or response is None:
@@ -294,11 +376,14 @@ class ModelClassificationStep:
             total_cost += cost
             self._charge(chunk_pages, cost, checkpoint, label)
 
+        if not outcomes:  # every selected page failed to render: nothing was sent, nothing spent
+            self._persist(task, provider, ir.no_text_outcome(), None, None, ZERO)
+            return
         merged = ir.with_partial_no_text_warning(
-            ir.merge_outcomes(outcomes),
-            sum(len(plan.no_text_pages) for plan, _ in planned),
-            len(pages),
+            ir.merge_outcomes(outcomes), unreadable, len(pages)
         )
+        if preview:
+            merged = replace(merged, read_mode="binary_preview")
         self._persist(
             task,
             provider,
@@ -310,15 +395,29 @@ class ModelClassificationStep:
         )
 
     # -- helpers ----------------------------------------------------------------------------
-    def _read_pages(self, task: DocumentTask, pages: list[int]) -> dict[int, PageText]:
-        out: dict[int, PageText] = {}
+    def _read_pages(self, task: DocumentTask, pages: list[int]) -> tuple[dict[int, PageText], bool]:
+        try:
+            return self._load_texts(task.storage_key, task.format_family, task.text_encoding, pages)
+        except Exception as exc:  # unreadable stored document: typed, retryable, no rows
+            raise PageFailure(
+                ProcessingFailureCode.DOCUMENT_UNAVAILABLE, "the stored document could not be read"
+            ) from exc
+
+    def _render(self, task: DocumentTask, pages: tuple[int, ...]) -> dict[int, ImagePart]:
+        """Render image pages at run time; a page that cannot be rendered is left out (listed as
+        unreadable, nothing sent for it). Image bytes live only in this request."""
+        out: dict[int, ImagePart] = {}
+        if self._renderer is None:
+            return out
         for n in pages:
             try:
-                out[n] = self._page_text(task.storage_key, n)
-            except Exception as exc:  # unreadable stored PDF: typed, retryable, no rows
-                raise PageFailure(
-                    ProcessingFailureCode.DOCUMENT_UNAVAILABLE, "the stored PDF could not be read"
-                ) from exc
+                rendered = self._renderer.render(task.sha256, task.storage_key, n)
+                out[n] = ImagePart(
+                    media_type=rendered.media_type,
+                    data_base64=base64.b64encode(rendered.data).decode("ascii"),
+                )
+            except Exception:  # PageError or a decoder failure: this page is unreadable
+                log.warning("page render failed for document %s page %s", task.document_id, n)
         return out
 
     @property

@@ -21,6 +21,21 @@ from .imports import DocumentCategory, ExtractionState
 MAX_PROCESSING_DOCUMENTS = 200
 
 
+class ReadMode(StrEnum):
+    """How a page/section was given to the model (identity level: text | image)."""
+
+    TEXT = "text"
+    IMAGE = "image"
+    MIXED = "mixed"
+    BINARY_PREVIEW = "binary_preview"
+
+
+class ReadUnit(StrEnum):
+    PAGE = "page"
+    SECTION = "section"
+    MIXED = "mixed"  # estimate level only: pages and sections together
+
+
 class ProcessingRoute(StrEnum):
     """OCR is deferred (PROCESSING_FLOW D8); every run uses the model route."""
 
@@ -170,8 +185,17 @@ class ProcessingEstimate(ContractModel):
     )
     pages_without_text: list[int] = Field(
         default_factory=list,
-        description="Selected page numbers with no text layer: read, send nothing, cost nothing "
-        "(OCR is not available). Only known while the run is estimated.",
+        description="Selected page numbers with no text layer. Page numbers; read visually when "
+        "they are in image_pages. Only known while the run is estimated.",
+    )
+    image_pages: list[int] = Field(
+        default_factory=list,
+        description="Subset of pages_without_text that are sent to the model as page images "
+        "(each counted at the image token bound). Only known while the run is estimated.",
+    )
+    unit: ReadUnit = Field(
+        default=ReadUnit.PAGE,
+        description="'section' when every selected document is a non-PDF file read in sections.",
     )
     input_usd_per_mtok: Decimal | None = Field(default=None, ge=0)
     output_usd_per_mtok: Decimal | None = Field(default=None, ge=0)
@@ -183,7 +207,10 @@ class ProcessingRunDocument(ContractModel):
     original_filename: str
     ordinal: int = Field(ge=0)
     state: ProcessingDocumentState
-    page_count: int = Field(ge=0, description="Pages in the whole document.")
+    page_count: int = Field(
+        ge=0, description="Pages (or sections, see unit) in the whole document."
+    )
+    unit: ReadUnit = ReadUnit.PAGE
     pages: ProcessingPageRange = Field(description="Pages this run reads.")
     pages_done: int = Field(ge=0)
     label_hints: list[DocumentCategory] = Field(
@@ -268,7 +295,9 @@ class ModelReadWarningCode(StrEnum):
     IDENTITY_INVALID = "identity_invalid"
     """A proposed identity was dropped: unknown kind, page not read, or name not in the quote."""
     NO_TEXT_LAYER = "no_text_layer"
-    """The pages read had no text layer; nothing was sent to the model (OCR is not available)."""
+    """Pages had no text layer and could not be read visually (render failed); nothing was sent."""
+    IMAGE_PAGES_UNVERIFIED = "image_pages_unverified"
+    """Some pages were read from images; quotes from them could not be checked (TASK-115)."""
 
 
 class ModelReadWarning(ContractModel):
@@ -290,6 +319,10 @@ class DocumentIdentityProposal(ContractModel):
     quote: str = Field(description="Verbatim text from that page (checked server-side).")
     status: Literal["model_proposal"] = "model_proposal"
     label: str = "Model-read, unverified"
+    read_mode: ReadMode = Field(
+        default=ReadMode.TEXT,
+        description="'image': read from a page image, quote not checkable (unverified badge).",
+    )
     resolution: IdentityResolution
     wellbore_id: UUID | None = None
     wellbore_key: str | None = None
@@ -309,6 +342,11 @@ class DocumentModelRead(ContractModel):
     warnings: list[ModelReadWarning]
     pages: ProcessingPageRange = Field(description="Page window the model was given.")
     pages_read: int = Field(ge=0)
+    read_mode: ReadMode = Field(
+        default=ReadMode.TEXT,
+        description="text | image | mixed | binary_preview: how the pages/sections were read.",
+    )
+    unit: ReadUnit = ReadUnit.PAGE
     provider: ProcessingProvider
     model_revision: str
     prompt_version: str
@@ -324,8 +362,9 @@ class DocumentProcessingState(ContractModel):
     document_id: UUID
     original_filename: str
     page_count: int | None = Field(
-        default=None, ge=0, description="Null when the file is not a readable PDF."
+        default=None, ge=0, description="Pages (sections for non-PDF files); null when unreadable."
     )
+    unit: ReadUnit = ReadUnit.PAGE
     native_state: ExtractionState
     no_native_parser: bool = Field(
         description="True when no native profile matched; model processing is available."
