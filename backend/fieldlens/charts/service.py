@@ -34,7 +34,7 @@ from fieldlens.contracts.evidence import EvidenceLink
 from fieldlens.contracts.series import SeriesUnitStatus
 from fieldlens.series import codec
 
-from . import numeric
+from . import log_strat, numeric
 from .assemble import Line, axis_group, build_chart, digest, make_window
 from .perforation import PerfResult, PerfRow, build, locator_link
 
@@ -367,7 +367,13 @@ class ChartService:
             rng.as_of,
         )
         window = make_window(rng.lo, rng.hi)
-        revision = _revision(rows, {wellbore_id: perf})
+        curves = log_strat.load_log_curves(session, project_id, wellbore_id)
+        layers, tops_error = log_strat.formation_tops(session, project_id, wellbore_id)
+        revision = digest(
+            _revision(rows, {wellbore_id: perf}),
+            log_strat.log_revision(curves),
+            layers.generated_from_revision if layers else tops_error,
+        )
         seed = digest("wellbore", project_id, wellbore_id, revision)
         scope = _scope_bore(wellbore_id, bore.bore, bore.well)
         charts = self._production_charts(linked, scope, ":bore", rng, window, seed, bore.bore)
@@ -381,6 +387,15 @@ class ChartService:
                 if c.series
             ]
         charts += self._perforation_charts(perf, scope, rng, window, seed)
+        charts.append(
+            log_strat.build_log_tracks(
+                curves,
+                [p for s in (layers.surfaces if layers else []) for p in s.picks],
+                scope=scope,
+                seed=seed,
+                tops_unavailable=tops_error,
+            )
+        )
         for key, title, message in (
             (ChartKey.PRESSURE_TESTS, "Pressure tests", "No pressure-test records exist"),
             (ChartKey.LAB_TESTS, "Lab tests", "No lab-test records exist"),
@@ -671,7 +686,11 @@ class ChartService:
             for wid, prows in sorted(perf_by_bore.items(), key=lambda kv: str(kv[0]))
         }
         window = make_window(rng.lo, rng.hi)
-        revision = _revision(rows, perf)
+        field_layers, layers_error = log_strat.field_layers(session, project_id)
+        revision = digest(
+            _revision(rows, perf),
+            field_layers.generated_from_revision if field_layers else layers_error,
+        )
         seed = digest("field", project_id, revision)
         field_scope = ChartSeriesScope(
             scope=ChartScope.FIELD, scope_label="field (all wellbores in project)"
@@ -830,6 +849,14 @@ class ChartService:
             self._perforated_by_wellbore(
                 perf, names, rng, window, seed, field_scope, notes, excluded
             ),
+            log_strat.build_stratigraphic_correlation(
+                field_layers,
+                {w: (nm, well) for w, (nm, well) in names.items()},
+                scope=field_scope,
+                seed=seed,
+            )
+            if field_layers is not None
+            else log_strat.unavailable_correlation(field_scope, seed, layers_error or "unknown"),
         ]
         dedup: dict[tuple[str, str], ExcludedSeries] = {}
         for item in excluded:
