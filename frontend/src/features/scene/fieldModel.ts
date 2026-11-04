@@ -153,6 +153,28 @@ function extentsOf(path: WellPath): { depth: number; minX: number; maxX: number;
 }
 
 const norm = (s: string | null): string | null => (s === null ? null : s.trim().replace(/\s+/g, " ").toLowerCase());
+
+/**
+ * Canonical key of a projected CRS description. Two sources often spell the same UTM CRS
+ * differently ("Map-Zone: Zone 31N (0 E to 6 E); Geo Datum: European 1950 - Mean" vs. "Universal
+ * Transverse Mercator European 1950 - Mean Zone 31N (0 E to 6 E)"). When a description explicitly
+ * states a UTM / map zone with hemisphere, the key is the zone plus the remaining words once the
+ * projection boilerplate is removed (in practice the datum name the text itself states), so
+ * "WGS 84 / UTM zone 31N" and "ED50 / UTM zone 31N" stay distinct. Otherwise the key is the
+ * normalized text. Nothing is assumed or inferred.
+ */
+export function crsKey(crs: string): string {
+  const n = norm(crs)!;
+  const zone = /zone\s*(\d{1,2})\s*([ns])\b/.exec(n);
+  if (!zone || !/(transverse mercator|utm|map-zone)/.test(n)) return n;
+  const rest = n
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/zone\s*\d{1,2}\s*[ns]\b/g, " ")
+    .replace(/universal transverse mercator|transverse mercator|\butm\b|map-zone|geo datum|\bdatum\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return `utm:${Number(zone[1])}${zone[2]}|${rest}`;
+}
 const METRE_UNITS = new Set(["m", "meter", "meters", "metre", "metres"]);
 
 export interface SurfaceFrame {
@@ -174,7 +196,7 @@ export function commonSurfaceFrame(locations: readonly SurfaceLocation[]): { fra
     if (l.crs === null || norm(l.crs) === "") return { reason: "a surface location does not state its CRS" };
     if (l.unit === null) return { reason: "a surface location does not state its unit" };
     if (!METRE_UNITS.has(norm(l.unit)!)) return { reason: `surface-location unit "${l.unit}" is not metres (no unit conversion is done)` };
-    if (norm(l.crs) !== norm(first.crs)) return { reason: "surface locations use different CRSs" };
+    if (crsKey(l.crs) !== crsKey(first.crs)) return { reason: "surface locations use different CRSs" };
     if (norm(l.datum) !== norm(first.datum)) return { reason: "surface locations use different datums" };
   }
   return { frame: { crs: first.crs.trim(), datum: first.datum, unit: "m" } };
