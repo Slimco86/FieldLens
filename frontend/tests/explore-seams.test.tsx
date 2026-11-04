@@ -12,15 +12,15 @@ import { render } from "./render";
 describe("ExploreCommands bus", () => {
   it("reports no-subscriber, handled and unhandled", () => {
     const bus = createExploreCommandBus();
-    expect(bus.dispatch({ type: "focusWellbore", wellboreId: "w1" })).toBe("no-subscriber");
+    expect(bus.dispatch({ type: "focusWellbore", wellboreId: "w1" })).toBe("queued");
     const off = bus.subscribe({ focusWellbore: (p) => p.wellboreId === "w1" });
     expect(bus.dispatch({ type: "focusWellbore", wellboreId: "w1" })).toBe("handled");
     expect(bus.dispatch({ type: "focusWellbore", wellboreId: "zz" })).toBe("unhandled");
-    expect(bus.dispatch({ type: "focusFormation", wellboreId: "w1", formationId: "f" })).toBe("no-subscriber");
+    expect(bus.dispatch({ type: "openChart", kind: "k", wellboreId: null })).toBe("no-subscriber");
     off();
     off();
     expect(bus.size).toBe(0);
-    expect(bus.dispatch({ type: "focusWellbore", wellboreId: "w1" })).toBe("no-subscriber");
+    expect(bus.dispatch({ type: "openChart", kind: "k", wellboreId: null })).toBe("no-subscriber");
   });
 
   it("fans out to every subscriber and any acting one wins", () => {
@@ -34,14 +34,76 @@ describe("ExploreCommands bus", () => {
     expect(b).toHaveBeenCalledOnce();
   });
 
-  it("keeps flyOver/stopFlyOver as documented stubs", () => {
+  it("queues focus/fly-over commands until a subscriber can act, bounded and expiring (S-1)", () => {
+    let t = 0;
+    const bus = createExploreCommandBus({ now: () => t, ttlMs: 1000, maxPending: 2 });
+    expect(bus.dispatch({ type: "focusWellbore", wellboreId: "w1" })).toBe("queued");
+    expect(bus.pending).toBe(1);
+    // Focus commands supersede each other (last value wins).
+    expect(bus.dispatch({ type: "focusElement", wellboreId: "w1", elementId: "e1" })).toBe("queued");
+    expect(bus.pending).toBe(1);
+    expect(bus.dispatch({ type: "flyOver", wellboreId: "w1" })).toBe("queued");
+    expect(bus.pending).toBe(2);
+    // Non-navigation commands are never queued: explicit no-subscriber.
+    expect(bus.dispatch({ type: "openSource", source: { documentId: "d" } })).toBe("no-subscriber");
+    expect(bus.dispatch({ type: "stopFlyOver" })).toBe("no-subscriber");
+    const focus = vi.fn(() => true);
+    const fly = vi.fn(() => true);
+    bus.subscribe({ focusElement: focus, flyOver: fly });
+    expect(focus).toHaveBeenCalledWith({ type: "focusElement", wellboreId: "w1", elementId: "e1" });
+    expect(fly).toHaveBeenCalledOnce();
+    expect(bus.pending).toBe(0);
+
+    expect(bus.dispatch({ type: "focusFormation", wellboreId: "w", formationId: "f" })).toBe("queued");
+    t = 2000;
+    expect(bus.pending).toBe(0);
+  });
+
+  it("holds commands for a mounted-but-not-ready subscriber and replays them", () => {
     const bus = createExploreCommandBus();
-    const h = vi.fn(() => true);
+    let ready = false;
+    const h = vi.fn(() => (ready ? true : ("defer" as const)));
     bus.subscribe({ focusWellbore: h });
-    expect(FLY_OVER_STATE).toBe("not-implemented");
-    expect(bus.dispatch({ type: "flyOver", wellboreId: "w" })).toBe("not-implemented");
-    expect(bus.dispatch({ type: "stopFlyOver" })).toBe("not-implemented");
-    expect(h).not.toHaveBeenCalled();
+    expect(bus.dispatch({ type: "focusWellbore", wellboreId: "w" })).toBe("queued");
+    bus.replay();
+    expect(bus.pending).toBe(1);
+    ready = true;
+    bus.replay();
+    expect(bus.pending).toBe(0);
+    expect(bus.dispatch({ type: "focusWellbore", wellboreId: "w" })).toBe("handled");
+  });
+
+  it("reports a refusing ready subscriber as unhandled, not queued (AV-4)", () => {
+    const bus = createExploreCommandBus();
+    bus.subscribe({ focusWellbore: () => false });
+    expect(bus.dispatch({ type: "focusWellbore", wellboreId: "w" })).toBe("unhandled");
+    expect(bus.pending).toBe(0);
+  });
+
+  it("isolates throwing subscribers (S-3)", () => {
+    const errors: unknown[] = [];
+    const bus = createExploreCommandBus({ onError: (e) => errors.push(e) });
+    const ok = vi.fn(() => true);
+    bus.subscribe({ openSource: () => { throw new Error("boom"); } });
+    bus.subscribe({ openSource: ok });
+    expect(bus.dispatch({ type: "openSource", source: { documentId: "d" } })).toBe("handled");
+    expect(ok).toHaveBeenCalledOnce();
+    expect(errors).toHaveLength(1);
+    const bus2 = createExploreCommandBus({ onError: () => { throw new Error("reporter"); } });
+    bus2.subscribe({ openSource: () => { throw new Error("boom"); } });
+    expect(bus2.dispatch({ type: "openSource", source: { documentId: "d" } })).toBe("unhandled");
+  });
+
+  it("implements flyOver/stopFlyOver on the bus", () => {
+    const bus = createExploreCommandBus();
+    const fly = vi.fn(() => true);
+    const stop = vi.fn(() => true);
+    bus.subscribe({ flyOver: fly, stopFlyOver: stop });
+    expect(FLY_OVER_STATE).toBe("implemented");
+    expect(bus.dispatch({ type: "flyOver", wellboreId: "w" })).toBe("handled");
+    expect(bus.dispatch({ type: "stopFlyOver" })).toBe("handled");
+    expect(fly).toHaveBeenCalledOnce();
+    expect(stop).toHaveBeenCalledOnce();
   });
 
   it("registers through the hook with the latest closure and unregisters on unmount", () => {
