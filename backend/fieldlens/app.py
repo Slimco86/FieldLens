@@ -25,6 +25,7 @@ from fieldlens.assetspec.routes import build_asset_spec_router
 from fieldlens.assistant.budget import BudgetLedger
 from fieldlens.candidates.reconcile import settle_finished_units
 from fieldlens.candidates.routes import build_candidates_router
+from fieldlens.charts.routes import build_charts_router
 from fieldlens.config import Settings, get_settings, warn_ignored_unprefixed
 from fieldlens.context.routes import build_formations_router
 from fieldlens.contracts.errors import ContractError, ErrorBody, ErrorCode, ErrorEnvelope
@@ -412,6 +413,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_asset_spec_router())
     app.include_router(build_trajectory_router())
     app.include_router(build_formations_router())
+    app.include_router(build_charts_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
