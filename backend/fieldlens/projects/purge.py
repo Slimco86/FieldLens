@@ -46,6 +46,9 @@ _ERROR_MAX = 600
 # reconstruction_run, model_revision) are removed by one DELETE statement, which PostgreSQL checks
 # at statement end. The completeness test and ``_uncovered`` fail on any project_id table missing.
 PURGE_ORDER: tuple[str, ...] = (
+    "chat_message",
+    "chat_turn",
+    "chat_conversation",
     "agent_step",
     "chunk_embedding",
     "chunk_identifier",
@@ -323,7 +326,13 @@ def active_leases(session: Session, project_id: UUID) -> int:
             )
         ).scalar_one()
     )
-    for name in ("extraction_run", "processing_run", "reconstruction_run", "retrieval_index"):
+    for name in (
+        "extraction_run",
+        "processing_run",
+        "reconstruction_run",
+        "retrieval_index",
+        "chat_turn",
+    ):
         t = m.metadata.tables[name]
         total += int(
             session.execute(

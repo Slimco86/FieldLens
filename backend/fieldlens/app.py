@@ -26,6 +26,9 @@ from fieldlens.assistant.budget import BudgetLedger
 from fieldlens.candidates.reconcile import settle_finished_units
 from fieldlens.candidates.routes import build_candidates_router
 from fieldlens.charts.routes import build_charts_router
+from fieldlens.chat.routes import build_chat_router
+from fieldlens.chat.runner import ChatRunner
+from fieldlens.chat.runtime import build_chat_runtime
 from fieldlens.config import Settings, get_settings, warn_ignored_unprefixed
 from fieldlens.context.routes import build_formations_router
 from fieldlens.contracts.errors import ContractError, ErrorBody, ErrorCode, ErrorEnvelope
@@ -270,7 +273,12 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
         purger = app.state.purger
         if purger is not None and settings.job_worker_enabled:
             purger.start()
+        chat_runner = app.state.chat_runner
+        if chat_runner is not None and settings.job_worker_enabled:
+            chat_runner.start()
         yield
+        if chat_runner is not None:
+            chat_runner.stop()
         if purger is not None:
             purger.stop()
         if reconstruction is not None:
@@ -367,6 +375,18 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.state.series = (
         SeriesService(app.state.session_factory) if app.state.session_factory is not None else None
     )
+    app.state.chat = (
+        build_chat_runtime(
+            app.state.session_factory,
+            settings,
+            app.state.retrieval,
+            app.state.series,
+            meta=getattr(app.state.processing, "meta", None),
+        )
+        if app.state.session_factory is not None
+        else None
+    )
+    app.state.chat_runner = ChatRunner(app.state.chat) if app.state.chat is not None else None
 
     @app.middleware("http")
     async def deleting_projects_reject_mutations(
@@ -414,6 +434,7 @@ def create_app(settings: Settings | None = None, *, session_token: str | None = 
     app.include_router(build_trajectory_router())
     app.include_router(build_formations_router())
     app.include_router(build_charts_router())
+    app.include_router(build_chat_router())
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
