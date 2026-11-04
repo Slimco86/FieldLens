@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Callout, EmptyState } from "../../design";
 import { useExploreCommandBus } from "../scene/ExploreCommandsContext";
-import type { ExploreCommandBus } from "../scene/exploreCommands";
+import type { ExploreCommandBus, ExploreCommandOutcome } from "../scene/exploreCommands";
 import { normalizeChart, type ChartSeriesScope, type ChartSpec, type ChartSpecWire } from "./api";
 import { createChartCursorStore, useChartCursorStore, windowBoundToIsoDate, type CursorWindow } from "./chartCursor";
 import { buildChartOption } from "./chartOption";
@@ -58,7 +58,16 @@ export interface ChartBlockProps {
   headingLevel?: 2 | 3 | 4;
   /** Overrides the Explore command bus (tests, the assistant). Null = no viewer. */
   commandBus?: Pick<ExploreCommandBus, "dispatch"> | null;
+  /** Wellbore a well-/field-level chart's formation tops are shown on in 3D (a wellbore-scoped chart uses its own). */
+  wellboreId?: string | null;
 }
+
+const SHOW_RESULT: Record<ExploreCommandOutcome, string> = {
+  handled: "Shown in 3D.",
+  queued: "Waiting for the 3D view to be ready.",
+  unhandled: "Could not show this formation in 3D: it is not drawn for this wellbore.",
+  "no-subscriber": "The 3D view is not available here.",
+};
 
 /**
  * Renders one ChartSpec: ECharts plot (lazy chunk), scope badges, as-of/window, unit-separated axes, gaps kept,
@@ -66,7 +75,7 @@ export interface ChartBlockProps {
  * any provider. The chart instance and its listeners are disposed on unmount; resizing follows a ResizeObserver
  * (so a chart revealed from a hidden Split/Charts pane redraws at its real size).
  */
-export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, commandBus }: ChartBlockProps) {
+export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, commandBus, wellboreId = null }: ChartBlockProps) {
   const spec = useMemo(() => normalizeChart(wire), [wire]);
   const uid = useId();
   const build = useMemo(() => buildChartOption(spec), [spec]);
@@ -196,6 +205,22 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
   const fmtBound = (n: number) => (cursorAxis === "time" ? windowBoundToIsoDate(n) : String(Math.round(n * 100) / 100));
   const sources = spec.series.flatMap((s) => s.evidence.map((ev, i) => ({ s, ev, key: `${s.series_key}:${i}` })));
 
+  const [showMsg, setShowMsg] = useState<string | null>(null);
+  const topWellbore = spec.scope.wellbore_id ?? spec.series.find((s) => s.scope.wellbore_id)?.scope.wellbore_id ?? wellboreId;
+  // Only reference lines carry a formation reference (pick_id / surface_key); points and perforations carry none.
+  const tops = spec.reference_lines.flatMap((r) => {
+    const formationId = r.pick_id ?? r.surface_key;
+    return formationId === null ? [] : [{ r, formationId }];
+  });
+  // Non-destructive link: an explicit action (not hover) because focusFormation moves the camera.
+  function showIn3d(formationId: string, label: string) {
+    if (bus === null || topWellbore === null) {
+      setShowMsg(`${label}: ${SHOW_RESULT["no-subscriber"]}`);
+      return;
+    }
+    setShowMsg(`${label}: ${SHOW_RESULT[bus.dispatch({ type: "focusFormation", wellboreId: topWellbore, formationId })]}`);
+  }
+
   function open(link: Parameters<typeof openEvidence>[1]) {
     setOpenMsg(openEvidence(bus, link));
   }
@@ -242,6 +267,22 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
             {engine === "failed" && <p className={styles.overlay} role="alert">The chart renderer could not be loaded. The data table below still has every value.</p>}
           </div>
           <p className={styles.srOnly}>{summary}</p>
+
+          {tops.length > 0 && (
+            <ul className={styles.tops} aria-label={`${spec.title} formation tops`}>
+              {tops.map(({ r, formationId }) => (
+                <li key={`${r.axis_id}:${formationId}:${r.value}`}>
+                  {r.label} ({r.value}
+                  {r.unit ? ` ${r.unit}` : ""}){" "}
+                  <button type="button" onClick={() => showIn3d(formationId, r.label)} aria-label={`Show ${r.label} in 3D`}>
+                    Show in 3D
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className={styles.srOnly} role="status" aria-live="polite">{showMsg ?? ""}</p>
+          {showMsg !== null && !showMsg.endsWith(SHOW_RESULT.handled) && <Callout tone="warning">{showMsg}</Callout>}
 
           <button type="button" className={styles.disclose} aria-expanded={tableOpen} aria-controls={`${uid}-tbl`} onClick={() => setTableOpen((o) => !o)}>
             {tableOpen ? "Hide data table" : "Show data table"}
