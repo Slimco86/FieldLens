@@ -32,6 +32,10 @@ export function revisionStatusLabel(r: SourceRevisionSummary): string {
 export const isRevisionActive = (r: SourceRevisionSummary): boolean =>
   r.status === "staging" || isJobActive(r.job_status ?? null);
 
+/** Keep refreshing while native extraction still has pending files (it runs after storage verification). */
+const shouldPoll = (r: SourceRevisionSummary): boolean =>
+  isRevisionActive(r) || (r.is_latest && (r.pending_extraction_count ?? 0) > 0);
+
 const versionOf = (r: SourceRevisionSummary): string =>
   [r.status, r.job_status, r.member_count, r.stored_count, r.failed_count, r.pending_extraction_count, r.unsupported_count].join(":");
 
@@ -82,7 +86,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged, fo
   const { state, reload } = usePolled<SourceRevisionPage>(
     `revisions/${projectId}`,
     (signal) => listRevisions(projectId, signal),
-    (page) => page.items.some(isRevisionActive),
+    (page) => page.items.some(shouldPoll),
   );
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -257,7 +261,7 @@ export function SourcesPanel({ projectId, latestRevisionId, onProjectChanged, fo
             projectId={projectId}
             revisionId={selected.source_revision_id}
             version={versionOf(selected)}
-            polling={isRevisionActive(selected)}
+            polling={shouldPoll(selected)}
             focusDocumentId={focusDocumentId}
           />
         </section>

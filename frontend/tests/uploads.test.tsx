@@ -464,7 +464,9 @@ describe("source list", () => {
     let status: "staging" | "ready" = "staging";
     const fetchFn = install((url) => {
       if (url.includes("/source-revisions"))
-        return json(page(revision({ status, job_status: status === "staging" ? "running" : "succeeded" })));
+        return json(
+          page(revision({ status, job_status: status === "staging" ? "running" : "succeeded", pending_extraction_count: 0 })),
+        );
       if (url.includes("/documents?")) return json(page(document()));
       if (url.includes(`/jobs/${J1}`)) return json(job({ status: status === "staging" ? "running" : "succeeded" }));
     });
