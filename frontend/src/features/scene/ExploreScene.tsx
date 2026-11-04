@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { ExploreWorkspace } from "../../app/shell/ExploreWorkspace";
+import type { ExploreStageContext } from "../../app/shell/exploreStage";
+import { ExploreCommandsProvider } from "./ExploreCommandsContext";
 import { EmptyState, ErrorState, LoadingState } from "../../design";
 import { getExposure } from "../pipeline/api";
 import { useScopedResource } from "../projects/scope";
@@ -27,7 +29,16 @@ interface WellboreRef {
   name: string;
 }
 
+/** Owns the Explore command bus for everything below it (viewers, charts, assistant dock). */
 export function ExploreScene({ projectId }: { projectId: string }) {
+  return (
+    <ExploreCommandsProvider>
+      <ExploreSceneInner projectId={projectId} />
+    </ExploreCommandsProvider>
+  );
+}
+
+function ExploreSceneInner({ projectId }: { projectId: string }) {
   const exposure = useScopedResource(`exposure/${projectId}`, (signal) => getExposure(projectId, signal));
   const [picked, setPicked] = useState<string | null>(null);
   // `null` = automatic: the field view for two or more wellbores, the wellbore view for one.
@@ -198,6 +209,7 @@ function WellboreScene({ projectId, wellbore, wellbores, onPick, onField, onSpec
   }
   return (
     <ExploreWorkspace
+      context={{ kind: "wellbore", wellboreId: wellbore.id }}
       stage={
         <div className={styles.view}>
           <div className={styles.toolbar}>{picker}</div>
@@ -222,6 +234,7 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
   const [view, setView] = useState<"wellhead" | "whole" | "selection">("wellhead");
   const [surfaceScale, setSurfaceScale] = useState<number>(1);
   const [cutaway, setCutaway] = useState(true);
+  const wbContext = useMemo<ExploreStageContext>(() => ({ kind: "wellbore", wellboreId: wellbore.id }), [wellbore.id]);
   const [labels, setLabels] = useState<LabelMode>("all");
   const [depthMarks, setDepthMarks] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -368,6 +381,7 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
               selectedId={selectedId}
               onSelect={select}
               commands={commands}
+              wellboreId={wellbore.id}
               onContextLost={() => setLost((n) => n + 1)}
             />
           </Suspense>
@@ -380,6 +394,7 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
 
   return (
     <ExploreWorkspace
+      context={wbContext}
       tree={<ComponentList model={model} selectedId={selectedId} onSelect={select} />}
       stage={stage}
       inspector={<Inspector element={selected} survey={surveyState} />}

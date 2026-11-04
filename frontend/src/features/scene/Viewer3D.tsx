@@ -9,6 +9,8 @@ import { buildElement, elementBounds, type BuildContext } from "./primitives";
 import { SceneResources, setHighlighted } from "./resources";
 import { buildTubeGeometry } from "./tube";
 import type { SceneElement, SceneModel } from "./sceneModel";
+import { useExploreCommandHandlers } from "./ExploreCommandsContext";
+import { RENDER_ORIGIN, renderLayers, type SceneLayerContext, type SceneLayers } from "./sceneLayers";
 import styles from "./Scene.module.css";
 export { webgl2Available } from "./webgl";
 
@@ -53,6 +55,10 @@ interface Props {
   commands: MutableRefObject<ViewerCommands | null>;
   /** Called when the WebGL context is lost so the page can offer a reload. */
   onContextLost: () => void;
+  /** Wellbore this viewer shows; lets the Explore command bus ignore commands for other wellbores. */
+  wellboreId?: string;
+  /** Optional scene content mounted inside the Canvas (empty by default); see `SceneLayerContext`. */
+  layers?: SceneLayers;
 }
 
 interface Anchor {
@@ -600,6 +606,28 @@ export default function Viewer3D(props: Props) {
   const selectedRef = useRef<string | null>(selectedId);
   const [lost, setLost] = useState(false);
 
+  // Explore command bus: handlers read the latest props through a ref inside the hook.
+  const { commands, model, wellboreId } = props;
+  useExploreCommandHandlers({
+    focusWellbore: (p) => {
+      if (wellboreId !== undefined && p.wellboreId !== wellboreId) return false;
+      if (commands.current === null) return false;
+      commands.current.fitAll();
+      return true;
+    },
+    focusElement: (p) => {
+      if (wellboreId !== undefined && p.wellboreId !== wellboreId) return false;
+      if (commands.current === null || !model.byId.has(p.elementId)) return false;
+      commands.current.focus(p.elementId);
+      return true;
+    },
+  });
+
+  const layerCtx = useMemo<SceneLayerContext>(
+    () => ({ scope: "wellbore", origin: RENDER_ORIGIN, exaggeration: options.exaggeration, cutaway: options.cutaway }),
+    [options.exaggeration, options.cutaway],
+  );
+
   useEffect(() => {
     labelModeRef.current = options.labels;
     selectedRef.current = selectedId;
@@ -646,6 +674,7 @@ export default function Viewer3D(props: Props) {
         data-testid="scene-canvas"
       >
         <SceneContents {...props} onAnchors={onAnchors} anchorsRef={anchorsRef} layerRef={layerRef} labelModeRef={labelModeRef} selectedRef={selectedRef} />
+        {renderLayers(props.layers, layerCtx)}
       </Canvas>
       <div className={styles.labelLayer} ref={layerRef} aria-hidden="true" data-testid="scene-label-layer">
         <svg className={styles.leaders}>

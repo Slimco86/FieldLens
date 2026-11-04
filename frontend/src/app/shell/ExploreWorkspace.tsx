@@ -1,6 +1,16 @@
-import { useState, type ReactNode } from "react";
-import { ActionIcon } from "@mantine/core";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ActionIcon, Button } from "@mantine/core";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
+import {
+  ExploreStageProvider,
+  readStageMode,
+  STAGE_MODES,
+  STAGE_MODE_LABEL,
+  writeStageMode,
+  type ExploreStageContext,
+  type ExploreStageState,
+  type StageMode,
+} from "./exploreStage";
 import styles from "./ExploreWorkspace.module.css";
 
 /**
@@ -20,17 +30,28 @@ export interface ExploreRegions {
   stage: ReactNode;
   inspector?: ReactNode;
   dock?: ReactNode;
+  /**
+   * Charts slot (XC-7). Supplying it enables the Stage mode switch (3D / Charts / Split); without
+   * it the stage is exactly the single 3D body. Both panes stay mounted while hidden.
+   */
+  charts?: ReactNode;
+  /** Assistant dock slot (AV-7); rendered below the stage like `dock`, collapsible. Absent = nothing. */
+  assistant?: ReactNode;
+  /** Wellbore-versus-field context exposed to slots through `useExploreStage()`. Defaults to field. */
+  context?: ExploreStageContext;
 }
 
-type Collapsible = "tree" | "inspector" | "dock";
+type Collapsible = "tree" | "inspector" | "dock" | "assistant";
 
 const COLLAPSE_ICON = {
   tree: [ChevronLeft, ChevronRight],
   inspector: [ChevronRight, ChevronLeft],
   dock: [ChevronDown, ChevronUp],
+  assistant: [ChevronDown, ChevronUp],
 } as const;
+const STYLE_NAME = { tree: "tree", inspector: "inspector", dock: "dock", assistant: "dock" } as const;
 
-const TITLE: Record<Collapsible, string> = { tree: "Tree", inspector: "Inspector", dock: "Dock" };
+const TITLE: Record<Collapsible, string> = { tree: "Tree", inspector: "Inspector", dock: "Dock", assistant: "Assistant" };
 
 function Region({
   name,
@@ -50,7 +71,7 @@ function Region({
   const verb = collapsed ? "Expand" : "Collapse";
   return (
     <section
-      className={`${styles.region} ${styles[name]} ${collapsed ? styles.collapsed : ""}`}
+      className={`${styles.region} ${styles[STYLE_NAME[name]]} ${collapsed ? styles.collapsed : ""}`}
       aria-label={title}
       data-region={name}
       data-collapsed={collapsed}
@@ -75,12 +96,33 @@ function Region({
   );
 }
 
-export function ExploreWorkspace({ tree, stage, inspector, dock }: ExploreRegions) {
+const FIELD_CONTEXT: ExploreStageContext = { kind: "field" };
+
+function StageSwitch({ mode, onChange }: { mode: StageMode; onChange: (m: StageMode) => void }) {
+  return (
+    <div className={styles.stageSwitch} role="group" aria-label="Stage mode" data-testid="stage-switch">
+      {STAGE_MODES.map((m) => (
+        <Button key={m} size="compact-sm" variant={m === mode ? "light" : "subtle"} color="gray" aria-pressed={m === mode} onClick={() => onChange(m)}>
+          {STAGE_MODE_LABEL[m]}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+export function ExploreWorkspace({ tree, stage, inspector, dock, charts, assistant, context = FIELD_CONTEXT }: ExploreRegions) {
   const [collapsed, setCollapsed] = useState<Record<Collapsible, boolean>>({
     tree: false,
     inspector: false,
     dock: false,
+    assistant: false,
   });
+  const [mode, setMode] = useState<StageMode>(() => readStageMode());
+  useEffect(() => writeStageMode(mode), [mode]);
+  const hasCharts = charts !== undefined;
+  // Without a charts slot there is nothing to switch to: the stage is always the 3D body.
+  const effective: StageMode = hasCharts ? mode : "3d";
+  const stageState = useMemo<ExploreStageState>(() => ({ mode: effective, context }), [effective, context]);
   const toggle = (name: Collapsible) => setCollapsed((c) => ({ ...c, [name]: !c[name] }));
   const region = (name: Collapsible, node: ReactNode | undefined) =>
     node === undefined ? null : (
@@ -89,15 +131,39 @@ export function ExploreWorkspace({ tree, stage, inspector, dock }: ExploreRegion
       </Region>
     );
   return (
-    <div className={styles.workspace} data-testid="explore-workspace">
-      <div className={styles.row}>
-        {region("tree", tree)}
-        <section className={`${styles.region} ${styles.stage}`} aria-label="Stage" data-region="stage">
-          <div className={styles.body}>{stage}</div>
-        </section>
-        {region("inspector", inspector)}
+    <ExploreStageProvider value={stageState}>
+      <div className={styles.workspace} data-testid="explore-workspace">
+        <div className={styles.row}>
+          {region("tree", tree)}
+          <section
+            className={`${styles.region} ${styles.stage}`}
+            aria-label="Stage"
+            data-region="stage"
+            data-stage-mode={effective}
+            data-context={context.kind}
+            data-wellbore-id={context.kind === "wellbore" ? context.wellboreId : undefined}
+          >
+            {hasCharts ? (
+              <>
+                <StageSwitch mode={effective} onChange={setMode} />
+                <div className={styles.panes}>
+                  <div className={styles.pane} data-pane="3d" hidden={effective === "charts"}>
+                    {stage}
+                  </div>
+                  <div className={styles.pane} data-pane="charts" role="region" aria-label="Charts" hidden={effective === "3d"}>
+                    {charts}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className={styles.body}>{stage}</div>
+            )}
+          </section>
+          {region("inspector", inspector)}
+        </div>
+        {region("dock", dock)}
+        {region("assistant", assistant)}
       </div>
-      {region("dock", dock)}
-    </div>
+    </ExploreStageProvider>
   );
 }
