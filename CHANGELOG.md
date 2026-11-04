@@ -8,6 +8,16 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.54.1 - 2026-11-04
+
+### Fixed
+
+- Explore 3D viewer: a canvas resize no longer re-fits the camera, so the framing no longer drifts to a blank view after load; the canvas height is bounded and formation layers are flagged out of fit bounds (TASK-111).
+- Explore layout: fixed-height workspace with Tree, scene and Inspector cards scrolling internally instead of the page (TASK-112).
+- Formations panel lists only surfaces drawn for the current view (identical rows merged with a count) and collapses the rest into one "N formations not drawn" summary (TASK-112).
+- Assistant is a pulsing round launcher at the bottom-left that opens a full-width, half-height overlay panel (TASK-112).
+- Charts: cards are light overviews with an expand button opening a full-screen detail dialog (toolbar, legend, data table, sources, notes); global notices collapse into one summary row (TASK-113).
+
 ## 0.54.0 - 2026-11-04
 
 - **Explore enrichment (FL-024..027, TASK-096..110).** Formation tops as observed markers and labelled "level plane - illustrative" planes in both 3D views (never exaggerated, blocked across wellbores with differing/unknown vertical references), with a formation panel. Charts: wellbore-scoped set (production/injection, cumulative, pressure, on-stream, perforation timeline, `log_tracks` with formation-top lines) and field set (by-wellbore rates, cumulative, uptime, perforated length, `stratigraphic_correlation`) behind a 3D / Charts / Split stage, with an as-of date control and a "Show in 3D" action on formation-top lines; unknown perforation baselines show as gaps, never zero. Camera: smooth van Wijk transitions between elements facing the trajectory, and a single-wellbore "Fly over" that tours the trajectory top to bottom, highlighting the visited element. Assistant: expandable project chat with an SVG avatar, typed answer blocks, server-materialized charts, validated deep links (sources, elements, wellbores, formations, charts), read-only allowlisted tools (evidence search, trajectory, series, formations, equipment), no spend cap (D4), migration 0020. Slug element ids in chat contracts; regenerated client. Backend pytest, ruff, mypy; frontend 626 vitest tests, lint, typecheck, build and `check:contracts` pass. Not browser-verified, frame time (CM-6) unmeasured, live Meta (AV-9) not run. Known limits: no horizon grids/interpolated surfaces (D5), no chart-to-3D hover (button instead), no closest-approach chat tool, perforated length mostly "unknown" on real data.

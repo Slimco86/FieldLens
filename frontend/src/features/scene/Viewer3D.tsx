@@ -407,7 +407,8 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onFlyOv
         const cam = camera as THREE.PerspectiveCamera;
         const here = cam.position.clone().sub(ctl.target);
         const preferred = t.keepDirection && here.lengthSq() > 1e-12 ? toV3(here.normalize()) : toV3(DEFAULT_DIR);
-        const aspect = sizeRef.current.width > 0 && sizeRef.current.height > 0 ? sizeRef.current.width / sizeRef.current.height : 1;
+        const { width: cw, height: ch } = sizeRef.current;
+        const aspect = cw > 0 && ch > 0 ? cw / ch : 1;
         const fitRange = fitDistance(t.radius, cam.fov, sizeRef.current.width, sizeRef.current.height, 1.15);
         let to: OrbitPose;
         if (t.md !== undefined && model.path.available) {
