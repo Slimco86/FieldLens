@@ -8,6 +8,12 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.56.1 - 2026-11-04
+
+### Fixed
+
+- Field view places wells by their surveyed surface locations when sources spell the same UTM CRS differently (for example "Map-Zone: Zone 31N; Geo Datum: European 1950 - Mean" and "Universal Transverse Mercator European 1950 - Mean Zone 31N"). The stated zone and datum words are compared; different zones or datums still fall back to the labelled schematic grid (TASK-117).
+
 ## 0.56.0 - 2026-11-04
 
 ### Added
