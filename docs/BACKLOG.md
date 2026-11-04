@@ -2333,6 +2333,69 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 **Next action.** Dispatch after TASK-105; per-feature QA may start as each lane pair merges.
 **Evidence.** none yet
 
+### TASK-111 · Viewer stability: fixed canvas and framing that ignores formations (UX-1)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend, 3d |
+| Depends on | TASK-105 |
+| Assignee | agent:fieldlens-3d-motion |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-024 |
+| Slice | FL-024-D |
+
+**Outcome.** Camera fit/reset/focus use wellbore, trajectory and equipment bounds only (formation markers/planes excluded) and no post-load drift to an empty view.
+**Next action.** Dispatch from master 6cefdd7 in worktree `task-111-viewer-framing`.
+**Evidence.** none yet
+
+### TASK-112 · Explore layout: bounded scrolling cards, drawn-only formation list, assistant overlay dock (UX-2/3/4)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend |
+| Depends on | TASK-105 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-027 |
+| Slice | FL-027-D |
+
+**Outcome.** Tree/scene/Inspector cards have fixed window-bounded height and scroll internally, undrawn formations are not listed, and the assistant is a blinking icon expanding to a left overlay of full width and half height.
+**Next action.** Dispatch from master 6cefdd7 in worktree `task-112-explore-layout`.
+**Evidence.** none yet
+
+### TASK-113 · Chart overview cards with full-screen detail modal (UX-5)
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | proposed |
+| Priority | P0 |
+| Tags | frontend, charts |
+| Depends on | TASK-105 |
+| Assignee | agent:fieldlens-frontend |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/EXPLORE_ENRICHMENT.md |
+| Version | none |
+| Parent | FL-025 |
+| Slice | FL-025-E |
+
+**Outcome.** Chart cards show a light overview and each opens a full-screen modal with the full-density detail, toolbars, data table and sources.
+**Next action.** Dispatch from master 6cefdd7 in worktree `task-113-chart-cards`.
+**Evidence.** none yet
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original

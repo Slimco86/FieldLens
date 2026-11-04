@@ -156,6 +156,31 @@ DOM order below 960px. Known limits: no as-of picker yet (`as_of` is null for ch
 `openChart` window is not applied; `selected_surface_key` is not sent; an unplaceable but listed formation is
 selected (reported handled) without camera motion.
 
+### 4.6 UX revision after owner manual test (2026-11-04, UX-1..5)
+
+Owner testing of 0.54.0 found layout and camera defects. Requirements (each lane owns its files; no contract change):
+
+- **UX-1 Viewer stability.** The 3D canvas has a fixed, bounded height on the page (it never grows with the side lists; the
+  page does not scroll because of the Explore panels). Camera framing (initial fit, Fit field, wellbore view, resets)
+  is computed from wellbore/trajectory/equipment bounds only; formation picks, markers and planes are present in the
+  scene but are excluded from every bounds/fit/focus-extent calculation. Opening the viewer must not drift to an empty
+  or arbitrary view after the first frame. Explicit `focusFormation` still moves the camera to that formation.
+- **UX-2 Only drawn formations are listed.** A surface/pick that is not drawn in the current view (plane blocked, no
+  placement, other wellbore) is excluded from the formation panel, label lists and counts; blocked reasons are summarized
+  once (a single collapsed note "N formations not drawn (reason)"), never repeated as cards. The contract data and
+  blocking rules are unchanged.
+- **UX-3 Contained cards.** Tree, scene and Inspector (incl. formation panel) have fixed, window-bounded height; each card
+  scrolls internally; the page itself does not scroll for Explore content.
+- **UX-4 Assistant dock.** Collapsed: a small blinking (respecting `prefers-reduced-motion`) avatar button at the
+  bottom-left of the Explore area (no drawer/row). Expanded: an overlay anchored left, full width of the Explore area and
+  half of the viewport height, above other elements, closable with Escape and a close button, focus managed. The assistant
+  contract and behavior are unchanged.
+- **UX-5 Chart cards: overview + full view.** Chart cards on the Charts/Split stage show a light overview (title, scope
+  badge, the plot with reduced density and only essential info: no pan/zoom toolbars, data table, notes or long source/exclusion
+  lists). Each card has an expand control opening a full-screen modal dialog (focus trap, Escape/close, labelled) with the
+  full current detail (toolbars, legend, data table, sources, exclusions, notes). Same data and window state, no refetch.
+  Layout columns for the overview cards are denser/more regular; global notes/exclusion banners are collapsed to a summary.
+
 ## 5. Failure conditions
 
 No formation picks -> layer shows "no formation picks in this project" and nothing else changes. Pick depth unit/datum
