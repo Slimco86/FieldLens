@@ -241,7 +241,13 @@ class ProcessingRunner:
     def _run_documents(self, claim: Claim, lost: threading.Event) -> None:
         with session_scope(self._factory) as s:
             docs = s.execute(
-                select(prd, _storage_key())
+                select(
+                    prd,
+                    _storage_key(),
+                    _doc_col("format_family"),
+                    _doc_col("sha256"),
+                    _text_encoding(),
+                )
                 .where(prd.c.run_id == claim.run_id, prd.c.state == "pending")
                 .order_by(prd.c.ordinal)
             ).all()
@@ -298,6 +304,9 @@ class ProcessingRunner:
             page_start=row.page_start,
             page_end=row.page_end,
             label_hints=tuple(row.label_hints or ()),
+            format_family=row.format_family or "pdf",
+            sha256=row.sha256 or "",
+            text_encoding=row.text_encoding,
         )
 
         def checkpoint(page: int, usage: PageUsage) -> None:
@@ -388,10 +397,10 @@ class ProcessingRunner:
 
     def _verify_pages(self, task: DocumentTask) -> None:
         try:
-            count = self._counter.fresh(task.storage_key)
+            count = self._counter.fresh(task.storage_key, task.format_family, task.text_encoding)
         except Exception as exc:
             raise PageFailure(
-                ProcessingFailureCode.DOCUMENT_UNAVAILABLE, "the stored PDF could not be read"
+                ProcessingFailureCode.DOCUMENT_UNAVAILABLE, "the stored document could not be read"
             ) from exc
         if count != task.page_count:
             raise PageFailure(
@@ -524,10 +533,24 @@ def _interval(seconds: float) -> Any:
 
 
 def _storage_key() -> Any:
+    return _doc_col("storage_key")
+
+
+def _doc_col(name: str) -> Any:
     sd = m.source_document
     return (
-        select(sd.c.storage_key)
+        select(sd.c[name])
         .where(sd.c.project_id == prd.c.project_id, sd.c.document_id == prd.c.document_id)
         .scalar_subquery()
-        .label("storage_key")
+        .label(name)
+    )
+
+
+def _text_encoding() -> Any:
+    sd = m.source_document
+    return (
+        select(sd.c.origin_metadata["text_encoding"].as_string())
+        .where(sd.c.project_id == prd.c.project_id, sd.c.document_id == prd.c.document_id)
+        .scalar_subquery()
+        .label("text_encoding")
     )

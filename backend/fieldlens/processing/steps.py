@@ -48,6 +48,8 @@ class ChunkPlan:
     input_tokens: int
     output_tokens: int
     bound_usd: Decimal
+    image_pages: tuple[int, ...] = ()
+    """Pages of this call sent as page images (rendered at run time)."""
 
     @property
     def calls(self) -> int:
@@ -67,6 +69,10 @@ class DocumentPlan:
         return [p for c in self.chunks for p in c.no_text_pages]
 
     @property
+    def image_pages(self) -> list[int]:
+        return [p for c in self.chunks for p in c.image_pages]
+
+    @property
     def calls(self) -> int:
         return sum(c.calls for c in self.chunks)
 
@@ -83,8 +89,9 @@ class DocumentPlan:
         return quantize(sum((c.bound_usd for c in self.chunks), Decimal(0)))
 
 
-DocumentPlanner = Callable[[str, int, int], DocumentPlan]
-"""``planner(storage_key, page_start, page_end)``; raises when the pages cannot be read."""
+DocumentPlanner = Callable[..., DocumentPlan]
+"""``planner(storage_key, page_start, page_end, family="pdf", encoding=None)``; raises when the
+pages cannot be read."""
 
 
 class PageFailure(Exception):
@@ -121,6 +128,9 @@ class DocumentTask:
     page_start: int
     page_end: int
     label_hints: tuple[str, ...]
+    format_family: str = "pdf"
+    sha256: str = ""
+    text_encoding: str | None = None
 
     @property
     def pages(self) -> range:

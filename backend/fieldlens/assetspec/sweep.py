@@ -202,7 +202,11 @@ def wellbore_documents(session: Session, project_id: UUID, wellbore_id: UUID) ->
                 wb,
                 (wb.c.project_id == dip.c.project_id) & (wb.c.wellbore_key == dip.c.normalized_key),
             )
-            .where(dip.c.project_id == project_id, wb.c.wellbore_id == wellbore_id)
+            .where(
+                dip.c.project_id == project_id,
+                wb.c.wellbore_id == wellbore_id,
+                dip.c.read_mode == "text",  # TASK-115: an image-read identity never links by itself
+            )
             .distinct()
         ).scalars()
     )

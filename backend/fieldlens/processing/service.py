@@ -44,10 +44,13 @@ from fieldlens.contracts.processing import (
     ProcessingRunPage,
     ProcessingRunStatus,
     ProcessingRunSummary,
+    ReadUnit,
 )
 from fieldlens.evidence.storage import BlobStore
 from fieldlens.persistence import models as m
 from fieldlens.processing import tables as t
+from fieldlens.processing.document_text import FAMILIES as TEXT_FAMILIES
+from fieldlens.processing.document_text import DocumentTextError, DocumentTextReader
 from fieldlens.processing.identity_store import load_model_reads, load_outcome
 from fieldlens.processing.steps import STUB_STEP, DocumentPlan, DocumentPlanner, Pricing, quantize
 from fieldlens.reconstruction import tables as reconstruction_tables
@@ -58,17 +61,33 @@ ACTIVE_RUN = ("queued", "running")
 RETRYABLE_DOCUMENT_STATES = ("failed", "cancelled", "interrupted")
 RETRYABLE_RUN_STATUSES = ("failed", "partial", "cancelled", "interrupted")
 _BUDGET_LOCK_KEY = "fieldlens.processing.budget"
-_NOTES: OrderedDict[UUID, tuple[int, list[int], Decimal, Decimal]] = OrderedDict()
-_NOTES_LOCK = threading.Lock()  # per-run estimate notes (calls, pages without text, rates)
+_NOTES: OrderedDict[UUID, tuple[int, list[int], Decimal, Decimal, list[int], ReadUnit]] = (
+    OrderedDict()
+)
+_NOTES_LOCK = threading.Lock()  # per-run estimate notes (calls, pages without text, rates, ...)
 
 
 def _remember(
-    run_id: UUID, calls: int, no_text: list[int], rate_in: Decimal, rate_out: Decimal
+    run_id: UUID,
+    calls: int,
+    no_text: list[int],
+    rate_in: Decimal,
+    rate_out: Decimal,
+    image_pages: list[int],
+    unit: ReadUnit,
 ) -> None:
     with _NOTES_LOCK:
-        _NOTES[run_id] = (calls, no_text, rate_in, rate_out)
+        _NOTES[run_id] = (calls, no_text, rate_in, rate_out, image_pages, unit)
         while len(_NOTES) > 256:
             _NOTES.popitem(last=False)
+
+
+def _estimate_unit(families: Sequence[str]) -> ReadUnit:
+    """page: all PDF; section: none is a PDF; mixed otherwise (per-document ``unit`` is exact)."""
+    pdfs = sum(1 for f in families if f == "pdf")
+    if pdfs == len(families):
+        return ReadUnit.PAGE
+    return ReadUnit.SECTION if pdfs == 0 else ReadUnit.MIXED
 
 
 def _is_model_route(step: str) -> bool:
@@ -99,32 +118,38 @@ class DocInfo:
     extraction_state: str | None
     user_labels: tuple[str, ...]
     source_revision_id: UUID | None
+    text_encoding: str | None = None
+    sha256: str = ""
 
 
 class PageCounter:
-    """Page counts of immutable stored PDFs (CPU/IO in pdfium), memoized by storage key."""
+    """Page (PDF) or section (other families) counts of immutable stored documents, memoized."""
 
     def __init__(self, store: BlobStore, limit: int = 512) -> None:
         self._renderer = PageRenderer(store, concurrency=2)
-        self._cache: OrderedDict[str, int] = OrderedDict()
+        self.reader = DocumentTextReader(store)
+        self._cache: OrderedDict[tuple[str, str, str | None], int] = OrderedDict()
         self._lock = threading.Lock()
         self._limit = limit
 
-    def count(self, storage_key: str) -> int:
+    def count(self, storage_key: str, family: str = "pdf", encoding: str | None = None) -> int:
+        key = (storage_key, family, encoding)
         with self._lock:
-            if storage_key in self._cache:
-                self._cache.move_to_end(storage_key)
-                return self._cache[storage_key]
-        value = self._renderer.page_count(storage_key)
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                return self._cache[key]
+        value = self.fresh(storage_key, family, encoding)
         with self._lock:
-            self._cache[storage_key] = value
+            self._cache[key] = value
             while len(self._cache) > self._limit:
                 self._cache.popitem(last=False)
         return value
 
-    def fresh(self, storage_key: str) -> int:
+    def fresh(self, storage_key: str, family: str = "pdf", encoding: str | None = None) -> int:
         """Uncached count (run time re-check)."""
-        return self._renderer.page_count(storage_key)
+        if family == "pdf":
+            return self._renderer.page_count(storage_key)
+        return self.reader.count(storage_key, family, encoding)
 
 
 # -- budget -----------------------------------------------------------------------------------
@@ -169,6 +194,8 @@ def load_documents(session: Session, project_id: UUID, ids: Sequence[UUID]) -> d
             sd.c.original_filename,
             sd.c.storage_key,
             sd.c.format_family,
+            sd.c.sha256,
+            sd.c.origin_metadata,
             dp.c.storage_state,
             dp.c.extraction_state,
             dc.c.user_categories,
@@ -210,6 +237,8 @@ def load_documents(session: Session, project_id: UUID, ids: Sequence[UUID]) -> d
             r.extraction_state,
             tuple(r.user_categories or ()),
             revision,
+            (r.origin_metadata or {}).get("text_encoding"),
+            r.sha256,
         )
     return out
 
@@ -271,16 +300,19 @@ def create_estimate(
         if doc is None:
             refusals.append({**base, "reason": "unknown_document"})
             continue
-        if doc.format_family != "pdf":
+        if doc.format_family != "pdf" and doc.format_family not in TEXT_FAMILIES:
             refusals.append({**base, "reason": "not_a_pdf", "format": doc.format_family})
             continue
         if doc.storage_state != "stored":
             refusals.append({**base, "reason": "not_stored", "storage_state": doc.storage_state})
             continue
         try:
-            pages = counter.count(doc.storage_key)
+            pages = counter.count(doc.storage_key, doc.format_family, doc.text_encoding)
         except PageError as exc:
             refusals.append({**base, "reason": "unreadable_pdf", "code": exc.code})
+            continue
+        except DocumentTextError as exc:
+            refusals.append({**base, "reason": exc.code, "format": doc.format_family})
             continue
         if planner is not None:  # model route: the user chooses 1..total pages (TASK-075)
             if sel.pages is None:
@@ -322,7 +354,9 @@ def create_estimate(
             end = min(end, start + page_bound - 1)  # the step reads no more: neither does the bill
         if planner is not None:
             try:
-                plans[doc.document_id] = planner(doc.storage_key, start, end)
+                plans[doc.document_id] = planner(
+                    doc.storage_key, start, end, doc.format_family, doc.text_encoding
+                )
             except Exception:  # unreadable stored PDF text: typed refusal, nothing estimated
                 refusals.append({**base, "reason": "unreadable_pdf", "code": "page_text_failed"})
                 continue
@@ -419,6 +453,8 @@ def create_estimate(
             sorted(n for p in plans.values() for n in p.no_text_pages),
             some.input_usd_per_mtok,
             some.output_usd_per_mtok,
+            sorted(n for p in plans.values() for n in p.image_pages),
+            _estimate_unit([d.format_family for d, _, _, _ in planned]),
         )
     return get_run(session, settings, project_id, run_id)
 
@@ -607,22 +643,37 @@ def retry_run(
 # -- read models ------------------------------------------------------------------------------
 def _recompute_note(
     session: Session, run: Any, planner: DocumentPlanner | None
-) -> tuple[int, list[int], Decimal, Decimal] | None:
+) -> tuple[int, list[int], Decimal, Decimal, list[int], ReadUnit] | None:
     """Estimation is local and cheap: rebuild the per-run details from the stored run + documents
     when the in-memory cache is empty (e.g. after an API restart). No migration is needed."""
     if planner is None:
         return None
+    sd = m.source_document
     rows = session.execute(
-        select(prd.c.page_start, prd.c.page_end, m.source_document.c.storage_key)
+        select(
+            prd.c.page_start,
+            prd.c.page_end,
+            sd.c.storage_key,
+            sd.c.format_family,
+            sd.c.origin_metadata,
+        )
         .join(
-            m.source_document,
-            (m.source_document.c.project_id == prd.c.project_id)
-            & (m.source_document.c.document_id == prd.c.document_id),
+            sd,
+            (sd.c.project_id == prd.c.project_id) & (sd.c.document_id == prd.c.document_id),
         )
         .where(prd.c.project_id == run.project_id, prd.c.run_id == run.run_id)
     ).all()
     try:
-        plans = [planner(r.storage_key, r.page_start, r.page_end) for r in rows]
+        plans = [
+            planner(
+                r.storage_key,
+                r.page_start,
+                r.page_end,
+                r.format_family,
+                (r.origin_metadata or {}).get("text_encoding"),
+            )
+            for r in rows
+        ]
     except Exception:  # unreadable now: details stay absent rather than wrong
         return None
     if not plans:
@@ -632,6 +683,8 @@ def _recompute_note(
         sorted(n for p in plans for n in p.no_text_pages),
         plans[0].input_usd_per_mtok,
         plans[0].output_usd_per_mtok,
+        sorted(n for p in plans for n in p.image_pages),
+        _estimate_unit([r.format_family for r in rows]),
     )
 
 
@@ -672,6 +725,8 @@ def _estimate_dto(
         pages_without_text=note[1] if note else [],
         input_usd_per_mtok=note[2] if note else None,
         output_usd_per_mtok=note[3] if note else None,
+        image_pages=note[4] if note else [],
+        unit=note[5] if note else ReadUnit.PAGE,
     )
 
 
@@ -688,7 +743,7 @@ def get_run(
     if run is None:
         raise _not_found("processing run")
     docs = session.execute(
-        select(prd, m.source_document.c.original_filename)
+        select(prd, m.source_document.c.original_filename, m.source_document.c.format_family)
         .join(
             m.source_document,
             (m.source_document.c.project_id == prd.c.project_id)
@@ -718,6 +773,7 @@ def get_run(
                 ordinal=d.ordinal,
                 state=ProcessingDocumentState(d.state),
                 page_count=d.page_count,
+                unit=ReadUnit.PAGE if d.format_family == "pdf" else ReadUnit.SECTION,
                 pages=ProcessingPageRange(page_start=d.page_start, page_end=d.page_end),
                 pages_done=d.pages_done,
                 label_hints=[DocumentCategory(c) for c in d.label_hints],
@@ -877,15 +933,17 @@ def document_states(
         native = doc.extraction_state or ExtractionState.PENDING_EXTRACTION.value
         pages: int | None = None
         reason: str | None = None
-        if doc.format_family != "pdf":
+        if doc.format_family != "pdf" and doc.format_family not in TEXT_FAMILIES:
             reason = "not_a_pdf"
         elif doc.storage_state != "stored":
             reason = "not_stored"
         else:
             try:
-                pages = counter.count(doc.storage_key)
+                pages = counter.count(doc.storage_key, doc.format_family, doc.text_encoding)
             except PageError:
                 reason = "unreadable_pdf"
+            except DocumentTextError as exc:
+                reason = exc.code
         if pages == 0:
             reason = "empty_pdf"
         entry = last.get(doc.document_id)
@@ -904,6 +962,7 @@ def document_states(
                 document_id=doc.document_id,
                 original_filename=doc.original_filename,
                 page_count=pages,
+                unit=ReadUnit.PAGE if doc.format_family == "pdf" else ReadUnit.SECTION,
                 native_state=ExtractionState(native),
                 no_native_parser=no_parser,
                 state_text=(

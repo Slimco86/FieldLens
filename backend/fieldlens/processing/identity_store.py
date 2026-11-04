@@ -35,6 +35,8 @@ from fieldlens.contracts.processing import (
     ProcessingFailureCode,
     ProcessingPageRange,
     ProcessingProvider,
+    ReadMode,
+    ReadUnit,
 )
 from fieldlens.persistence import models as m
 from fieldlens.processing import tables as t
@@ -62,7 +64,7 @@ def find_cached(
     session: Session, project_id: UUID, document_id: UUID, page_start: int, page_end: int
 ) -> CachedResult | None:
     row = session.execute(
-        select(dmr.c.result_id, dmr.c.pages_read)
+        select(dmr.c.result_id, dmr.c.pages_read, dmr.c.warnings, dmr.c.input_tokens)
         .where(
             dmr.c.project_id == project_id,
             dmr.c.document_id == document_id,
@@ -74,7 +76,15 @@ def find_cached(
         .order_by(dmr.c.created_at.desc(), dmr.c.result_id.desc())
         .limit(1)
     ).first()
-    return CachedResult(row.result_id, row.pages_read) if row else None
+    if row is None:
+        return None
+    # a stored "no text layer" result with no tokens is a legacy empty read (nothing was sent):
+    # never a hit, so a model that can now read the pages gets to
+    if not row.input_tokens and any(
+        isinstance(w, dict) and w.get("code") == "no_text_layer" for w in (row.warnings or [])
+    ):
+        return None
+    return CachedResult(row.result_id, row.pages_read)
 
 
 def bound_reply(text: str | None) -> tuple[str | None, bool]:
@@ -135,6 +145,7 @@ def store_result(
             cost_usd=cost_usd,
             raw_reply=reply,
             raw_reply_truncated=truncated,
+            read_mode=outcome.read_mode,
         )
         .returning(dmr.c.result_id)
     ).scalar_one()
@@ -156,6 +167,7 @@ def store_result(
                 model_revision=model_revision,
                 prompt_version=PROMPT_VERSION,
                 schema_version=SCHEMA_VERSION,
+                read_mode=ident.read_mode,
             )
         )
     _suggest_classification(session, project_id, document_id, outcome, result_id)
@@ -251,7 +263,9 @@ def load_model_reads(
     ).all()
     by_result: dict[UUID, list[DocumentIdentityProposal]] = {}
     for p in proposals:
-        linked = p.linked_id is not None and p.normalized_key is not None
+        linked = (
+            p.linked_id is not None and p.normalized_key is not None and p.read_mode == "text"
+        )  # an identity read from an image is never linked automatically
         by_result.setdefault(p.result_id, []).append(
             DocumentIdentityProposal(
                 proposal_id=p.proposal_id,
@@ -263,8 +277,17 @@ def load_model_reads(
                 resolution=IdentityResolution.LINKED if linked else IdentityResolution.UNRESOLVED,
                 wellbore_id=p.linked_id if linked else None,
                 wellbore_key=p.linked_key if linked else None,
+                read_mode=ReadMode(p.read_mode),
             )
         )
+    sd = m.source_document
+    families = dict(
+        session.execute(
+            select(sd.c.document_id, sd.c.format_family).where(
+                sd.c.project_id == project_id, sd.c.document_id.in_(list(latest))
+            )
+        ).all()
+    )
     return {
         doc_id: DocumentModelRead(
             document_id=doc_id,
@@ -281,6 +304,8 @@ def load_model_reads(
             prompt_version=r.prompt_version,
             schema_version=r.schema_version,
             created_at=r.created_at,
+            read_mode=ReadMode(r.read_mode),
+            unit=ReadUnit.PAGE if families.get(doc_id) in (None, "pdf") else ReadUnit.SECTION,
         )
         for doc_id, r in latest.items()
     }

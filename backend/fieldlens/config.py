@@ -171,6 +171,8 @@ class Settings(BaseSettings):
     no longer a bound; the user chooses 1..total)."""
     processing_pages_per_call: int = Field(10, ge=1, le=20)
     """TASK-075: a model selection is sent in sequential calls of at most this many pages."""
+    processing_images_per_call: int = Field(4, ge=1, le=8)
+    """TASK-115: a call closes at this many page images (or ``processing_pages_per_call`` pages)."""
     processing_run_cap_usd: Decimal | None = Field(None, gt=0, le=Decimal("5"))
     """DEPRECATED (TASK-075): no longer applies to the model route (a confirmed run is the
     authorization); still gates the stub route."""
@@ -216,6 +218,7 @@ class Settings(BaseSettings):
         "processing_meta_output_usd_per_mtok",
         "processing_model_pages",
         "processing_pages_per_call",
+        "processing_images_per_call",
         mode="before",
     )
     @classmethod
@@ -226,6 +229,7 @@ class Settings(BaseSettings):
                 "processing_provider": "stub",
                 "processing_model_pages": 5,
                 "processing_pages_per_call": 10,
+                "processing_images_per_call": 4,
             }
             return defaults.get(str(info.field_name))  # the optional fields default to None
         return value

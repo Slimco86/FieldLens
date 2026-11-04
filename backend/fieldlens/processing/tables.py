@@ -230,6 +230,7 @@ document_model_result = Table(
     Column("cost_usd", USD, nullable=False, server_default=text("0")),
     Column("raw_reply", Text, nullable=True),
     Column("raw_reply_truncated", Boolean, nullable=False, server_default=text("false")),
+    Column("read_mode", String(16), nullable=False, server_default=text("'text'")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     ForeignKeyConstraint(
         ["project_id", "document_id"],
@@ -249,6 +250,9 @@ document_model_result = Table(
     UniqueConstraint("project_id", "result_id", name="uq_document_model_result_project_scope"),
     CheckConstraint(f"category IN ({_CATEGORY_SQL})", name="category_known"),
     CheckConstraint("extraction_method = 'model_classification'", name="method_known"),
+    CheckConstraint(
+        "read_mode IN ('text', 'image', 'mixed', 'binary_preview')", name="read_mode_known"
+    ),
     CheckConstraint(
         "raw_reply IS NULL OR octet_length(raw_reply) <= 8192", name="raw_reply_bounded"
     ),
@@ -287,6 +291,7 @@ document_identity_proposal = Table(
     Column("model_revision", String(64), nullable=False),
     Column("prompt_version", String(48), nullable=False),
     Column("schema_version", String(16), nullable=False),
+    Column("read_mode", String(16), nullable=False, server_default=text("'text'")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     ForeignKeyConstraint(
         ["project_id", "result_id"],
@@ -302,6 +307,7 @@ document_identity_proposal = Table(
     UniqueConstraint("result_id", "ordinal", name="uq_document_identity_proposal_ordinal"),
     CheckConstraint(_in("subject_kind", IDENTITY_SUBJECT_KINDS), name="subject_kind_known"),
     CheckConstraint("status = 'model_proposal'", name="status_unverified"),
+    CheckConstraint("read_mode IN ('text', 'image')", name="read_mode_known"),
     CheckConstraint("extraction_method = 'model_classification'", name="method_known"),
     CheckConstraint(
         "page >= 1 AND char_length(quote) >= 1 AND char_length(name_as_written) >= 1",

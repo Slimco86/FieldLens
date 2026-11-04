@@ -2526,6 +2526,11 @@ export interface components {
              * @description Verbatim text from that page (checked server-side).
              */
             quote: string;
+            /**
+             * @description 'image': read from a page image, quote not checkable (unverified badge).
+             * @default text
+             */
+            read_mode: components["schemas"]["ReadMode"];
             resolution: components["schemas"]["IdentityResolution"];
             /**
              * Status
@@ -2632,6 +2637,11 @@ export interface components {
             prompt_version: string;
             provider: components["schemas"]["ProcessingProvider"];
             /**
+             * @description text | image | mixed | binary_preview: how the pages/sections were read.
+             * @default text
+             */
+            read_mode: components["schemas"]["ReadMode"];
+            /**
              * Run Id
              * Format: uuid
              * @description Run that produced this result (a cache hit reuses it).
@@ -2643,6 +2653,8 @@ export interface components {
             tags: string[];
             /** Unclassified */
             unclassified: boolean;
+            /** @default page */
+            unit: components["schemas"]["ReadUnit"];
             /** Warnings */
             warnings: components["schemas"]["ModelReadWarning"][];
         };
@@ -2693,7 +2705,7 @@ export interface components {
             over_page_cap: boolean;
             /**
              * Page Count
-             * @description Null when the file is not a readable PDF.
+             * @description Pages (sections for non-PDF files); null when unreadable.
              * @default null
              */
             page_count: number | null;
@@ -2713,6 +2725,8 @@ export interface components {
              * @description Plain-language state, e.g. 'no native parser; model processing available, not started'.
              */
             state_text: string;
+            /** @default page */
+            unit: components["schemas"]["ReadUnit"];
             /** User Labels */
             user_labels?: components["schemas"]["DocumentCategory"][];
         };
@@ -5143,7 +5157,7 @@ export interface components {
          * ModelReadWarningCode
          * @enum {string}
          */
-        ModelReadWarningCode: "no_wellbore_identity" | "identity_quote_not_found" | "identity_invalid" | "no_text_layer";
+        ModelReadWarningCode: "no_wellbore_identity" | "identity_quote_not_found" | "identity_invalid" | "no_text_layer" | "image_pages_unverified";
         /**
          * ModelReplyRaw
          * @description The provider's text as stored: untrusted data, plain text only, never HTML.
@@ -5590,6 +5604,11 @@ export interface components {
              */
             force: boolean;
             /**
+             * Image Pages
+             * @description Subset of pages_without_text that are sent to the model as page images (each counted at the image token bound). Only known while the run is estimated.
+             */
+            image_pages?: number[];
+            /**
              * Input Usd Per Mtok
              * @default null
              */
@@ -5609,7 +5628,7 @@ export interface components {
             pages: number;
             /**
              * Pages Without Text
-             * @description Selected page numbers with no text layer: read, send nothing, cost nothing (OCR is not available). Only known while the run is estimated.
+             * @description Selected page numbers with no text layer. Page numbers; read visually when they are in image_pages. Only known while the run is estimated.
              */
             pages_without_text?: number[];
             /**
@@ -5635,6 +5654,11 @@ export interface components {
              * @description Aggregate live-spend cap (PROCESSING_FLOW D7).
              */
             total_cap_usd: string;
+            /**
+             * @description 'section' when every selected document is a non-PDF file read in sections.
+             * @default page
+             */
+            unit: components["schemas"]["ReadUnit"];
             /**
              * Upper Bound
              * @description The estimate is a pre-flight upper bound computed from the real page text; the actual cost is usually lower.
@@ -5818,7 +5842,7 @@ export interface components {
             original_filename: string;
             /**
              * Page Count
-             * @description Pages in the whole document.
+             * @description Pages (or sections, see unit) in the whole document.
              */
             page_count: number;
             /** @description Pages this run reads. */
@@ -5836,6 +5860,8 @@ export interface components {
              */
             source_revision_id: string;
             state: components["schemas"]["ProcessingDocumentState"];
+            /** @default page */
+            unit: components["schemas"]["ReadUnit"];
         };
         /** ProcessingRunPage */
         ProcessingRunPage: {
@@ -6219,6 +6245,17 @@ export interface components {
              */
             status: "ready";
         };
+        /**
+         * ReadMode
+         * @description How a page/section was given to the model (identity level: text | image).
+         * @enum {string}
+         */
+        ReadMode: "text" | "image" | "mixed" | "binary_preview";
+        /**
+         * ReadUnit
+         * @enum {string}
+         */
+        ReadUnit: "page" | "section" | "mixed";
         /**
          * ReasonCode
          * @enum {string}
