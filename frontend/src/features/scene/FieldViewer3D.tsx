@@ -15,6 +15,8 @@ import type { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { defaultExaggeration } from "./sceneModel";
 import { instanceCounts, lodFor, type FieldPlan, type FieldWell, type Lod } from "./fieldModel";
 import { useExploreCommandHandlers } from "./ExploreCommandsContext";
+import { poseFromPositions, type V3 } from "./cameraPath";
+import { CameraRig } from "./cameraRig";
 import { RENDER_ORIGIN, renderLayers, type SceneLayerContext, type SceneLayers } from "./sceneLayers";
 import styles from "./Scene.module.css";
 
@@ -57,6 +59,7 @@ interface Props {
 }
 
 const DEFAULT_DIR = new THREE.Vector3(1, 0.62, 1).normalize();
+const toV3 = (v: THREE.Vector3): V3 => [v.x, v.y, v.z];
 /** Close-up framing of one wellbore scales with the pad so the camera never ends up inside it. */
 const focusRadius = (plan: FieldPlan, w: FieldWell): number => Math.max(Math.min(40, Math.max(12, plan.nearestM ?? 40)), w.glyphHeightM * 2.5);
 const focusDrop = (plan: FieldPlan, w: FieldWell): number => focusRadius(plan, w) * 0.15;
@@ -355,15 +358,6 @@ function wellOf(e: ThreeEvent<MouseEvent | PointerEvent>, far: FarSet): string |
   return null;
 }
 
-interface Anim {
-  t: number;
-  dur: number;
-  fromPos: THREE.Vector3;
-  toPos: THREE.Vector3;
-  fromTarget: THREE.Vector3;
-  toTarget: THREE.Vector3;
-}
-
 function FieldContents({ plan, selectedId, onActivate, commands, layerRef, labelEls }: Props & { layerRef: MutableRefObject<HTMLDivElement | null>; labelEls: MutableRefObject<Map<string, HTMLElement>> }) {
   const { camera, gl, scene, controls, size } = useThree();
   const [rebuild, setRebuild] = useState(0);
@@ -380,7 +374,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
   );
   const farRef = useRef(far);
   farRef.current = far;
-  const anim = useRef<Anim | null>(null);
+  const rig = useMemo(() => new CameraRig(), []);
   const first = useRef(true);
   const userMoved = useRef(false);
   const lastNear = useRef(0);
@@ -405,26 +399,23 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
       go(center: THREE.Vector3, radius: number, instant: boolean) {
         if (ctl === null) return;
         const cam = camera as THREE.PerspectiveCamera;
-        const dir = DEFAULT_DIR.clone();
+        const dir = toV3(DEFAULT_DIR);
         const fov = (cam.fov * Math.PI) / 180;
         const aspect = size.width / Math.max(1, size.height);
         const fit = Math.max(1, 1 / Math.min(1, aspect));
         const dist = Math.max(2.5, (radius / Math.sin(fov / 2)) * 1.1 * Math.min(fit, 1.6));
-        const toPos = center.clone().add(dir.multiplyScalar(dist));
-        if (instant || reducedMotion() || first.current) {
-          anim.current = null;
-          cam.position.copy(toPos);
-          ctl.target.copy(center);
+        rig.sync({ position: toV3(cam.position), target: toV3(ctl.target) });
+        const applied = rig.fly({ target: toV3(center), dir, range: dist }, { instant: instant || reducedMotion() || first.current });
+        first.current = false;
+        if (applied !== null) {
+          cam.position.set(...applied.position);
+          ctl.target.set(...applied.target);
           ctl.update();
-          first.current = false;
-          invalidate();
-          return;
         }
-        anim.current = { t: 0, dur: 0.9, fromPos: cam.position.clone(), toPos, fromTarget: ctl.target.clone(), toTarget: center.clone() };
         invalidate();
       },
     }),
-    [camera, ctl, size.width, size.height],
+    [camera, ctl, size.width, size.height, rig],
   );
 
   const fieldSphere = useMemo(() => {
@@ -445,20 +436,19 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
         if (ctl === null) return;
         const cam = camera as THREE.PerspectiveCamera;
         const toPos = ctl.target.clone().add(cam.position.clone().sub(ctl.target).multiplyScalar(factor));
-        if (reducedMotion()) {
-          cam.position.copy(toPos);
+        rig.sync({ position: toV3(cam.position), target: toV3(ctl.target) });
+        const applied = rig.fly(poseFromPositions(toV3(toPos), toV3(ctl.target)), { instant: reducedMotion(), durationS: 0.35 });
+        if (applied !== null) {
+          cam.position.set(...applied.position);
           ctl.update();
-          invalidate();
-        } else {
-          anim.current = { t: 0, dur: 0.35, fromPos: cam.position.clone(), toPos, fromTarget: ctl.target.clone(), toTarget: ctl.target.clone() };
-          invalidate();
         }
+        invalidate();
       },
     };
     return () => {
       commands.current = null;
     };
-  }, [commands, plan, frame, fieldSphere, camera, ctl]);
+  }, [commands, plan, frame, fieldSphere, camera, ctl, rig]);
 
   // Initial framing: the focused wellbore when returning from its view, else the whole field. The
   // framing follows the plan (specs arrive one by one) until the user moves the camera.
@@ -475,14 +465,18 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
     const el = gl.domElement;
     const mark = () => {
       userMoved.current = true;
+      rig.cancel();
     };
+    const key = () => rig.cancel();
     el.addEventListener("pointerdown", mark);
     el.addEventListener("wheel", mark, { passive: true });
+    el.addEventListener("keydown", key);
     return () => {
       el.removeEventListener("pointerdown", mark);
       el.removeEventListener("wheel", mark);
+      el.removeEventListener("keydown", key);
     };
-  }, [ctl, gl]);
+  }, [ctl, gl, rig]);
 
   useEffect(() => {
     if (!window.__FIELDLENS_SCENE_PROBE__) return;
@@ -520,15 +514,12 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
 
   useFrame((_, delta) => {
     const cam = camera as THREE.PerspectiveCamera;
-    const a = anim.current;
-    if (a !== null && ctl !== null) {
-      a.t = Math.min(1, a.t + delta / a.dur);
-      const e = a.t < 0.5 ? 2 * a.t * a.t : 1 - (-2 * a.t + 2) ** 2 / 2;
-      cam.position.lerpVectors(a.fromPos, a.toPos, e);
-      ctl.target.lerpVectors(a.fromTarget, a.toTarget, e);
+    const flown = rig.step(delta);
+    if (flown !== null && ctl !== null) {
+      cam.position.set(...flown.position);
+      ctl.target.set(...flown.target);
       ctl.update();
-      if (a.t >= 1) anim.current = null;
-      else invalidate();
+      if (rig.active) invalidate();
     }
     const dist = ctl === null ? cam.position.length() : cam.position.distanceTo(ctl.target);
     const near = Math.min(Math.max(dist * 0.01, 0.05), 200);
@@ -676,7 +667,8 @@ export default function FieldViewer3D(props: Props) {
   const { commands } = props;
   useExploreCommandHandlers({
     focusWellbore: (p) => {
-      if (commands.current === null || !plan.byId.has(p.wellboreId)) return false;
+      if (!plan.byId.has(p.wellboreId)) return false;
+      if (commands.current === null) return "defer";
       commands.current.flyTo(p.wellboreId);
       return true;
     },
