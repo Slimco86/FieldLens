@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { useExploreStage, type ExploreStageContext } from "../../app/shell/exploreStage";
 import { AssistantPanel } from "../assistant";
 import type { ChatContext } from "../assistant/api";
-import { ChartBlock, ChartCursorProvider, ChartPanel, createChartCursorStore, type CursorWindow } from "../charts";
+import { AsOfControl, ChartBlock, ChartCursorProvider, ChartPanel, createChartCursorStore, type CursorWindow } from "../charts";
 import { FormationPanel } from "../context/formations/FormationPanel";
 import { formationFocusTarget } from "../context/formations/formationModel";
 import { createFormationStore } from "../context/formations/formationStore";
@@ -124,20 +124,23 @@ export function useExploreEnrichment({ projectId, context, revision, selectedEle
     [context, cursor],
   );
 
+  // Selected historical view (ISO date or null = latest), shared by charts and the assistant.
+  const [asOf, setAsOf] = useState<string | null>(null);
   const charts = useMemo(
     () => (
       <ChartHost hostRef={host}>
+        <AsOfControl value={asOf} onChange={setAsOf} />
         <ChartCursorProvider store={cursor}>
-          <ChartPanel projectId={projectId} context={context} asOf={null} />
+          <ChartPanel projectId={projectId} context={context} asOf={asOf} />
         </ChartCursorProvider>
       </ChartHost>
     ),
-    [projectId, context, cursor],
+    [projectId, context, cursor, asOf],
   );
   const wellboreId = context.kind === "wellbore" ? context.wellboreId : null;
   const assistant = useMemo(
-    () => <ExploreAssistant projectId={projectId} wellboreId={wellboreId} selectedElementId={selectedElementId} />,
-    [projectId, wellboreId, selectedElementId],
+    () => <ExploreAssistant projectId={projectId} wellboreId={wellboreId} selectedElementId={selectedElementId} asOf={asOf} />,
+    [projectId, wellboreId, selectedElementId, asOf],
   );
   const formationPanel = useMemo(() => <FormationPanel state={state} store={store} wellboreId={wellboreId} />, [state, store, wellboreId]);
 
@@ -157,14 +160,14 @@ function ChartHost({ hostRef, children }: { hostRef: RefObject<HTMLDivElement | 
 }
 
 /** Assistant dock content: sends the live stage selection as typed context (narrows, never widens, scope) and renders chart blocks with the Charts-tab component. */
-function ExploreAssistant({ projectId, wellboreId, selectedElementId }: { projectId: string; wellboreId: string | null; selectedElementId: string | null }) {
+function ExploreAssistant({ projectId, wellboreId, selectedElementId, asOf }: { projectId: string; wellboreId: string | null; selectedElementId: string | null; asOf: string | null }) {
   const stage = useExploreStage();
   const view = stage?.mode ?? "3d";
   const chatContext = useMemo<ChatContext>(
-    () => ({ wellbore_id: wellboreId, selected_element_id: selectedElementId, selected_surface_key: null, view, as_of: null, chart_key: null }),
-    [wellboreId, selectedElementId, view],
+    () => ({ wellbore_id: wellboreId, selected_element_id: selectedElementId, selected_surface_key: null, view, as_of: asOf, chart_key: null }),
+    [wellboreId, selectedElementId, view, asOf],
   );
-  return <AssistantPanel projectId={projectId} context={chatContext} renderChart={(spec) => <ChartBlock spec={spec} />} />;
+  return <AssistantPanel projectId={projectId} context={chatContext} renderChart={(spec) => <ChartBlock spec={spec} wellboreId={wellboreId} />} />;
 }
 
 /**

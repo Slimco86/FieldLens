@@ -78,7 +78,7 @@ export function ChartPanel({ projectId, context, asOf = null, from = null, to = 
           ) : (
             <div className={styles.grid}>
               {state.charts.map((c) => (
-                <ChartBlock key={`${c.chart_id}:${c.cache_key}`} spec={c} />
+                <ChartBlock key={`${c.chart_id}:${c.cache_key}`} spec={c} wellboreId={ctx.kind === "wellbore" ? ctx.wellboreId : null} />
               ))}
             </div>
           )}

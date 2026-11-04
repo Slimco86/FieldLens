@@ -12,6 +12,20 @@
   align-items: baseline;
   gap: var(--fl-space-sm) var(--fl-space-md);
 }
+.asOf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fl-space-xs) var(--fl-space-sm);
+}
+.asOfHint {
+  color: var(--fl-color-text-muted, inherit);
+  font-size: var(--fl-font-size-sm, inherit);
+}
+.tops {
+  margin: 0;
+  padding-left: var(--fl-space-md);
+}
 .panelTitle {
   margin: 0;
   font-size: var(--fl-font-size-md);
