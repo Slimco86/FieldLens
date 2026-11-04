@@ -216,6 +216,7 @@ def _series(points: list[ChartPoint], *, source: int | None = None) -> ChartSeri
         unit="Sm3/d",
         scope=ChartSeriesScope(scope=ChartScope.WELL, scope_label="well-level"),
         points=points,
+        gap_count=sum(1 for p in points if p.y is None),
         downsample=DownsampleInfo(
             applied=False,
             source_points=len(points) if source is None else source,
@@ -275,6 +276,201 @@ def test_unknown_axis_rejected() -> None:
     bad = series.model_copy(update={"axis_id": "missing"})
     with pytest.raises(ValidationError):
         _spec([bad])
+
+
+def _scene(value: float = -1000.0, **kw: object) -> DepthValue:
+    return DepthValue(
+        reference=DepthReference.SCENE_ELEVATION,
+        value=value,
+        unit="m",
+        datum_status=DatumStatus.NOT_APPLICABLE,
+        **kw,  # type: ignore[arg-type]
+    )
+
+
+def _plane(**kw: object) -> context_layers.LevelPlane:
+    return context_layers.LevelPlane(
+        elevation=_scene(),
+        footprint=context_layers.PlaneFootprint(
+            min_east=0, max_east=10, min_north=0, max_north=10, margin_m=1
+        ),
+        **kw,  # type: ignore[arg-type]
+    )
+
+
+def _pick(wellbore: uuid.UUID, **kw: object) -> context_layers.FormationPick:
+    return context_layers.FormationPick(
+        pick_id=uuid.uuid4(),
+        wellbore_id=wellbore,
+        surface_key="a",
+        surface_name="A",
+        name="A",
+        validation_state=context_layers.ValidationState.VALID,
+        **kw,  # type: ignore[arg-type]
+    )
+
+
+def _surface(wellbores: list[uuid.UUID], **kw: object) -> FormationSurface:
+    base: dict[str, object] = {
+        "surface_key": "a",
+        "name": "A",
+        "tier": FormationTier.T1,
+        "tier_label": "T1 pick - observed",
+        "status": InterpretationStatus.OBSERVED,
+        "scope": context_layers.FormationScope.PROJECT,
+        "wellbore_ids": wellbores,
+    }
+    base.update(kw)
+    return FormationSurface(**base)  # type: ignore[arg-type]
+
+
+def _layer_set(
+    surfaces: list[FormationSurface], **frame: object
+) -> context_layers.FormationLayerSet:
+    return context_layers.FormationLayerSet(
+        project_id=uuid.uuid4(),
+        frame=context_layers.FormationFrame(**frame),  # type: ignore[arg-type]
+        surfaces=surfaces,
+        generated_from_revision="r",
+    )
+
+
+def test_d1_truthful_labels() -> None:
+    assert _plane().label == context_layers.LEVEL_PLANE_LABEL
+    with pytest.raises(ValidationError):
+        _plane(label="Interpreted horizon")
+    with pytest.raises(ValidationError):
+        _plane(note="geologic horizon")
+    wb = uuid.uuid4()
+    with pytest.raises(ValidationError):
+        _pick(wb, tier=FormationTier.T1, status=InterpretationStatus.INTERPOLATED)
+    with pytest.raises(ValidationError):
+        _pick(wb, label="horizon")
+    assert _pick(wb).status is InterpretationStatus.OBSERVED
+    t2: dict[str, object] = {
+        "tier": FormationTier.T2,
+        "status": InterpretationStatus.ILLUSTRATIVE,
+        "scope": context_layers.FormationScope.WELLBORE,
+        "plane": _plane(),
+    }
+    with pytest.raises(ValidationError):
+        _surface([wb], tier_label="Interpreted horizon", **t2)
+    assert _surface([wb], tier_label=context_layers.LEVEL_PLANE_LABEL, **t2)
+
+
+def test_d2_project_scope_requires_shared_reference() -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    with pytest.raises(ValidationError):
+        _layer_set([_surface([a, b])])
+    with pytest.raises(ValidationError):
+        _layer_set(
+            [_surface([a, b])],
+            vertical_reference_status=DatumStatus.UNKNOWN,
+        )
+    with pytest.raises(ValidationError):  # stated status without a name
+        context_layers.FormationFrame(vertical_reference_status=DatumStatus.STATED)
+    stated = {"vertical_reference": "MSL", "vertical_reference_status": DatumStatus.STATED}
+    assert _layer_set([_surface([a, b])], **stated)
+    blocked = context_layers.FormationBlocked(
+        reason=context_layers.FormationBlockReason.DATUM_MISMATCH, message="differ"
+    )
+    assert _layer_set([_surface([a, b], blocked=[blocked])])
+
+
+def test_d3_chart_series_integrity() -> None:
+    pts = [ChartPoint(x="2020-01-01", y=1.0), ChartPoint(x="2020-01-02", y=None)]
+    good = _series(pts)
+    assert _spec([good])
+
+    def agg(**kw: object) -> SeriesAggregates:
+        base: dict[str, object] = {"count": 2, "valid_count": 1, "null_count": 1}
+        base.update(kw)
+        return SeriesAggregates(**base)  # type: ignore[arg-type]
+
+    assert agg(minimum=1, maximum=2)
+    with pytest.raises(ValidationError):
+        agg(minimum=3, maximum=2)
+    with pytest.raises(ValidationError):
+        agg(count=5, valid_count=1, null_count=0)
+    with pytest.raises(ValidationError):
+        good.model_validate({**good.model_dump(), "gap_count": 0})
+    with pytest.raises(ValidationError):
+        DownsampleInfo(applied=False, source_points=100, returned_points=2)
+    with pytest.raises(ValidationError):
+        DownsampleInfo(applied=True, source_points=2, returned_points=3)
+    assert DownsampleInfo(applied=True, source_points=100, returned_points=10)
+    with pytest.raises(ValidationError):
+        _spec([good.model_copy(update={"unit": "bbl/d"})])
+    wb = uuid.uuid4()
+    wb_scope = ChartSeriesScope(scope=ChartScope.WELLBORE, scope_label="wb", wellbore_id=wb)
+    with pytest.raises(ValidationError):  # wellbore series in a well-level chart
+        _spec([good.model_copy(update={"scope": wb_scope})])
+    for bad_x in ("not a date", "20200101", "5", " 2020-01-01"):
+        with pytest.raises(ValidationError):
+            ChartPoint(x=bad_x, y=1.0)
+    with pytest.raises(ValidationError):
+        ChartPoint(x=1.0, y="5")  # type: ignore[arg-type]
+    with pytest.raises(ValidationError):
+        ChartPoint(x=1.0, y=True)  # type: ignore[arg-type]
+    assert ChartPoint(x="2020-01-01T00:00:00Z", y=1)
+    with pytest.raises(ValidationError):
+        charts.ChartWindow.model_validate({"from": "2020-02-01", "to": "2020-01-01"})
+    with pytest.raises(ValidationError):
+        ChartSpec.model_validate({**_spec([good]).model_dump(), "window": {"from": "9", "to": "2"}})
+
+
+def test_d4_window_bounds_are_strict() -> None:
+    for bound in ("1e999", " 5", "20200101", "nan", "inf", "2020-13-01"):
+        with pytest.raises(ValidationError):
+            _link({"kind": "chart", "chart_key": "production_rates", "window": {"from": bound}})
+    with pytest.raises(ValidationError):
+        _link(
+            {
+                "kind": "chart",
+                "chart_key": "production_rates",
+                "window": {"from": "2020-01-01", "to": "5"},
+            }
+        )
+    assert _link(
+        {"kind": "chart", "chart_key": "production_rates", "window": {"from": "1.5", "to": "1e3"}}
+    )
+
+
+def test_d5_degenerate_mesh_and_datum_rules() -> None:
+    ids = [uuid.uuid4() for _ in range(3)]
+
+    def mesh(positions: list[float], indices: list[int]) -> context_layers.SurfaceMesh:
+        return context_layers.SurfaceMesh(
+            positions=positions,
+            indices=indices,
+            method="tin",
+            support_polygon=[[0, 0], [1, 0], [0, 1]],
+            pick_ids=ids,
+        )
+
+    good = [0, 0, 0, 1, 0, 0, 0, 1, 0]
+    assert mesh(good, [0, 1, 2])
+    with pytest.raises(ValidationError):
+        mesh(good, [0, 1, 1])
+    with pytest.raises(ValidationError):
+        mesh([0, 0, 0, 1, 1, 0, 2, 2, 0], [0, 1, 2])  # collinear
+    with pytest.raises(ValidationError):
+        DepthValue(
+            reference=DepthReference.MD,
+            value=1.0,
+            unit="m",
+            datum="KB",
+            datum_status=DatumStatus.STATED,
+        )
+    with pytest.raises(ValidationError):
+        _scene(datum="MSL")
+    with pytest.raises(ValidationError):
+        DepthValue(
+            reference=DepthReference.SCENE_ELEVATION,
+            value=1.0,
+            unit="m",
+            datum_status=DatumStatus.STATED,
+        )
 
 
 def test_new_modules_registered_and_exported() -> None:

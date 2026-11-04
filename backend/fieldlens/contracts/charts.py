@@ -13,9 +13,11 @@ DTO-only freeze. A chart is a declarative spec the UI renders; it never invents 
 
 from __future__ import annotations
 
-from datetime import date
+import re
+from datetime import date, datetime
 from enum import StrEnum
-from typing import Literal
+from math import isfinite
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import ConfigDict, Field, model_validator
@@ -28,6 +30,41 @@ MAX_DISPLAY_POINTS = MAX_WINDOW_POINTS
 MAX_CHARTS = 40
 MAX_SERIES_PER_CHART = 60
 DOWNSAMPLING_ALGORITHM = "minmax-gap-v1"
+
+
+StrictNumber = Annotated[float, Field(strict=True)]
+"""A JSON number; numeric strings and booleans are not coerced."""
+
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_ISO_DATETIME = re.compile(
+    r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})?"
+)
+_NUMBER = re.compile(r"-?\d+(\.\d+)?([eE][+-]?\d+)?")
+
+
+def parse_bound(value: str) -> tuple[str, date | datetime | float] | None:
+    """Strictly parse an ISO date, ISO datetime or finite decimal number; None if invalid.
+
+    No whitespace, no compact ``20200101`` forms, no ``nan``/``inf`` and no overflow (``1e999``).
+    """
+    try:
+        if _ISO_DATE.fullmatch(value):
+            return "date", date.fromisoformat(value)
+        if _ISO_DATETIME.fullmatch(value):
+            return "datetime", datetime.fromisoformat(value)
+        if _NUMBER.fullmatch(value):
+            if re.fullmatch(r"\d{8}", value):
+                try:
+                    date(int(value[:4]), int(value[4:6]), int(value[6:]))
+                except ValueError:
+                    pass
+                else:
+                    return None  # compact YYYYMMDD is ambiguous with a number: rejected
+            number = float(value)
+            return ("number", number) if isfinite(number) else None
+    except ValueError:
+        return None
+    return None
 
 
 class ChartKind(StrEnum):
@@ -135,11 +172,23 @@ class ChartAxis(ContractModel):
         return self
 
 
+def _check_x(value: float | str | None) -> None:
+    if isinstance(value, str):
+        parsed = parse_bound(value)
+        if parsed is None or parsed[0] == "number":
+            raise ValueError("x must be an ISO date/datetime string or a finite number")
+
+
 class ChartPoint(ContractModel):
     """One sample; ``y`` null is a gap and is rendered as a break."""
 
-    x: float | str = Field(description="Number, or an ISO date/time string on time axes.")
-    y: float | None = None
+    x: StrictNumber | str = Field(description="Number, or an ISO date/time string on time axes.")
+    y: StrictNumber | None = None
+
+    @model_validator(mode="after")
+    def _x(self) -> ChartPoint:
+        _check_x(self.x)
+        return self
 
 
 class DownsampleInfo(ContractModel):
@@ -154,6 +203,14 @@ class DownsampleInfo(ContractModel):
     gaps_omitted: int = Field(default=0, ge=0)
     extrema_preserved: bool = True
 
+    @model_validator(mode="after")
+    def _counts(self) -> DownsampleInfo:
+        if not self.applied and self.returned_points != self.source_points:
+            raise ValueError("without downsampling returned_points must equal source_points")
+        if self.applied and self.returned_points > self.source_points:
+            raise ValueError("downsampling cannot return more points than the source has")
+        return self
+
 
 class SeriesAggregates(ContractModel):
     """Exact values over full-resolution data, never recomputed from display points (CH-6)."""
@@ -162,19 +219,34 @@ class SeriesAggregates(ContractModel):
     count: int = Field(ge=0)
     valid_count: int = Field(ge=0)
     null_count: int = Field(ge=0)
-    minimum: float | None = None
-    maximum: float | None = None
-    mean: float | None = None
-    total: float | None = Field(default=None, description="Sum, only where summing is meaningful.")
-    first_valid_x: float | str | None = None
-    last_valid_x: float | str | None = None
-    last_value: float | None = None
+    minimum: StrictNumber | None = None
+    maximum: StrictNumber | None = None
+    mean: StrictNumber | None = None
+    total: StrictNumber | None = Field(
+        default=None, description="Sum, only where summing is meaningful."
+    )
+    first_valid_x: StrictNumber | str | None = None
+    last_valid_x: StrictNumber | str | None = None
+    last_value: StrictNumber | None = None
     unit: str | None = None
 
     @model_validator(mode="after")
     def _counts(self) -> SeriesAggregates:
-        if self.valid_count + self.null_count > self.count:
-            raise ValueError("valid plus null samples cannot exceed count")
+        if self.valid_count + self.null_count != self.count:
+            raise ValueError("count must equal valid_count plus null_count")
+        if self.minimum is not None and self.maximum is not None and self.minimum > self.maximum:
+            raise ValueError("aggregate minimum must not exceed maximum")
+        if self.mean is not None:
+            if self.minimum is not None and self.mean < self.minimum:
+                raise ValueError("aggregate mean below minimum")
+            if self.maximum is not None and self.mean > self.maximum:
+                raise ValueError("aggregate mean above maximum")
+        if self.valid_count == 0 and any(
+            v is not None for v in (self.minimum, self.maximum, self.mean, self.last_value)
+        ):
+            raise ValueError("aggregates over zero valid samples carry no statistics")
+        _check_x(self.first_valid_x)
+        _check_x(self.last_valid_x)
         return self
 
 
@@ -226,10 +298,11 @@ class ChartSeries(ContractModel):
     def _display(self) -> ChartSeries:
         if self.downsample.returned_points != len(self.points):
             raise ValueError("downsample.returned_points must equal the number of points")
-        if self.downsample.returned_points > self.downsample.source_points and (
-            self.downsample.source_points
-        ):
-            raise ValueError("cannot return more points than the source has")
+        null_points = sum(1 for p in self.points if p.y is None)
+        if self.gap_count != null_points + self.downsample.gaps_omitted:
+            raise ValueError("gap_count must equal null-y points plus omitted gaps")
+        if self.aggregates.unit is not None and self.aggregates.unit != self.unit:
+            raise ValueError("aggregate unit must equal the series unit")
         return self
 
 
@@ -266,6 +339,30 @@ class ChartWindow(ContractModel):
     from_: str | None = Field(default=None, alias="from", min_length=1, max_length=64)
     to: str | None = Field(default=None, min_length=1, max_length=64)
 
+    @model_validator(mode="after")
+    def _bounds(self) -> ChartWindow:
+        parsed = []
+        for bound in (self.from_, self.to):
+            if bound is None:
+                continue
+            item = parse_bound(bound)
+            if item is None:
+                raise ValueError("chart window bounds are ISO dates/datetimes or finite numbers")
+            parsed.append(item)
+        if len(parsed) == 2:
+            (kind_a, a), (kind_b, b) = parsed
+            if kind_a != kind_b:
+                raise ValueError("chart window bounds must be the same type")
+            try:
+                ordered = a <= b  # type: ignore[operator]
+            except TypeError:
+                raise ValueError(
+                    "chart window datetimes must both carry or lack an offset"
+                ) from None
+            if not ordered:
+                raise ValueError("chart window start must not be after its end")
+        return self
+
 
 class ChartSpec(ContractModel):
     chart_id: str = Field(min_length=1, max_length=128)
@@ -291,15 +388,31 @@ class ChartSpec(ContractModel):
         if (self.empty is None) == (not self.series):
             raise ValueError("a chart has series or an empty state, exactly one of the two")
         axis_ids = {a.axis_id for a in self.axes}
+        axes_by_id = {a.axis_id: a for a in self.axes}
         for item in self.series:
             if item.axis_id not in axis_ids:
                 raise ValueError(f"series {item.series_key} references unknown axis {item.axis_id}")
+            if item.unit != axes_by_id[item.axis_id].unit:
+                raise ValueError(f"series {item.series_key} unit differs from its axis unit")
+            _check_series_scope(self.scope, item)
             if item.x_axis_id is not None and item.x_axis_id not in axis_ids:
                 raise ValueError(f"series {item.series_key} references unknown x axis")
         for line in self.reference_lines:
             if line.axis_id not in axis_ids:
                 raise ValueError("reference line references an unknown axis")
         return self
+
+
+def _check_series_scope(chart: ChartSeriesScope, item: ChartSeries) -> None:
+    if item.scope.scope is not ChartScope.WELLBORE:
+        return
+    if chart.scope is ChartScope.WELLBORE:
+        if item.scope.wellbore_id != chart.wellbore_id:
+            raise ValueError(f"series {item.series_key} belongs to a different wellbore")
+    elif chart.scope not in {ChartScope.FIELD, ChartScope.PROJECT}:
+        raise ValueError(
+            f"wellbore-scoped series {item.series_key} not allowed in this chart scope"
+        )
 
 
 # --- Perforation history ----------------------------------------------------------------
@@ -375,6 +488,17 @@ class WellboreChartSet(ContractModel):
     generated_from_revision: str = Field(min_length=1)
     cache_key: str = Field(min_length=1, description="Covers wellbore, as-of, window and revision.")
     generated_at: UtcDatetime | None = None
+
+    @model_validator(mode="after")
+    def _charts_match_wellbore(self) -> WellboreChartSet:
+        for chart in self.charts:
+            if chart.scope.scope in {ChartScope.FIELD, ChartScope.PROJECT, ChartScope.UNRECONCILED}:
+                raise ValueError("a wellbore chart set holds wellbore- or well-scoped charts only")
+            if chart.scope.scope is ChartScope.WELLBORE and (
+                chart.scope.wellbore_id != self.wellbore_id
+            ):
+                raise ValueError("chart scoped to a different wellbore")
+        return self
 
 
 class FieldChartSet(ContractModel):

@@ -15,6 +15,7 @@ encoded structurally:
 from __future__ import annotations
 
 from enum import StrEnum
+from math import isfinite
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -109,6 +110,10 @@ class DepthValue(ContractModel):
             self.datum_status is DatumStatus.NOT_APPLICABLE
         ):
             raise ValueError("TVD/TVDSS depths need a stated or explicitly unknown datum")
+        if self.reference in {DepthReference.MD, DepthReference.SCENE_ELEVATION} and (
+            self.datum is not None or self.datum_status is DatumStatus.STATED
+        ):
+            raise ValueError("MD and scene elevation do not carry a datum")
         return self
 
 
@@ -171,6 +176,14 @@ class FormationPick(ContractModel):
     evidence: list[EvidenceLink] = Field(default_factory=list, max_length=20)
     extraction_method: str | None = Field(default=None, max_length=128)
 
+    @model_validator(mode="after")
+    def _truthful_status(self) -> FormationPick:
+        if self.status is not TIER_STATUS[self.tier]:
+            raise ValueError("pick status must match its tier")
+        if self.status.value not in self.label.lower():
+            raise ValueError("pick label must state its interpretation status")
+        return self
+
 
 class FormationUnsupportedPick(ContractModel):
     """A pick listed with its qualifier but not drawn (FO-2)."""
@@ -226,6 +239,10 @@ class LevelPlane(ContractModel):
 
     @model_validator(mode="after")
     def _scene_elevation(self) -> LevelPlane:
+        if "illustrative" not in self.label.lower():
+            raise ValueError("a level plane label must say 'illustrative'")
+        if "not an interpreted horizon" not in self.note.lower():
+            raise ValueError("a level plane note must say it is not an interpreted horizon")
         if self.elevation.reference is not DepthReference.SCENE_ELEVATION:
             raise ValueError("a level plane is placed at a scene elevation")
         if self.elevation.value is None:
@@ -265,8 +282,18 @@ class SurfaceMesh(ContractModel):
         vertex_count = len(self.positions) // 3
         if any(i < 0 or i >= vertex_count for i in self.indices):
             raise ValueError("mesh index out of range")
-        if any(len(p) != 2 for p in self.support_polygon):
-            raise ValueError("support polygon vertices are [east, north]")
+        if any(len(p) != 2 or not all(isfinite(c) for c in p) for p in self.support_polygon):
+            raise ValueError("support polygon vertices are finite [east, north]")
+        pos = self.positions
+        for t in range(0, len(self.indices), 3):
+            a, b, c = self.indices[t : t + 3]
+            if a == b or b == c or a == c:
+                raise ValueError("degenerate triangle: repeated vertex index")
+            cross = (pos[3 * b] - pos[3 * a]) * (pos[3 * c + 1] - pos[3 * a + 1]) - (
+                pos[3 * b + 1] - pos[3 * a + 1]
+            ) * (pos[3 * c] - pos[3 * a])
+            if abs(cross) < 1e-12:
+                raise ValueError("degenerate triangle: zero horizontal area")
         if self.status is not InterpretationStatus.INTERPOLATED:
             raise ValueError("a T3 mesh is interpolated")
         return self
@@ -309,7 +336,18 @@ class FormationSurface(ContractModel):
             raise ValueError("only the highest tier is carried")
         if self.scope is FormationScope.WELLBORE and len(self.wellbore_ids) != 1:
             raise ValueError("a wellbore-scoped surface names exactly one wellbore")
+        if self.tier is FormationTier.T2 and self.tier_label != LEVEL_PLANE_LABEL:
+            raise ValueError(f"a T2 surface must be labeled {LEVEL_PLANE_LABEL!r}")
+        if self.tier is not FormationTier.T2 and "illustrative" in self.tier_label.lower():
+            raise ValueError("only T2 surfaces are labeled illustrative")
+        allowed = set(self.wellbore_ids)
+        if any(p.wellbore_id not in allowed for p in self.picks):
+            raise ValueError("pick belongs to a wellbore not named by the surface")
         return self
+
+    @property
+    def spans_wellbores(self) -> bool:
+        return self.scope is FormationScope.PROJECT or len(set(self.wellbore_ids)) > 1
 
 
 class FormationFrame(ContractModel):
@@ -327,6 +365,14 @@ class FormationFrame(ContractModel):
         description="Geometry is unexaggerated; the viewer applies vertical exaggeration.",
     )
     tvd_tolerance_m: float | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _reference(self) -> FormationFrame:
+        if self.vertical_reference_status is DatumStatus.STATED and not self.vertical_reference:
+            raise ValueError("a stated shared vertical reference needs its name")
+        if self.vertical_reference_status is not DatumStatus.STATED and self.vertical_reference:
+            raise ValueError("a vertical reference name requires status stated")
+        return self
 
 
 class FormationLayerSet(ContractModel):
@@ -349,3 +395,25 @@ class FormationLayerSet(ContractModel):
     generated_from_revision: str = Field(
         min_length=1, description="Cache/revision key of the inputs."
     )
+
+    @model_validator(mode="after")
+    def _shared_reference(self) -> FormationLayerSet:
+        if (
+            self.frame.vertical_reference_status is DatumStatus.STATED
+            and self.frame.vertical_reference
+        ):
+            return self
+        datum_reasons = {FormationBlockReason.UNKNOWN_DATUM, FormationBlockReason.DATUM_MISMATCH}
+        for surface in self.surfaces:
+            if not surface.spans_wellbores:
+                continue
+            if (
+                surface.plane
+                or surface.mesh
+                or not any(b.reason in datum_reasons for b in surface.blocked)
+            ):
+                raise ValueError(
+                    f"surface {surface.surface_key} spans several wellbores without a shared "
+                    "stated vertical reference; it must carry a datum block and no geometry"
+                )
+        return self
