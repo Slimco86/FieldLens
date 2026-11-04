@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useMemo, useRef, useState, type ReactNode 
 import { ExploreWorkspace } from "../../app/shell/ExploreWorkspace";
 import type { ExploreStageContext } from "../../app/shell/exploreStage";
 import { ExploreCommandsProvider } from "./ExploreCommandsContext";
+import type { ExploreCommandBus } from "./exploreCommands";
 import { EmptyState, ErrorState, LoadingState } from "../../design";
 import { getExposure } from "../pipeline/api";
 import { useScopedResource } from "../projects/scope";
@@ -18,6 +19,7 @@ import type { FieldSpecState } from "./fieldModel";
 import { webgl2Available } from "./webgl";
 import type { LabelMode, ViewerCommands, ViewerOptions } from "./Viewer3D";
 import { FlyOverControls } from "./FlyOverControls";
+import { SourceViewerHost, useExploreEnrichment } from "./exploreEnrichment";
 import { IDLE_FLY_STATUS, type FlyOverStatus } from "./flyOverPlan";
 import styles from "./Scene.module.css";
 
@@ -31,16 +33,28 @@ interface WellboreRef {
   name: string;
 }
 
-/** Owns the Explore command bus for everything below it (viewers, charts, assistant dock). */
-export function ExploreScene({ projectId }: { projectId: string }) {
+/** Owns the Explore command bus for everything below it (viewers, charts, assistant dock, source viewer). */
+export function ExploreScene({
+  projectId,
+  modelRevision = null,
+  onOpenSource,
+  bus,
+}: {
+  projectId: string;
+  modelRevision?: string | null;
+  onOpenSource?: (documentId: string) => void;
+  /** Optional externally owned bus (tests and hosts that dispatch commands themselves). */
+  bus?: ExploreCommandBus;
+}) {
   return (
-    <ExploreCommandsProvider>
-      <ExploreSceneInner projectId={projectId} />
+    <ExploreCommandsProvider {...(bus === undefined ? {} : { bus })}>
+      <SourceViewerHost projectId={projectId} onOpenSource={onOpenSource} />
+      <ExploreSceneInner projectId={projectId} modelRevision={modelRevision} />
     </ExploreCommandsProvider>
   );
 }
 
-function ExploreSceneInner({ projectId }: { projectId: string }) {
+function ExploreSceneInner({ projectId, modelRevision }: { projectId: string; modelRevision: string | null }) {
   const exposure = useScopedResource(`exposure/${projectId}`, (signal) => getExposure(projectId, signal));
   const [picked, setPicked] = useState<string | null>(null);
   // `null` = automatic: the field view for two or more wellbores, the wellbore view for one.
@@ -81,6 +95,7 @@ function ExploreSceneInner({ projectId }: { projectId: string }) {
         wellbores={wellbores}
         specs={specs}
         retrySpecs={retrySpecs}
+        modelRevision={modelRevision}
         selectedId={fieldSelected}
         onSelect={setFieldSelected}
         restoreFocus={returning}
@@ -98,6 +113,7 @@ function ExploreSceneInner({ projectId }: { projectId: string }) {
       key={current.id}
       projectId={projectId}
       wellbore={current}
+      modelRevision={modelRevision}
       wellbores={dropdownWellbores(wellbores, specs, current.id)}
       onPick={setPicked}
       onSpecChanged={() => retrySpecs([current.id])}
@@ -121,6 +137,7 @@ export function dropdownWellbores(all: readonly WellboreRef[], specs: ReadonlyMa
 interface WellboreSceneProps {
   projectId: string;
   wellbore: WellboreRef;
+  modelRevision: string | null;
   wellbores: WellboreRef[];
   onPick: (id: string) => void;
   /** The current wellbore's spec was (re)generated: refresh the shared "has a spec" signal. */
@@ -129,7 +146,7 @@ interface WellboreSceneProps {
   onField?: (() => void) | undefined;
 }
 
-function WellboreScene({ projectId, wellbore, wellbores, onPick, onField, onSpecChanged }: WellboreSceneProps) {
+function WellboreScene({ projectId, wellbore, modelRevision, wellbores, onPick, onField, onSpecChanged }: WellboreSceneProps) {
   const spec = useScopedResource(`asset-spec/${projectId}/${wellbore.id}`, (signal) =>
     getAssetSpec(projectId, wellbore.id, signal),
   );
@@ -181,6 +198,7 @@ function WellboreScene({ projectId, wellbore, wellbores, onPick, onField, onSpec
         record={spec.state.data}
         projectId={projectId}
         wellbore={wellbore}
+        modelRevision={modelRevision}
         picker={picker}
         generateButton={generateButton}
         genError={genError}
@@ -226,12 +244,13 @@ interface SceneBodyProps {
   record: VisualAssetSpecRecord;
   projectId: string;
   wellbore: WellboreRef;
+  modelRevision: string | null;
   picker: ReactNode;
   generateButton: ReactNode;
   genError: string | null;
 }
 
-function SceneBody({ record, projectId, wellbore, picker, generateButton, genError }: SceneBodyProps) {
+function SceneBody({ record, projectId, wellbore, modelRevision, picker, generateButton, genError }: SceneBodyProps) {
   const [exaggeration, setExaggeration] = useState<number>(() => defaultExaggeration(locatedMdMax(record.spec)));
   const [view, setView] = useState<"wellhead" | "whole" | "selection">("wellhead");
   const [surfaceScale, setSurfaceScale] = useState<number>(1);
@@ -240,6 +259,12 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
   const [labels, setLabels] = useState<LabelMode>("all");
   const [depthMarks, setDepthMarks] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const enrich = useExploreEnrichment({
+    projectId,
+    context: wbContext,
+    revision: `${modelRevision ?? ""}|spec${record.revision}`,
+    selectedElementId: selectedId,
+  });
   const [lost, setLost] = useState(0);
   const commands = useRef<ViewerCommands | null>(null);
   const [flyStatus, setFlyStatus] = useState<FlyOverStatus>(IDLE_FLY_STATUS);
@@ -387,6 +412,7 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
               commands={commands}
               wellboreId={wellbore.id}
               onFlyOverStatus={setFlyStatus}
+              {...(enrich === null ? {} : { layers: enrich.layers, resolveFormationFocus: enrich.resolveFormationFocus })}
               onContextLost={() => setLost((n) => n + 1)}
             />
           </Suspense>
@@ -399,10 +425,15 @@ function SceneBody({ record, projectId, wellbore, picker, generateButton, genErr
 
   return (
     <ExploreWorkspace
-      context={wbContext}
+      {...(enrich === null ? { context: wbContext } : enrich.workspace)}
       tree={<ComponentList model={model} selectedId={selectedId} onSelect={select} />}
       stage={stage}
-      inspector={<Inspector element={selected} survey={surveyState} />}
+      inspector={
+        <>
+          <Inspector element={selected} survey={surveyState} />
+          {enrich?.formationPanel}
+        </>
+      }
     />
   );
 }

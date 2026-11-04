@@ -259,7 +259,7 @@ export function ProjectView({ projectId, section, onSection, onBack, onMissing }
               state.data.latest_source_revision_id === null ? (
                 <ExploreWorkspace stage={<Unavailable section="explore" project={state.data} />} />
               ) : (
-                <ExploreScene projectId={projectId} />
+                <ExploreScene projectId={projectId} modelRevision={state.data.active_model_revision_id} onOpenSource={openSource} />
               )
             )}
           </section>

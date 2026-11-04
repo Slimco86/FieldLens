@@ -18,11 +18,14 @@ import { useExploreCommandHandlers } from "./ExploreCommandsContext";
 import { poseFromPositions, type V3 } from "./cameraPath";
 import { CameraRig } from "./cameraRig";
 import { RENDER_ORIGIN, renderLayers, type SceneLayerContext, type SceneLayers } from "./sceneLayers";
+import { makeFocusFormationHandler, type ResolveFormationFocus } from "./formationFocus";
 import styles from "./Scene.module.css";
 
 export interface FieldCommands {
   /** Fly to the wellhead close-up of one wellbore (instant under reduced motion). */
   flyTo(id: string): void;
+  /** Frame a render-space point (metres) with the given radius (formation focus). */
+  focusPoint(target: readonly [number, number, number], radius: number): void;
   fitAll(): void;
   zoom(factor: number): void;
 }
@@ -56,6 +59,8 @@ interface Props {
   onContextLost: () => void;
   /** Optional scene content mounted inside the Canvas (empty by default); see `SceneLayerContext`. */
   layers?: SceneLayers;
+  /** Pose request for `focusFormation` (see Viewer3D); null refuses the command without moving the camera. */
+  resolveFormationFocus?: ResolveFormationFocus;
 }
 
 const DEFAULT_DIR = new THREE.Vector3(1, 0.62, 1).normalize();
@@ -432,6 +437,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
         frame.go(new THREE.Vector3(w.position[0], -focusDrop(plan, w), w.position[2]), focusRadius(plan, w), false);
       },
       fitAll: () => frame.go(fieldSphere.center, fieldSphere.radius, false),
+      focusPoint: (target, radius) => frame.go(new THREE.Vector3(target[0], target[1], target[2]), Math.max(radius, 1), false),
       zoom: (factor) => {
         if (ctl === null) return;
         const cam = camera as THREE.PerspectiveCamera;
@@ -665,6 +671,7 @@ export default function FieldViewer3D(props: Props) {
   const [lost, setLost] = useState(false);
 
   const { commands } = props;
+  const layerCtx = useMemo<SceneLayerContext>(() => ({ scope: "field", origin: RENDER_ORIGIN, exaggeration: null, cutaway: true }), []);
   useExploreCommandHandlers({
     focusWellbore: (p) => {
       if (!plan.byId.has(p.wellboreId)) return false;
@@ -672,8 +679,10 @@ export default function FieldViewer3D(props: Props) {
       commands.current.flyTo(p.wellboreId);
       return true;
     },
+    ...(props.resolveFormationFocus === undefined
+      ? {}
+      : { focusFormation: makeFocusFormationHandler({ accepts: (id) => plan.byId.has(id), resolve: props.resolveFormationFocus, ctx: layerCtx, commands }) }),
   });
-  const layerCtx = useMemo<SceneLayerContext>(() => ({ scope: "field", origin: RENDER_ORIGIN, exaggeration: null, cutaway: true }), []);
 
   return (
     <div className={styles.canvasWrap} data-testid="scene-canvas-wrap">

@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExploreWorkspace } from "../../app/shell/ExploreWorkspace";
+import type { ExploreStageContext } from "../../app/shell/exploreStage";
+import { useExploreEnrichment } from "./exploreEnrichment";
 import { EmptyState, KeyValue, KeyValueList, LoadingState } from "../../design";
 import { reconstructed, useFieldSpecs, type WellboreRef } from "./fieldData";
 import { activate, buildFieldPlan, FIELD_BADGE, summarize, type FieldPlan, type FieldSpecState, type FieldWell } from "./fieldModel";
@@ -43,9 +45,14 @@ export function FieldScene({ wellbores: listed, ...rest }: Props) {
 interface ViewProps extends Props {
   specs: ReadonlyMap<string, FieldSpecState>;
   retrySpecs: (ids?: readonly string[]) => void;
+  /** Published model revision of the project; a change refetches the formation read model. */
+  modelRevision?: string | null | undefined;
 }
 
-export function FieldSceneView({ projectId, wellbores, specs, retrySpecs: retry, selectedId, onSelect, onOpen, restoreFocus }: ViewProps) {
+const FIELD_CONTEXT: ExploreStageContext = { kind: "field" };
+
+export function FieldSceneView({ projectId, wellbores, specs, retrySpecs: retry, selectedId, onSelect, onOpen, restoreFocus, modelRevision = null }: ViewProps) {
+  const enrich = useExploreEnrichment({ projectId, context: FIELD_CONTEXT, revision: modelRevision });
   // Surveys (and with them surface locations) are fetched only for reconstructed wellbores.
   const drawable = useMemo(() => reconstructed(wellbores, specs), [wellbores, specs]);
   const { trajectories, retry: retrySurveys } = useFieldTrajectories(projectId, drawable);
@@ -145,7 +152,15 @@ export function FieldSceneView({ projectId, wellbores, specs, retrySpecs: retry,
     stage = (
       <div className={styles.stageCol} data-testid="scene-stage" data-view={selected === null ? "field" : "focused"} data-selected={selectedId ?? ""}>
         <Suspense fallback={<LoadingState label="Loading 3D view" />}>
-          <FieldViewer3D plan={plan} selectedId={selectedId} onActivate={activateWell} onClear={clear} commands={commands} onContextLost={() => setLost((n) => n + 1)} />
+          <FieldViewer3D
+            plan={plan}
+            selectedId={selectedId}
+            onActivate={activateWell}
+            onClear={clear}
+            commands={commands}
+            onContextLost={() => setLost((n) => n + 1)}
+            {...(enrich === null ? {} : { layers: enrich.layers, resolveFormationFocus: enrich.resolveFormationFocus })}
+          />
         </Suspense>
       </div>
     );
@@ -155,6 +170,7 @@ export function FieldSceneView({ projectId, wellbores, specs, retrySpecs: retry,
 
   return (
     <ExploreWorkspace
+      {...(enrich === null ? {} : enrich.workspace)}
       tree={<WellboreList plan={plan} selectedId={selectedId} onActivate={activateWell} restoreFocus={restoreFocus} />}
       stage={
         <div className={styles.view}>
@@ -172,7 +188,12 @@ export function FieldSceneView({ projectId, wellbores, specs, retrySpecs: retry,
           {stage}
         </div>
       }
-      inspector={<FieldInspector well={selected} onOpen={onOpen} survey={selected === null ? undefined : trajectories.get(selected.id)?.state} />}
+      inspector={
+        <>
+          <FieldInspector well={selected} onOpen={onOpen} survey={selected === null ? undefined : trajectories.get(selected.id)?.state} />
+          {enrich?.formationPanel}
+        </>
+      }
     />
   );
 }

@@ -14,6 +14,7 @@ import { arrivalPose, normalize, type OrbitPose, type V3 } from "./cameraPath";
 import { CameraRig } from "./cameraRig";
 import { buildFlyOverPlan, FlyOverPlayer, type FlyOverStatus } from "./flyOverPlan";
 import { RENDER_ORIGIN, renderLayers, type SceneLayerContext, type SceneLayers } from "./sceneLayers";
+import { makeFocusFormationHandler, type ResolveFormationFocus } from "./formationFocus";
 import styles from "./Scene.module.css";
 export { webgl2Available } from "./webgl";
 
@@ -32,6 +33,8 @@ export interface ViewerCommands {
   /** Wellhead, surface facilities and the top of the hole (the default first view). */
   fitWellhead(): void;
   focus(id: string): void;
+  /** Frame a render-space point (metres) with the given radius, keeping the viewing direction (formation focus). */
+  focusPoint(target: readonly [number, number, number], radius: number): void;
   zoom(factor: number): void;
   /** Start the single-wellbore fly-over (CM-3); false when there is nothing located to visit. */
   flyOver(): boolean;
@@ -71,6 +74,11 @@ interface Props {
   wellboreId?: string;
   /** Optional scene content mounted inside the Canvas (empty by default); see `SceneLayerContext`. */
   layers?: SceneLayers;
+  /**
+   * Pose request for `focusFormation` (pure lookup owned by the formation layer). Returns null when the formation is
+   * unknown, belongs to another wellbore or cannot be placed: the command is then refused (no motion) and announced.
+   */
+  resolveFormationFocus?: ResolveFormationFocus;
   /** Fly-over state changes (stop changes, play/pause/stop/finish); never called per frame. */
   onFlyOverStatus?: (status: FlyOverStatus) => void;
 }
@@ -433,6 +441,7 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onFlyOv
         b.expandByPoint(new THREE.Vector3(0, -WELLHEAD_VIEW_DEPTH_M, 0));
         frame.go({ ...sphereOf(b), keepDirection: false });
       },
+      focusPoint: (target, radius) => frame.go({ center: new THREE.Vector3(target[0], target[1], target[2]), radius: Math.max(radius, 1), keepDirection: true }),
       focus: (id) => {
         const el = model.byId.get(id);
         const g = built.root.children.find((c) => c.userData["elementId"] === id);
@@ -798,6 +807,10 @@ export default function Viewer3D(props: Props) {
   // `wellboreId` the viewer cannot tell which wellbore a command targets, so it refuses them (S-2).
   const { commands, model, wellboreId } = props;
   const mine = (id: string): boolean => wellboreId !== undefined && id === wellboreId;
+  const layerCtx = useMemo<SceneLayerContext>(
+    () => ({ scope: "wellbore", origin: RENDER_ORIGIN, exaggeration: options.exaggeration, cutaway: options.cutaway }),
+    [options.exaggeration, options.cutaway],
+  );
   useExploreCommandHandlers({
     focusWellbore: (p) => {
       if (!mine(p.wellboreId)) return false;
@@ -817,12 +830,10 @@ export default function Viewer3D(props: Props) {
       return commands.current.flyOver();
     },
     stopFlyOver: () => commands.current?.stopFlyOver() ?? false,
+    ...(props.resolveFormationFocus === undefined
+      ? {}
+      : { focusFormation: makeFocusFormationHandler({ accepts: mine, resolve: props.resolveFormationFocus, ctx: layerCtx, commands }) }),
   });
-
-  const layerCtx = useMemo<SceneLayerContext>(
-    () => ({ scope: "wellbore", origin: RENDER_ORIGIN, exaggeration: options.exaggeration, cutaway: options.cutaway }),
-    [options.exaggeration, options.cutaway],
-  );
 
   useEffect(() => {
     labelModeRef.current = options.labels;
