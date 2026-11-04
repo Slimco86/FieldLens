@@ -1173,6 +1173,36 @@ export interface components {
             kinds: string[];
         };
         /**
+         * AnswerBlock
+         * @description Closed answer block variants keyed by ``kind``.
+         */
+        AnswerBlock: components["schemas"]["TextBlock"] | components["schemas"]["ValueBlock"] | components["schemas"]["ChartBlock"] | components["schemas"]["LinkBlock"] | components["schemas"]["GapBlock"];
+        /**
+         * AnswerVerification
+         * @enum {string}
+         */
+        AnswerVerification: "verified" | "partially_verified" | "unverified";
+        /**
+         * AppLink
+         * @description A typed in-app deep link. Targets are validated against this turn's tool results and the project.
+         */
+        AppLink: {
+            /** Label */
+            label: string;
+            target: components["schemas"]["AppLinkTarget"];
+            /**
+             * Tool Call Id
+             * @description Tool call whose result introduced the target.
+             * @default null
+             */
+            tool_call_id: string | null;
+        };
+        /**
+         * AppLinkTarget
+         * @description Closed target variants keyed by ``kind``.
+         */
+        AppLinkTarget: components["schemas"]["SourceLinkTarget"] | components["schemas"]["ElementLinkTarget"] | components["schemas"]["WellboreLinkTarget"] | components["schemas"]["FormationLinkTarget"] | components["schemas"]["ChartLinkTarget"];
+        /**
          * AsOf
          * @description Discriminated historical query time.
          */
@@ -1232,6 +1262,16 @@ export interface components {
          * @enum {string}
          */
         AttemptStatus: "running" | "succeeded" | "failed" | "interrupted" | "cancelled";
+        /**
+         * AxisKind
+         * @enum {string}
+         */
+        AxisKind: "value" | "time" | "depth_md" | "depth_tvd" | "depth_tvdss" | "category";
+        /**
+         * AxisPosition
+         * @enum {string}
+         */
+        AxisPosition: "x" | "y_left" | "y_right" | "y_extra";
         /**
          * BlockedOperation
          * @enum {string}
@@ -1343,6 +1383,566 @@ export interface components {
             /** Record Count */
             record_count: number;
         };
+        /** ChartAxis */
+        ChartAxis: {
+            /** Axis Id */
+            axis_id: string;
+            /**
+             * Datum
+             * @description Vertical reference for depth axes, as stated.
+             * @default null
+             */
+            datum: string | null;
+            /**
+             * Inverted
+             * @description Depth increases downwards.
+             * @default false
+             */
+            inverted: boolean;
+            kind: components["schemas"]["AxisKind"];
+            /** Name */
+            name: string;
+            position: components["schemas"]["AxisPosition"];
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            /** @default stated */
+            unit_status: components["schemas"]["SeriesUnitStatus"];
+        };
+        /** ChartBlock */
+        ChartBlock: {
+            /** Citation Markers */
+            citation_markers?: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "chart";
+            /** @default null */
+            open_in_charts: components["schemas"]["AppLink"] | null;
+            request: components["schemas"]["ChartRequest"];
+            /**
+             * @description Server-materialized chart; null until materialized or when it failed.
+             * @default null
+             */
+            spec: components["schemas"]["ChartSpec"] | null;
+        };
+        /**
+         * ChartEmptyReason
+         * @enum {string}
+         */
+        ChartEmptyReason: "no_records" | "no_data_in_window" | "scope_ambiguous" | "unit_mismatch" | "not_applicable" | "source_unavailable" | "as_of_before_data";
+        /** ChartEmptyState */
+        ChartEmptyState: {
+            /** Message */
+            message: string;
+            reason: components["schemas"]["ChartEmptyReason"];
+        };
+        /**
+         * ChartKey
+         * @description Stable identity of a chart in a set; also the target of chart links and chat chart requests.
+         * @enum {string}
+         */
+        ChartKey: "production_rates" | "cumulative_volumes" | "downhole_pressure_temperature" | "tubing_annulus_pressure" | "on_stream_hours" | "perforation_timeline" | "perforated_length" | "log_tracks" | "pressure_tests" | "lab_tests" | "field_rates_by_wellbore" | "field_rates_total" | "field_cumulative_by_wellbore" | "producer_injector_volumes" | "pressure_comparison" | "uptime_strip" | "perforated_length_by_wellbore" | "stratigraphic_correlation" | "custom";
+        /**
+         * ChartKind
+         * @enum {string}
+         */
+        ChartKind: "line" | "step" | "bar" | "stacked_bar" | "stacked_area" | "scatter" | "strip" | "timeline" | "log_track" | "correlation";
+        /**
+         * ChartLinkTarget
+         * @description Opens the Charts tab on a chart and window.
+         */
+        ChartLinkTarget: {
+            chart_key: components["schemas"]["ChartKey"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "chart";
+            /**
+             * Wellbore Id
+             * @description Null selects the field chart set.
+             * @default null
+             */
+            wellbore_id: string | null;
+            /** @default null */
+            window: components["schemas"]["ChartWindow"] | null;
+        };
+        /**
+         * ChartPoint
+         * @description One sample; ``y`` null is a gap and is rendered as a break.
+         */
+        ChartPoint: {
+            /**
+             * X
+             * @description Number, or an ISO date/time string on time axes.
+             */
+            x: number | string;
+            /**
+             * Y
+             * @default null
+             */
+            y: number | null;
+        };
+        /**
+         * ChartReferenceLine
+         * @description Reference line, for example a formation top on a log track.
+         */
+        ChartReferenceLine: {
+            /** Axis Id */
+            axis_id: string;
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceLink"][];
+            /** Label */
+            label: string;
+            /**
+             * Pick Id
+             * @default null
+             */
+            pick_id: string | null;
+            /**
+             * Surface Key
+             * @default null
+             */
+            surface_key: string | null;
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            /** Value */
+            value: number;
+        };
+        /**
+         * ChartRequest
+         * @description Declarative request the model may emit: which chart, over which tool-result series.
+         */
+        ChartRequest: {
+            chart_key: components["schemas"]["ChartKey"];
+            /**
+             * Series Refs
+             * @description Series keys present in this turn's tool results; no points are accepted.
+             */
+            series_refs?: string[];
+            /**
+             * Title
+             * @default null
+             */
+            title: string | null;
+            /** Tool Call Ids */
+            tool_call_ids?: string[];
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
+            /** @default null */
+            window: components["schemas"]["ChartWindow"] | null;
+        };
+        /**
+         * ChartScope
+         * @enum {string}
+         */
+        ChartScope: "wellbore" | "well" | "field" | "project" | "unreconciled";
+        /** ChartSeries */
+        ChartSeries: {
+            aggregates: components["schemas"]["SeriesAggregates"];
+            /** Axis Id */
+            axis_id: string;
+            downsample: components["schemas"]["DownsampleInfo"];
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceLink"][];
+            /**
+             * Gap Count
+             * @default 0
+             */
+            gap_count: number;
+            /**
+             * @description Overrides the chart kind for this series.
+             * @default null
+             */
+            kind: components["schemas"]["ChartKind"] | null;
+            /** Name */
+            name: string;
+            /** Points */
+            points?: components["schemas"]["ChartPoint"][];
+            scope: components["schemas"]["ChartSeriesScope"];
+            /** Series Key */
+            series_key: string;
+            /**
+             * Series Revision
+             * @description Revision of the stored series.
+             * @default null
+             */
+            series_revision: string | null;
+            /**
+             * Source Series Id
+             * @default null
+             */
+            source_series_id: string | null;
+            /**
+             * Stack Group
+             * @default null
+             */
+            stack_group: string | null;
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            /** @default stated */
+            unit_status: components["schemas"]["SeriesUnitStatus"];
+            /**
+             * X Axis Id
+             * @default null
+             */
+            x_axis_id: string | null;
+        };
+        /** ChartSeriesScope */
+        ChartSeriesScope: {
+            /**
+             * Ambiguity
+             * @description Why association is ambiguous; set instead of picking a wellbore.
+             * @default null
+             */
+            ambiguity: string | null;
+            scope: components["schemas"]["ChartScope"];
+            /**
+             * Scope Label
+             * @description Shown on the chart, for example 'well-level'.
+             */
+            scope_label: string;
+            /**
+             * Well Name
+             * @default null
+             */
+            well_name: string | null;
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
+            /**
+             * Wellbore Label
+             * @default null
+             */
+            wellbore_label: string | null;
+        };
+        /** ChartSpec */
+        ChartSpec: {
+            /**
+             * As Of
+             * @description Selected as-of date the data reflects.
+             * @default null
+             */
+            as_of: string | null;
+            /** Axes */
+            axes?: components["schemas"]["ChartAxis"][];
+            /**
+             * Cache Key
+             * @description Stable for the same inputs, window and as-of.
+             */
+            cache_key: string;
+            /** Chart Id */
+            chart_id: string;
+            /** @default null */
+            empty: components["schemas"]["ChartEmptyState"] | null;
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceLink"][];
+            /** Excluded Series */
+            excluded_series?: components["schemas"]["ExcludedSeries"][];
+            key: components["schemas"]["ChartKey"];
+            kind: components["schemas"]["ChartKind"];
+            /** Notes */
+            notes?: string[];
+            /** Reference Lines */
+            reference_lines?: components["schemas"]["ChartReferenceLine"][];
+            scope: components["schemas"]["ChartSeriesScope"];
+            /** Series */
+            series?: components["schemas"]["ChartSeries"][];
+            /** Title */
+            title: string;
+            /** @default null */
+            window: components["schemas"]["ChartWindow"] | null;
+        };
+        /**
+         * ChartWindow
+         * @description Inclusive window: ISO dates on time axes, numbers (as text) on depth axes.
+         */
+        ChartWindow: {
+            /**
+             * From
+             * @default null
+             */
+            from: string | null;
+            /**
+             * To
+             * @default null
+             */
+            to: string | null;
+        };
+        /** ChatAnswer */
+        ChatAnswer: {
+            /** Blocks */
+            blocks?: components["schemas"]["AnswerBlock"][];
+            /** Citations */
+            citations?: components["schemas"]["Citation"][];
+            /** Dropped Blocks */
+            dropped_blocks?: components["schemas"]["DroppedBlock"][];
+            verification: components["schemas"]["AnswerVerification"];
+        };
+        /**
+         * ChatContext
+         * @description UI selection sent with a turn. It narrows context and never widens project scope (AV-1).
+         */
+        ChatContext: {
+            /**
+             * As Of
+             * @default null
+             */
+            as_of: string | null;
+            /** @default null */
+            chart_key: components["schemas"]["ChartKey"] | null;
+            /**
+             * Selected Element Id
+             * @default null
+             */
+            selected_element_id: string | null;
+            /**
+             * Selected Surface Key
+             * @default null
+             */
+            selected_surface_key: string | null;
+            /** @default null */
+            view: components["schemas"]["ExploreView"] | null;
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
+        };
+        /** ChatFailure */
+        ChatFailure: {
+            code: components["schemas"]["ChatFailureCode"];
+            /** Message */
+            message: string;
+            /**
+             * Retryable
+             * @default false
+             */
+            retryable: boolean;
+        };
+        /**
+         * ChatFailureCode
+         * @enum {string}
+         */
+        ChatFailureCode: "provider_outage" | "provider_refusal" | "malformed_output" | "truncated" | "step_limit" | "time_limit" | "tool_call_limit" | "cancelled" | "interrupted" | "internal";
+        /** ChatMessage */
+        ChatMessage: {
+            /**
+             * @description Assistant messages only.
+             * @default null
+             */
+            answer: components["schemas"]["ChatAnswer"] | null;
+            /**
+             * Conversation Id
+             * Format: uuid
+             */
+            conversation_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Message Id
+             * Format: uuid
+             */
+            message_id: string;
+            role: components["schemas"]["ChatRole"];
+            /**
+             * Text
+             * @default null
+             */
+            text: string | null;
+            /**
+             * Turn Id
+             * Format: uuid
+             */
+            turn_id: string;
+        };
+        /**
+         * ChatRole
+         * @enum {string}
+         */
+        ChatRole: "user" | "assistant";
+        /**
+         * ChatRunState
+         * @enum {string}
+         */
+        ChatRunState: "queued" | "running" | "completed" | "failed" | "cancelled" | "refused" | "truncated";
+        /** ChatToolCallSummary */
+        ChatToolCallSummary: {
+            /**
+             * Duration Ms
+             * @default null
+             */
+            duration_ms: number | null;
+            /**
+             * Error
+             * @default null
+             */
+            error: string | null;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Tool Call Id
+             * Format: uuid
+             */
+            tool_call_id: string;
+            /** Tool Name */
+            tool_name: string;
+        };
+        /** ChatTurn */
+        ChatTurn: {
+            /** @default null */
+            assistant_message: components["schemas"]["ChatMessage"] | null;
+            /**
+             * Completed At
+             * @default null
+             */
+            completed_at: string | null;
+            context?: components["schemas"]["ChatContext"];
+            /**
+             * Conversation Id
+             * Format: uuid
+             */
+            conversation_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** @default null */
+            failure: components["schemas"]["ChatFailure"] | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Started At
+             * @default null
+             */
+            started_at: string | null;
+            state: components["schemas"]["ChatRunState"];
+            /** Tool Calls */
+            tool_calls?: components["schemas"]["ChatToolCallSummary"][];
+            /**
+             * Turn Id
+             * Format: uuid
+             */
+            turn_id: string;
+            usage?: components["schemas"]["ChatUsage"];
+            user_message: components["schemas"]["ChatMessage"];
+        };
+        /**
+         * ChatUsage
+         * @description Reported usage only; no ceiling is enforced on spend (D4).
+         */
+        ChatUsage: {
+            /**
+             * Cost Usd
+             * @description Ledger cost, informational.
+             * @default null
+             */
+            cost_usd: number | null;
+            /**
+             * Elapsed Ms
+             * @default 0
+             */
+            elapsed_ms: number;
+            /**
+             * Input Tokens
+             * @default 0
+             */
+            input_tokens: number;
+            /**
+             * Max Seconds
+             * @default null
+             */
+            max_seconds: number | null;
+            /**
+             * Max Steps
+             * @description Runaway-loop bound in force.
+             * @default null
+             */
+            max_steps: number | null;
+            /**
+             * Max Tool Calls
+             * @default null
+             */
+            max_tool_calls: number | null;
+            /**
+             * Model
+             * @default null
+             */
+            model: string | null;
+            /**
+             * Output Tokens
+             * @default 0
+             */
+            output_tokens: number;
+            /**
+             * Steps
+             * @default 0
+             */
+            steps: number;
+            /**
+             * Tool Calls
+             * @default 0
+             */
+            tool_calls: number;
+        };
+        /** Citation */
+        Citation: {
+            /**
+             * Claim Id
+             * @default null
+             */
+            claim_id: string | null;
+            /**
+             * Draft
+             * @description Cites a draft/unpublished proposal.
+             * @default false
+             */
+            draft: boolean;
+            /** @default null */
+            evidence: components["schemas"]["EvidenceLink"] | null;
+            /**
+             * Label
+             * @default null
+             */
+            label: string | null;
+            /**
+             * Marker
+             * @description For example '[1]'.
+             */
+            marker: string;
+            /**
+             * Record Id
+             * @default null
+             */
+            record_id: string | null;
+            /**
+             * Tool Call Id
+             * Format: uuid
+             */
+            tool_call_id: string;
+        };
         /** Claim */
         Claim: {
             /** Attribute Key */
@@ -1424,6 +2024,61 @@ export interface components {
              */
             od: components["schemas"]["SizeQuantity"] | null;
         };
+        /** Conversation */
+        Conversation: {
+            /**
+             * Conversation Id
+             * Format: uuid
+             */
+            conversation_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Title
+             * @default null
+             */
+            title: string | null;
+            /**
+             * Turn Count
+             * @default 0
+             */
+            turn_count: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ConversationDetail */
+        ConversationDetail: {
+            conversation: components["schemas"]["Conversation"];
+            /** Turns */
+            turns?: components["schemas"]["ChatTurn"][];
+        };
+        /** ConversationList */
+        ConversationList: {
+            /** Items */
+            items: components["schemas"]["Conversation"][];
+            /** Limit */
+            limit: number;
+            /**
+             * Next Offset
+             * @default null
+             */
+            next_offset: number | null;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** ConvertedTextLocator */
         ConvertedTextLocator: {
             /**
@@ -1483,6 +2138,33 @@ export interface components {
          * @enum {string}
          */
         CoverageStatus: "complete" | "partial" | "unknown";
+        /** CreateConversationRequest */
+        CreateConversationRequest: {
+            /**
+             * Title
+             * @default null
+             */
+            title: string | null;
+        };
+        /**
+         * CreateTurnRequest
+         * @description Submits a user message; the server queues a persisted job the UI polls.
+         */
+        CreateTurnRequest: {
+            context?: components["schemas"]["ChatContext"];
+            /**
+             * Idempotency Key
+             * @default null
+             */
+            idempotency_key: string | null;
+            /** Message */
+            message: string;
+        };
+        /**
+         * DatumStatus
+         * @enum {string}
+         */
+        DatumStatus: "stated" | "unknown" | "not_applicable";
         /** DayAsOf */
         DayAsOf: {
             /**
@@ -1511,6 +2193,40 @@ export interface components {
          * @enum {string}
          */
         DepthReference: "MD";
+        /**
+         * DepthValue
+         * @description One depth with its original unit and explicit vertical reference.
+         */
+        DepthValue: {
+            /**
+             * Datum
+             * @description Datum name exactly as stated (for example KB, MSL).
+             * @default null
+             */
+            datum: string | null;
+            datum_status: components["schemas"]["DatumStatus"];
+            /**
+             * Original Text
+             * @default null
+             */
+            original_text: string | null;
+            reference: components["schemas"]["fieldlens__contracts__context_layers__DepthReference"];
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            /**
+             * Unknown Reason
+             * @default null
+             */
+            unknown_reason: string | null;
+            /**
+             * Value
+             * @default null
+             */
+            value: number | null;
+        };
         /** DerivationLocator */
         DerivationLocator: {
             /** Input Claim Ids */
@@ -1873,6 +2589,46 @@ export interface components {
          */
         DocumentProcessingStatus: "not_started" | "queued" | "running" | "processed" | "failed" | "cancelled" | "interrupted";
         /**
+         * DownsampleInfo
+         * @description Display-only decimation; distinct from the exact aggregates.
+         */
+        DownsampleInfo: {
+            /**
+             * Algorithm
+             * @default null
+             */
+            algorithm: string | null;
+            /** Applied */
+            applied: boolean;
+            /**
+             * Extrema Preserved
+             * @default true
+             */
+            extrema_preserved: boolean;
+            /**
+             * Gap Markers Preserved
+             * @default true
+             */
+            gap_markers_preserved: boolean;
+            /**
+             * Gaps Omitted
+             * @default 0
+             */
+            gaps_omitted: number;
+            /**
+             * Max Points
+             * @default 5000
+             */
+            max_points: number;
+            /** Returned Points */
+            returned_points: number;
+            /**
+             * Source Points
+             * @description Full-resolution samples in the window.
+             */
+            source_points: number;
+        };
+        /**
          * DraftContext
          * @description Candidate review only.
          */
@@ -1897,6 +2653,45 @@ export interface components {
              * Format: uuid
              */
             run_id: string;
+        };
+        /** DroppedBlock */
+        DroppedBlock: {
+            /**
+             * Detail
+             * @default null
+             */
+            detail: string | null;
+            /** Index */
+            index: number;
+            /**
+             * Kind
+             * @default null
+             */
+            kind: string | null;
+            reason: components["schemas"]["DroppedBlockReason"];
+        };
+        /**
+         * DroppedBlockReason
+         * @enum {string}
+         */
+        DroppedBlockReason: "unknown_citation" | "unknown_tool_result" | "unknown_target" | "out_of_project" | "invalid_link" | "invalid_chart" | "unverified_number";
+        /** ElementLinkTarget */
+        ElementLinkTarget: {
+            /**
+             * Element Id
+             * Format: uuid
+             */
+            element_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "element";
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
         };
         /** EmbeddedImageLocator */
         EmbeddedImageLocator: {
@@ -2336,6 +3131,26 @@ export interface components {
             /** Kinds */
             kinds: string[];
         };
+        /**
+         * ExcludedSeries
+         * @description Series left out of an aggregate chart (different unit/meaning) and listed instead.
+         */
+        ExcludedSeries: {
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Source Series Id
+             * @default null
+             */
+            source_series_id: string | null;
+        };
+        /**
+         * ExploreView
+         * @enum {string}
+         */
+        ExploreView: "3d" | "charts" | "split";
         /** ExposureAttribute */
         ExposureAttribute: {
             /** Key */
@@ -2854,10 +3669,376 @@ export interface components {
          */
         ExtractionStatus: "queued" | "running" | "succeeded" | "partial" | "failed" | "interrupted" | "unsupported";
         /**
+         * FieldChartSet
+         * @description Global charts, computed server-side on full-resolution data (XC-3).
+         */
+        FieldChartSet: {
+            /**
+             * As Of
+             * @default null
+             */
+            as_of: string | null;
+            /** Cache Key */
+            cache_key: string;
+            /** Charts */
+            charts?: components["schemas"]["ChartSpec"][];
+            /** Excluded Series */
+            excluded_series?: components["schemas"]["ExcludedSeries"][];
+            /**
+             * Generated At
+             * @default null
+             */
+            generated_at: string | null;
+            /** Generated From Revision */
+            generated_from_revision: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Reconciliation Note
+             * @description For example 'unreconciled until a published model associates series'.
+             * @default null
+             */
+            reconciliation_note: string | null;
+            /** Wellbore Ids */
+            wellbore_ids?: string[];
+            /** @default null */
+            window: components["schemas"]["ChartWindow"] | null;
+        };
+        /**
+         * DepthReference
+         * @enum {string}
+         */
+        fieldlens__contracts__asset_spec__DepthReference: "MD";
+        /**
+         * DepthReference
+         * @enum {string}
+         */
+        fieldlens__contracts__context_layers__DepthReference: "md" | "tvd" | "tvdss" | "scene_elevation";
+        /**
          * FindingCode
          * @enum {string}
          */
         FindingCode: "spec_too_large" | "header_invalid" | "too_many_components" | "unknown_kind" | "schema_invalid" | "duplicate_id" | "param_not_allowed" | "param_out_of_bounds" | "out_of_md_range" | "missing_evidence" | "generic_dimensioned" | "placement_not_allowed" | "label_empty" | "control_character";
+        /** FormationBlocked */
+        FormationBlocked: {
+            /**
+             * Message
+             * @description On-screen explanation.
+             */
+            message: string;
+            /** Pick Ids */
+            pick_ids?: string[];
+            reason: components["schemas"]["FormationBlockReason"];
+        };
+        /**
+         * FormationBlockReason
+         * @enum {string}
+         */
+        FormationBlockReason: "unknown_datum" | "unknown_unit" | "datum_mismatch" | "tvd_conflict" | "no_usable_depth" | "twt_only" | "unsupported_qualifier" | "no_trajectory" | "insufficient_picks" | "collinear_picks" | "outside_support" | "unvalidated_pick";
+        /**
+         * FormationConflict
+         * @description Engine TVD versus source TVD/TVDSS beyond tolerance; never silently resolved (FO-1).
+         */
+        FormationConflict: {
+            /**
+             * Difference
+             * @default null
+             */
+            difference: number | null;
+            /**
+             * Difference Unit
+             * @default null
+             */
+            difference_unit: string | null;
+            /** Message */
+            message: string;
+            /**
+             * Pick Id
+             * Format: uuid
+             */
+            pick_id: string;
+            reason: components["schemas"]["FormationBlockReason"];
+            /** @default null */
+            source_depth: components["schemas"]["DepthValue"] | null;
+            /**
+             * Tolerance
+             * @default null
+             */
+            tolerance: number | null;
+            /** @default null */
+            trajectory_depth: components["schemas"]["DepthValue"] | null;
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+        };
+        /**
+         * FormationFrame
+         * @description Scene frame the layer is expressed in; no datum is assumed.
+         */
+        FormationFrame: {
+            /**
+             * Exaggeration Neutral
+             * @description Geometry is unexaggerated; the viewer applies vertical exaggeration.
+             * @default true
+             */
+            exaggeration_neutral: boolean;
+            /**
+             * Horizontal Crs
+             * @default null
+             */
+            horizontal_crs: string | null;
+            /**
+             * Length Unit
+             * @default m
+             */
+            length_unit: string;
+            /**
+             * Origin Enu
+             * @default null
+             */
+            origin_enu: number[] | null;
+            /**
+             * Tvd Tolerance M
+             * @default null
+             */
+            tvd_tolerance_m: number | null;
+            /**
+             * Vertical Reference
+             * @description Shared vertical reference name; null when unknown or differing.
+             * @default null
+             */
+            vertical_reference: string | null;
+            /** @default unknown */
+            vertical_reference_status: components["schemas"]["DatumStatus"];
+        };
+        /** FormationLayerSet */
+        FormationLayerSet: {
+            /**
+             * Blocked
+             * @description Layer-level blocks, for example differing vertical references.
+             */
+            blocked?: components["schemas"]["FormationBlocked"][];
+            /** Conflicts */
+            conflicts?: components["schemas"]["FormationConflict"][];
+            /**
+             * Empty Reason
+             * @description Set (for example 'no formation picks in this project') when nothing is drawn.
+             * @default null
+             */
+            empty_reason: string | null;
+            frame: components["schemas"]["FormationFrame"];
+            /**
+             * Generated From Revision
+             * @description Cache/revision key of the inputs.
+             */
+            generated_from_revision: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Surfaces */
+            surfaces?: components["schemas"]["FormationSurface"][];
+            /** Unsupported */
+            unsupported?: components["schemas"]["FormationUnsupportedPick"][];
+            /**
+             * Wellbore Id
+             * @description Selected wellbore, or null for the project-wide set.
+             * @default null
+             */
+            wellbore_id: string | null;
+        };
+        /** FormationLinkTarget */
+        FormationLinkTarget: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "formation";
+            /**
+             * Pick Id
+             * @default null
+             */
+            pick_id: string | null;
+            /** Surface Key */
+            surface_key: string;
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
+        };
+        /**
+         * FormationPick
+         * @description A source pick placed at its MD; every source value keeps its own unit and datum.
+         */
+        FormationPick: {
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceLink"][];
+            /**
+             * Extraction Method
+             * @default null
+             */
+            extraction_method: string | null;
+            /**
+             * Label
+             * @default pick - observed
+             */
+            label: string;
+            /** @default null */
+            md: components["schemas"]["DepthValue"] | null;
+            /** Name */
+            name: string;
+            /**
+             * Pick Id
+             * Format: uuid
+             */
+            pick_id: string;
+            /**
+             * Position Enu
+             * @description East/north/up scene position [m] from the trajectory engine; null if unplaced.
+             * @default null
+             */
+            position_enu: number[] | null;
+            /**
+             * Qualifier
+             * @default null
+             */
+            qualifier: string | null;
+            /**
+             * @description Elevation from the trajectory at MD (up-positive scene frame).
+             * @default null
+             */
+            scene_elevation: components["schemas"]["DepthValue"] | null;
+            /** @default null */
+            source_azimuth: components["schemas"]["DepthValue"] | null;
+            /**
+             * @description Unused attribute only; planes stay level.
+             * @default null
+             */
+            source_dip: components["schemas"]["DepthValue"] | null;
+            /** @default observed */
+            status: components["schemas"]["InterpretationStatus"];
+            /** Surface Key */
+            surface_key: string;
+            /** Surface Name */
+            surface_name: string;
+            /** @default T1 */
+            tier: components["schemas"]["FormationTier"];
+            /** @default null */
+            tvd: components["schemas"]["DepthValue"] | null;
+            /** @default null */
+            tvdss: components["schemas"]["DepthValue"] | null;
+            /**
+             * @description Two-way time as stated; never converted to depth geometry.
+             * @default null
+             */
+            twt: components["schemas"]["DepthValue"] | null;
+            validation_state: components["schemas"]["ValidationState"];
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+        };
+        /**
+         * FormationScope
+         * @enum {string}
+         */
+        FormationScope: "wellbore" | "project";
+        /**
+         * FormationSurface
+         * @description One surface at its highest drawable tier; lower tiers are not drawn alongside it.
+         */
+        FormationSurface: {
+            /**
+             * Blocked
+             * @description Reasons the plane/mesh is not drawn; picks may still show.
+             */
+            blocked?: components["schemas"]["FormationBlocked"][];
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceLink"][];
+            /** @default null */
+            mesh: components["schemas"]["SurfaceMesh"] | null;
+            /** Name */
+            name: string;
+            /** Picks */
+            picks?: components["schemas"]["FormationPick"][];
+            /** @default null */
+            plane: components["schemas"]["LevelPlane"] | null;
+            scope: components["schemas"]["FormationScope"];
+            status: components["schemas"]["InterpretationStatus"];
+            /** Surface Key */
+            surface_key: string;
+            tier: components["schemas"]["FormationTier"];
+            /**
+             * Tier Label
+             * @description Always shown, for example 'T2 level plane - illustrative'.
+             */
+            tier_label: string;
+            /** Wellbore Ids */
+            wellbore_ids: string[];
+        };
+        /**
+         * FormationTier
+         * @enum {string}
+         */
+        FormationTier: "T1" | "T2" | "T3" | "T4";
+        /**
+         * FormationUnsupportedPick
+         * @description A pick listed with its qualifier but not drawn (FO-2).
+         */
+        FormationUnsupportedPick: {
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceLink"][];
+            /** Message */
+            message: string;
+            /**
+             * Pick Id
+             * Format: uuid
+             */
+            pick_id: string;
+            /**
+             * Qualifier
+             * @default null
+             */
+            qualifier: string | null;
+            reason: components["schemas"]["FormationBlockReason"];
+            /**
+             * Surface Name
+             * @default null
+             */
+            surface_name: string | null;
+            /**
+             * Wellbore Id
+             * @default null
+             */
+            wellbore_id: string | null;
+        };
+        /**
+         * GapBlock
+         * @description Unavailable data or a refusal, stated rather than invented.
+         */
+        GapBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "gap";
+            reason: components["schemas"]["GapReason"];
+            /** Text */
+            text: string;
+        };
+        /**
+         * GapReason
+         * @enum {string}
+         */
+        GapReason: "no_data" | "out_of_scope" | "refused" | "unavailable" | "draft_only";
         /** GateCondition */
         GateCondition: {
             /** Code */
@@ -3175,6 +4356,11 @@ export interface components {
             kind: "instant";
         };
         /**
+         * InterpretationStatus
+         * @enum {string}
+         */
+        InterpretationStatus: "observed" | "illustrative" | "interpolated" | "source_grid";
+        /**
          * IssueCode
          * @description Registered codes. New producer codes require a shared-contract change.
          * @enum {string}
@@ -3337,10 +4523,44 @@ export interface components {
          * @enum {string}
          */
         LengthUnit: "m" | "ft";
+        /**
+         * LevelPlane
+         * @description T2 level plane: illustrative, at a pick's scene elevation.
+         */
+        LevelPlane: {
+            elevation: components["schemas"]["DepthValue"];
+            footprint: components["schemas"]["PlaneFootprint"];
+            /**
+             * Label
+             * @default level plane - illustrative
+             */
+            label: string;
+            /**
+             * Note
+             * @default not an interpreted horizon
+             */
+            note: string;
+            /**
+             * Source Pick Id
+             * @default null
+             */
+            source_pick_id: string | null;
+            /** @default illustrative */
+            status: components["schemas"]["InterpretationStatus"];
+        };
+        /** LinkBlock */
+        LinkBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "link";
+            link: components["schemas"]["AppLink"];
+        };
         /** Located */
         Located: {
             /** @default MD */
-            depth_reference: components["schemas"]["DepthReference"];
+            depth_reference: components["schemas"]["fieldlens__contracts__asset_spec__DepthReference"];
             /** Md Bottom */
             md_bottom: number;
             /** Md Top */
@@ -4010,6 +5230,159 @@ export interface components {
              * @default null
              */
             table_id: string | null;
+        };
+        /**
+         * PerforatedLengthStep
+         * @description Perforated length that holds from ``effective_at`` until the next step.
+         */
+        PerforatedLengthStep: {
+            /**
+             * Effective At
+             * @default null
+             */
+            effective_at: string | null;
+            /**
+             * Effective Date
+             * @default null
+             */
+            effective_date: string | null;
+            /** Event Ids */
+            event_ids?: string[];
+            /**
+             * Length
+             * @description Null when not computable.
+             * @default null
+             */
+            length: number | null;
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            /**
+             * Unknown Reason
+             * @default null
+             */
+            unknown_reason: string | null;
+        };
+        /**
+         * PerforationEvent
+         * @description Effective time is when the event happened; reported time is when it was recorded/imported.
+         */
+        PerforationEvent: {
+            /**
+             * Base Md
+             * @default null
+             */
+            base_md: number | null;
+            /**
+             * Depth Unit
+             * @default null
+             */
+            depth_unit: string | null;
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /**
+             * Effective At
+             * @default null
+             */
+            effective_at: string | null;
+            /**
+             * Effective Date
+             * @default null
+             */
+            effective_date: string | null;
+            /**
+             * Effective Time Unknown Reason
+             * @default null
+             */
+            effective_time_unknown_reason: string | null;
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceLink"][];
+            kind: components["schemas"]["PerforationEventKind"];
+            /**
+             * Reported At
+             * @default null
+             */
+            reported_at: string | null;
+            /**
+             * Top Md
+             * @default null
+             */
+            top_md: number | null;
+            /**
+             * Validation State
+             * @default null
+             */
+            validation_state: string | null;
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+        };
+        /**
+         * PerforationEventKind
+         * @enum {string}
+         */
+        PerforationEventKind: "perforate" | "squeeze" | "plug" | "isolate" | "reopen" | "completion" | "other";
+        /** PerforationHistory */
+        PerforationHistory: {
+            /**
+             * As Of
+             * @default null
+             */
+            as_of: string | null;
+            /** @default null */
+            empty: components["schemas"]["ChartEmptyState"] | null;
+            /** Events */
+            events?: components["schemas"]["PerforationEvent"][];
+            /**
+             * Length Unit
+             * @default null
+             */
+            length_unit: string | null;
+            /**
+             * Perforated Length At As Of
+             * @default null
+             */
+            perforated_length_at_as_of: number | null;
+            /**
+             * Revision
+             * @default null
+             */
+            revision: string | null;
+            /** Steps */
+            steps?: components["schemas"]["PerforatedLengthStep"][];
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+        };
+        /**
+         * PlaneFootprint
+         * @description Scene-footprint rectangle [m] the plane is bounded to (bounds plus margin).
+         */
+        PlaneFootprint: {
+            /** Margin M */
+            margin_m: number;
+            /** Max East */
+            max_east: number;
+            /** Max North */
+            max_north: number;
+            /** Min East */
+            min_east: number;
+            /** Min North */
+            min_north: number;
         };
         /** ProcessingConfirmRequest */
         ProcessingConfirmRequest: {
@@ -5365,6 +6738,65 @@ export interface components {
          * @enum {string}
          */
         SelectedEntityType: "field" | "well" | "wellbore" | "completion" | "component" | "interval";
+        /**
+         * SeriesAggregates
+         * @description Exact values over full-resolution data, never recomputed from display points (CH-6).
+         */
+        SeriesAggregates: {
+            /**
+             * Basis
+             * @default full_resolution
+             * @constant
+             */
+            basis: "full_resolution";
+            /** Count */
+            count: number;
+            /**
+             * First Valid X
+             * @default null
+             */
+            first_valid_x: number | string | null;
+            /**
+             * Last Valid X
+             * @default null
+             */
+            last_valid_x: number | string | null;
+            /**
+             * Last Value
+             * @default null
+             */
+            last_value: number | null;
+            /**
+             * Maximum
+             * @default null
+             */
+            maximum: number | null;
+            /**
+             * Mean
+             * @default null
+             */
+            mean: number | null;
+            /**
+             * Minimum
+             * @default null
+             */
+            minimum: number | null;
+            /** Null Count */
+            null_count: number;
+            /**
+             * Total
+             * @description Sum, only where summing is meaningful.
+             * @default null
+             */
+            total: number | null;
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            /** Valid Count */
+            valid_count: number;
+        };
         /** SeriesEvidence */
         SeriesEvidence: {
             /** First Source Position */
@@ -5886,6 +7318,29 @@ export interface components {
              */
             timezone: string | null;
         };
+        /**
+         * SourceLinkTarget
+         * @description Opens the source viewer at a page/locator.
+         */
+        SourceLinkTarget: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "source";
+            /** @default null */
+            locator: components["schemas"]["Locator"] | null;
+            /**
+             * Page
+             * @default null
+             */
+            page: number | null;
+        };
         /** SourceRevision */
         SourceRevision: {
             /** @default null */
@@ -6120,6 +7575,58 @@ export interface components {
              * @enum {string}
              */
             state: "surface";
+        };
+        /**
+         * SurfaceMesh
+         * @description T3 interpolated mesh (scene frame, metres), inside the picks' convex hull only.
+         */
+        SurfaceMesh: {
+            /**
+             * Indices
+             * @description Flat vertex index triples.
+             */
+            indices: number[];
+            /**
+             * Method
+             * @description Interpolation method shown on screen.
+             */
+            method: string;
+            /**
+             * Method Version
+             * @default null
+             */
+            method_version: string | null;
+            /** Pick Ids */
+            pick_ids: string[];
+            /**
+             * Positions
+             * @description Flat xyz triples [east, north, up].
+             */
+            positions: number[];
+            /** @default interpolated */
+            status: components["schemas"]["InterpretationStatus"];
+            /**
+             * Support Polygon
+             * @description Convex-hull [east, north] vertices; no extrapolation.
+             */
+            support_polygon: number[][];
+        };
+        /** TextBlock */
+        TextBlock: {
+            /** Citation Markers */
+            citation_markers?: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "text";
+            /** Text */
+            text: string;
+            /**
+             * Unverified Numbers
+             * @description Free-text numbers absent from tool results (flagged).
+             */
+            unverified_numbers?: string[];
         };
         /** TextLocator */
         TextLocator: {
@@ -6454,6 +7961,52 @@ export interface components {
             reason: components["schemas"]["ReasonCode"] | null;
             validator: components["schemas"]["ValidatorName"];
         };
+        /**
+         * ValueBlock
+         * @description A number bound to a tool result; the value comes from the tool, never from the model.
+         */
+        ValueBlock: {
+            /** Citation Markers */
+            citation_markers?: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "value";
+            /** Label */
+            label: string;
+            /**
+             * Reference
+             * @description Datum or index reference, as stated.
+             * @default null
+             */
+            reference: string | null;
+            /**
+             * Result Path
+             * @description Pointer into the tool result.
+             */
+            result_path: string;
+            /**
+             * Tool Call Id
+             * Format: uuid
+             */
+            tool_call_id: string;
+            /**
+             * Unit
+             * @default null
+             */
+            unit: string | null;
+            /**
+             * Unknown Reason
+             * @default null
+             */
+            unknown_reason: string | null;
+            /**
+             * Value
+             * @default null
+             */
+            value: number | null;
+        };
         /** VisualAssetSpec */
         VisualAssetSpec: {
             /** Components */
@@ -6590,6 +8143,60 @@ export interface components {
              */
             wellbore_id: string;
         };
+        /**
+         * WellboreChartSet
+         * @description Charts for one wellbore only; well-level series are labeled and not attributed (XC-1/2).
+         */
+        WellboreChartSet: {
+            /**
+             * Ambiguities
+             * @description Surfaced association ambiguities (never 'first bore').
+             */
+            ambiguities?: string[];
+            /**
+             * As Of
+             * @default null
+             */
+            as_of: string | null;
+            /**
+             * Cache Key
+             * @description Covers wellbore, as-of, window and revision.
+             */
+            cache_key: string;
+            /** Charts */
+            charts?: components["schemas"]["ChartSpec"][];
+            /**
+             * Generated At
+             * @default null
+             */
+            generated_at: string | null;
+            /** Generated From Revision */
+            generated_from_revision: string;
+            /** @default null */
+            perforation_history: components["schemas"]["PerforationHistory"] | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Well Name
+             * @default null
+             */
+            well_name: string | null;
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
+            /**
+             * Wellbore Label
+             * @default null
+             */
+            wellbore_label: string | null;
+            /** @default null */
+            window: components["schemas"]["ChartWindow"] | null;
+        };
         /** WellboreEvidence */
         WellboreEvidence: {
             /** Documents */
@@ -6721,6 +8328,19 @@ export interface components {
             well_key: string | null;
             /** Wellbore Label */
             wellbore_label: string;
+        };
+        /** WellboreLinkTarget */
+        WellboreLinkTarget: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "wellbore";
+            /**
+             * Wellbore Id
+             * Format: uuid
+             */
+            wellbore_id: string;
         };
         /** WellboreTrajectory */
         WellboreTrajectory: {

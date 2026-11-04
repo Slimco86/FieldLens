@@ -22,7 +22,10 @@ from . import (
     activity,
     asset_spec,
     candidates,
+    charts,
+    chat,
     context,
+    context_layers,
     errors,
     evidence,
     exposure,
@@ -65,6 +68,9 @@ _MODULES = (
     reconstruction,
     asset_spec,
     trajectory,
+    context_layers,
+    charts,
+    chat,
 )
 
 
