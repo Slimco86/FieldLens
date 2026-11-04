@@ -75,7 +75,7 @@ def test_tier_and_status_enums() -> None:
     "target",
     [
         {"kind": "source", "document_id": str(DOC), "page": 3},
-        {"kind": "element", "element_id": str(uuid.uuid4())},
+        {"kind": "element", "element_id": "esp-1"},
         {"kind": "wellbore", "wellbore_id": str(uuid.uuid4())},
         {"kind": "formation", "surface_key": "hugin"},
         {

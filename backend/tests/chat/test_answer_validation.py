@@ -251,7 +251,7 @@ def test_element_and_formation_links_without_tool_results_are_dropped() -> None:
     ev, _ = _evidence()
     answer = _validator(ev).validate(
         [
-            _link({"kind": "element", "element_id": str(uuid4())}),
+            _link({"kind": "element", "element_id": "no-such-part"}),
             {"kind": "text", "text": "ok"},
         ]
     )

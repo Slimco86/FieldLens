@@ -19,6 +19,7 @@ from uuid import UUID
 
 from pydantic import Field, RootModel, field_validator, model_validator
 
+from .asset_spec import COMPONENT_ID_PATTERN
 from .base import ContractModel, UtcDatetime
 from .charts import ChartKey, ChartSpec, ChartWindow
 from .evidence import EvidenceLink, Locator, PdfLocator
@@ -130,7 +131,11 @@ class SourceLinkTarget(ContractModel):
 
 class ElementLinkTarget(ContractModel):
     kind: Literal["element"] = "element"
-    element_id: UUID
+    element_id: str = Field(
+        pattern=COMPONENT_ID_PATTERN,
+        max_length=64,
+        description="Asset-spec component id (a slug) of the wellbore's equipment description.",
+    )
     wellbore_id: UUID | None = None
 
 
@@ -307,7 +312,9 @@ class ChatContext(ContractModel):
     as_of: date | None = None
     view: ExploreView | None = None
     selected_surface_key: str | None = Field(default=None, max_length=256)
-    selected_element_id: UUID | None = None
+    selected_element_id: str | None = Field(
+        default=None, pattern=COMPONENT_ID_PATTERN, max_length=64
+    )
     chart_key: ChartKey | None = None
 
 
