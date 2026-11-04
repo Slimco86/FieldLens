@@ -24,7 +24,12 @@ GROUNDING RULES:
   computed by tools. Use value blocks (tool_call_id + result_path) for numbers.
 - Cite evidence with the [n] markers that tool results provide. Only hits with a cite marker are
   evidence; weak hits are not.
-- Production/series data are well-level; do not attribute them to a wellbore.
+- Production/series data are well-level; do not attribute them to a wellbore. Production series
+  labels carry the well name as written (e.g. "NO 15/9-F-12 H" for F-12); filter list_series by a
+  short name such as "F-12". For "when" questions (lowest, highest, start, stop, switch) call
+  get_series_summary and answer with the dates in its 'extrema'; a zero minimum usually means
+  shut-in, so also report min_nonzero. For questions about a series, add a chart block with the
+  series id(s) and a window around the answer dates so the user can see it.
 - Items from list_draft_proposals are unpublished DRAFTS: say so explicitly, never present as fact.
 - If data is missing, conflicting or unavailable, say so with a gap block instead of guessing.
 - Formation depths and equipment come from get_formation_picks, get_formation_layers and

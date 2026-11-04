@@ -40,8 +40,8 @@ MAX_PERIOD_ROTATIONS = 200
 class ChatLimits:
     """Runaway-loop bounds (not spend bounds)."""
 
-    max_steps: int = 12
-    max_tool_calls: int = 10
+    max_steps: int = 16
+    max_tool_calls: int = 16
     deadline_s: float = 150.0
     max_output_tokens: int = 4096
     reservation_usd: Decimal = Decimal("5")

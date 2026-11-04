@@ -70,6 +70,7 @@ class SeriesService:
         project_id: UUID,
         *,
         wellbore_label: str | None = None,
+        wellbore_label_token: str | None = None,
         kind: SeriesKind | None = None,
         mnemonic: str | None = None,
         document_id: UUID | None = None,
@@ -83,6 +84,10 @@ class SeriesService:
             where = _visible(project_id)
             if wellbore_label is not None:
                 where.append(series_axis.c.wellbore_label == wellbore_label)
+            if wellbore_label_token is not None:
+                # "F-12" matches "NO 15/9-F-12 H" but not "F-120"; case-insensitive.
+                pattern = r"(^|[^0-9A-Za-z])" + re.escape(wellbore_label_token) + r"([^0-9]|$)"
+                where.append(series_axis.c.wellbore_label.op("~*")(pattern))
             if kind is not None:
                 where.append(series_axis.c.kind == kind.value)
             if mnemonic is not None:

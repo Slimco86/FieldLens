@@ -8,6 +8,22 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.56.0 - 2026-11-04
+
+### Added
+
+- Assistant answers "when" questions with exact dates: `get_series_summary` now returns the dates of the minimum and maximum, the lowest non-zero value with its date, and the first/last non-zero dates, from full-resolution samples (TASK-116).
+- Collapsible project sidebar on desktop (header toggle, remembered per browser) (TASK-116).
+
+### Fixed
+
+- Assistant series lookup matches a short well name token ("F-12" finds "NO 15/9-F-12 H"); rejected tool arguments return field-level problems to the model instead of a bare "invalid arguments"; chat budget raised to 16 steps / 16 tool calls (TASK-116).
+- Sources keeps refreshing the file table while native extraction is still pending, so statuses no longer stay "Pending" until a reload (TASK-116).
+
+### Known limitations
+
+- Verified by the existing chat/series/upload test suites and live assistant checks against the raw production data; no new dedicated tests were added (owner decision for the demo deadline).
+
 ## 0.55.0 - 2026-11-04
 
 ### Added
