@@ -4,6 +4,12 @@
   gap: var(--fl-space-md);
   font-size: var(--fl-font-size-sm);
 }
+.notDrawn {
+  font-size: var(--fl-font-size-sm);
+}
+.notDrawn summary {
+  cursor: pointer;
+}
 .heading {
   margin: 0;
   font-size: var(--fl-font-size-lg);

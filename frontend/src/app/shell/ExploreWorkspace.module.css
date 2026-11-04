@@ -1,18 +1,25 @@
 .workspace {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--fl-space-md);
   min-width: 0;
 }
+.assistantSlot {
+  display: contents;
+}
 .row {
   display: grid;
   /* Named columns: absent regions simply leave their column at zero width. */
   grid-template-columns: [tree] auto [stage] minmax(0, 1fr) [inspector] auto;
+  grid-template-rows: minmax(0, 1fr);
   grid-auto-flow: row;
   align-items: stretch;
   gap: var(--fl-space-md);
   min-width: 0;
-  min-height: var(--fl-layout-stage-min);
+  /* Fixed, window-bounded height: content in any column can never stretch the canvas; columns scroll inside. */
+  height: max(28rem, calc(100dvh - 14rem));
+  min-height: 0;
 }
 .region {
   position: relative;
@@ -47,6 +54,8 @@
 @media (max-width: 60em) {
   .row {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    height: auto;
     min-height: 0;
   }
   .tree,
@@ -58,8 +67,12 @@
     grid-row: auto;
     width: auto;
   }
+  .tree,
+  .inspector {
+    max-height: 60dvh;
+  }
   .stage {
-    min-height: var(--fl-layout-stage-min);
+    height: max(var(--fl-layout-stage-min), 70dvh);
   }
   .tree.collapsed .bar,
   .inspector.collapsed .bar {
@@ -102,8 +115,9 @@
 }
 .stage .body {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
+  overflow: hidden;
   padding: var(--fl-space-md);
 }
 .stageSwitch {

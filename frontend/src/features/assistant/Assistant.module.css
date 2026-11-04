@@ -1,7 +1,11 @@
 .srOnly { position: absolute; width: var(--fl-border-width); height: var(--fl-border-width); overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.launcher { display: inline-flex; align-items: center; gap: var(--fl-space-sm); padding: var(--fl-space-xs) var(--fl-space-md); border: var(--fl-border-width) solid var(--fl-color-border-strong); border-radius: var(--fl-radius-lg); background: var(--fl-color-surface); color: var(--fl-color-text); cursor: pointer; }
-.panel { display: flex; flex-direction: column; gap: var(--fl-space-sm); padding: var(--fl-space-sm) var(--fl-space-md); height: 100%; min-height: 0; overflow: hidden; color: var(--fl-color-text); background: var(--fl-color-surface); }
-.expanded { position: fixed; inset: var(--fl-space-lg); z-index: 300; height: auto; border: var(--fl-border-width) solid var(--fl-color-border-strong); border-radius: var(--fl-radius-lg); box-shadow: var(--fl-shadow-md); }
+/* Collapsed: a round avatar button at the bottom-left of the Explore workspace (the nearest positioned ancestor). */
+.launcher { position: absolute; left: var(--fl-space-md); bottom: var(--fl-space-md); z-index: 40; display: inline-flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; padding: 0; border: var(--fl-border-width) solid var(--fl-color-brand); border-radius: 50%; background: var(--fl-color-surface); color: var(--fl-color-text); cursor: pointer; box-shadow: var(--fl-shadow-md); }
+.launcher:focus-visible { outline: var(--fl-focus-ring-width) solid var(--fl-color-focus-ring); outline-offset: var(--fl-focus-ring-offset); }
+/* Expanded: overlay over the Explore area, full width, half the viewport height; the log scrolls, the composer stays pinned. */
+.panel { position: absolute; left: 0; right: 0; bottom: 0; z-index: 50; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--fl-space-sm); padding: var(--fl-space-sm) var(--fl-space-md); height: 50dvh; min-height: 0; overflow: hidden; color: var(--fl-color-text); background: var(--fl-color-surface); border: var(--fl-border-width) solid var(--fl-color-border-strong); border-radius: var(--fl-radius-lg); box-shadow: var(--fl-shadow-md); }
+.expanded { position: fixed; inset: var(--fl-space-lg); z-index: 300; height: auto; }
+.composer { flex: none; }
 .header { display: flex; align-items: center; gap: var(--fl-space-sm); flex-wrap: wrap; }
 .title { margin: 0; font-size: var(--fl-font-size-lg); }
 .title:focus-visible, .log:focus-visible { outline: var(--fl-focus-ring-width) solid var(--fl-color-focus-ring); outline-offset: var(--fl-focus-ring-offset); }
@@ -33,10 +37,12 @@
 .avatarStroke { fill: none; stroke: var(--fl-color-brand-text); stroke-width: 2; stroke-linecap: round; }
 .avatarAntenna, .avatarEyes, .avatarMouth, .avatarMouthDot { fill: var(--fl-color-brand-text); }
 @media (prefers-reduced-motion: no-preference) {
+  .pulse { animation: launcherPulse 2s ease-in-out infinite; }
   .avatar[data-motion="animated"][data-state="thinking"] .avatarMouthDot { animation: avatarPulse 1s ease-in-out infinite; }
   .avatar[data-motion="animated"][data-state="idle"] .avatarEyes { animation: avatarBlink 5s steps(1) infinite; transform-origin: 50% 50%; }
   .avatar[data-motion="animated"][data-state="answering"] .avatarMouth { animation: avatarTalk 0.6s ease-in-out infinite; transform-origin: 50% 50%; transform-box: fill-box; }
 }
+@keyframes launcherPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--fl-color-brand-soft); } 50% { box-shadow: 0 0 0 0.5rem var(--fl-color-brand-soft); opacity: 0.75; } }
 @keyframes avatarPulse { 50% { opacity: 0.2; } }
 @keyframes avatarBlink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
 @keyframes avatarTalk { 50% { transform: scaleY(0.4); } }
