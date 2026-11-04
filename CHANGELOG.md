@@ -8,6 +8,12 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.54.2 - 2026-11-04
+
+### Fixed
+
+- Assistant launcher is now a single project-level control fixed at the bottom-right of the screen, present on every project tab and keeping its conversation across tab switches; links clicked on another tab switch to Explore first (TASK-114).
+
 ## 0.54.1 - 2026-11-04
 
 ### Fixed
