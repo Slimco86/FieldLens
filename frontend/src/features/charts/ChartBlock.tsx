@@ -1,10 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Callout, EmptyState } from "../../design";
 import { useExploreCommandBus } from "../scene/ExploreCommandsContext";
 import type { ExploreCommandBus, ExploreCommandOutcome } from "../scene/exploreCommands";
 import { normalizeChart, type ChartSeriesScope, type ChartSpec, type ChartSpecWire } from "./api";
 import { createChartCursorStore, useChartCursorStore, windowBoundToIsoDate, type CursorWindow } from "./chartCursor";
-import { buildChartOption } from "./chartOption";
+import { buildChartOption, type ChartBuild } from "./chartOption";
+import type { EChartsCoreOption } from "echarts/core";
 import { describeWindow, pointRows, seriesRows, summarizeChart } from "./chartTable";
 import { evidenceLabel, openEvidence, OPEN_RESULT_MESSAGE, type OpenSourceResult } from "./evidence";
 import { loadEcharts } from "./loadEcharts";
@@ -30,6 +31,18 @@ const EMPTY_TITLE: Record<string, string> = {
 };
 
 const PAGE = 100;
+const OVERVIEW_LEGEND = 3;
+
+/** Overview density: compact non-scrolling legend (first few series) and a tighter bottom margin. */
+function overviewOption(build: ChartBuild): EChartsCoreOption {
+  const o = build.option as Record<string, unknown>;
+  const legend = (o.legend ?? {}) as { data?: string[] };
+  return {
+    ...o,
+    grid: { ...(o.grid as Record<string, unknown>), bottom: 28 },
+    legend: { ...legend, type: "plain", data: (legend.data ?? []).slice(0, OVERVIEW_LEGEND), itemWidth: 14, itemHeight: 8 },
+  };
+}
 const ZOOM_STEP = 0.5;
 
 function ScopeBadge({ scope }: { scope: ChartSeriesScope }) {
@@ -52,8 +65,14 @@ function distinctScopes(spec: ChartSpec): ChartSeriesScope[] {
 
 export interface ChartBlockProps {
   spec: ChartSpecWire;
-  /** Plot height in px (default 280). */
-  height?: number;
+  /** Plot height: a number is px (default 280); a string is any CSS length (e.g. "13rem", "65dvh"). */
+  height?: number | string;
+  /** `detail` (default) is the full card; `overview` is the light grid card (no toolbar, table, sources, notes). */
+  variant?: "overview" | "detail";
+  /** Extra control rendered in the header (the overview's expand button). */
+  headerAction?: ReactNode;
+  /** True for the modal copy: it does not claim the data-chart-key used to focus a block. */
+  inDialog?: boolean;
   /** Heading level of the title (default 3). */
   headingLevel?: 2 | 3 | 4;
   /** Overrides the Explore command bus (tests, the assistant). Null = no viewer. */
@@ -75,12 +94,16 @@ const SHOW_RESULT: Record<ExploreCommandOutcome, string> = {
  * any provider. The chart instance and its listeners are disposed on unmount; resizing follows a ResizeObserver
  * (so a chart revealed from a hidden Split/Charts pane redraws at its real size).
  */
-export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, commandBus, wellboreId = null }: ChartBlockProps) {
+export function ChartBlock({ spec: wire, height = 280, variant = "detail", headerAction, inDialog = false, headingLevel = 3, commandBus, wellboreId = null }: ChartBlockProps) {
+  const overview = variant === "overview";
   const spec = useMemo(() => normalizeChart(wire), [wire]);
   const uid = useId();
   const build = useMemo(() => buildChartOption(spec), [spec]);
   const buildRef = useRef(build);
   buildRef.current = build;
+  const optionOf = (b: ChartBuild | null): EChartsCoreOption => (b === null ? {} : overview ? overviewOption(b) : b.option);
+  const optionRef = useRef(optionOf);
+  optionRef.current = optionOf;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ECharts | null>(null);
   const range = useRef({ start: 0, end: 100 });
@@ -113,7 +136,7 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
         if (cancelled) return;
         chart = rt.init(host, undefined, { renderer: "canvas" });
         chartRef.current = chart;
-        chart.setOption(buildRef.current?.option ?? {}, true);
+        chart.setOption(optionRef.current(buildRef.current), true);
         chart.on("datazoom", (e: unknown) => {
           const ev = e as { start?: number; end?: number; batch?: { start?: number; end?: number }[] };
           const z = ev.batch?.[0] ?? ev;
@@ -166,7 +189,7 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
   // New spec on a live instance: replace, never merge (no stale series under a new label).
   useEffect(() => {
     const chart = chartRef.current;
-    if (chart !== null && build !== null && engine === "ready") chart.setOption(build.option, true);
+    if (chart !== null && build !== null && engine === "ready") chart.setOption(optionRef.current(build), true);
   }, [build, engine]);
 
   function zoomTo(start: number, end: number): void {
@@ -205,6 +228,20 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
   const fmtBound = (n: number) => (cursorAxis === "time" ? windowBoundToIsoDate(n) : String(Math.round(n * 100) / 100));
   const sources = spec.series.flatMap((s) => s.evidence.map((ev, i) => ({ s, ev, key: `${s.series_key}:${i}` })));
 
+  // Overview status line: one compact summary so nothing material is silently dropped.
+  const gapTotal = rows.reduce((n, r) => n + r.gaps, 0);
+  const sourceCount = sources.length + spec.evidence.length;
+  const hiddenItems = spec.notes.length + spec.excluded_series.length + ambiguities.length;
+  const legendCount = ((build?.option as { legend?: { data?: string[] } } | undefined)?.legend?.data ?? []).length;
+  const statusText = [
+    `${spec.series.length} series${legendCount > OVERVIEW_LEGEND ? ` (legend shows ${OVERVIEW_LEGEND}, +${legendCount - OVERVIEW_LEGEND})` : ""}`,
+    `${gapTotal} gaps`,
+    spec.excluded_series.length > 0 ? `${spec.excluded_series.length} excluded` : null,
+    sourceCount > 0 ? `sources ${sourceCount}` : "no source link",
+  ]
+    .filter((x): x is string => x !== null)
+    .join(" · ");
+
   const [showMsg, setShowMsg] = useState<string | null>(null);
   const topWellbore = spec.scope.wellbore_id ?? spec.series.find((s) => s.scope.wellbore_id)?.scope.wellbore_id ?? wellboreId;
   // Only reference lines carry a formation reference (pick_id / surface_key); points and perforations carry none.
@@ -226,7 +263,7 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
   }
 
   return (
-    <section className={styles.block} aria-labelledby={`${uid}-t`} data-chart-key={spec.key} data-chart-id={spec.chart_id} data-testid={`chart-${spec.chart_id}`}>
+    <section className={styles.block} aria-labelledby={`${uid}-t`} data-chart-key={inDialog ? undefined : spec.key} data-variant={variant} data-chart-id={spec.chart_id} data-testid={`chart-${spec.chart_id}`}>
       <header className={styles.head}>
         <Heading id={`${uid}-t`} className={styles.title}>
           {spec.title}
@@ -236,13 +273,16 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
             <ScopeBadge key={`${sc.scope}:${sc.wellbore_id ?? ""}:${sc.scope_label}`} scope={sc} />
           ))}
         </span>
-        <span className={styles.meta}>
-          {asOf} · {windowText}
-          {sel !== null && ` · Selected ${fmtBound(sel.from)} to ${fmtBound(sel.to)}`}
-        </span>
+        {!overview && (
+          <span className={styles.meta}>
+            {asOf} · {windowText}
+            {sel !== null && ` · Selected ${fmtBound(sel.from)} to ${fmtBound(sel.to)}`}
+          </span>
+        )}
+        {headerAction}
       </header>
 
-      {ambiguities.map((a) => (
+      {!overview && ambiguities.map((a) => (
         <Callout key={a} tone="warning" role="status" title="Association is ambiguous">
           {a}
         </Callout>
@@ -252,7 +292,7 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
         <EmptyState title={EMPTY_TITLE[spec.empty.reason] ?? "No chart"}>{spec.empty.message}</EmptyState>
       ) : (
         <>
-          {zoomable && (
+          {zoomable && !overview && (
             <div className={styles.toolbar} role="group" aria-label={`${spec.title} zoom`}>
               <button type="button" onClick={zoomIn}>Zoom in</button>
               <button type="button" onClick={zoomOut}>Zoom out</button>
@@ -261,14 +301,14 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
               <button type="button" onClick={() => zoomTo(0, 100)}>Reset zoom</button>
             </div>
           )}
-          <div className={styles.plotWrap} style={{ height }}>
+          <div className={styles.plotWrap} style={{ height }} data-variant={variant}>
             <div ref={hostRef} className={styles.plot} role="img" aria-label={summary} data-engine={engine} />
             {engine === "loading" && <p className={styles.overlay} role="status">Loading chart…</p>}
             {engine === "failed" && <p className={styles.overlay} role="alert">The chart renderer could not be loaded. The data table below still has every value.</p>}
           </div>
           <p className={styles.srOnly}>{summary}</p>
 
-          {tops.length > 0 && (
+          {!overview && tops.length > 0 && (
             <ul className={styles.tops} aria-label={`${spec.title} formation tops`}>
               {tops.map(({ r, formationId }) => (
                 <li key={`${r.axis_id}:${formationId}:${r.value}`}>
@@ -281,13 +321,24 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
               ))}
             </ul>
           )}
-          <p className={styles.srOnly} role="status" aria-live="polite">{showMsg ?? ""}</p>
-          {showMsg !== null && !showMsg.endsWith(SHOW_RESULT.handled) && <Callout tone="warning">{showMsg}</Callout>}
+          {!overview && <p className={styles.srOnly} role="status" aria-live="polite">{showMsg ?? ""}</p>}
+          {!overview && showMsg !== null && !showMsg.endsWith(SHOW_RESULT.handled) && <Callout tone="warning">{showMsg}</Callout>}
 
-          <button type="button" className={styles.disclose} aria-expanded={tableOpen} aria-controls={`${uid}-tbl`} onClick={() => setTableOpen((o) => !o)}>
+          {overview && (
+            <p className={styles.statusLine} data-testid={`status-${spec.chart_id}`}>
+              {statusText}
+              {hiddenItems > 0 && (
+                <span className={styles.infoBadge} title="Open the expanded chart for notes, exclusions and sources" aria-label={`${hiddenItems} note${hiddenItems === 1 ? "" : "s"}, exclusion${hiddenItems === 1 ? "" : "s"} or caveat${hiddenItems === 1 ? "" : "s"}: open the expanded chart`}>
+                  ⓘ {hiddenItems}
+                </span>
+              )}
+            </p>
+          )}
+
+          {!overview && <button type="button" className={styles.disclose} aria-expanded={tableOpen} aria-controls={`${uid}-tbl`} onClick={() => setTableOpen((o) => !o)}>
             {tableOpen ? "Hide data table" : "Show data table"}
-          </button>
-          {tableOpen && (
+          </button>}
+          {!overview && tableOpen && (
             <div id={`${uid}-tbl`} className={styles.tables}>
               <table className={styles.table}>
                 <caption>Series summary for {spec.title} (exact values over the full record)</caption>
@@ -337,7 +388,7 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
             </div>
           )}
 
-          <details className={styles.sources}>
+          {!overview && <details className={styles.sources}>
             <summary>Sources ({sources.length + spec.evidence.length})</summary>
             {sources.length + spec.evidence.length === 0 && <p>No source link is recorded for this chart.</p>}
             <ul>
@@ -358,13 +409,13 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
                 </li>
               ))}
             </ul>
-          </details>
-          <p className={styles.srOnly} role="status" aria-live="polite">{openMsg === null ? "" : OPEN_RESULT_MESSAGE[openMsg]}</p>
-          {openMsg !== null && openMsg !== "opened" && <Callout tone="warning">{OPEN_RESULT_MESSAGE[openMsg]}</Callout>}
+          </details>}
+          {!overview && <p className={styles.srOnly} role="status" aria-live="polite">{openMsg === null ? "" : OPEN_RESULT_MESSAGE[openMsg]}</p>}
+          {!overview && openMsg !== null && openMsg !== "opened" && <Callout tone="warning">{OPEN_RESULT_MESSAGE[openMsg]}</Callout>}
         </>
       )}
 
-      {spec.excluded_series.length > 0 && (
+      {!overview && spec.excluded_series.length > 0 && (
         <Callout tone="neutral" title="Left out of this chart">
           <ul>
             {spec.excluded_series.map((x, i) => (
@@ -373,7 +424,7 @@ export function ChartBlock({ spec: wire, height = 280, headingLevel = 3, command
           </ul>
         </Callout>
       )}
-      {spec.notes.length > 0 && (
+      {!overview && spec.notes.length > 0 && (
         <ul className={styles.notes}>
           {spec.notes.map((n, i) => (
             <li key={i}>{n}</li>

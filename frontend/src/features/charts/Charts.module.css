@@ -32,8 +32,74 @@
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
   gap: var(--fl-space-md);
+  grid-auto-rows: 1fr;
+}
+.cell {
+  display: flex;
+  min-width: 0;
+}
+.cell > .block {
+  flex: 1;
+}
+.notices {
+  font-size: var(--fl-font-size-sm);
+}
+.notices > summary {
+  cursor: pointer;
+}
+.noticeBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fl-space-sm);
+  margin-top: var(--fl-space-sm);
+}
+.statusLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fl-space-xs) var(--fl-space-sm);
+  align-items: center;
+  margin: 0;
+  color: var(--fl-color-text-muted);
+  font-size: var(--fl-font-size-sm);
+}
+.infoBadge {
+  padding: 0 var(--fl-space-xs);
+  border: var(--fl-border-width) solid var(--fl-color-border-strong);
+  border-radius: var(--fl-radius-xs);
+  background: var(--fl-color-surface-sunken);
+  color: var(--fl-color-text);
+}
+.expand {
+  margin-left: auto;
+}
+.dialog {
+  width: 96dvw;
+  max-width: 96dvw;
+  height: 94dvh;
+  max-height: 94dvh;
+  padding: var(--fl-space-md);
+  border: var(--fl-border-width) solid var(--fl-color-border-strong);
+  border-radius: var(--fl-radius-md);
+  background: var(--fl-color-surface);
+  color: inherit;
+  overflow: auto;
+}
+.dialogBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fl-space-md);
+  margin-bottom: var(--fl-space-sm);
+}
+.dialogTitle {
+  font-size: var(--fl-font-size-md);
+  font-weight: 600;
+}
+.dialogBody .block {
+  border: 0;
+  padding: 0;
 }
 .block {
   display: flex;
