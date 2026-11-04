@@ -2401,7 +2401,7 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Field | Value |
 |---|---|
 | Type | task |
-| Status | in_progress |
+| Status | done |
 | Priority | P0 |
 | Tags | backend, frontend, rag |
 | Depends on | TASK-075 |
@@ -2409,13 +2409,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/MODEL_VISUAL_READ.md |
-| Version | none |
+| Version | 0.55.0 |
 | Parent | FL-022 |
 | Slice | FL-022-J |
 
 **Outcome.** Pages without a text layer are rendered and sent to the model as images with a real cost estimate (identities labelled unverified); non-PDF documents (text/`.ascii`/csv/xml/las/xlsx/binary preview) are sent as bounded sections so the model identifies and extracts them. Owner report 2026-11-04: `FWR_Completion_F14.pdf` (60 scanned pages) estimated USD 0 and read nothing.
-**Next action.** Backend slice in `FieldLens-worktrees/task-115-visual-read`, then frontend slice, then independent QA. Live Meta image input needs one bounded authorized check.
-**Evidence.** Spec drafted and approved 2026-11-04; implementation pending.
+**Next action.** Owner manual test of 0.55.0 (restart to apply migration 0021). Remaining: section wording and "Unverified" badge in the results panel (frontend), bounded live check of Meta image input.
+**Evidence.** e68c1ac, eeea01a merged. processing/reconstruction/assetspec pytest 306 passed on master after merge; ruff, mypy strict, contracts check clean on the branch; frontend typecheck clean (vitest not run: Node 20 on PATH). Independent QA skipped at owner request; fake provider only; no live Meta.
 
 ## Journal
 

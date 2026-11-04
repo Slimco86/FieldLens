@@ -149,8 +149,10 @@ export function ProcessEstimateDialog({
             {noText.length > 0 && (
               <Callout tone="warning" role="status">
                 <p>
-                  {noText.length} of {e.pages} selected pages have no text layer (page{noText.length === 1 ? "" : "s"} {noText.join(", ")}); OCR is not
-                  available, so they send nothing and cost nothing.
+                  {noText.length} of {e.pages} selected pages have no text layer (page{noText.length === 1 ? "" : "s"} {noText.join(", ")}).
+                  {(e.image_pages ?? []).length > 0
+                    ? ` ${(e.image_pages ?? []).length} will be read visually as page images and are included in the estimate; names read from images are shown as unverified.`
+                    : " They cannot be rendered, so they send nothing and cost nothing."}
                 </p>
               </Callout>
             )}

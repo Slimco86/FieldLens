@@ -8,6 +8,18 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.55.0 - 2026-11-04
+
+### Added
+
+- Model processing reads scanned PDF pages visually: pages without a text layer are rendered and sent as images, with an image-token cost in the estimate. Names read from images are stored as proposals marked "read from image, unverified" and never auto-link (TASK-115).
+- Non-PDF documents (text including `.ascii`/extension-less/any text-decodable file, csv, xml, las, xlsx, and a bounded binary preview) can be estimated and read by the model as sections (TASK-115).
+- New setting `FIELDLENS_PROCESSING_IMAGES_PER_CALL` (default 4); migration 0021 adds `read_mode` columns; prompt version `doc-identity-2`. A legacy empty "no text layer" result is no longer a cache hit.
+
+### Known limitations
+
+- Live Meta image input is not verified; the processing dialog's section wording and the "unverified" badge in the results panel are not yet implemented (only the estimate callout wording changed).
+
 ## 0.54.2 - 2026-11-04
 
 ### Fixed
