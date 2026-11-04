@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["project_id"],
             ["project.project_id"],
-            name=F("fk_chat_conversation_project_id_project"),
+            name=F("fk_chat_conversation_project_id"),
         ),
         sa.UniqueConstraint(
             "project_id", "conversation_id", name=F("uq_chat_conversation_project_scope")
