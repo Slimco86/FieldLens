@@ -117,7 +117,7 @@ export function FormationLayer({ ctx, data, store }: FormationLayerProps) {
 
   if (data === null || !opts.visible) return null;
   return (
-    <group name="formation-layer" userData={{ layer: "formations", planesScale: "physical", markerExaggeration: ctx.exaggeration }}>
+    <group name="formation-layer" userData={{ fitIgnore: true, layer: "formations", planesScale: "physical", markerExaggeration: ctx.exaggeration }}>
       {scene.planes.map((p, i) => {
         const r = planeResources[i];
         if (!r || !shown(p.surfaceKey)) return null;

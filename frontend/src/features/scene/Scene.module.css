@@ -2,6 +2,8 @@
   position: relative;
   flex: 1 1 auto;
   min-height: max(var(--fl-layout-stage-min), 72vh);
+  /* Never content-driven: tall side lists must not stretch the canvas (stale framing, blank view). */
+  max-height: max(var(--fl-layout-stage-min), 90vh);
   align-self: stretch;
   width: 100%;
   overflow: hidden;

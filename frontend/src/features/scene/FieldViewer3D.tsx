@@ -17,6 +17,7 @@ import { instanceCounts, lodFor, type FieldPlan, type FieldWell, type Lod } from
 import { useExploreCommandHandlers } from "./ExploreCommandsContext";
 import { poseFromPositions, type V3 } from "./cameraPath";
 import { CameraRig } from "./cameraRig";
+import { fitDistance, shouldAutoFit } from "./frameFit";
 import { RENDER_ORIGIN, renderLayers, type SceneLayerContext, type SceneLayers } from "./sceneLayers";
 import { makeFocusFormationHandler, type ResolveFormationFocus } from "./formationFocus";
 import styles from "./Scene.module.css";
@@ -399,16 +400,17 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
     return () => focused.lib.dispose();
   }, [focused]);
 
+  // The size is read through a ref: a canvas resize must not rebuild `frame` and so must not re-run the
+  // initial-framing effect (a stale re-fit after the canvas changed height was the "camera shifts" bug).
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
   const frame = useMemo(
     () => ({
       go(center: THREE.Vector3, radius: number, instant: boolean) {
         if (ctl === null) return;
         const cam = camera as THREE.PerspectiveCamera;
         const dir = toV3(DEFAULT_DIR);
-        const fov = (cam.fov * Math.PI) / 180;
-        const aspect = size.width / Math.max(1, size.height);
-        const fit = Math.max(1, 1 / Math.min(1, aspect));
-        const dist = Math.max(2.5, (radius / Math.sin(fov / 2)) * 1.1 * Math.min(fit, 1.6));
+        const dist = fitDistance(radius, cam.fov, sizeRef.current.width, sizeRef.current.height, 1.1);
         rig.sync({ position: toV3(cam.position), target: toV3(ctl.target) });
         const applied = rig.fly({ target: toV3(center), dir, range: dist }, { instant: instant || reducedMotion() || first.current });
         first.current = false;
@@ -420,7 +422,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
         invalidate();
       },
     }),
-    [camera, ctl, size.width, size.height, rig],
+    [camera, ctl, rig],
   );
 
   const fieldSphere = useMemo(() => {
@@ -460,7 +462,7 @@ function FieldContents({ plan, selectedId, onActivate, commands, layerRef, label
   // framing follows the plan (specs arrive one by one) until the user moves the camera.
   const initial = useRef(selectedId);
   useEffect(() => {
-    if (ctl === null || userMoved.current) return;
+    if (!shouldAutoFit(userMoved.current, ctl !== null)) return;
     const id = initial.current;
     const w = id === null ? undefined : plan.byId.get(id);
     if (w !== undefined) frame.go(new THREE.Vector3(w.position[0], -focusDrop(plan, w), w.position[2]), focusRadius(plan, w), true);

@@ -13,6 +13,7 @@ import type { SceneElement, SceneModel } from "./sceneModel";
 import { useExploreCommandBus, useExploreCommandHandlers } from "./ExploreCommandsContext";
 import { arrivalPose, normalize, type OrbitPose, type V3 } from "./cameraPath";
 import { CameraRig } from "./cameraRig";
+import { fitDistance } from "./frameFit";
 import { buildFlyOverPlan, FlyOverPlayer, type FlyOverStatus } from "./flyOverPlan";
 import { RENDER_ORIGIN, renderLayers, type SceneLayerContext, type SceneLayers } from "./sceneLayers";
 import { makeFocusFormationHandler, type ResolveFormationFocus } from "./formationFocus";
@@ -389,6 +390,8 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onFlyOv
     return true;
   };
 
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
   const frame = useMemo(
     () => ({
       go(t: ViewTarget, opts: { keepTour?: boolean; durationS?: number } = {}) {
@@ -404,10 +407,8 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onFlyOv
         const cam = camera as THREE.PerspectiveCamera;
         const here = cam.position.clone().sub(ctl.target);
         const preferred = t.keepDirection && here.lengthSq() > 1e-12 ? toV3(here.normalize()) : toV3(DEFAULT_DIR);
-        const fov = (cam.fov * Math.PI) / 180;
-        const aspect = size.width / Math.max(1, size.height);
-        const fit = Math.max(1, 1 / Math.min(1, aspect));
-        const fitRange = Math.max(2.5, (t.radius / Math.sin(fov / 2)) * 1.15 * Math.min(fit, 1.6));
+        const aspect = sizeRef.current.width > 0 && sizeRef.current.height > 0 ? sizeRef.current.width / sizeRef.current.height : 1;
+        const fitRange = fitDistance(t.radius, cam.fov, sizeRef.current.width, sizeRef.current.height, 1.15);
         let to: OrbitPose;
         if (t.md !== undefined && model.path.available) {
           // CM-2: face the trajectory (>= 35 degrees off its tangent) with a window of it in view.
@@ -430,7 +431,7 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onFlyOv
         invalidate();
       },
     }),
-    [camera, ctl, size.width, size.height, model.path, rig],
+    [camera, ctl, model.path, rig],
   );
 
   useEffect(() => {
