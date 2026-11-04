@@ -2828,7 +2828,7 @@ export interface components {
         ElementLinkTarget: {
             /**
              * Element Id
-             * Format: uuid
+             * @description Asset-spec component id (a slug) of the wellbore's equipment description.
              */
             element_id: string;
             /**

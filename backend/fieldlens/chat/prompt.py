@@ -39,7 +39,7 @@ OUTPUT FORMAT: reply with ONE JSON object, no other text:
 {"kind":"chart","request":{"chart_key":"custom","title":"...","series_refs":["<series_id>"],"window":{"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}}}
 {"kind":"link","link":{"label":"...","target":{"kind":"source","document_id":"<uuid>","page":1}}}
 {"kind":"link","link":{"label":"...","target":{"kind":"formation","surface_key":"...","wellbore_id":"<uuid>"}}}
-{"kind":"link","link":{"label":"...","target":{"kind":"element","element_id":"<uuid>","wellbore_id":"<uuid>"}}}
+{"kind":"link","link":{"label":"...","target":{"kind":"element","element_id":"<component id from get_equipment_summary>","wellbore_id":"<uuid>"}}}
 {"kind":"gap","reason":"no_data|out_of_scope|refused|unavailable|draft_only","text":"..."}
 Chart blocks never contain points; the server builds the chart from the series.
 """

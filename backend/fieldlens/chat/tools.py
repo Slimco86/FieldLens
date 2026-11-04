@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
-from uuid import UUID, uuid4, uuid5
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
@@ -648,12 +648,8 @@ def _placement(c: AssetComponent) -> dict[str, Any]:
     return {"state": "unlocated", "reason": p.reason or "placement unknown"}
 
 
-def _component(
-    ctx: ToolContext, spec_id: UUID, wellbore_id: UUID, c: AssetComponent
-) -> dict[str, Any]:
-    element_id = element_uuid(spec_id, c.id)
-    ctx.evidence.elements.add(element_id)
-    ctx.evidence.element_wellbores[element_id] = wellbore_id
+def _component(ctx: ToolContext, wellbore_id: UUID, c: AssetComponent) -> dict[str, Any]:
+    ctx.evidence.element_wellbores.setdefault(c.id, set()).add(wellbore_id)
     sources: list[dict[str, Any]] = []
     for ref in c.evidence[:3]:
         if ref.document_id is not None:
@@ -676,7 +672,7 @@ def _component(
             if q is not None
         }
     return {
-        "element_id": str(element_id),
+        "element_id": c.id,
         "component_id": c.id,
         "kind": c.kind.value,
         "label": c.label,
@@ -689,11 +685,6 @@ def _component(
     }
 
 
-def element_uuid(spec_id: UUID, component_id: str) -> UUID:
-    """Stable id of one spec component (component ids are slugs; links carry a UUID)."""
-    return uuid5(spec_id, component_id)
-
-
 def _equipment_summary(ctx: ToolContext, args: WellboreArgs) -> dict[str, Any]:
     try:
         with session_scope(ctx.factory) as s:
@@ -704,9 +695,7 @@ def _equipment_summary(ctx: ToolContext, args: WellboreArgs) -> dict[str, Any]:
         raise
     spec = rec.spec
     ctx.evidence.wellbores.add(args.wellbore_id)
-    components = [
-        _component(ctx, rec.spec_id, args.wellbore_id, c) for c in spec.components[:MAX_COMPONENTS]
-    ]
+    components = [_component(ctx, args.wellbore_id, c) for c in spec.components[:MAX_COMPONENTS]]
     marker = ctx.evidence.add_citable(
         ctx.call_id, label=f"visual asset spec r{rec.revision} (visual only)"
     )

@@ -281,14 +281,20 @@ class AnswerValidator:
             if target.wellbore_id is not None:
                 self._wellbore(target.wellbore_id)
         elif isinstance(target, ElementLinkTarget):
-            owner = self._ev.element_wellbores.get(target.element_id)
-            if target.element_id not in self._ev.elements or owner is None:
+            owners = self._ev.element_wellbores.get(target.element_id)
+            if not owners:
                 raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "element not in tool results")
-            self._wellbore(owner)
-            if target.wellbore_id is not None and target.wellbore_id != owner:
+            if target.wellbore_id is None:
+                if len(owners) != 1:
+                    raise _Drop(DroppedBlockReason.UNKNOWN_TARGET, "element needs a wellbore")
+                owner = next(iter(owners))
+            elif target.wellbore_id in owners:
+                owner = target.wellbore_id
+            else:
                 raise _Drop(
                     DroppedBlockReason.UNKNOWN_TARGET, "element belongs to another wellbore"
                 )
+            self._wellbore(owner)
         elif isinstance(target, FormationLinkTarget):
             self._formation(target)
 

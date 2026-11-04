@@ -9,12 +9,13 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from fieldlens.assistant.messages import ToolCallPart
 from fieldlens.chat import tools as tools_module
 from fieldlens.chat.answer import AnswerValidator
 from fieldlens.chat.evidence_pool import TurnEvidence
-from fieldlens.chat.tools import TOOLS, ToolRunner, element_uuid
+from fieldlens.chat.tools import TOOLS, ToolRunner
 from fieldlens.contracts.asset_spec import (
     AssetComponent,
     SpecGenerator,
@@ -23,7 +24,7 @@ from fieldlens.contracts.asset_spec import (
     VisualAssetSpec,
     VisualAssetSpecRecord,
 )
-from fieldlens.contracts.chat import ChatContext, DroppedBlockReason
+from fieldlens.contracts.chat import ChatContext, DroppedBlockReason, ElementLinkTarget
 from fieldlens.contracts.context_layers import (
     LEVEL_PLANE_LABEL,
     DatumStatus,
@@ -304,8 +305,8 @@ def test_equipment_summary_labels_generic_and_catalog_and_is_not_installed(
     assert "generic placeholder" in esp["representation_note"] and esp["params"] is None
     assert packer["placement"]["state"] == "unlocated"
     assert "not evidence that it is installed" in packer["representation_note"]
-    assert UUID(esp["element_id"]) == element_uuid(SPEC_ID, "esp-1")
-    assert ev.element_wellbores[element_uuid(SPEC_ID, "esp-1")] == WB
+    assert esp["element_id"] == "esp-1" and esp["component_id"] == "esp-1"
+    assert ev.element_wellbores["esp-1"] == {WB}
 
 
 def test_equipment_summary_missing_spec_and_extra_args(fakes: dict[str, Any]) -> None:
@@ -351,17 +352,41 @@ def test_formation_links_validate_against_tool_results(fakes: dict[str, Any]) ->
 
 def test_element_links_validate_and_reject_stale_or_cross_project(fakes: dict[str, Any]) -> None:
     _, ev = _run("get_equipment_summary", {"wellbore_id": str(WB)})
-    good = str(element_uuid(SPEC_ID, "esp-1"))
+    good = "esp-1"
     answer = _validator(ev).validate(
         [
             _link_block({"kind": "element", "element_id": good, "wellbore_id": str(WB)}),
             _link_block({"kind": "element", "element_id": good}),
-            _link_block({"kind": "element", "element_id": str(uuid4())}),  # unknown/stale
+            _link_block({"kind": "element", "element_id": "stale-part"}),  # unknown/stale
             _link_block({"kind": "element", "element_id": good, "wellbore_id": str(WB2)}),
         ]
     )
     assert len(answer.blocks) == 2
     assert [d.reason for d in answer.dropped_blocks] == [DroppedBlockReason.UNKNOWN_TARGET] * 2
+
+
+def test_same_component_id_on_two_wellbores_needs_an_explicit_wellbore(
+    fakes: dict[str, Any],
+) -> None:
+    _, ev = _run("get_equipment_summary", {"wellbore_id": str(WB)})
+    ev.element_wellbores["esp-1"].add(WB2)  # a second wellbore's spec also has an esp-1
+    ev.wellbores.add(WB2)
+    answer = _validator(ev).validate(
+        [
+            _link_block({"kind": "element", "element_id": "esp-1"}),
+            _link_block({"kind": "element", "element_id": "esp-1", "wellbore_id": str(WB2)}),
+        ]
+    )
+    assert len(answer.blocks) == 1 and len(answer.dropped_blocks) == 1
+
+
+@pytest.mark.parametrize("bad", ["ESP 1", "x" * 65, "", "../etc"])
+def test_element_id_must_be_a_bounded_slug(bad: str) -> None:
+    with pytest.raises(ValidationError):
+        ElementLinkTarget(element_id=bad)
+    with pytest.raises(ValidationError):
+        ChatContext(selected_element_id=bad)
+    assert ChatContext(selected_element_id="default-wellhead").selected_element_id
 
 
 def test_links_fail_when_the_owning_wellbore_is_outside_the_project(fakes: dict[str, Any]) -> None:
@@ -376,7 +401,7 @@ def test_links_fail_when_the_owning_wellbore_is_outside_the_project(fakes: dict[
     )
     answer = validator.validate(
         [
-            _link_block({"kind": "element", "element_id": str(element_uuid(SPEC_ID, "esp-1"))}),
+            _link_block({"kind": "element", "element_id": "esp-1"}),
             {"kind": "text", "text": "ok"},
         ]
     )
@@ -401,7 +426,7 @@ def test_injection_in_equipment_text_cannot_add_tools_scope_or_links(fakes: dict
             _link_block(
                 {
                     "kind": "element",
-                    "element_id": "00000000-0000-4000-8000-0000000000ff",
+                    "element_id": "injected-part",
                     "wellbore_id": str(WB),
                 }
             ),

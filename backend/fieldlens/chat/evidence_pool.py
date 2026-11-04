@@ -97,9 +97,8 @@ class TurnEvidence:
     pages: dict[UUID, set[int]] = field(default_factory=dict)
     locators: dict[UUID, list[dict[str, Any]]] = field(default_factory=dict)
     wellbores: set[UUID] = field(default_factory=set)
-    elements: set[UUID] = field(default_factory=set)
-    element_wellbores: dict[UUID, UUID] = field(default_factory=dict)
-    """element id -> the wellbore whose asset spec the tool read."""
+    element_wellbores: dict[str, set[UUID]] = field(default_factory=dict)
+    """component id (slug) -> wellbores whose asset spec the tools read this turn."""
     surfaces: dict[str, set[UUID]] = field(default_factory=dict)
     """formation surface_key -> wellbores the tool reported for it."""
     picks: dict[UUID, tuple[str, UUID]] = field(default_factory=dict)
