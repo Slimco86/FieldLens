@@ -7,6 +7,7 @@ import { scenePalette } from "../../design/scenePalette";
 import { layoutLabels, type LabelInput } from "./labelLayout";
 import { buildElement, elementBounds, type BuildContext } from "./primitives";
 import { SceneResources, setHighlighted } from "./resources";
+import { VisitHighlight } from "./visitHighlight";
 import { buildTubeGeometry } from "./tube";
 import type { SceneElement, SceneModel } from "./sceneModel";
 import { useExploreCommandBus, useExploreCommandHandlers } from "./ExploreCommandsContext";
@@ -343,20 +344,37 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onFlyOv
     return () => built.lib.dispose();
   }, [built, onAnchors]);
 
-  // Selection highlight (material swap, no React state per frame).
+  // Selection + fly-over visited-stop highlight (material swap, no React state per frame). The
+  // controller lights an element while the user selected it OR the tour is visiting it.
+  const highlight = useRef<VisitHighlight | null>(null);
+  const selectedNow = useRef(selectedId);
+  selectedNow.current = selectedId;
   useEffect(() => {
-    const group = selectedId === null ? undefined : built.root.children.find((c) => c.userData["elementId"] === selectedId);
-    if (group !== undefined) setHighlighted(group, built.lib, true);
+    const hl = new VisitHighlight((id, on) => {
+      const group = built.root.children.find((c) => c.userData["elementId"] === id);
+      if (group !== undefined) setHighlighted(group, built.lib, on);
+    });
+    highlight.current = hl;
+    hl.setSelected(selectedNow.current);
     invalidate();
     return () => {
-      if (group !== undefined) setHighlighted(group, built.lib, false);
+      hl.clear();
+      highlight.current = null;
     };
-  }, [selectedId, built]);
+  }, [built]);
+  useEffect(() => {
+    highlight.current?.setSelected(selectedId);
+    invalidate();
+  }, [selectedId]);
 
   const ctl = controls as unknown as { target: THREE.Vector3; update: () => void } | null;
 
   const publish = (state: FlyOverStatus | null, announcement?: string) => {
     if (state === null) return;
+    // Light the visited stop only while the tour runs; idle/finished clear it (selection restored).
+    const visiting = (state.state === "playing" || state.state === "paused") && state.stop !== null;
+    highlight.current?.setVisited(visiting ? state.stop!.id : null);
+    invalidate();
     statusRef.current?.(announcement === undefined ? state : { ...state, announcement });
   };
 
@@ -516,6 +534,8 @@ function SceneContents({ model, options, selectedId, onSelect, commands, onFlyOv
         if (p === null || p.state !== "playing") return;
         p.pause();
         publish(p.status(), "Fly-over paused.");
+        highlight.current?.setVisited(null);
+        invalidate();
       },
       resumeFlyOver: () => {
         const p = tour.current;
