@@ -42,8 +42,8 @@ def test_processing_runs_start_without_label(world: World) -> None:
     assert scan["state_text"] == "no native parser; model processing available, not started"
     assert scan["processable"] is True and scan["page_count"] == 2
     assert scan["user_labels"] == [] and scan["processing_status"] == "not_started"
-    assert states["notes.txt"]["processable"] is False
-    assert states["notes.txt"]["not_processable_reason"] == "not_a_pdf"
+    assert states["notes.txt"]["processable"] is True  # TASK-115: text documents read as sections
+    assert states["notes.txt"]["unit"] == "section" and states["notes.txt"]["page_count"] == 1
 
     _label(world, "other.pdf", ["trajectory"])
     r = world.estimate("scan.pdf", "other.pdf")
@@ -168,7 +168,8 @@ def test_processing_selection_validation_and_scope(world: World) -> None:
     )
     assert unknown.status_code == 422  # documents never cross project scope
     assert _err(unknown)["details"]["refusals"][0]["reason"] == "unknown_document"
-    assert world.estimate("notes.txt").status_code == 422
+    # TASK-115: notes.txt is a text document, no longer refused (see the state test above)
+    assert world.states()["notes.txt"]["processable"] is True
     dup = world.api.client.post(
         f"{world.base}/runs/estimates",
         json={"documents": [{"document_id": world.docs["scan.pdf"]}] * 2},

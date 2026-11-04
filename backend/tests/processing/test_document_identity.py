@@ -33,6 +33,7 @@ from fieldlens.assistant.stub import (
 from fieldlens.candidates.pages import PageRenderer
 from fieldlens.persistence.session import session_scope
 from fieldlens.processing import identity_read as ir
+from fieldlens.processing.document_text import DocumentTextReader
 from fieldlens.processing.model_step import ModelClassificationStep, ModelStepConfig
 from fieldlens.processing.runtime import build_runtime
 from fieldlens.processing.steps import StubProvider as PricingProvider
@@ -139,6 +140,8 @@ def build_model(
     files: dict[str, bytes] | None = None,
     max_output_tokens: int = 300,
     pages_per_call: int = 10,
+    images_per_call: int = 4,
+    visual: bool = False,
     **settings: Any,
 ) -> Model:
     api = make_api(
@@ -184,6 +187,7 @@ def build_model(
             pricing=PRICING,
             model=MODEL,
             pages_per_call=pages_per_call,
+            images_per_call=images_per_call,
             limits=RequestLimits(
                 max_attempts=2,
                 max_tool_calls=0,
@@ -193,6 +197,8 @@ def build_model(
             ),
         ),
         PageRenderer(app.state.blob_store, concurrency=2).page_text,
+        renderer=PageRenderer(app.state.blob_store, concurrency=2) if visual else None,
+        document_text=DocumentTextReader(app.state.blob_store),
     )
     app.state.processing = build_runtime(
         factory,

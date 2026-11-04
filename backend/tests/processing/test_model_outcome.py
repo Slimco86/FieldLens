@@ -147,7 +147,7 @@ def test_ac4_outcome_lists_runs_tokens_usd_pages_and_the_bounded_raw_reply(
     current = out["current"]
     assert current["category"] == "completion_equipment"
     assert current["pages"] == {"page_start": 1, "page_end": 3}
-    assert current["prompt_version"] == "doc-identity-1" and current["schema_version"] == "1"
+    assert current["prompt_version"] == "doc-identity-2" and current["schema_version"] == "1"
     assert current["identities"][0]["quote"] == PAGE_QUOTE
 
     raw = out["raw_reply"]
