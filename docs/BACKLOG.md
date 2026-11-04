@@ -2073,13 +2073,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.53.0 |
 | Parent | FL-025 |
 | Slice | FL-025-A |
 
 **Outcome.** DTO-only contracts for formation layers, wellbore/field chart sets and chat (AppLink, AnswerBlock, ChartSpec) are registered and exported to `generated.ts`; ECharts is added to the frontend lockfile; no behavior.
-**Next action.** Dispatched 2026-11-03 in worktree `task-094-contracts`.
-**Evidence.** none yet
+**Next action.** Integrated in 0.53.0 (merge `44779df`). Independent QA passed.
+**Evidence.** Ruff, mypy, 77 contract tests, `check:contracts`, typecheck and lint pass; `CHANGELOG.md` 0.53.0.
 
 ### TASK-095 · Wave 0: scene seams, command bus and Explore stage regions
 
@@ -2094,13 +2094,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-03 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.53.0 |
 | Parent | FL-026 |
 | Slice | FL-026-A |
 
 **Outcome.** Viewers accept a layers slot, an ExploreCommands bus and flyOver command stubs, and the Explore stage has 3D/Charts/Split and dock slots, so parallel lanes touch disjoint files.
-**Next action.** Dispatched 2026-11-03 in worktree `task-095-scene-seams`.
-**Evidence.** none yet
+**Next action.** Integrated in 0.53.0 (merge `44779df`). Independent QA passed.
+**Evidence.** Lint, typecheck, 421 vitest tests and build pass; `CHANGELOG.md` 0.53.0.
 
 ### TASK-096 · Smooth element-to-element camera transitions and single-wellbore fly-over (CM-1..6)
 
@@ -2115,13 +2115,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.54.0 |
 | Parent | FL-026 |
 | Slice | FL-026-B |
 
 **Outcome.** Pure camera-path and fly-over planners plus an imperative camera rig replace the 0.75 s lerp; focus changes arrive facing the trajectory; Fly over visits every located element wellhead to TD with controls, announcements and reduced-motion behavior.
-**Next action.** Dispatch after TASK-095 is integrated.
-**Evidence.** none yet
+**Next action.** Integrated in 0.54.0; fly-over highlight added by TASK-110. Browser check and frame time (CM-6) pending.
+**Evidence.** 626 vitest tests incl. camera/fly-over/visit-highlight, lint, typecheck, build pass; `CHANGELOG.md` 0.54.0. jsdom only, not browser-verified.
 
 ### TASK-097 · Formation layer read model: pick placement, tiers, conflicts (FO-1/2/3/5/6 backend)
 
@@ -2136,13 +2136,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.54.0 |
 | Parent | FL-024 |
 | Slice | FL-024-A |
 
 **Outcome.** A read endpoint returns formation picks placed by MD on the wellbore trajectory with original units/datum, T1/T2/T3 representations, unsupported qualifiers, TVD conflicts and evidence; no migration.
-**Next action.** Dispatch after TASK-094 is integrated.
-**Evidence.** none yet
+**Next action.** Integrated in 0.54.0; chat formation tools (TASK-109) build on it.
+**Evidence.** Backend pytest (1860 passed), formation route probe by independent QA (FO-1..5 pass); `CHANGELOG.md` 0.54.0.
 
 ### TASK-098 · Formation layers in the 3D viewer: markers, planes, labels, inspector, toggles (FO-3..6 frontend)
 
@@ -2157,13 +2157,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.54.0 |
 | Parent | FL-024 |
 | Slice | FL-024-B |
 
 **Outcome.** Formation markers, labeled level planes and interpolated surfaces render with the wellbore, follow exaggeration/cutaway, open the inspector with source links and are toggleable and keyboard-listed; built on fixtures until TASK-097 merges.
-**Next action.** Dispatch after TASK-094 and TASK-095 are integrated.
-**Evidence.** none yet
+**Next action.** Integrated in 0.54.0 (wired by TASK-105). Browser verification pending.
+**Evidence.** 626 vitest tests, lint, typecheck, build pass; independent QA FO-6 (planes never exaggerated) pass at code level; `CHANGELOG.md` 0.54.0.
 
 ### TASK-099 · Stretch: depth-domain horizon grid import and T4 surfaces (FO-7)
 
@@ -2199,13 +2199,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.54.0 |
 | Parent | FL-025 |
 | Slice | FL-025-B |
 
 **Outcome.** Endpoints serve the wellbore-scoped chart set and field aggregates (same-unit sums with exclusions listed, cumulative, pressure, uptime, perforated length as-of, correlation depths) and expose perforation/completion events from the existing engine.
-**Next action.** Dispatch after TASK-094 is integrated.
-**Evidence.** none yet
+**Next action.** Integrated in 0.54.0 with `log_tracks` and `stratigraphic_correlation` (TASK-107). Perforated length is mostly unknown on real data (no baseline); confirm per-phase unit-sum policy with the owner.
+**Evidence.** Backend pytest (1860 passed), independent QA XC-2/XC-4 pass against a seeded database; `CHANGELOG.md` 0.54.0.
 
 ### TASK-101 · Stretch spike: where pressure-test, lab-test and drilling-report events live in the sources
 
@@ -2241,13 +2241,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.54.0 |
 | Parent | FL-025 |
 | Slice | FL-025-C |
 
 **Outcome.** Lazy-loaded ECharts views for the wellbore and field sets with separate unit axes, gap-preserving decimated lines, evidence tooltips, stale-response protection, data tables, and a reusable ChartBlock for the assistant; built on fixtures until TASK-100 merges.
-**Next action.** Dispatch after TASK-094 and TASK-095 are integrated.
-**Evidence.** none yet
+**Next action.** Integrated in 0.54.0 with an as-of control and Show in 3D action (TASK-108). Chart-to-3D hover is not implemented.
+**Evidence.** 626 vitest tests, lint, typecheck, build pass; `CHANGELOG.md` 0.54.0. jsdom only, not browser-verified.
 
 ### TASK-103 · Chat backend: conversations, allowlisted tools, validated typed answers (AV-1/2/3/6/8)
 
@@ -2262,13 +2262,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.54.0 |
 | Parent | FL-027 |
 | Slice | FL-027-A |
 
 **Outcome.** Persistent project-scoped conversations (migration 0020) run through the existing WorkUnit/ledger with read-only typed tools and a server-side answer validator producing text, value, chart, link and gap blocks; fake provider only.
-**Next action.** Dispatch after TASK-094 is integrated.
-**Evidence.** none yet
+**Next action.** Integrated in 0.54.0 with formation/equipment tools and slug element ids (TASK-109). Live-Meta AV-9 not run.
+**Evidence.** 174 chat+contract tests and the 0020 migration round trip pass (independent QA AV-1/3/4/5/6/8); `CHANGELOG.md` 0.54.0.
 
 ### TASK-104 · Chat UI: expandable dock panel, persona avatar, block renderers, deep links (AV-4/5/7)
 
@@ -2283,13 +2283,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.54.0 |
 | Parent | FL-027 |
 | Slice | FL-027-B |
 
 **Outcome.** An expandable accessible chat with an SVG persona avatar renders cited text, values, charts and links; link clicks use the ExploreCommands bus to open sources, fly the camera or open a chart window; built on fixtures until TASK-103 merges.
-**Next action.** Dispatch after TASK-094 and TASK-095 are integrated.
-**Evidence.** none yet
+**Next action.** Integrated in 0.54.0. Browser verification pending.
+**Evidence.** 626 vitest tests, lint, typecheck, build pass; `CHANGELOG.md` 0.54.0. jsdom only, not browser-verified.
 
 ### TASK-105 · Integration: formation layer registration, stage layout, assistant tools for formations and charts
 
@@ -2304,13 +2304,13 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 | Due | 2026-11-04 |
 | Sprint | Hackathon |
 | Spec | specs/EXPLORE_ENRICHMENT.md |
-| Version | none |
+| Version | 0.54.0 |
 | Parent | FL-027 |
 | Slice | FL-027-C |
 
 **Outcome.** The formation layer is mounted in both viewers, chat tools call the formation and chart read models, chart-to-scene linking and the Explore layout are wired, and the combined flow works on merged lanes.
-**Next action.** Dispatch when all seven wave-1 lanes are merged.
-**Evidence.** none yet
+**Next action.** Integrated in 0.54.0 (merges `553a17c`, `51276b5`).
+**Evidence.** 613 then 626 vitest tests incl. `explore-integration.test.tsx`, lint, typecheck, build, `check:contracts`; `CHANGELOG.md` 0.54.0. jsdom only.
 
 ### TASK-106 · Independent QA and combined browser acceptance for explore enrichment
 
