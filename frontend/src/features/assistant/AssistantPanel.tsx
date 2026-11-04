@@ -56,6 +56,12 @@ function writeStoredId(projectId: string, id: string | null): void {
   }
 }
 
+let openedThisSession = false;
+/** Test seam: forget that the assistant was opened (new page session). */
+export function resetAssistantPulseForTests(): void {
+  openedThisSession = false;
+}
+
 const newKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `k${Date.now()}${Math.random()}`);
 
 export function AssistantPanel({ projectId, context, renderChart, defaultMode = "collapsed", api = realApi, pollIntervalMs }: AssistantPanelProps) {
@@ -71,6 +77,9 @@ export function AssistantPanel({ projectId, context, renderChart, defaultMode = 
   const headingRef = useRef<HTMLHeadingElement>(null);
   const prevMode = useRef<AssistantMode>(defaultMode);
   const open = mode !== "collapsed";
+  // The attention pulse stops for the rest of the session once the assistant has been opened (CSS also honours reduced motion).
+  if (open) openedThisSession = true;
+  const pulse = !openedThisSession;
 
   // Focus management: into the panel when it opens/resizes, back to the launcher when it closes.
   useEffect(() => {
@@ -150,9 +159,17 @@ export function AssistantPanel({ projectId, context, renderChart, defaultMode = 
 
   if (!open) {
     return (
-      <button ref={launcherRef} type="button" className={styles.launcher} aria-expanded={false} aria-controls="fl-assistant-panel" onClick={() => setMode("docked")}>
-        <PersonaAvatar state="idle" size={24} />
-        <span>Ask the assistant</span>
+      <button
+        ref={launcherRef}
+        type="button"
+        className={`${styles.launcher} ${pulse ? styles.pulse : ""}`}
+        data-pulse={pulse}
+        aria-label="Ask the assistant"
+        aria-expanded={false}
+        aria-controls="fl-assistant-panel"
+        onClick={() => setMode("docked")}
+      >
+        <PersonaAvatar state="idle" size={28} />
         {busy ? <span className={styles.srOnly}>An answer is in progress</span> : null}
       </button>
     );
@@ -191,7 +208,7 @@ export function AssistantPanel({ projectId, context, renderChart, defaultMode = 
             </button>
           )}
           <button type="button" onClick={() => setMode("collapsed")}>
-            Collapse
+            Close
           </button>
         </div>
       </header>

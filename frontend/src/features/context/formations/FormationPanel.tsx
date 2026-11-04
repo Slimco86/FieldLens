@@ -12,6 +12,7 @@ import {
 } from "./formationModel";
 import type { FormationStore, LabelMode } from "./formationStore";
 import type { FormationLayersState } from "./useFormationLayers";
+import type { LegendItem } from "./formationModel";
 import { LEVEL_PLANE_LABEL, type EvidenceLink } from "./formationTypes";
 import styles from "./Formations.module.css";
 
@@ -36,6 +37,7 @@ export function FormationPanel({ state, store, wellboreId }: FormationPanelProps
   // While this panel itself dispatches focusFormation, its own handler must not count as the camera acting.
   const selfDispatch = useRef(false);
   const scene = useMemo(() => buildFormationScene(data, { origin: RENDER_ORIGIN }), [data]);
+  const { drawn, undrawn } = useMemo(() => groupLegend(scene.legend), [scene]);
 
   useExploreCommandHandlers({
     focusFormation: (p) => {
@@ -104,30 +106,31 @@ export function FormationPanel({ state, store, wellboreId }: FormationPanelProps
           </div>
           {scene.emptyText !== null && <p role="status">{scene.emptyText}</p>}
           <ul className={styles.list} aria-label="Formation legend">
-            {scene.legend.map((l) => (
-              <li key={l.surfaceKey} className={styles.item} data-testid="formation-legend-item">
+            {drawn.map((g) => (
+              <li key={g.keys.join("|")} className={styles.item} data-testid="formation-legend-item">
                 <span className={styles.row}>
-                  <input type="checkbox" aria-label={`Show ${l.name}`} checked={!opts.hidden.has(l.surfaceKey)} onChange={() => store.toggleSurface(l.surfaceKey)} />
-                  <span className={styles.glyph} style={{ color: l.color }} aria-hidden="true">
-                    {l.glyph}
+                  <input
+                    type="checkbox"
+                    aria-label={`Show ${g.item.name}`}
+                    checked={g.keys.every((k) => !opts.hidden.has(k))}
+                    onChange={(e) => g.keys.forEach((k) => opts.hidden.has(k) === e.target.checked && store.toggleSurface(k))}
+                  />
+                  <span className={styles.glyph} style={{ color: g.item.color }} aria-hidden="true">
+                    {g.item.glyph}
                   </span>
-                  <button type="button" className={`${styles.link} ${styles.name}`} onClick={() => focus(firstId(data, l.surfaceKey) ?? l.surfaceKey, null)}>
-                    {l.name}
+                  <button type="button" className={`${styles.link} ${styles.name}`} onClick={() => focus(firstId(data, g.keys[0]!) ?? g.keys[0]!, null)}>
+                    {g.item.name}
                   </button>
+                  {g.keys.length > 1 && <span className={styles.muted}>×{g.keys.length}</span>}
                 </span>
                 <span className={styles.muted}>
-                  {l.tierLabel} · {l.status} · {l.markerCount} marker{l.markerCount === 1 ? "" : "s"}
-                  {l.planeDrawn ? ` · ${LEVEL_PLANE_LABEL}` : ""}
+                  {g.item.tierLabel} · {g.item.status} · {g.markerCount} marker{g.markerCount === 1 ? "" : "s"}
+                  {g.item.planeDrawn ? ` · ${LEVEL_PLANE_LABEL}` : ""}
                 </span>
-                {l.planeBlocked.map((r) => (
-                  <span key={r} className={styles.reason}>
-                    Plane not drawn: {r}
-                  </span>
-                ))}
               </li>
             ))}
           </ul>
-          {scene.notDrawn.length > 0 && <NotDrawn items={scene.notDrawn} />}
+          <NotDrawn items={scene.notDrawn} hiddenSurfaces={undrawn.length} />
         </>
       )}
       <p className={styles.muted}>
@@ -145,21 +148,54 @@ function firstId(data: NonNullable<FormationLayersState["data"]>, surfaceKey: st
   return resolveFormationId(data, surfaceKey) ?? undefined;
 }
 
-function NotDrawn({ items }: { items: NotDrawnItem[] }) {
+interface LegendGroup {
+  item: LegendItem;
+  keys: string[];
+  markerCount: number;
+}
+
+/**
+ * Only surfaces that are drawn (a placed marker or a drawn plane) are listed. Drawn rows with the same name and the
+ * same draw state are one row with a count; toggling it applies to every surface in the group.
+ */
+export function groupLegend(legend: LegendItem[]): { drawn: LegendGroup[]; undrawn: LegendItem[] } {
+  const drawn = new Map<string, LegendGroup>();
+  const undrawn: LegendItem[] = [];
+  for (const l of legend) {
+    if (l.markerCount === 0 && !l.planeDrawn) {
+      undrawn.push(l);
+      continue;
+    }
+    const k = [l.name, l.tier, l.status, l.planeDrawn, l.shape].join("|");
+    const g = drawn.get(k);
+    if (g) {
+      g.keys.push(l.surfaceKey);
+      g.markerCount += l.markerCount;
+    } else drawn.set(k, { item: l, keys: [l.surfaceKey], markerCount: l.markerCount });
+  }
+  return { drawn: [...drawn.values()], undrawn };
+}
+
+/** One collapsed summary instead of a card per undrawn item; reasons stay available inside the disclosure. */
+function NotDrawn({ items, hiddenSurfaces }: { items: NotDrawnItem[]; hiddenSurfaces: number }) {
+  const total = Math.max(items.length, hiddenSurfaces);
+  if (total === 0) return null;
+  const counts = new Map<string, number>();
+  for (const i of items) counts.set(i.reason, (counts.get(i.reason) ?? 0) + 1);
+  const summary = [...counts].map(([r, n]) => `${r} ×${n}`).join(", ");
   return (
-    <div>
-      <h4 className={styles.heading}>Not drawn ({items.length})</h4>
+    <details className={styles.notDrawn} data-testid="formation-not-drawn-summary">
+      <summary>
+        {total} formation{total === 1 ? "" : "s"} not drawn{summary === "" ? "" : ` (${summary})`}
+      </summary>
       <ul className={styles.list} aria-label="Formation items not drawn">
         {items.map((i) => (
-          <li key={i.id} className={styles.item} data-testid="formation-not-drawn">
-            <span className={styles.name}>{i.name}</span>
-            <span className={styles.reason}>
-              {i.kind} ({i.reason}): {i.message}
-            </span>
+          <li key={i.id} className={styles.muted} data-testid="formation-not-drawn">
+            {i.name}: {i.kind} ({i.reason}): {i.message}
           </li>
         ))}
       </ul>
-    </div>
+    </details>
   );
 }
 

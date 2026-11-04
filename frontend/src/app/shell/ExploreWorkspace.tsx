@@ -49,17 +49,16 @@ export interface ExploreRegions {
   onOpenChart?: (payload: ExploreCommandMap["openChart"]) => boolean;
 }
 
-type Collapsible = "tree" | "inspector" | "dock" | "assistant";
+type Collapsible = "tree" | "inspector" | "dock";
 
 const COLLAPSE_ICON = {
   tree: [ChevronLeft, ChevronRight],
   inspector: [ChevronRight, ChevronLeft],
   dock: [ChevronDown, ChevronUp],
-  assistant: [ChevronDown, ChevronUp],
 } as const;
-const STYLE_NAME = { tree: "tree", inspector: "inspector", dock: "dock", assistant: "dock" } as const;
+const STYLE_NAME = { tree: "tree", inspector: "inspector", dock: "dock" } as const;
 
-const TITLE: Record<Collapsible, string> = { tree: "Tree", inspector: "Inspector", dock: "Dock", assistant: "Assistant" };
+const TITLE: Record<Collapsible, string> = { tree: "Tree", inspector: "Inspector", dock: "Dock" };
 
 function Region({
   name,
@@ -123,7 +122,6 @@ export function ExploreWorkspace({ tree, stage, inspector, dock, charts, assista
     tree: false,
     inspector: false,
     dock: false,
-    assistant: false,
   });
   const [mode, setMode] = useState<StageMode>(() => readStageMode());
   useEffect(() => writeStageMode(mode), [mode]);
@@ -182,7 +180,11 @@ export function ExploreWorkspace({ tree, stage, inspector, dock, charts, assista
           {region("inspector", inspector)}
         </div>
         {region("dock", dock)}
-        {region("assistant", assistant)}
+        {assistant !== undefined && (
+          <div className={styles.assistantSlot} data-region="assistant">
+            {assistant}
+          </div>
+        )}
       </div>
     </ExploreStageProvider>
   );

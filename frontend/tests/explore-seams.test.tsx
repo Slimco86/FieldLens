@@ -177,7 +177,8 @@ describe("Explore stage regions", () => {
     await user.click(bSplit);
     expect(screen.getByText("scene")).toBeVisible();
     expect(screen.getByText("charts-slot")).toBeVisible();
-    expect(screen.getByRole("region", { name: "Assistant" })).toBeInTheDocument();
+    expect(screen.getByText("assist")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Assistant" })).toBeNull();
   });
 
   it("restores the persisted mode and ignores junk", () => {

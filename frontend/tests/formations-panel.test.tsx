@@ -132,14 +132,15 @@ describe("FormationPanel", () => {
     expect(screen.queryByLabelText("Formation legend")).toBeNull();
   });
 
-  it("lists legend items with tier/status and reasons, and everything not drawn", () => {
+  it("lists only drawn formations and folds everything else into one collapsed summary", () => {
     setup(readyState());
     const items = screen.getAllByTestId("formation-legend-item");
-    expect(items).toHaveLength(4);
-    expect(items[0]).toHaveTextContent("T2 level plane - illustrative");
-    expect(items[0]).toHaveTextContent("illustrative");
-    expect(items[1]).toHaveTextContent(/Plane not drawn: unknown_datum/);
-    expect(items[3]).toHaveTextContent(/tier_not_rendered/);
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.length).toBeLessThan(4);
+    items.forEach((i) => expect(i.textContent).not.toMatch(/Plane not drawn/));
+    const summary = screen.getByTestId("formation-not-drawn-summary");
+    expect(summary).not.toHaveAttribute("open");
+    expect(summary.querySelector("summary")).toHaveTextContent(/\d+ formations? not drawn/);
     const nd = screen.getAllByTestId("formation-not-drawn").map((n) => n.textContent ?? "");
     expect(nd.some((t) => t.includes("tvd_conflict"))).toBe(true);
     expect(nd.some((t) => t.includes("qualifier FP"))).toBe(true);

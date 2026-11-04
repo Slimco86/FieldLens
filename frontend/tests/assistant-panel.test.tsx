@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AssistantPanel, conversationStorageKey, type AssistantApi } from "../src/features/assistant/AssistantPanel";
+import { AssistantPanel, conversationStorageKey, resetAssistantPulseForTests, type AssistantApi } from "../src/features/assistant/AssistantPanel";
 import { PersonaAvatar } from "../src/features/assistant/PersonaAvatar";
 import type { ChatTurn } from "../src/features/assistant/api";
 import { announcementFor, avatarStateFor } from "../src/features/assistant/turnState";
@@ -39,6 +39,22 @@ describe("assistant panel modes and focus (AV-7)", () => {
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("region", { name: "Project assistant" })).toBeNull();
     expect(screen.getByRole("button", { name: /ask the assistant/i })).toHaveFocus();
+  });
+
+  it("collapsed launcher is a pulsing round button that stops pulsing once opened; Close returns focus", async () => {
+    resetAssistantPulseForTests();
+    const api = fakeApi(() => []);
+    const { unmount } = render(<AssistantPanel projectId={PROJECT} api={api} />);
+    const launcher = screen.getByRole("button", { name: "Ask the assistant" });
+    expect(launcher).toHaveAttribute("data-pulse", "true");
+    await userEvent.click(launcher);
+    expect(screen.getByRole("region", { name: "Project assistant" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    const again = screen.getByRole("button", { name: "Ask the assistant" });
+    expect(again).toHaveFocus();
+    expect(again).toHaveAttribute("data-pulse", "false");
+    unmount();
   });
 
   it("composer is labelled, sends a turn, creates a conversation and stores only its id", async () => {
