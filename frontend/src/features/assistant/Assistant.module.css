@@ -1,0 +1,42 @@
+.srOnly { position: absolute; width: var(--fl-border-width); height: var(--fl-border-width); overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.launcher { display: inline-flex; align-items: center; gap: var(--fl-space-sm); padding: var(--fl-space-xs) var(--fl-space-md); border: var(--fl-border-width) solid var(--fl-color-border-strong); border-radius: var(--fl-radius-lg); background: var(--fl-color-surface); color: var(--fl-color-text); cursor: pointer; }
+.panel { display: flex; flex-direction: column; gap: var(--fl-space-sm); padding: var(--fl-space-sm) var(--fl-space-md); height: 100%; min-height: 0; overflow: hidden; color: var(--fl-color-text); background: var(--fl-color-surface); }
+.expanded { position: fixed; inset: var(--fl-space-lg); z-index: 300; height: auto; border: var(--fl-border-width) solid var(--fl-color-border-strong); border-radius: var(--fl-radius-lg); box-shadow: var(--fl-shadow-md); }
+.header { display: flex; align-items: center; gap: var(--fl-space-sm); flex-wrap: wrap; }
+.title { margin: 0; font-size: var(--fl-font-size-lg); }
+.title:focus-visible, .log:focus-visible { outline: var(--fl-focus-ring-width) solid var(--fl-color-focus-ring); outline-offset: var(--fl-focus-ring-offset); }
+.toolbar { margin-left: auto; display: flex; gap: var(--fl-space-xs); flex-wrap: wrap; }
+.list { max-height: 30%; overflow: auto; }
+.log { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--fl-space-md); }
+.turn { display: flex; flex-direction: column; gap: var(--fl-space-xs); }
+.user { align-self: flex-end; margin: 0; padding: var(--fl-space-xs) var(--fl-space-sm); border-radius: var(--fl-radius-lg); background: var(--fl-color-surface-sunken); max-width: 85%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.assistant { display: flex; flex-direction: column; gap: var(--fl-space-xs); align-items: flex-start; }
+.stateBadge { margin: 0; font-size: var(--fl-font-size-xs); text-transform: uppercase; letter-spacing: 0.04em; }
+.stateBadge[data-state="failed"], .stateBadge[data-state="refused"], .stateBadge[data-state="truncated"] { color: var(--fl-tone-danger-fg); }
+.failure, .warn { color: var(--fl-tone-danger-fg); margin: 0; }
+.gap { color: var(--fl-color-attention-text); margin: 0; }
+.hint, .ref, .state, .markers { color: var(--fl-color-text-muted); }
+.answer, .block { display: flex; flex-direction: column; gap: var(--fl-space-xs); margin: 0; }
+.block p, .block ul { margin: 0; }
+.markers { font-size: var(--fl-font-size-xs); }
+.linkButton, .chip { padding: 0 var(--fl-space-sm); border: var(--fl-border-width) solid var(--fl-color-brand); border-radius: var(--fl-radius-lg); background: var(--fl-color-brand-soft); color: var(--fl-color-brand-text); cursor: pointer; }
+.chip[data-draft="true"] { border-style: dashed; border-color: var(--fl-tone-warning-border); background: var(--fl-tone-warning-bg); color: var(--fl-tone-warning-fg); }
+.chip:disabled { cursor: not-allowed; border-color: var(--fl-color-border-strong); background: var(--fl-color-surface-sunken); color: var(--fl-color-text-muted); }
+.draftTag { font-size: var(--fl-font-size-xs); font-weight: 600; }
+.citations { display: flex; flex-wrap: wrap; gap: var(--fl-space-xs); padding: 0; margin: 0; list-style: none; }
+.chartFallback table { border-collapse: collapse; }
+.chartFallback th, .chartFallback td { border: var(--fl-border-width) solid var(--fl-color-border); padding: 0 var(--fl-space-xs); text-align: left; }
+.composer { display: flex; align-items: flex-end; gap: var(--fl-space-sm); }
+.composer textarea { flex: 1; resize: vertical; }
+.avatar { flex: none; }
+.avatarFace { fill: var(--fl-color-brand-soft); stroke: var(--fl-color-brand); stroke-width: 2; }
+.avatarStroke { fill: none; stroke: var(--fl-color-brand-text); stroke-width: 2; stroke-linecap: round; }
+.avatarAntenna, .avatarEyes, .avatarMouth, .avatarMouthDot { fill: var(--fl-color-brand-text); }
+@media (prefers-reduced-motion: no-preference) {
+  .avatar[data-motion="animated"][data-state="thinking"] .avatarMouthDot { animation: avatarPulse 1s ease-in-out infinite; }
+  .avatar[data-motion="animated"][data-state="idle"] .avatarEyes { animation: avatarBlink 5s steps(1) infinite; transform-origin: 50% 50%; }
+  .avatar[data-motion="animated"][data-state="answering"] .avatarMouth { animation: avatarTalk 0.6s ease-in-out infinite; transform-origin: 50% 50%; transform-box: fill-box; }
+}
+@keyframes avatarPulse { 50% { opacity: 0.2; } }
+@keyframes avatarBlink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+@keyframes avatarTalk { 50% { transform: scaleY(0.4); } }
