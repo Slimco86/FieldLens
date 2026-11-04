@@ -1,6 +1,6 @@
 import { useExploreStage, type ExploreStageContext } from "../../app/shell/exploreStage";
 import { Callout, ErrorState, LoadingState } from "../../design";
-import { ChartBlock } from "./ChartBlock";
+import { ChartCard } from "./ChartCard";
 import { useChartSet } from "./useChartSet";
 import styles from "./Charts.module.css";
 
@@ -27,6 +27,7 @@ export function ChartPanel({ projectId, context, asOf = null, from = null, to = 
   const ctx = context ?? stage?.context ?? FIELD;
   const { state, reload } = useChartSet({ projectId, context: ctx, asOf, from, to });
   const heading = ctx.kind === "wellbore" ? "Wellbore charts" : "Field charts";
+  const noticeCount = state.status === "ready" ? (state.note ? 1 : 0) + state.ambiguities.length + state.rejected.length + state.excluded.length : 0;
   const label = state.status === "ready" ? state.label : "";
 
   return (
@@ -41,6 +42,19 @@ export function ChartPanel({ projectId, context, asOf = null, from = null, to = 
       {state.status === "error" && <ErrorState message={`Charts could not be loaded: ${state.message}`} requestId={state.requestId} onRetry={reload} />}
       {state.status === "ready" && (
         <>
+          {noticeCount > 0 && (
+            <details className={styles.notices} data-testid="chart-notices">
+              <summary>
+                {[
+                  state.note ? "1 note" : null,
+                  state.ambiguities.length > 0 ? `${state.ambiguities.length} ambiguous association${state.ambiguities.length === 1 ? "" : "s"}` : null,
+                  state.rejected.length > 0 ? `${state.rejected.length} chart${state.rejected.length === 1 ? "" : "s"} not shown` : null,
+                  state.excluded.length > 0 ? `${state.excluded.length} series excluded from field totals` : null,
+                ]
+                  .filter((x): x is string => x !== null)
+                  .join(" · ")}
+              </summary>
+              <div className={styles.noticeBody}>
           {state.note && (
             <Callout tone="info" role="status">
               {state.note}
@@ -71,6 +85,9 @@ export function ChartPanel({ projectId, context, asOf = null, from = null, to = 
               </ul>
             </Callout>
           )}
+              </div>
+            </details>
+          )}
           {state.charts.length === 0 ? (
             <Callout tone="info" role="status">
               No charts are available for this view.
@@ -78,7 +95,7 @@ export function ChartPanel({ projectId, context, asOf = null, from = null, to = 
           ) : (
             <div className={styles.grid}>
               {state.charts.map((c) => (
-                <ChartBlock key={`${c.chart_id}:${c.cache_key}`} spec={c} wellboreId={ctx.kind === "wellbore" ? ctx.wellboreId : null} />
+                <ChartCard key={`${c.chart_id}:${c.cache_key}`} spec={c} wellboreId={ctx.kind === "wellbore" ? ctx.wellboreId : null} />
               ))}
             </div>
           )}
