@@ -8,6 +8,10 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.53.1 - 2026-11-03
+
+- **TASK-094b Explore contract hardening.** Truthful tier/plane/pick labels, a shared stated vertical reference required for project-scope surfaces, chart-series integrity checks (aggregates, gaps, downsample, units, scope), strict chart window bounds, degenerate-mesh rejection, and no datum on MD or scene-elevation depths. Field names and the OpenAPI schema are unchanged. Ruff, mypy, 82 contract tests, `check:contracts` and typecheck pass.
+
 ## 0.53.0 - 2026-11-03
 
 - **TASK-094 Explore enrichment contracts (FL-025-A).** DTO-only contracts for formation layers (pick/level plane/surface tiers with explicit vertical reference and evidence), wellbore/field chart sets, and chat (typed `AppLink`, answer blocks, turns, run states), registered and exported to `generated.ts`; `echarts` 6.1.0 added. No behavior. Ruff, mypy, 77 contract tests, `check:contracts`, typecheck and lint pass.
