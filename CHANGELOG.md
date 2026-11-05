@@ -8,6 +8,20 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.56.3 - 2026-11-04
+
+### Added
+
+- Apache License 2.0 (`LICENSE`, `NOTICE`: Copyright 2026 Ievgen Voloshenko); the package metadata declares `Apache-2.0`.
+
+### Removed
+
+- `plan/` (original execution plan and packets) and `docs/design/` (early concept wireframes). References now point to the backlog, feature specs and the UI design-system spec; the removed files remain in git history.
+
+### Fixed
+
+- Broken relative link from `.github/copilot-instructions.md` to the development guide.
+
 ## 0.56.2 - 2026-11-04
 
 ### Documentation

@@ -14,7 +14,7 @@ Follow the [worker contract](README.md#worker-contract). Do not delegate.
 Verify the assigned worktree and approved feature/contract before writing.
 Use [React UI](../skills/fieldlens-react-ui/SKILL.md) and, for acceptance,
 [UI review](../skills/fieldlens-ui-review/SKILL.md). Consult
-[visual references](../../docs/design/README.md) as concepts, not approved specs.
+[UI design system](../../docs/specs/UI_DESIGN_SYSTEM.md) as concepts, not approved specs.
 
 - Own UI/data-flow changes within the assigned slice: asset tree, panels, charts,
   evidence states, upload progress and assistant/action feedback.

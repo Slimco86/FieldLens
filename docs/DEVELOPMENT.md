@@ -289,9 +289,9 @@ Verified versions and requirement-to-test evidence are recorded in
   workflow, evidence-linked entities/relationships, review and live evaluation.
 - [Data quality](specs/DATA_QUALITY.md): evidence-linked warnings/errors,
   generic limitations and affected-output blocking without hiding valid records.
-- [Implementation sequence](../plan/architecture-fieldlens-1.md): 32 explicit tasks,
+- Implementation sequence (archived in git history): 32 explicit tasks,
   dependency DAG, per-lane feature ownership and deadline checkpoints.
-- [First implementation packets](../plan/feature-foundation-workspace-1.md):
+- First implementation packets (archived in git history):
   foundation -> project lifecycle -> uploads/jobs, with planned files, tests,
   isolated resources, handoffs and stop conditions.
 - [Technical baseline](TECHNICAL_BASELINE.md): agreed stack, rationale,
@@ -307,8 +307,6 @@ Verified versions and requirement-to-test evidence are recorded in
   installed-completion go/no-go gate.
 - [Feature specification template](specs/FEATURE_TEMPLATE.md): use before
   each implementation increment.
-- [Visual reference gallery](design/README.md): the conversation wireframe
-  and original FieldLens UX reference sheets, with provenance and design lessons.
 - [Curated development skills](DEVELOPMENT_SKILLS.md): selected local skills
   for frontend, 3D assets, geospatial validation, ingestion and equipment research.
 - [Blender equipment skill](../.github/skills/fieldlens-blender-assets/SKILL.md):

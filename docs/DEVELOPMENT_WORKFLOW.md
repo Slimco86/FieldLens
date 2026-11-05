@@ -53,11 +53,11 @@ explicitly accepted direct verification of commit `95da2b7` for the 0.4.0 merge.
 This exception applies only to TASK-003; independent QA remains required for
 future features. Record the direct checks honestly, not as a separate-agent PASS.
 
-The [application execution plan](../plan/architecture-fieldlens-1.md) now defines
+The application execution plan (archived in git history) now defines
 the task DAG, one implementation lane, critical-path checkpoints and acceptance sequence.
 Its [feature index](specs/README.md) maps every project requirement to tests.
 Use that plan for scheduling; the rules here remain the governing delivery policy.
-The [first detailed packets](../plan/feature-foundation-workspace-1.md) define
+The first detailed packets (archived in git history) define
 foundation, project lifecycle and upload/jobs with file ownership, exact planned
 checks and isolated resources. October 28 workflow/cohort approval is not proof
 that these packets have been integrated or that a profile/runtime has been verified.

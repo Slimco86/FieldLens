@@ -17,7 +17,7 @@ postprocessing and additional state/debug libraries are deliberately not adopted
 ## Workflow
 
 1. Read the approved viewer spec and
-   [visual references](../../../docs/design/README.md). Verify the installed
+   [UI design system](../../../docs/specs/UI_DESIGN_SYSTEM.md). Verify the installed
    React/R3F/Drei compatibility and use the stable WebGL2 path.
 2. Establish geometry ownership, local origin, axis mapping and physical scale
    before mounting objects. Meshes must carry stable domain IDs, not scene-index

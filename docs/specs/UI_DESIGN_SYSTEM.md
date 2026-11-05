@@ -19,7 +19,7 @@
 
 Owner: outcome, look-and-feel decisions (section 6). Frontend implementer: scope, tokens,
 layout contract and ACs. QA/reviewer: ACs, failure conditions and the visual checklist.
-Related: [visual references](../design/README.md) (conceptual only), [project workspace](PROJECT_WORKSPACE.md)
+Related: [project workspace](PROJECT_WORKSPACE.md)
 (PW-1/8 behavior that must not regress), [data quality](DATA_QUALITY.md), [trajectory viewer](TRAJECTORY_VIEWER.md).
 
 ## Notation Key
@@ -125,7 +125,7 @@ follows the [workflow](../DEVELOPMENT_WORKFLOW.md) (independent acceptance, vers
 - Executor profile: `fieldlens-frontend` (React 19, strict TypeScript, Vite); skills `fieldlens-react-ui`, then
   `fieldlens-ui-review` for the reviewer. Glossary: *tokens* = named design values; *region* = named layout slot.
 - Decisions already made: Vite/React/strict TypeScript; scene-first layout, one selection across tree/scene/charts/
-  evidence, visible revision/reference/unit context ([visual references](../design/README.md), conceptual only);
+  evidence, visible revision/reference/unit context;
   honest unavailable states; no new dependency without a demonstrated requirement (project rule).
 - Component kit decision (orchestrator, authorized by the owner October 30): **Mantine** (`@mantine/core`,
   `@mantine/hooks`, `@mantine/dropzone`, `@mantine/notifications`; MIT; npm lists 9.7.4 with a React `^19.2` peer,

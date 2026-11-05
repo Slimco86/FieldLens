@@ -125,6 +125,11 @@ generic placeholders never enter calculations; proximity is not proof of connect
 model reads can fail on very large documents (recorded as partial runs). Production data in
 Volve is well-level and unit-less in the source spreadsheet, and is shown as such.
 
+## License
+
+Copyright 2026 Ievgen Voloshenko. Licensed under the [Apache License, Version 2.0](LICENSE); see
+[NOTICE](NOTICE). Adapted third-party materials keep their own licenses ([docs/licenses](docs/licenses/)).
+
 ## Documentation
 
 - [Development guide](docs/DEVELOPMENT.md) — setup, lanes, configuration, tests

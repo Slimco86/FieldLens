@@ -1,0 +1,8 @@
+FieldLens
+Copyright 2026 Ievgen Voloshenko
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party materials adapted in this repository keep their own licenses; their
+license texts are in docs/licenses/. Demo data (Equinor Volve open dataset) is not
+included in this repository and is subject to the Equinor Open Data Licence.

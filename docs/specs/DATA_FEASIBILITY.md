@@ -202,7 +202,7 @@ conversion fidelity, history completeness and cohort/limit approval remain open.
 
 The owner chose real-data inspection first; the inspected probes now inform the
 [architecture](../ARCHITECTURE.md) without pretending the pilot audit passed.
-The [execution plan](../../plan/architecture-fieldlens-1.md) is now Planned:
+The execution plan (archived in git history) is now Planned:
 the October 28 decision releases the cohort/planning hold. Local availability
 does not pass manifest/engineering acceptance. Early synthetic project/upload
 slices do not wait for F-12's tally; source mappings and real acceptance remain

@@ -17,7 +17,7 @@ a Python API, not a Next.js application.
 ## Workflow
 
 1. Read the approved feature spec and the
-   [visual references](../../../docs/design/README.md). Identify the selected
+   [UI design system](../../../docs/specs/UI_DESIGN_SYSTEM.md). Identify the selected
    dataset revision, stable asset IDs, loading/error states and evidence links.
 2. Trace shared selection across the asset tree, scene, chart and document panel.
    Store IDs and small UI state; keep bulk logs, meshes and source buffers outside

@@ -10,7 +10,7 @@
 Refines FL-009 (context layers, formation slice), FL-010 (linked charts) and FL-011 (assistant) for the
 current Explore tab; those specs keep their acceptance IDs (CX-*, CH-*, RG-*) and this spec adds the
 representation, placement and UX decisions requested November 3. Execution plan with lanes:
-[plan/feature-explore-enrichment-1.md](../../plan/feature-explore-enrichment-1.md).
+plan/feature-explore-enrichment-1.md (archived in git history).
 
 ## 1. Outcomes
 

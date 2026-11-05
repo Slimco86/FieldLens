@@ -1,7 +1,8 @@
 [project]
 name = "fieldlens"
 dynamic = ["version"]
-description = "FieldLens local API, contracts and persistence foundation"
+description = "FieldLens: agentic reconstruction of oilfield assets from historical records, powered by Meta Muse Spark"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115",

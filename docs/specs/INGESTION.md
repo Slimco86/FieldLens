@@ -204,7 +204,7 @@ source values must stay traceable; do not code special success outputs for known
 filenames or audit hashes. The inspected F-5 Word file contains macro streams:
 the selected profile extracts inert text/images, never invokes macros/Office code.
 Storage-only success reports byte verification, not successful extraction.
-The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
+The first implementation packets (archived in git history)
 define the upload/job slice and its explicitly deferred parser acceptance.
 
 Conditional OCR evaluation: ingestion owner tests Docling on <=20 approved pages,

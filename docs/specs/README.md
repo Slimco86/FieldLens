@@ -5,7 +5,7 @@ reconstruction workflow defaults. Detailed packets/contracts still receive revie
 and a committed base before dispatch. **No application feature is implemented or
 verified merely by appearing here.** Preparation approvals retain their status.
 See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
-[implementation sequence](../../plan/architecture-fieldlens-1.md).
+implementation sequence (archived in git history).
 
 ## Feature index
 
@@ -25,7 +25,7 @@ See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
 | FL-011 | [Retrieval/assistant](RETRIEVAL_ASSISTANT.md) | A/B: source retrieval/chat; D: early live chat; E: full model/domain tools; C: full live evaluation |
 | FL-012 | [Demo acceptance](DEMO_ACCEPTANCE.md) | A: offline combined checks; B: real/live acceptance; C: release/recording |
 | FL-013 | [Blender skill](../../.github/skills/fieldlens-blender-assets/SKILL.md) | Skill integrated; installation/assets not approved by the skill |
-| FL-014 | [Architecture](../ARCHITECTURE.md), [execution plan](../../plan/architecture-fieldlens-1.md) | Confirmed workflow baseline; [first detailed packets](../../plan/feature-foundation-workspace-1.md) pending review/commit/preflight |
+| FL-014 | [Architecture](../ARCHITECTURE.md), execution plan (archived in git history) | Confirmed workflow baseline; first detailed packets (archived in git history) pending review/commit/preflight |
 | FL-015 | [Project workspace](PROJECT_WORKSPACE.md) | A: project lifecycle/category/navigation contract; upload integration completes PW-3/4/6/7 through FL-005-A |
 | FL-016 | [Composite-asset reconstruction](ASSET_RECONSTRUCTION.md) | A: persistent candidates/support/review/publication UI; B: independent live reconstruction gold evaluation |
 | FL-017 | [Data quality](DATA_QUALITY.md) | A: source-first warning/error inspector; consumers add review/generic boundaries; real-source/combined checks complete acceptance |
@@ -34,7 +34,7 @@ See [architecture](../ARCHITECTURE.md), [backlog](../BACKLOG.md) and the
 | FL-020 | [Tracking](TRACKING.md) | Telegram notify, backlog ledger format, one-way Taiga sync |
 | FL-021 | [UI design system](UI_DESIGN_SYSTEM.md) | Approved October 30 (light theme, Mantine, left project sidebar + Sources/Reconstruction/Explore tabs); A: shell and redesigned Projects/Sources; B: demo polish; C: source removal/replacement (TASK-039, semantics pending) |
 | FL-022 | [Agentic extraction](AGENTIC_EXTRACTION.md) | Approved October 30; question-driven model-proposed candidates with read-only tools, deterministic validation and an activity log (TASK-036, TASK-038) |
-| FL-024..027 | [Explore enrichment](EXPLORE_ENRICHMENT.md) | Approved November 3: formations in 3D, wellbore/field charts, fly-over/smooth camera, project assistant; [plan](../../plan/feature-explore-enrichment-1.md) |
+| FL-024..027 | [Explore enrichment](EXPLORE_ENRICHMENT.md) | Approved November 3: formations in 3D, wellbore/field charts, fly-over/smooth camera, project assistant; plan (archived in git history) |
 
 ## Project requirement -> acceptance -> verification
 
