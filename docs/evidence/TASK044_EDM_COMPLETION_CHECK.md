@@ -1,5 +1,7 @@
 # TASK-044 evidence: offline check of the EDM export (PV-24) for production/completion equipment and perforation history
 
+> **Note (0.56.2):** the one-off `scripts/spikes/` evaluation scripts were removed from the tree for the final submission; they remain in git history at commit `fc5e966` (`git show fc5e966:scripts/spikes/<file>`).
+
 Status: investigation evidence, deterministic file observations only. Offline, read-only, no model or
 provider call, no spend, no network, no database. 2026-10-31, branch
 `feature/task-044-edm-completion-check` (base 1885ed1). Independent QA reviewed two rounds; no installed

@@ -227,13 +227,13 @@ conversation support that reconstruction rather than a pre-authored scene.
   checks for upload -> scene -> chart -> cited answer. Test units/CRS, geometry,
   provenance, conflicting data, equipment fallbacks, temporal perforation states,
   overlap/reperforation length, production/injection scope and provider failure paths.
-- Run the smallest relevant checks plus affected type/build checks. No application
-  commands exist yet: add and document actual commands when scaffolding; do not
-  claim unrun tests or performance measurements.
+- Run the smallest relevant checks plus affected type/build checks (commands below and in
+  docs/DEVELOPMENT.md); document new commands when adding them; do not claim unrun tests
+  or performance measurements.
 
 ## Commands and code layout
 
-Run from the repo root; see README "Run the foundation locally" and "Tests" for the full
+Run from the repo root; see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) ("Run locally (details)" and "Tests") for the full
 setup (Node 24.22.2 on PATH, `uv sync --frozen`, `npm --prefix frontend ci`). Configuration is one
 root `.env` (gitignored) created by `uv run python scripts/init_env.py` (template `.env.example`);
 the code loads it automatically, so no exports or `db.env` sourcing. Postgres and the test browser

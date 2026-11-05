@@ -18,3 +18,27 @@ frontend/.vite/
 *.tsbuildinfo
 playwright-report/
 test-results/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs, local media and recordings (demo videos are published separately)
+*.log
+*.mp4
+*.mov
+*.webm
+*.mkv
+
+# Python packaging output
+build/
+*.egg-info/
+
+# Local scratch
+.scratch/
+tmp/

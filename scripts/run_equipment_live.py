@@ -44,7 +44,7 @@ NOT run by the TASK-041 implementer. Three steps; only the last one spends credi
    report states the cap actually enforced. Harness limits: effort ``low``, page concurrency 3,
    image 1600 px. Each ``--document`` must be a document of the project whose content hash matches
    a configured page plan (nothing else is sent). The comparison against
-   ``scripts/spikes/spike042_gold.py`` is against an AGENT-READ reference that is NOT human
+   ``scripts/eval/spike042_gold.py`` is against an AGENT-READ reference that is NOT human
    verified; model-read results are never described as verified. The report is written only after
    a live run, never by a refused run or a dry run.
 """
@@ -66,7 +66,7 @@ from typing import Any
 from uuid import UUID
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts" / "spikes"))
+sys.path.insert(0, str(ROOT / "scripts" / "eval"))
 
 from spike042_gold import CONTROLS, GOLD  # noqa: E402
 from sqlalchemy import create_engine, select, text  # noqa: E402

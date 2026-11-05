@@ -2417,6 +2417,48 @@ Owner report 2026-11-02: 0.33.0 did not fix PDF `source_missing`; the cause was 
 **Next action.** Owner manual test of 0.55.0 (restart to apply migration 0021). Remaining: section wording and "Unverified" badge in the results panel (frontend), bounded live check of Meta image input.
 **Evidence.** e68c1ac, eeea01a merged. processing/reconstruction/assetspec pytest 306 passed on master after merge; ruff, mypy strict, contracts check clean on the branch; frontend typecheck clean (vitest not run: Node 20 on PATH). Independent QA skipped at owner request; fake provider only; no live Meta.
 
+### TASK-116 · Assistant answers "when" questions with dates and charts; demo UI fixes
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | done |
+| Priority | P0 |
+| Tags | backend, frontend, rag |
+| Depends on | TASK-115 |
+| Assignee | agent:fieldlens-orchestrator |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/RETRIEVAL_ASSISTANT.md |
+| Version | 0.56.0 |
+| Parent | FL-011 |
+| Slice | FL-011-E |
+
+**Outcome.** `get_series_summary` returns dates of min/max, the lowest non-zero value and first/last non-zero dates; `list_series` matches a well-name token (F-12 → "NO 15/9-F-12 H"); rejected tool arguments return field-level problems; chat budget 16 steps / 16 tool calls; prompt asks for dated answers with an inline chart. Collapsible project sidebar; Sources keeps polling while native extraction is pending.
+**Next action.** None for the demo.
+**Evidence.** 2ff4c1d, 1079409, 05a0d1d merged in 7ac106f. chat/series pytest 160 passed (one pre-existing stale migration-head test excluded); uploads vitest 36 passed; live checks on the demo project: F-12 lowest tubing pressure (2013-04-04 non-zero, 35 zero days), F-12 lowest on-stream hours, F-5 injector→producer (2016-04-06 / 2016-04-20) all matched the raw spreadsheet. Independent QA skipped at owner request.
+
+### TASK-117 · Field view accepts equivalent UTM CRS spellings
+
+| Field | Value |
+|---|---|
+| Type | task |
+| Status | done |
+| Priority | P0 |
+| Tags | frontend, geospatial |
+| Depends on | TASK-098 |
+| Assignee | agent:fieldlens-orchestrator |
+| Due | 2026-11-04 |
+| Sprint | Hackathon |
+| Spec | specs/TRAJECTORY_VIEWER.md |
+| Version | 0.56.1 |
+| Parent | FL-023 |
+| Slice | FL-023-C |
+
+**Outcome.** F-14's surface location came from its survey-report PDF ("Universal Transverse Mercator European 1950 - Mean Zone 31N") while F-12/F-5 used the native files ("Map-Zone: Zone 31N; Geo Datum: European 1950 - Mean"); exact text comparison forced the schematic grid. The stated zone plus datum words are now compared; different zones/datums stay distinct.
+**Next action.** None for the demo.
+**Evidence.** Merged in fc5e966. Field model/scene/CRS vitest 42 passed; browser check on the demo project shows "Surface-location layout".
+
 ## Journal
 
 Everything below is the unchanged pre-conversion narrative (including the original
@@ -3617,7 +3659,7 @@ agent's work. Record verified test evidence in the feature spec; link it here.
 | Status | done |
 | Priority | P0 |
 | Tags | frontend, 3d |
-| Depends on | TASK-089 |
+| Depends on | TASK-098 |
 | Assignee | agent:fieldlens-3d-motion |
 | Due | 2026-11-04 |
 | Sprint | Hackathon |

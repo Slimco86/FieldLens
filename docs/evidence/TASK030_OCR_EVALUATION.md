@@ -1,9 +1,11 @@
 # TASK-030 phase A: offline OCR, rendering and orientation evaluation for scanned completion pages
 
+> **Note (0.56.2):** the one-off `scripts/spikes/` evaluation scripts were removed from the tree for the final submission; they remain in git history at commit `fc5e966` (`git show fc5e966:scripts/spikes/<file>`).
+
 Date: 2026-10-31 (branch `feature/task-030-ocr-evaluation`, base 1f5e1a1, version 0.16.2, Alembic head 0006).
 Class: **offline measurement only**. No provider/Meta call, no spend, no database, no migration, no contract or
 lockfile change. Every accuracy figure is measured against the TASK-042 **agent-read** reference
-(`scripts/spikes/spike042_gold.py`), which is **not human verified** and not exhaustive; a few figures use a
+(`scripts/eval/spike042_gold.py`), which is **not human verified** and not exhaustive; a few figures use a
 native text layer as exact ground truth and say so. Evaluation set: 11 pages (8 reference pages: PV-17 p.4, 29,
 30, 35, 36, PV-21 p.48, 49, PV-12 p.164; 3 pages without equipment: PV-21 p.13, 50, PV-17 p.48), 67 reference numbers.
 **Selection caveat (QA finding F1):** the best configuration per engine was picked from about a dozen configurations scored on the same 67 numbers, so the best figure is optimistic (tuning data equal test data). The honest RapidOCR 3 range at 300 dpi is **63 to 66 of 67 (94 to 99%)** across raw/gray, line/word-box and pass choices; 99% appears only with gray plus a 270-degree pass. Scripts also read the local text layers and images of PV-11..14 (F-12 COMPLETION_REPORT_1/2/3, COMPLETION_LOG_MD_PLOT_2, including PV-12 p.164 and text-layer ground truth) as well as PV-17, PV-18 and PV-21, all within the seven owner-approved files, local read-only. This is a small sample: differences of one or two tokens (about 1.5 to 3 points) are noise. Nothing here
