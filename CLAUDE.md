@@ -44,8 +44,7 @@ conversation support that reconstruction rather than a pre-authored scene.
 - Read [the project spec](docs/PROJECT_SPEC.md) for requirements,
   [the technical baseline](docs/TECHNICAL_BASELINE.md) for stack decisions, and
   [the source assessment](docs/SOURCE_ASSESSMENT.md) for evidence and open gates.
-- For interface work, consult the [visual references](docs/design/README.md):
-  they are conceptual UX reminders, never measured geometry or approved UI specs.
+- For interface work, follow the [UI design system](docs/specs/UI_DESIGN_SYSTEM.md) spec.
 - Use relevant [curated development skills](docs/DEVELOPMENT_SKILLS.md) on demand.
   Their upstream examples do not override the agreed stack, feature approval,
   engineering truth, data permissions, or spending limits.
@@ -104,11 +103,8 @@ conversation support that reconstruction rather than a pre-authored scene.
   application credit; do not invent savings.
 - Use [the persistent backlog](docs/BACKLOG.md) as the cross-session work ledger.
   Do not start a blocked dependency or count a mocked integration as verified.
-- Use the [global DAG](plan/architecture-fieldlens-1.md) and
-  [first implementation packets](plan/feature-foundation-workspace-1.md).
-  Start foundation -> project lifecycle -> uploads/jobs after approved planning
-  integration and actual profile preflight. F-12's missing tally does not block
-  these synthetic-source slices; G1 and live-provider acceptance remain separate.
+- The [backlog](docs/BACKLOG.md) and [feature specs](docs/specs/README.md) define the work order; the original
+  execution plan and packets are archived in git history.
 - A feature branch does not isolate databases, ports, secrets, processes or API
   budgets. Isolate those resources explicitly (one `./dev` lane per worktree, never
   the application/demo database). Only the orchestrator creates, merges and removes

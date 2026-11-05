@@ -7,7 +7,7 @@ See [workflow](DEVELOPMENT_WORKFLOW.md) for gates and
 
 **This file is now the ledger source** ([tracking spec](specs/TRACKING.md), section 4.1): the
 `## Features` and `## Tasks` blocks below are parsed by `scripts/track.py` and later mirrored to
-Taiga. The [execution plan](../plan/architecture-fieldlens-1.md) task table remains the
+Taiga. The execution plan (archived in git history) task table remains the
 design-time DAG; its TASK rows were copied here, and this file is authoritative for status,
 priority, dates and assignment from now on. All earlier narrative lives unchanged under
 `## Journal`; history stays out of item blocks.
@@ -2560,8 +2560,8 @@ The repaired foundation was tested at `95da2b7` and integrated into `master`
 at `1293f55` as 0.4.0, under an explicit one-time direct-verification exception.
 
 The confirmed workflow [architecture](ARCHITECTURE.md), [feature specs](specs/README.md)
-and [32-task execution plan](../plan/architecture-fieldlens-1.md) define the
-implementation baseline. The [first detailed packets](../plan/feature-foundation-workspace-1.md)
+and 32-task execution plan (archived in git history) define the
+implementation baseline. The first detailed packets (archived in git history)
 were integrated in `9d630e3` and approved for implementation by the owner at
 11:19 EDT on October 28. The backend editing-tool blocker recurred during repair;
 the owner authorized direct repairs and accepted their checks for this foundation

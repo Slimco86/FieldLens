@@ -231,7 +231,7 @@ reported source values and derived depths remain separate.
 FL-008-B owner: `fieldlens-frontend`, planned history feature, typed state endpoint
 and integrated PH-1/4/8 checks. Shared migrations/types are serialized by the
 orchestrator. No worker is assigned until approval, base, worktree and resources
-are recorded under the [execution plan](../../plan/architecture-fieldlens-1.md).
+are recorded under the execution plan (archived in git history).
 
 Selection uses an explicit instant or calendar day/timezone. A day whose state
 changes within the day returns changing/ambiguous ranges, not invented event

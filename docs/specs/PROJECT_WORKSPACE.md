@@ -157,7 +157,7 @@ Planned ownership: `backend/fieldlens/projects/`, project repositories/migration
 `frontend/src/features/projects/`, project navigation and focused tests.
 FL-005 owns upload/storage/jobs. Shared schemas/client have one writer.
 Use real API/database persistence from the first browser checkpoint.
-The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
+The first implementation packets (archived in git history)
 specify the lifecycle and subsequent upload handoffs, including partial PW coverage.
 
 Independent QA accepted `2af22aa7c91f36fc33a5ee015ae64ea2d0e3c8a0` after D1 repair.

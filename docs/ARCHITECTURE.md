@@ -44,9 +44,9 @@ that outcome; a late chatbot on a pre-authored scene would not satisfy it.
 
 These are technical design selections, not measured compatibility claims.
 The [technical baseline](TECHNICAL_BASELINE.md) retains the environment evidence.
-The [execution plan](../plan/architecture-fieldlens-1.md) defines dependency gates.
+The execution plan (archived in git history) defines dependency gates.
 The [contracts](specs/SHARED_CONTRACTS.md) are normative for implementation once approved.
-The [first detailed packets](../plan/feature-foundation-workspace-1.md) define
+The first detailed packets (archived in git history) define
 foundation -> projects -> upload/jobs. F-12's missing tally does not block those
 synthetic-source increments. Real model/scene acceptance still uses qualified
 records, measured F-14/F-5 equipment candidates and an explicitly limited F-12 view.
@@ -238,7 +238,7 @@ preview, not at an invented scene coordinate.
 Early source chat opens evidence without requiring a model;
 engineering/navigation tools appear only as their verified services become ready.
 Each delivery increment has a real persisted browser walkthrough. This design is informed by the
-[visual references](design/README.md), not an existing screenshot.
+[UI design system](specs/UI_DESIGN_SYSTEM.md), not an existing screenshot.
 
 At 1280x720, switch side panels to accessible drawers; keep both chart families
 available as tabs rather than deleting one. At 1920x1080 show both chart panels.
@@ -322,7 +322,7 @@ only eligible retries. Never execute parsing in FastAPI `BackgroundTasks`.
 ## 10. Tests, gates and delivery
 
 See [feature index](specs/README.md) for all acceptance contracts and
-[execution plan](../plan/architecture-fieldlens-1.md) for the runnable sequence.
+execution plan (archived in git history) for the runnable sequence.
 Foundation work establishes actual commands; none are claimed to exist today.
 
 Testing layers: deterministic unit fixtures; PostgreSQL/pgvector integration;

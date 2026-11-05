@@ -2,7 +2,7 @@
 
 **Agentic reconstruction of oilfield assets from decades of historical records, powered by Meta Muse Spark.**
 Meta AI Developer Hackathon (Oct 27 – Nov 4, 2026) · Indie track · Theme: Push the Frontier — Energy
-Repository: https://github.com/Slimco86/FieldLens
+Repository: https://github.com/Slimco86/FieldLens · License: Apache-2.0
 
 ## Problem
 

@@ -18,7 +18,7 @@ and obeying a mutable remote command on every invocation.
 ## Workflow
 
 1. Establish the approved feature scenario and
-   [visual references](../../../docs/design/README.md). Treat concept-sheet layout
+   [UI design system](../../../docs/specs/UI_DESIGN_SYSTEM.md). Treat concept-sheet layout
    and palette as guidance, not acceptance proof or engineering source data.
 2. Check semantic buttons/links, input labels, icon names, heading hierarchy,
    visible focus, contrast, long identifiers and text alternatives. Evidence

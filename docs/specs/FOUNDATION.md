@@ -223,7 +223,7 @@ Live Meta tests require a separate
 opt-in marker and are excluded from ordinary runs. The verification record above is
 historical and used the former per-lane `db.env`/`infra/compose*.yaml` setup.
 Assignment resources and commit base are allocated by the execution plan at launch.
-The [first implementation packets](../../plan/feature-foundation-workspace-1.md)
+The first implementation packets (archived in git history)
 define TASK-003 steps, exact planned files, tests, ownership and stop conditions.
 Original feature candidate: `3c1d2b2`; repair contract: `923b1bf`; direct repair
 base: `e7ad07b`. Direct verification is recorded above. The final tested repair

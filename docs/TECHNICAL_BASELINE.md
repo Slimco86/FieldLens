@@ -2,7 +2,7 @@
 
 Date: 2026-10-26, America/New_York. Updated 2026-10-28 with the revised
 [application architecture](ARCHITECTURE.md) and
-[implementation sequence](../plan/architecture-fieldlens-1.md).
+implementation sequence (archived in git history).
 Core stack families are retained. Project/reconstruction workflow defaults were
 confirmed by the owner on October 28; package resolution, host qualification and performance remain
 unverified execution gates.
