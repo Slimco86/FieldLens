@@ -8,6 +8,20 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.56.2 - 2026-11-04
+
+### Documentation
+
+- README rewritten for the hackathon submission: problem, solution, features, how Meta Muse Spark is used per component, architecture, quick start, data credit and limitations. The previous operational README content moved to `docs/DEVELOPMENT.md`; `docs/SUBMISSION.md` holds the submission summary. Backlog entries for TASK-116/117; stale "no commands yet" rule text updated in both harness instruction files.
+
+### Removed
+
+- One-off evaluation scripts in `scripts/spikes/` (results remain in `docs/evidence/`; the scripts stay in git history). The equipment gold reference used by the guarded live runbook moved to `scripts/eval/spike042_gold.py`.
+
+### Changed
+
+- `.gitignore` covers OS/editor files, logs, local video recordings, Python build output and scratch folders.
+
 ## 0.56.1 - 2026-11-04
 
 ### Fixed
