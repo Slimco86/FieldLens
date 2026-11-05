@@ -8,6 +8,12 @@ See the [workflow](docs/DEVELOPMENT_WORKFLOW.md) for classification and merge ru
 
 No unreleased changes.
 
+## 0.56.4 - 2026-11-04
+
+### Documentation
+
+- Demo video linked in the README (with thumbnail) and the submission summary: https://www.youtube.com/watch?v=h8wsHxbxMug
+
 ## 0.56.3 - 2026-11-04
 
 ### Added

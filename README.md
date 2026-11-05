@@ -9,7 +9,9 @@ and backs every value with the exact source page, table cell or line it came fro
 then explore the field in 3D, read production/pressure charts and ask questions that are
 answered with dates, citations and inline charts.
 
-- **Demo video (3 min):** see the hackathon submission page
+[![FieldLens demo video](https://img.youtube.com/vi/h8wsHxbxMug/maxresdefault.jpg)](https://www.youtube.com/watch?v=h8wsHxbxMug)
+
+- **Demo video (3 min):** https://www.youtube.com/watch?v=h8wsHxbxMug
 - **Built during** the Meta AI Developer Hackathon, Oct 27 – Nov 4, 2026 · theme **Push the Frontier · Energy** · indie track
 - **Version:** see [VERSION](VERSION) and [CHANGELOG](CHANGELOG.md)
 
